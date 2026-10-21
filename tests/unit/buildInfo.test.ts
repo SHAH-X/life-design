@@ -11,3 +11,13 @@ describe('formatBuildInfo', () => {
     expect(formatBuildInfo({ version: '0.1.0', commit: 'local', builtAt: 'not-a-date' })).toBe('v0.1.0 · local · unknown date')
   })
 })
+
+describe('the app version', () => {
+  it('is the same in package.json and package-lock.json (bump it with `npm version <x.y.z> --no-git-tag-version`)', async () => {
+    const { readFile } = await import('node:fs/promises')
+    const pkg = JSON.parse(await readFile('package.json', 'utf8')) as { version: string }
+    const lock = JSON.parse(await readFile('package-lock.json', 'utf8')) as { version: string; packages: Record<string, { version?: string }> }
+    expect(lock.version).toBe(pkg.version)
+    expect(lock.packages['']?.version).toBe(pkg.version)
+  })
+})

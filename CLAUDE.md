@@ -60,3 +60,4 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 ## Commands
 - `npm run dev` · `npm run typecheck` · `npm test` · `npm run test:e2e` (WebKit at iPhone 16 size) · `npm run build`
 - Deploy: push to `main`. GitHub Actions type-checks, tests, builds and publishes to Pages.
+- Version bump: `npm version <x.y.z> --no-git-tag-version`, so package.json and package-lock.json stay the same (a unit test checks; until v0.6.1 the lockfile still said 0.1.0).
