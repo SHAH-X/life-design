@@ -1,11 +1,12 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { Day, Entry, IkigaiItem, OdysseyPlan, Setting } from './types'
+import type { Day, Entry, IkigaiItem, OdysseyPlan, Review, Setting } from './types'
 
 export type LifeDesignDB = Dexie & {
   entries: EntityTable<Entry, 'id'>
   days: EntityTable<Day, 'date'>
   ikigaiItems: EntityTable<IkigaiItem, 'id'>
   odysseyPlans: EntityTable<OdysseyPlan, 'id'>
+  reviews: EntityTable<Review, 'id'>
   settings: EntityTable<Setting, 'key'>
 }
 
@@ -19,6 +20,10 @@ export function openDb(name = DB_NAME): LifeDesignDB {
     ikigaiItems: 'id, updatedAt',
     odysseyPlans: 'id, slot, updatedAt',
     settings: 'key',
+  })
+  // v0.3 (Phase 2): reviews. Existing tables and data carry over unchanged.
+  database.version(2).stores({
+    reviews: 'id, periodEnd, updatedAt',
   })
   return database
 }

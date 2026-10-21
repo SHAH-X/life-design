@@ -145,5 +145,5 @@ export function convertV1(input: V1Backup, now: Date = new Date()): V1Conversion
     })
   })
 
-  return { data: { entries, days: [], ikigaiItems, odysseyPlans, settings: [] }, skipped }
+  return { data: { entries, days: [], ikigaiItems, odysseyPlans, reviews: [], settings: [] }, skipped }
 }

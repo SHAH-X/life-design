@@ -5,6 +5,7 @@ import { db } from '../../db/db'
 import { loadSuggestions, type Suggestions } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import { addDays, dayHeading, longDate, PART_ORDER } from '../../lib/dates'
+import { useReviewStatus } from '../../reviews/useReviewStatus'
 import { EntryRow } from './EntryRow'
 import { EntrySheet } from './EntrySheet'
 import { SmallJoy } from './SmallJoy'
@@ -25,16 +26,19 @@ export function TodayScreen() {
   const entries = useLiveQuery(() => db.entries.where('date').equals(date).toArray(), [date])
   const day = useLiveQuery(() => db.days.get(date).then((d) => d ?? null), [date])
   const nudge = useExportNudge()
+  const reviewStatus = useReviewStatus()
   const suggestions = useLiveQuery(() => loadSuggestions(), [], NO_SUGGESTIONS)
   const isToday = date === today
 
   // Render only once everything has loaded, so nothing jumps under your finger.
-  if (entries === undefined || day === undefined || nudge === undefined) return <div className="loading" aria-busy="true" />
+  if (entries === undefined || day === undefined || nudge === undefined || reviewStatus === undefined) {
+    return <div className="loading" aria-busy="true" />
+  }
   const sorted = [...entries].sort(byTimeOfDay)
 
   return (
     <>
-      <Notices nudge={nudge} />
+      <Notices nudge={nudge} reviewDue={reviewStatus.due ? reviewStatus.defaultPeriod : null} />
 
       <header className="day-header">
         <button type="button" className="icon-button" aria-label="Previous day" onClick={() => setDate(addDays(date, -1))}>

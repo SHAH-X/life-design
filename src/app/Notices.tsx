@@ -1,8 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
+import type { Period } from '../analysis/stats'
 import { countChangesSince, firstEntryCreatedAt, getSetting, setSetting } from '../db/repo'
 import { exportNudge, type Nudge } from '../domain/nudge'
-import { DAY_MS } from '../lib/dates'
+import { DAY_MS, formatPeriod } from '../lib/dates'
+import { navigate } from '../lib/route'
 import { isStandalone } from '../lib/storage'
 import { useDialogs } from './dialogs'
 
@@ -16,13 +18,23 @@ export function useExportNudge(): Nudge | undefined {
   }, [])
 }
 
-/** Top-of-Today notices: install the app, and the backup reminder. */
-export function Notices({ nudge }: { nudge: Nudge }) {
+/** Top-of-Today notices: install the app, a due review, and the backup reminder. */
+export function Notices({ nudge, reviewDue }: { nudge: Nudge; reviewDue: Period | null }) {
   const { open } = useDialogs()
   const [installed] = useState(isStandalone)
 
   return (
     <>
+      {reviewDue ? (
+        <aside className="notice">
+          <p>
+            <strong>Your review is due.</strong> About 10 minutes, looking back over {formatPeriod(reviewDue.start, reviewDue.end)}.
+          </p>
+          <button type="button" className="primary" onClick={() => navigate('review')}>
+            Start review
+          </button>
+        </aside>
+      ) : null}
       {!installed ? (
         <aside className="notice">
           <p>

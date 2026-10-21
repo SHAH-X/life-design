@@ -50,6 +50,22 @@ export function formatDateKey(key: string, locale?: string): string {
   return fromDateKey(key).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+/** "15–21 Oct 2026", "28 Sep – 4 Oct 2026" (in the phone's own style). */
+export function formatPeriod(start: string, end: string, locale?: string): string {
+  const format = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' })
+  return start === end ? format.format(fromDateKey(start)) : format.formatRange(fromDateKey(start), fromDateKey(end))
+}
+
+/** "12 Oct" for weekly chart axes. */
+export function dayMonth(key: string, locale?: string): string {
+  return fromDateKey(key).toLocaleDateString(locale, { day: 'numeric', month: 'short' })
+}
+
+/** "Tue 20" for chart axes and readouts. */
+export function shortDay(key: string, locale?: string): string {
+  return fromDateKey(key).toLocaleDateString(locale, { weekday: 'short', day: 'numeric' })
+}
+
 /** Weekday name for JavaScript's day number (0 = Sunday). 4 Jan 2026 was a Sunday. */
 export function weekdayName(day: number, locale?: string): string {
   return new Date(2026, 0, 4 + day, 12).toLocaleDateString(locale, { weekday: 'long' })

@@ -73,22 +73,59 @@ export interface Setting {
   updatedAt: number
 }
 
+/** Designing Your Life's dashboard: Health, Work, Play, Love. */
+export type BalanceArea = 'health' | 'work' | 'play' | 'love'
+
+export const BALANCE_AREAS: readonly BalanceArea[] = ['health', 'work', 'play', 'love']
+
+/** 0 (empty) to 10 (full); null until rated. */
+export type Balance = Record<BalanceArea, number | null>
+
+/** AEIOU: what made a moment energising or draining. */
+export interface AeiouNote {
+  entryId: string | null
+  activities: string
+  environments: string
+  interactions: string
+  objects: string
+  users: string
+}
+
+export interface Review {
+  id: string
+  /** Inclusive date range the review looks back over. */
+  periodStart: string
+  periodEnd: string
+  balance: Balance
+  best: AeiouNote
+  worst: AeiouNote
+  reflection: string
+  /** One thing to carry forward; collected in Insights → What I'm learning. */
+  takeaway: string
+  /** Null while the review is still a draft. */
+  completedAt: number | null
+  createdAt: number
+  updatedAt: number
+}
+
 export interface BackupData {
   entries: Entry[]
   days: Day[]
   ikigaiItems: IkigaiItem[]
   odysseyPlans: OdysseyPlan[]
+  reviews: Review[]
   settings: Setting[]
 }
 
 export type TableName = keyof BackupData
 
-export const TABLE_NAMES: readonly TableName[] = ['entries', 'days', 'ikigaiItems', 'odysseyPlans', 'settings']
+export const TABLE_NAMES: readonly TableName[] = ['entries', 'days', 'ikigaiItems', 'odysseyPlans', 'reviews', 'settings']
 
 export const TABLE_LABELS: Record<TableName, string> = {
   entries: 'Journal entries',
   days: 'Small joys',
   ikigaiItems: 'Ikigai items',
   odysseyPlans: 'Odyssey Plans',
+  reviews: 'Reviews',
   settings: 'Settings',
 }

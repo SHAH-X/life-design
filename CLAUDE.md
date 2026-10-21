@@ -25,6 +25,12 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 - When the app refuses something (a file, a password), say exactly why and what to do next. A vague error cost a debugging round in Phase 1.
 - Every question in a form says what it means: a hint, a placeholder example, or an ⓘ explanation.
 
+## Charts (dataviz skill rules)
+- Colours come only from the `--viz-*` tokens in `styles.css`. Before adding a colour, run the dataviz validator against both card surfaces (`#ffffff`, `#21201e`). Orange failed next to red; violet failed next to blue.
+- One scale per chart (energy and engagement are separate charts). Thin marks: columns ≤24px with a 4px rounded data end and a 2px gap. Gridlines are solid hairlines.
+- Every chart has a tap/focus readout and a table view; values never live only in colour or a tooltip. Text never wears the data colour.
+- Groups are ranked only with 3+ entries (`MIN_COUNT`), and every average shows its count.
+
 ## Tech
 - Vite 8, React 19, TypeScript 7 (`tsc --noEmit` only), vite-plugin-pwa 2 (generateSW, asks before updating), Dexie 4 (IndexedDB).
 - Base path `/life-design/`. Routes are hashes (`#/today`), so reloads never 404 on Pages.

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { applyImport, BACKUP_SCHEMA_VERSION, createBackup, detectFile, planImport, type RawData } from '../../src/db/backup'
 import { lockText, unlockText } from '../../src/db/crypto'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
+import { newReview } from '../../src/db/repo'
 import type { Entry } from '../../src/db/types'
 
 // Fictional example data.
@@ -24,7 +25,7 @@ const entry = (id: string, updatedAt: number, over: Partial<Entry> = {}): Entry 
   ...over,
 })
 
-const emptyRaw = (): RawData => ({ entries: [], days: [], ikigaiItems: [], odysseyPlans: [], settings: [] })
+const emptyRaw = (): RawData => ({ entries: [], days: [], ikigaiItems: [], odysseyPlans: [], reviews: [], settings: [] })
 
 let phone: LifeDesignDB
 let newPhone: LifeDesignDB
@@ -95,6 +96,25 @@ describe('backup and restore', () => {
     const plan = await planImport(raw, newPhone)
     expect(plan.tables.entries).toMatchObject({ incoming: 3, added: 1, skipped: 2 })
     expect(plan.tables.settings).toMatchObject({ incoming: 1, added: 0, skipped: 1 })
+  })
+
+  it('backs up and restores reviews', async () => {
+    const review = newReview('2026-10-12', '2026-10-18', new Date('2026-10-18T19:00:00Z'))
+    await phone.reviews.put({ ...review, balance: { health: 6, work: 4, play: 3, love: 8 }, takeaway: 'Protect mornings', completedAt: 5 })
+    const detected = detectFile(JSON.stringify(await createBackup(phone)))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    const plan = await applyImport(detected.raw, newPhone)
+    expect(plan.tables.reviews).toMatchObject({ added: 1, skipped: 0 })
+    expect(await newPhone.reviews.get(review.id)).toMatchObject({ takeaway: 'Protect mornings', balance: { play: 3 } })
+  })
+
+  it('still restores backups made before reviews existed (format 1)', async () => {
+    const old = { app: 'life-design', kind: 'backup', schemaVersion: 1, exportedAt: '2026-10-21T12:00:00Z', data: { entries: [entry('a', 1000)] } }
+    const detected = detectFile(JSON.stringify(old))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    expect(detected.raw.reviews).toEqual([])
+    await applyImport(detected.raw, newPhone)
+    expect(await newPhone.entries.count()).toBe(1)
   })
 
   it('refuses a backup made by a newer version of the app', () => {

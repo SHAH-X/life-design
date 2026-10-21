@@ -1,7 +1,7 @@
 // Shape checks for records arriving from a backup file. Anything that fails is skipped, never imported.
 import { isEnergy, isEngagement } from '../domain/scales'
 import { isDateKey } from '../lib/dates'
-import type { BackupData, Day, Entry, IkigaiItem, OdysseyPlan, Setting, TableName } from './types'
+import { BALANCE_AREAS, type BackupData, type Day, type Entry, type IkigaiItem, type OdysseyPlan, type Review, type Setting, type TableName } from './types'
 
 type Rec = Record<string, unknown>
 
@@ -73,6 +73,36 @@ export function isOdysseyPlan(x: unknown): x is OdysseyPlan {
   )
 }
 
+function isAeiouNote(x: unknown): boolean {
+  return (
+    isObj(x) &&
+    (x.entryId === null || isNonEmptyStr(x.entryId)) &&
+    isStr(x.activities) &&
+    isStr(x.environments) &&
+    isStr(x.interactions) &&
+    isStr(x.objects) &&
+    isStr(x.users)
+  )
+}
+
+export function isReview(x: unknown): x is Review {
+  if (!isObj(x) || !isObj(x.balance)) return false
+  const balance = x.balance
+  return (
+    isNonEmptyStr(x.id) &&
+    isDateKey(x.periodStart) &&
+    isDateKey(x.periodEnd) &&
+    x.periodStart <= x.periodEnd &&
+    BALANCE_AREAS.every((area) => balance[area] === null || isGauge(balance[area])) &&
+    isAeiouNote(x.best) &&
+    isAeiouNote(x.worst) &&
+    isStr(x.reflection) &&
+    isStr(x.takeaway) &&
+    (x.completedAt === null || isNum(x.completedAt)) &&
+    hasTimes(x)
+  )
+}
+
 export function isSetting(x: unknown): x is Setting {
   return isObj(x) && isNonEmptyStr(x.key) && 'value' in x && isNum(x.updatedAt)
 }
@@ -82,5 +112,6 @@ export const VALIDATORS: { [K in TableName]: (x: unknown) => x is BackupData[K][
   days: isDay,
   ikigaiItems: isIkigaiItem,
   odysseyPlans: isOdysseyPlan,
+  reviews: isReview,
   settings: isSetting,
 }

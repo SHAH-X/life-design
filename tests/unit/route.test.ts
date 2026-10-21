@@ -22,3 +22,14 @@ describe('parseHash', () => {
     expect(parseHash('#today')).toBe('today')
   })
 })
+
+describe('parseRoute', () => {
+  it('reads an optional second part, such as a review id', async () => {
+    const { parseRoute, hashFor } = await import('../../src/lib/route')
+    expect(parseRoute('#/review/abc-123')).toEqual({ tab: 'review', sub: 'abc-123' })
+    expect(parseRoute('#/review')).toEqual({ tab: 'review', sub: null })
+    expect(parseRoute('#/nope/abc')).toEqual({ tab: 'today', sub: null })
+    expect(hashFor('review', 'a b')).toBe('#/review/a%20b')
+    expect(parseRoute(hashFor('review', 'a b'))).toEqual({ tab: 'review', sub: 'a b' })
+  })
+})

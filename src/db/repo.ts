@@ -2,7 +2,7 @@ import type { Energy, Engagement } from '../domain/scales'
 import { type DayPart, toDateKey } from '../lib/dates'
 import { db as defaultDb, type LifeDesignDB } from './db'
 import { guardWrite } from './saveErrors'
-import type { Entry, EntrySource } from './types'
+import type { AeiouNote, Entry, EntrySource, Review } from './types'
 
 export interface EntryDraft {
   date: string
@@ -131,14 +131,47 @@ export async function loadSuggestions(database: LifeDesignDB = defaultDb): Promi
   return computeSuggestions(recent)
 }
 
-/** Entries and days created or changed after `since` (everything when never backed up). */
+/** Entries, days and reviews created or changed after `since` (everything when never backed up). */
 export async function countChangesSince(since: number | null, database: LifeDesignDB = defaultDb): Promise<number> {
-  if (since === null) return (await database.entries.count()) + (await database.days.count())
-  const [entries, days] = await Promise.all([
-    database.entries.where('updatedAt').above(since).count(),
-    database.days.where('updatedAt').above(since).count(),
-  ])
-  return entries + days
+  const tables = [database.entries, database.days, database.reviews] as const
+  const counts = await Promise.all(tables.map((t) => (since === null ? t.count() : t.where('updatedAt').above(since).count())))
+  return counts.reduce((sum, n) => sum + n, 0)
+}
+
+const emptyNote = (entryId: string | null = null): AeiouNote => ({
+  entryId,
+  activities: '',
+  environments: '',
+  interactions: '',
+  objects: '',
+  users: '',
+})
+
+export function newReview(periodStart: string, periodEnd: string, now: Date = new Date()): Review {
+  const time = now.getTime()
+  return {
+    id: crypto.randomUUID(),
+    periodStart,
+    periodEnd,
+    balance: { health: null, work: null, play: null, love: null },
+    best: emptyNote(),
+    worst: emptyNote(),
+    reflection: '',
+    takeaway: '',
+    completedAt: null,
+    createdAt: time,
+    updatedAt: time,
+  }
+}
+
+export async function saveReview(review: Review, database: LifeDesignDB = defaultDb): Promise<Review> {
+  const saved = { ...review, updatedAt: Date.now() }
+  await guardWrite(() => database.reviews.put(saved))
+  return saved
+}
+
+export async function deleteReview(id: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() => database.reviews.delete(id))
 }
 
 export async function firstEntryCreatedAt(database: LifeDesignDB = defaultDb): Promise<number | null> {

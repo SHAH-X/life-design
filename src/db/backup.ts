@@ -8,7 +8,8 @@ import { type BackupData, TABLE_NAMES, type TableName } from './types'
 import { VALIDATORS } from './validate'
 
 export const APP_ID = 'life-design'
-export const BACKUP_SCHEMA_VERSION = 1
+/** 1 = Phase 1; 2 adds reviews. Older files still restore; newer ones are refused by older app versions. */
+export const BACKUP_SCHEMA_VERSION = 2
 
 /** Settings that never leave the phone, not even inside a backup. */
 export const SECRET_SETTING_KEYS: ReadonlySet<string> = new Set(['aiKey'])
@@ -62,6 +63,7 @@ export async function createBackup(database: LifeDesignDB = defaultDb, now: Date
     days: await database.days.toArray(),
     ikigaiItems: await database.ikigaiItems.toArray(),
     odysseyPlans: await database.odysseyPlans.toArray(),
+    reviews: await database.reviews.toArray(),
     settings: (await database.settings.toArray()).filter((s) => !SECRET_SETTING_KEYS.has(s.key)),
   }))
   return { app: APP_ID, kind: 'backup', schemaVersion: BACKUP_SCHEMA_VERSION, exportedAt: now.toISOString(), data }
@@ -133,7 +135,7 @@ function primaryKey(table: TableName, record: unknown): string {
 
 async function comparePlan(raw: RawData, database: LifeDesignDB): Promise<ImportPlan> {
   const tables = {} as Record<TableName, TablePlan>
-  const toWrite: Record<TableName, unknown[]> = { entries: [], days: [], ikigaiItems: [], odysseyPlans: [], settings: [] }
+  const toWrite = Object.fromEntries(TABLE_NAMES.map((name) => [name, [] as unknown[]])) as Record<TableName, unknown[]>
   let changes = 0
 
   for (const name of TABLE_NAMES) {
