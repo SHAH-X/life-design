@@ -1,0 +1,18 @@
+# Personal / private material: never publish (public repo)
+Self Reflection App background.md
+private/
+
+# Dependencies and build output
+node_modules/
+dist/
+dev-dist/
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Local and OS files
+.DS_Store
+*.local
+.env
+.env.*

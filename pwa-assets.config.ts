@@ -1,0 +1,14 @@
+import { defineConfig, minimal2023Preset } from '@vite-pwa/assets-generator/config'
+
+// Generates the app icons in public/ from public/logo.svg. Run `npm run icons` after changing the logo.
+const ICON_BACKGROUND = '#1f3a5f'
+
+export default defineConfig({
+  headLinkOptions: { preset: '2023' },
+  preset: {
+    ...minimal2023Preset,
+    maskable: { ...minimal2023Preset.maskable, padding: 0.1, resizeOptions: { background: ICON_BACKGROUND } },
+    apple: { ...minimal2023Preset.apple, padding: 0, resizeOptions: { background: ICON_BACKGROUND } },
+  },
+  images: ['public/logo.svg'],
+})
