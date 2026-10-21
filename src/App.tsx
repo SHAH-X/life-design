@@ -1,18 +1,18 @@
+import { useEffect } from 'react'
 import { ComingSoon } from './app/ComingSoon'
+import { DialogsProvider } from './app/dialogs'
 import { TabBar } from './app/TabBar'
 import { UpdateBanner } from './app/UpdateBanner'
 import { useRoute } from './app/useRoute'
 import { MoreScreen } from './features/more/MoreScreen'
+import { TodayScreen } from './features/today/TodayScreen'
 import type { Tab } from './lib/route'
+import { ensurePersistentStorage } from './lib/storage'
 
 function Screen({ tab }: { tab: Tab }) {
   switch (tab) {
     case 'today':
-      return (
-        <ComingSoon title="Today" phase={1}>
-          Log your day in two minutes: what you did, how engaged you were, and whether it gave or drained energy.
-        </ComingSoon>
-      )
+      return <TodayScreen />
     case 'review':
       return (
         <ComingSoon title="Review" phase={2}>
@@ -38,13 +38,19 @@ function Screen({ tab }: { tab: Tab }) {
 
 export function App() {
   const tab = useRoute()
+
+  // Ask iOS to keep this app's data even when the phone is short of space (asked on every launch).
+  useEffect(() => {
+    void ensurePersistentStorage()
+  }, [])
+
   return (
-    <>
+    <DialogsProvider>
       <main className="app">
         <Screen tab={tab} />
       </main>
       <UpdateBanner />
       <TabBar current={tab} />
-    </>
+    </DialogsProvider>
   )
 }

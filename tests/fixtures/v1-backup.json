@@ -1,0 +1,13 @@
+{
+  "gtj": [
+    { "a": "Cello practice", "e": 4, "g": 9, "f": true, "ts": 1760080000000, "d": "10 Oct" },
+    { "a": "Grocery run", "e": -2, "g": 3, "f": false, "ts": 1760170000000, "d": "11 Oct" },
+    { "a": "", "e": 1, "g": 5, "ts": 1760170000000 }
+  ],
+  "iki": [{ "n": "Teaching beginners", "f": [1, 1, 1, 0] }],
+  "ody": [
+    { "h": "Open a small bakery", "d": "Early mornings, a busy counter", "q": "Would I enjoy early starts?", "r": 6, "l": 8, "c": 5, "co": 7 },
+    { "h": "", "d": "", "q": "", "r": 5, "l": 5, "c": 5, "co": 5 },
+    { "h": "", "d": "", "q": "", "r": 5, "l": 5, "c": 5, "co": 5 }
+  ]
+}

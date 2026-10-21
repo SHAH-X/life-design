@@ -17,7 +17,7 @@ test('the app shell loads, navigates, and is an installable offline-ready PWA', 
 
   await nav.getByRole('link', { name: 'More' }).click()
   await expect(page).toHaveURL(/#\/more$/)
-  await expect(page.getByText(/^v0\.1\.0 · /)).toBeVisible()
+  await expect(page.getByText(/^v\d+\.\d+\.\d+ · /)).toBeVisible()
 
   // The built page carries a Content-Security-Policy.
   await expect(page.locator('meta[http-equiv="Content-Security-Policy"]')).toHaveCount(1)

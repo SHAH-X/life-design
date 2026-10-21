@@ -16,6 +16,11 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 - When a decision changes, update `DECISIONS.md` in the same change.
 - Machine safety: never run `brew install` or `brew upgrade` without `--dry-run` first and the owner's OK.
 
+## UI rules (each one came from a real bug)
+- Nothing may move under the user's finger: a screen renders only once its data has loaded, or keeps space reserved for content that arrives later. (Phase 1: a "Last backup" line loading late shifted the buttons, so a tap missed.)
+- A visually hidden native input (radio, checkbox, switch) must cover its whole tap target, so taps and tests reach it. (Phase 1: a 1px switch input couldn't be tapped.)
+- The e2e tests click straight after navigation on purpose. Keep it that way: it catches layout shifts.
+
 ## Tech
 - Vite 8, React 19, TypeScript 7 (`tsc --noEmit` only), vite-plugin-pwa 2 (generateSW, asks before updating), Dexie 4 (IndexedDB).
 - Base path `/life-design/`. Routes are hashes (`#/today`), so reloads never 404 on Pages.

@@ -16,6 +16,9 @@ Last updated: 2026-10-21
 | Daily capture | Evening review of 3–6 activities, plus quick-add anytime | ADOPT | Close to Kahneman's Day Reconstruction Method: low effort, good for patterns |
 | Random check-in pings | — | REJECT | Highest effort and needs push notifications (possible later as an opt-in) |
 | Rating scales | Engagement 1–5, energy −2…+2, flow yes/no | ADOPT | Fast taps on a phone; v1's 0–10 and −5…+5 values are converted on import |
+| No default ratings | Save stays disabled until engagement and energy are both chosen | ADOPT | A preset value nudges the answer (anchoring); two taps keep the data honest |
+| Late logging | Any earlier day can be logged (e.g. yesterday, the next morning) | ADOPT | Evening reviews get missed; reconstructing the next morning still works |
+| Entry detail | Where / with whom / using (AEIOU) and a note are optional, behind one tap | ADOPT | Keeps a basic entry to about 15 seconds |
 | Ikigai | Both lenses: 4-circle map plus a daily "small joy" line | ADOPT | The Venn diagram is a 2014 Western adaptation; the Japanese sense is everyday |
 | Designing Your Life tools | Health/Work/Play/Love gauges, Workview + Lifeview, Prototype tracker, AEIOU deep-dive | ADOPT | Completes the loop: notice → imagine → prototype |
 
@@ -49,7 +52,7 @@ Last updated: 2026-10-21
 |---|---|---|---|
 | Hosting | GitHub Pages from this public repo, built and deployed by GitHub Actions | ADOPT | Free; no server needed |
 | Cloudflare Workers | — | REJECT | An extra service that isn't needed |
-| Reminders | iPhone Calendar alerts from a generated .ics file; fallback: Reminders setup steps | TEST | Opening an .ics file from a Home Screen app is unverified; proven in phase 1 |
+| Reminders | iPhone Calendar alerts. "Add to Calendar" opens a pre-built .ics file served by the website (one per 15-minute slot); fallbacks: a calendar file made on the phone and saved via the share sheet, or Reminders app steps | TEST | Calendar files generated inside Home Screen apps are reported to fail silently on iPhone; real files served as text/calendar open reliably in Safari. Proven on the owner's iPhone in phase 1 |
 | Web Push via a scheduler | — | REJECT | Needs a server; GitHub's scheduler can run late and stops after 60 days without repo activity |
 | Stack | Vite 8, React 19, TypeScript 7, vite-plugin-pwa 2, Dexie 4; hash routes; Vitest and Playwright (WebKit) | ADOPT | Maintained PWA tooling; routes never 404 on Pages |
 | Local Node | Node 22 LTS (Vite needs 22.12 or newer) | ADOPT | Same major as before on the owner's Mac |

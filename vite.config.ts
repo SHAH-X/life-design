@@ -4,6 +4,9 @@ import { readFileSync } from 'node:fs'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { APP_URL } from './src/config.ts'
+import { toDateKey } from './src/lib/dates.ts'
+import { buildIcs, DAILY_TIMES, dailyLogEvent, dailyLogFileName } from './src/reminders/ics.ts'
 
 // GitHub Pages serves the app from https://shah-x.github.io/life-design/
 const BASE = '/life-design/'
@@ -36,6 +39,25 @@ function contentSecurityPolicy(): Plugin {
   }
 }
 
+// One calendar file per 15-minute slot, served as real files: Safari opens these reliably as "Add to Calendar",
+// unlike calendar files generated inside a Home Screen app.
+function reminderFiles(): Plugin {
+  return {
+    name: 'life-design:reminders',
+    apply: 'build',
+    generateBundle() {
+      const now = new Date()
+      for (const time of DAILY_TIMES) {
+        this.emitFile({
+          type: 'asset',
+          fileName: `reminders/${dailyLogFileName(time)}`,
+          source: buildIcs([dailyLogEvent(time, toDateKey(now), APP_URL)], now),
+        })
+      }
+    },
+  }
+}
+
 function commitSha(): string {
   if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 7)
   try {
@@ -55,6 +77,7 @@ export default defineConfig({
   plugins: [
     react(),
     contentSecurityPolicy(),
+    reminderFiles(),
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,
@@ -80,6 +103,8 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
         cleanupOutdatedCaches: true,
+        // Opening a calendar file must reach the real file, not fall back to the app's page.
+        navigateFallbackDenylist: [/\/reminders\//],
       },
     }),
   ],

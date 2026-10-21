@@ -1,17 +1,24 @@
 import { buildInfo, formatBuildInfo } from '../../lib/buildInfo'
+import { BackupCard } from './BackupCard'
+import { DeleteAllCard } from './DeleteAllCard'
+import { RemindersCard } from './RemindersCard'
+import { StorageCard } from './StorageCard'
 
 export function MoreScreen() {
   return (
     <>
       <h1>More</h1>
-      <div className="card">
+      <RemindersCard />
+      <BackupCard />
+      <StorageCard />
+      <section className="card">
         <h2>Your data</h2>
-        <p>Everything you log stays on this phone. Nothing is sent anywhere unless you choose to share or run an AI review.</p>
-      </div>
-      <div className="card">
-        <h2>Coming next</h2>
-        <p className="muted">Reminders, export and import, and AI settings arrive in later phases.</p>
-      </div>
+        <p>
+          Everything you log stays on this phone. Nothing is sent anywhere unless you choose to export a file or, later, run an AI
+          review.
+        </p>
+      </section>
+      <DeleteAllCard />
       <p className="muted small">{formatBuildInfo(buildInfo)}</p>
     </>
   )

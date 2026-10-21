@@ -12,6 +12,7 @@
     "noUncheckedIndexedAccess": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "noEmit": true,
     "types": ["node", "vite/client", "vite-plugin-pwa/client", "vite-plugin-pwa/react"]
