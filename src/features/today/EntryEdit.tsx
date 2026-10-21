@@ -1,47 +1,45 @@
 import { useId, useState } from 'react'
-import { deleteEntry, type Suggestions, saveEntry } from '../../db/repo'
+import { addOwnWord, deleteEntry, type Suggestions, saveEntry } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import {
-  asksAboutFlow,
-  ENERGY_INFO,
-  ENERGY_LEVELS,
-  ENERGY_QUESTION,
-  type Energy,
-  ENGAGEMENT_INFO,
-  ENGAGEMENT_LEVELS,
-  ENGAGEMENT_QUESTION,
-  type Engagement,
-  FLOW_QUESTION,
-  followUpQuestion,
-} from '../../domain/scales'
+  AFTER_INFO,
+  AFTER_QUESTION,
+  AFTER_WORDS,
+  DURING_INFO,
+  DURING_QUESTION,
+  DURING_WORDS,
+  deriveEnergy,
+  deriveEngagement,
+  deriveFlow,
+  type OwnWord,
+  wordsFor,
+} from '../../domain/feelings'
+import { followUpQuestion } from '../../domain/scales'
 import type { DayPart } from '../../lib/dates'
-import { AnswerButtons } from '../../ui/AnswerButtons'
 import { Dialog } from '../../ui/Dialog'
 import { Question } from '../../ui/Question'
+import { WordPicker } from '../../ui/WordPicker'
 import { EntryDetails } from './EntryDetails'
-
-const YES_NO = [
-  { value: true, label: 'Yes' },
-  { value: false, label: 'No' },
-] as const
 
 interface Props {
   existing: Entry
   suggestions: Suggestions
+  own: readonly OwnWord[]
   onClose: () => void
 }
 
-/** Changing a logged activity: every answer on one screen, with the same worded answers as when it was logged. */
-export function EntryEdit({ existing, suggestions, onClose }: Props) {
+/** Changing a logged activity: everything on one screen, in the same words it was logged with. */
+export function EntryEdit({ existing, suggestions, own, onClose }: Props) {
   const activityId = useId()
-  const energyId = useId()
-  const engagementId = useId()
-  const flowId = useId()
+  const duringId = useId()
+  const afterId = useId()
   const noteId = useId()
+  // Entries from before feeling words start with words read from their stored values.
+  const initial = wordsFor(existing)
   const [activity, setActivity] = useState(existing.activity)
-  const [energy, setEnergy] = useState<Energy>(existing.energy)
-  const [engagement, setEngagement] = useState<Engagement>(existing.engagement)
-  const [flow, setFlow] = useState(existing.flow)
+  const [during, setDuring] = useState<string[]>(initial.during)
+  const [after, setAfter] = useState<string[]>(initial.after)
+  const [ownWords, setOwnWords] = useState<OwnWord[]>([...own])
   const [note, setNote] = useState(existing.note)
   const [part, setPart] = useState<DayPart>(existing.part)
   const [where, setWhere] = useState(existing.where)
@@ -49,6 +47,14 @@ export function EntryEdit({ existing, suggestions, onClose }: Props) {
   const [objects, setObjects] = useState(existing.objects)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [busy, setBusy] = useState(false)
+
+  const addOwn = (word: OwnWord) => {
+    setOwnWords((current) => [...current.filter((w) => !(w.kind === word.kind && w.word === word.word)), word])
+    void addOwnWord(word)
+  }
+
+  const energy = deriveEnergy(after, ownWords)
+  const engagement = deriveEngagement(during, ownWords)
 
   async function run(action: () => Promise<unknown>) {
     setBusy(true)
@@ -65,9 +71,14 @@ export function EntryEdit({ existing, suggestions, onClose }: Props) {
       <button
         type="button"
         className="primary wide"
-        disabled={!activity.trim() || busy}
+        disabled={!activity.trim() || during.length === 0 || after.length === 0 || busy}
         onClick={() =>
-          void run(() => saveEntry({ date: existing.date, part, activity, engagement, energy, flow, where, people, objects, note }, existing))
+          void run(() =>
+            saveEntry(
+              { date: existing.date, part, activity, engagement, energy, flow: deriveFlow(during), where, people, objects, during, after, note },
+              existing,
+            ),
+          )
         }
       >
         Save
@@ -97,38 +108,20 @@ export function EntryEdit({ existing, suggestions, onClose }: Props) {
       </label>
       <input id={activityId} value={activity} maxLength={120} autoCapitalize="sentences" onChange={(e) => setActivity(e.target.value)} />
 
-      <Question id={energyId} info={ENERGY_INFO} infoLabel="What does energy mean?">
-        {ENERGY_QUESTION}
+      <Question id={duringId} info={DURING_INFO} infoLabel="What does this ask?">
+        {DURING_QUESTION}
       </Question>
-      <AnswerButtons labelledBy={energyId} options={ENERGY_LEVELS} value={energy} layout="wrap" tone="energy" onChoose={setEnergy} />
+      <WordPicker labelledBy={duringId} kind="during" presets={DURING_WORDS} own={ownWords} value={during} onChange={setDuring} onAddOwn={addOwn} />
 
-      <Question id={engagementId} info={ENGAGEMENT_INFO} infoLabel="What does into it mean?">
-        {ENGAGEMENT_QUESTION}
+      <Question id={afterId} info={AFTER_INFO} infoLabel="What does this ask about energy?">
+        {AFTER_QUESTION}
       </Question>
-      <AnswerButtons
-        labelledBy={engagementId}
-        options={ENGAGEMENT_LEVELS}
-        value={engagement}
-        layout="wrap"
-        onChoose={(value) => {
-          setEngagement(value)
-          if (!asksAboutFlow(value)) setFlow(false)
-        }}
-      />
-
-      {asksAboutFlow(engagement) || flow ? (
-        <>
-          <p className="question-text" id={flowId}>
-            {FLOW_QUESTION}
-          </p>
-          <AnswerButtons labelledBy={flowId} options={YES_NO} value={flow} layout="wrap" onChoose={setFlow} />
-        </>
-      ) : null}
+      <WordPicker labelledBy={afterId} kind="after" presets={AFTER_WORDS} own={ownWords} value={after} onChange={setAfter} onAddOwn={addOwn} />
 
       <label className="question-text" htmlFor={noteId}>
         {followUpQuestion(energy, engagement)}
       </label>
-      <textarea id={noteId} value={note} rows={2} maxLength={1000} placeholder="Optional" onChange={(e) => setNote(e.target.value)} />
+      <textarea id={noteId} value={note} rows={2} maxLength={4000} placeholder="Optional" onChange={(e) => setNote(e.target.value)} />
 
       <EntryDetails
         part={part}

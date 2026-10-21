@@ -40,6 +40,27 @@ export function openDb(name = DB_NAME): LifeDesignDB {
           for (const note of [review.best, review.worst]) if (note && typeof note.why !== 'string') note.why = ''
         }),
     )
+  // v0.5 (Phase 2.6): feeling words on entries, and most alive / most neglected on reviews. Not edits, so updatedAt stays.
+  database
+    .version(4)
+    .stores({})
+    .upgrade(async (tx) => {
+      await tx
+        .table('entries')
+        .toCollection()
+        .modify((entry: { during?: unknown; after?: unknown }) => {
+          if (!Array.isArray(entry.during)) entry.during = []
+          if (!Array.isArray(entry.after)) entry.after = []
+        })
+      await tx
+        .table('reviews')
+        .toCollection()
+        .modify((review: { alive?: unknown; neglected?: unknown; balanceWhy?: unknown }) => {
+          if (review.alive === undefined) review.alive = null
+          if (review.neglected === undefined) review.neglected = null
+          if (typeof review.balanceWhy !== 'string') review.balanceWhy = ''
+        })
+    })
   return database
 }
 

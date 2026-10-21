@@ -30,8 +30,8 @@ export function EveningQuestion({ date, tonight }: { date: string; tonight: Toni
         infoLabel="Why this question?"
         actions={
           canSwap ? (
-            <button type="button" className="link swap" onClick={another}>
-              ↻ Another
+            <button type="button" className="link swap" aria-label="Another question" title="Another question" onClick={another}>
+              ↻
             </button>
           ) : null
         }

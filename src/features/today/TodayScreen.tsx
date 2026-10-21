@@ -12,6 +12,7 @@ import { EntryFlow } from './EntryFlow'
 import { EntryRow } from './EntryRow'
 import { EveningQuestion } from './EveningQuestion'
 import { SmallJoy } from './SmallJoy'
+import { useOwnWords } from './useOwnWords'
 import { useToday } from './useToday'
 
 const NO_SUGGESTIONS: Suggestions = { activities: [], where: [], people: [], objects: [] }
@@ -31,11 +32,19 @@ export function TodayScreen() {
   const nudge = useExportNudge()
   const reviewStatus = useReviewStatus()
   const tonight = useTonight(date)
+  const own = useOwnWords()
   const suggestions = useLiveQuery(() => loadSuggestions(), [], NO_SUGGESTIONS)
   const isToday = date === today
 
   // Render only once everything has loaded, so nothing jumps under your finger.
-  if (entries === undefined || day === undefined || nudge === undefined || reviewStatus === undefined || tonight === undefined) {
+  if (
+    entries === undefined ||
+    day === undefined ||
+    nudge === undefined ||
+    reviewStatus === undefined ||
+    tonight === undefined ||
+    own === undefined
+  ) {
     return <div className="loading" aria-busy="true" />
   }
   const sorted = [...entries].sort(byTimeOfDay)
@@ -71,7 +80,7 @@ export function TodayScreen() {
           <ul className="entry-list">
             {sorted.map((entry) => (
               <li key={entry.id}>
-                <EntryRow entry={entry} onOpen={() => setSheet({ existing: entry })} />
+                <EntryRow entry={entry} own={own} onOpen={() => setSheet({ existing: entry })} />
               </li>
             ))}
           </ul>
@@ -87,9 +96,9 @@ export function TodayScreen() {
       </section>
 
       {sheet?.existing ? (
-        <EntryEdit existing={sheet.existing} suggestions={suggestions} onClose={() => setSheet(null)} />
+        <EntryEdit existing={sheet.existing} suggestions={suggestions} own={own} onClose={() => setSheet(null)} />
       ) : sheet ? (
-        <EntryFlow date={date} suggestions={suggestions} onClose={() => setSheet(null)} />
+        <EntryFlow date={date} suggestions={suggestions} own={own} onClose={() => setSheet(null)} />
       ) : null}
     </>
   )

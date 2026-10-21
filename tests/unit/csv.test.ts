@@ -13,6 +13,8 @@ const entry = (over: Partial<Entry>): Entry => ({
   where: [],
   people: [],
   objects: [],
+  during: [],
+  after: [],
   note: '',
   source: 'evening',
   createdAt: Date.UTC(2026, 9, 21, 19),
@@ -31,7 +33,7 @@ describe('entriesToCsv', () => {
     ])
     const lines = rows(csv)
     expect(lines[0]).toBe(
-      'date,part_of_day,activity,engagement_1_to_5,energy_minus2_to_plus2,flow,where,with_whom,using,note,source,created_at',
+      'date,part_of_day,activity,what_it_was_like,how_it_left_you,engagement_1_to_5,energy_minus2_to_plus2,flow,where,with_whom,using,note,source,created_at',
     )
     expect(lines.slice(1).map((l) => l.split(',')[2])).toEqual(['A', 'B', 'C'])
   })
@@ -43,6 +45,11 @@ describe('entriesToCsv', () => {
     expect(line).toContain('"Said ""hi"", then left"')
     expect(line).toContain(',Park; Café,Alex,')
     expect(line).toContain(',4,-2,yes,')
+  })
+
+  it('writes the feeling words as chosen', () => {
+    const [, line] = rows(entriesToCsv([entry({ during: ['Absorbed', 'Time flew'], after: ['Energised'] })]))
+    expect(line).toContain(',Read a novel,Absorbed; Time flew,Energised,')
   })
 
   it('stops free text from running as a spreadsheet formula', () => {

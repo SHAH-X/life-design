@@ -19,6 +19,10 @@ export interface Entry {
   people: string[]
   /** AEIOU: Objects. */
   objects: string[]
+  /** "What was it like?": the feeling words chosen (energy, engagement and flow are worked out from them). */
+  during: string[]
+  /** "How did it leave you?": the feeling words chosen. */
+  after: string[]
   note: string
   source: EntrySource
   createdAt: number
@@ -117,7 +121,13 @@ export interface Review {
   /** Inclusive date range the review looks back over. */
   periodStart: string
   periodEnd: string
+  /** 0–10 ratings from reviews before Phase 2.6; new reviews leave them empty and use alive / neglected. */
   balance: Balance
+  /** "Which part of life feels most alive right now?" */
+  alive: BalanceArea | null
+  /** "Which feels most neglected?" */
+  neglected: BalanceArea | null
+  balanceWhy: string
   best: AeiouNote
   worst: AeiouNote
   reflection: string

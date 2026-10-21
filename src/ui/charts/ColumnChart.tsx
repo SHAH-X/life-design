@@ -25,13 +25,14 @@ interface Props {
   countName?: string
   /** Shown in the readout until a column is tapped. */
   summary: string
+  /** Room on the left for the axis labels (wider for words than for numbers). */
+  axisWidth?: number
 }
 
 const W = 320
 const TOP = 6
 const PLOT_H = 96
 const AXIS_H = 18
-const LEFT = 26
 const RIGHT = 2
 const H = TOP + PLOT_H + AXIS_H
 
@@ -55,7 +56,9 @@ export function ColumnChart({
   valueName,
   countName = 'activities',
   summary,
+  axisWidth = 26,
 }: Props) {
+  const LEFT = axisWidth
   const [active, setActive] = useState<number | null>(null)
   const titleId = useId()
   const [min, max] = domain
@@ -66,7 +69,7 @@ export function ColumnChart({
   const labelEvery = columns.length <= 8 ? 1 : Math.ceil(columns.length / 6)
 
   const describe = (c: Column) =>
-    c.value === null ? `${c.title}: nothing logged` : `${formatValue(c.value)} ${valueName} · ${c.title} · ${c.count} ${countName}`
+    c.value === null ? `${c.title}: nothing logged` : `${c.title}: ${formatValue(c.value)} · ${c.count} ${countName}`
   const activeColumn = active === null ? undefined : columns[active]
 
   return (

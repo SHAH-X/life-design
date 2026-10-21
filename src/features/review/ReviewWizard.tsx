@@ -15,7 +15,6 @@ interface Loaded {
   entries: Entry[]
   days: Day[]
   answers: Answer[]
-  previous: Review | null
   lastExportAt: number | null
 }
 
@@ -23,18 +22,13 @@ export function ReviewWizard({ id }: { id: string }) {
   const loaded = useLiveQuery(async (): Promise<Loaded | null> => {
     const review = await db.reviews.get(id)
     if (!review) return null
-    const [entries, days, answers, all, lastExportAt] = await Promise.all([
+    const [entries, days, answers, lastExportAt] = await Promise.all([
       db.entries.where('date').between(review.periodStart, review.periodEnd, true, true).toArray(),
       db.days.where('date').between(review.periodStart, review.periodEnd, true, true).toArray(),
       db.answers.where('date').between(review.periodStart, review.periodEnd, true, true).toArray(),
-      db.reviews.toArray(),
       getSetting<number | null>('lastExportAt', null),
     ])
-    const previous =
-      all
-        .filter((r) => r.id !== id && r.completedAt !== null && r.periodEnd < review.periodEnd)
-        .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd))[0] ?? null
-    return { review, entries, days, answers, previous, lastExportAt }
+    return { review, entries, days, answers, lastExportAt }
   }, [id])
 
   if (loaded === undefined) return <div className="loading" aria-busy="true" />
@@ -60,7 +54,7 @@ function withMoments(review: Review, entries: readonly Entry[]): Review {
   return { ...review, best: best ? prefillMoment(best) : review.best, worst: worst ? prefillMoment(worst) : review.worst }
 }
 
-function WizardBody({ review: initial, entries, days, answers, previous, lastExportAt }: Loaded) {
+function WizardBody({ review: initial, entries, days, answers, lastExportAt }: Loaded) {
   // The screen keeps its own copy (instant updates); saving is debounced in the background.
   const [review, setReview] = useState(() => withMoments(initial, entries))
   const [step, setStep] = useState(initial.completedAt !== null ? STEPS.length - 1 : 0)
@@ -125,7 +119,7 @@ function WizardBody({ review: initial, entries, days, answers, previous, lastExp
       </div>
 
       {step === 0 ? <GlanceStep entries={entries} days={days} answers={answers} period={period} /> : null}
-      {step === 1 ? <BalanceStep balance={review.balance} previous={previous?.balance ?? null} onChange={(balance) => update({ balance })} /> : null}
+      {step === 1 ? <BalanceStep review={review} onChange={update} /> : null}
       {step === 2 ? <MomentsStep review={review} entries={entries} onChange={update} /> : null}
       {step === 3 ? <ReflectStep review={review} onChange={update} /> : null}
       {step === 4 ? <FinishStep review={review} entries={entries} lastExportAt={lastExportAt} /> : null}

@@ -48,8 +48,8 @@ async function openRestore(page: Page, file: string) {
 
 test('back up, delete everything, then restore it all', async ({ page }, testInfo) => {
   await page.goto('./#/today')
-  await addEntry(page, { activity: 'Choir rehearsal', energy: 'Gave a lot', into: 'Fully', timeFlew: true, note: 'The new piece finally clicked' })
-  await addEntry(page, { activity: 'Tax paperwork', energy: 'Took a lot', into: 'Not at all' })
+  await addEntry(page, { activity: 'Choir rehearsal', during: ['Absorbed', 'Time flew'], after: ['Energised'], note: 'The new piece finally clicked' })
+  await addEntry(page, { activity: 'Tax paperwork', during: ['Bored'], after: ['Drained'] })
   await smallJoy(page).fill('A neighbour waved')
   await expect(page.locator('section.evening .evening-field').first().getByText('Saved')).toBeVisible()
   await eveningQuestion(page).locator('textarea').fill('Singing with others lifts me')
@@ -59,6 +59,7 @@ test('back up, delete everything, then restore it all', async ({ page }, testInf
   const backup = JSON.parse(await readFile(file, 'utf8'))
   expect(backup).toMatchObject({ app: 'life-design', kind: 'backup', schemaVersion: 3 })
   expect(backup.data.entries).toHaveLength(2)
+  expect(backup.data.entries.map((e: { during: string[]; after: string[] }) => [e.during, e.after])).toContainEqual([['Absorbed', 'Time flew'], ['Energised']])
   expect(backup.data.days).toHaveLength(1)
   expect(backup.data.answers).toHaveLength(1)
 
@@ -90,7 +91,7 @@ test('back up, delete everything, then restore it all', async ({ page }, testInf
 
 test('a password-protected backup opens only with the right password', async ({ page }, testInfo) => {
   await page.goto('./#/today')
-  await addEntry(page, { activity: 'Pottery class', energy: 'Gave a little', into: 'Very' })
+  await addEntry(page, { activity: 'Pottery class', during: ['Focused'], after: ['Satisfied'] })
   const file = await backUp(page, testInfo, 'a long test password')
   const text = await readFile(file, 'utf8')
   expect(text).toContain('"kind":"locked-backup"')
@@ -138,7 +139,7 @@ test('choosing the wrong kind of file says exactly what it is', async ({ page },
 
 test('activities export as a CSV spreadsheet', async ({ page }, testInfo) => {
   await page.goto('./#/today')
-  await addEntry(page, { activity: 'Choir rehearsal', energy: 'Gave a lot', into: 'Fully', where: 'Church hall' })
+  await addEntry(page, { activity: 'Choir rehearsal', during: ['Absorbed', 'Time flew'], after: ['Energised'], where: 'Church hall' })
   await page.goto('./#/more/export')
   await page.getByRole('button', { name: 'Export activities (CSV)' }).click()
   const dialog = page.getByRole('dialog', { name: 'Spreadsheet export' })
@@ -149,5 +150,5 @@ test('activities export as a CSV spreadsheet', async ({ page }, testInfo) => {
   const lines = (await readFile(path, 'utf8')).replace(/^﻿/, '').trimEnd().split('\r\n')
   expect(lines[0]).toMatch(/^date,part_of_day,activity,/)
   expect(lines).toHaveLength(2)
-  expect(lines[1]).toContain(',Choir rehearsal,5,2,no,Church hall,')
+  expect(lines[1]).toContain(',Choir rehearsal,Absorbed; Time flew,Energised,5,2,yes,Church hall,')
 })

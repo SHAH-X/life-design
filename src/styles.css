@@ -357,88 +357,6 @@ legend {
   height: 22px;
 }
 
-/* Worded answers (one question at a time, or compact when editing) */
-
-.answers {
-  display: flex;
-  gap: 8px;
-  margin: 4px 0 8px;
-}
-
-.answers.list {
-  flex-direction: column;
-}
-
-.answers.wrap {
-  flex-wrap: wrap;
-}
-
-.answer {
-  justify-content: flex-start;
-  min-height: 52px;
-  padding: 0 16px;
-  border-radius: 12px;
-  font-weight: 500;
-  text-align: left;
-}
-
-.answers.wrap .answer {
-  min-height: 44px;
-  padding: 0 14px;
-  border-radius: 22px;
-}
-
-.answer[aria-pressed='true'] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-text);
-}
-
-.answer-marker {
-  margin-left: auto;
-  display: inline-flex;
-}
-
-.answer[aria-pressed='true'] .sign-dots i {
-  background: currentColor;
-  opacity: 0.35;
-}
-
-.answer[aria-pressed='true'] .sign-dots i.on {
-  opacity: 1;
-}
-
-/* Energy answers: tinted blue (gives) or red (takes) when chosen, with a ring; the words say it too. */
-.answers.energy .answer[aria-pressed='true'] {
-  color: var(--text);
-  border-color: transparent;
-}
-
-.answers.energy .answer[data-value='-2'][aria-pressed='true'] {
-  background: color-mix(in srgb, var(--viz-neg) 32%, var(--surface));
-  box-shadow: inset 0 0 0 2px var(--viz-neg);
-}
-
-.answers.energy .answer[data-value='-1'][aria-pressed='true'] {
-  background: color-mix(in srgb, var(--viz-neg) 14%, var(--surface));
-  box-shadow: inset 0 0 0 2px var(--viz-neg);
-}
-
-.answers.energy .answer[data-value='0'][aria-pressed='true'] {
-  background: var(--bg);
-  box-shadow: inset 0 0 0 2px var(--viz-axis);
-}
-
-.answers.energy .answer[data-value='1'][aria-pressed='true'] {
-  background: color-mix(in srgb, var(--viz-pos) 14%, var(--surface));
-  box-shadow: inset 0 0 0 2px var(--viz-pos);
-}
-
-.answers.energy .answer[data-value='2'][aria-pressed='true'] {
-  background: color-mix(in srgb, var(--viz-pos) 32%, var(--surface));
-  box-shadow: inset 0 0 0 2px var(--viz-pos);
-}
-
 /* A question: its words, an optional ⓘ and actions on one line; the explanation opens below. */
 
 .question {
@@ -476,14 +394,6 @@ legend {
 
 .question .info-panel {
   margin-top: 8px;
-}
-
-.seg-ends {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 4px;
-  font-size: 0.75rem;
-  color: var(--muted);
 }
 
 /* Chips */
@@ -721,55 +631,18 @@ dialog.sheet::backdrop {
   color: var(--muted);
 }
 
-.entry-signs {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.sign-flow {
-  color: var(--accent);
-  font-size: 0.9rem;
-}
-
-.sign-dots {
-  display: flex;
-  gap: 3px;
-}
-
-.sign-dots i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--border);
-}
-
-.sign-dots i.on {
-  background: var(--viz-seq);
-}
-
-.sign-energy {
-  min-width: 34px;
-  padding: 2px 6px;
-  border-radius: 8px;
-  background: var(--bg);
+.entry-feelings {
+  font-size: 0.85rem;
   color: var(--muted);
-  font-size: 0.75rem;
-  letter-spacing: -0.08em;
-  text-align: center;
 }
 
-.sign-energy.e-2,
-.sign-energy.e-1 {
-  background: color-mix(in srgb, var(--viz-neg) 16%, var(--surface));
-  color: var(--viz-neg);
-}
-
-.sign-energy.e1,
-.sign-energy.e2 {
-  background: color-mix(in srgb, var(--viz-pos) 16%, var(--surface));
+/* "How it left you" words take the energy colours; the word always says it too. */
+.feeling.gives {
   color: var(--viz-pos);
+}
+
+.feeling.takes {
+  color: var(--viz-neg);
 }
 
 .empty {
@@ -1178,7 +1051,7 @@ details.more-ways summary {
   font-weight: 400;
 }
 
-/* Rows with a bar either side of zero: label | bar | value */
+/* Rows: the name and its bar either side of zero, with the words underneath (words can be long; a name never gets squeezed). */
 
 .bar-rows {
   list-style: none;
@@ -1188,9 +1061,13 @@ details.more-ways summary {
 
 .bar-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 88px auto;
+  grid-template-columns: minmax(0, 1fr) 88px;
+  grid-template-areas:
+    'label bar'
+    'value value';
   align-items: center;
-  gap: 10px;
+  column-gap: 10px;
+  row-gap: 2px;
   padding: 7px 0;
   border-bottom: 1px solid var(--border);
 }
@@ -1200,10 +1077,12 @@ details.more-ways summary {
 }
 
 .bar-label {
+  grid-area: label;
   overflow-wrap: anywhere;
 }
 
 .bar-track {
+  grid-area: bar;
   display: flex;
   height: 10px;
 }
@@ -1229,9 +1108,9 @@ details.more-ways summary {
 }
 
 .bar-value {
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  grid-area: value;
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 
 /* Headline numbers */
@@ -1263,83 +1142,13 @@ details.more-ways summary {
   line-height: 1.2;
 }
 
+.stat-value.words {
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
 .stat-sub {
   font-size: 0.75rem;
-  color: var(--muted);
-}
-
-/* Balance */
-
-.meters {
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
-}
-
-.meter-row {
-  display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 0;
-}
-
-.meter-track {
-  height: 10px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  overflow: hidden;
-}
-
-.meter-fill {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--accent);
-}
-
-.meter-value {
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.gauge {
-  padding: 10px 0 6px;
-  border-bottom: 1px solid var(--border);
-}
-
-.gauge:last-child {
-  border-bottom: 0;
-}
-
-.gauge-head {
-  display: flex;
-  align-items: center;
-}
-
-.gauge-head label {
-  font-weight: 600;
-}
-
-.gauge-value {
-  margin-left: auto;
-  font-weight: 650;
-  font-size: 1.1rem;
-  font-variant-numeric: tabular-nums;
-}
-
-input[type='range'] {
-  width: 100%;
-  height: 32px;
-  margin: 4px 0 0;
-  accent-color: var(--accent);
-}
-
-input[type='range'].unset {
-  opacity: 0.4;
-}
-
-.gauge .seg-ends span:nth-child(2) {
   color: var(--muted);
 }
 
@@ -1556,4 +1365,35 @@ input[type='range'].unset {
 
 .chart-switch {
   margin-bottom: 8px;
+}
+
+/* ---------- Feeling words ---------- */
+
+.chip-row.words .chip {
+  min-height: 40px;
+}
+
+.chip.add-word {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.add-own {
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+
+.add-own input {
+  flex: 1;
+}
+
+.chip-row.suggested .chip {
+  border-style: dashed;
+}
+
+/* ↻ for "Another question": an icon with a spoken label, sized for a thumb. */
+.link.swap {
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 1.25rem;
 }

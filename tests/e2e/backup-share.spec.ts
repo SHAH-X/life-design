@@ -9,9 +9,8 @@ test('a password-protected backup saved through the share sheet restores, emoji 
   await page.goto('./#/today')
   await addEntry(page, {
     activity: 'Coffee ☕️ with “Sam” — it’s been ages',
-    energy: 'Gave a lot',
-    into: 'Fully',
-    timeFlew: true,
+    during: ['Absorbed'],
+    after: ['Energised', 'Proud'],
     note: 'Talked for hours… felt great 🙌',
   })
   await smallJoy(page).fill('Sunset 🌅 over the river · 日本語')

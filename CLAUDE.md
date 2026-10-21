@@ -22,17 +22,25 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 - The e2e tests click straight after navigation on purpose. Keep it that way: it catches layout shifts.
 - Files leave the iPhone app only through the share menu. Never a download link, and never a link or navigation to a file (.ics, data:, blob:). In the Home Screen app, "Add to Calendar" linking to an .ics file left the app on a blank screen with no way back. An e2e test guards this.
 - Inputs show the value being edited straight away from local state; saving happens in the background. Never bind an input directly to a value that comes back from the database: it snaps back mid-typing.
+- Long words must never squeeze a label: rows put their words on a line of their own (Phase 2.6: "Home" wrapped one letter per line). The Insights e2e test checks label widths.
 - When the app refuses something (a file, a password), say exactly why and what to do next. A vague error cost a debugging round in Phase 1.
 - Every question explains itself in plain words (e.g. "Did it give you energy, or take it?", not "Energy"), and every answer is worded, not a number. The deeper "why" sits behind ⓘ. (Phase 2.5: number buttons under one-word labels felt like a form and didn't draw out a real answer.)
 - A sheet opens on its content, or on a field marked `data-autofocus`, never on ✕ Close. (Since Phase 1 the browser's default put focus on Close: a ring on every sheet, and a stray Enter closed it. An e2e test guards this.)
 - A question that replaces another under the finger ignores taps for 300 ms and marks its answers `aria-disabled` meanwhile, so a fast double tap can't answer it. An e2e test taps twice to prove it.
-- The measured questions (energy, how into it, did time fly) keep exactly the same wording every day so patterns stay comparable. Variety goes into the evening question only.
+- The two feeling-word questions ("What was it like?", "How did it leave you?") and their word lists stay the same every day so patterns stay comparable; tune weights in `feelings.ts`, not the words. Variety goes into the evening question only.
+
+## No ratings, natural responses (Phase 2.6: "I don't want any rating to be given")
+- Nothing asks for or shows a rating, score, average or scale: not as numbers, not as stars, not as ordered word scales. Answers are natural words (feeling words, your own words, notes); results are words ("usually gives you energy"). Plain counts are fine ("5 times", "on 4 days").
+- Energy, engagement and flow are worked out on the phone from the words (`src/domain/feelings.ts`, one table of weights with tests) and stored for analysis, never displayed as values.
+- `tests/e2e/no-scores.spec.ts` fails if a score pattern (`+2`, `3.0`, `7/10`, "average") appears on Today, the logging screens, Review or Insights.
+- New screens (Odyssey Plans, prototypes…) follow the same rule: natural questions with words, never gauges or 0–10.
+- The standing "never" list from the market research lives in `DECISIONS.md`: check new features against it.
 
 ## Words and clutter (Phase 2.5: "the app feels wordy")
 - A screen is a title, the questions or content, and one main action. No help paragraphs: a question explains itself; anything more goes behind ⓘ or a collapsed section.
 - A status is one short line. Today shows at most one notice (backup due, then review due, then install).
 - Settings live on their own pages; More stays a short list.
-- Daily screens use words and symbols (▲▼, dots, ✦), with words for VoiceOver; numbers belong in Insights.
+- Every screen speaks in words; plain counts are the only numbers (see "No ratings" above).
 - Word budgets: `tests/e2e/word-budget.spec.ts` counts the visible words on each main screen with the fictional seed and fails above its budget. It runs at a fixed date on purpose: the evening question changes daily, and a floating date let the test pass or fail by chance. Raise a budget only with the owner's OK; a new main screen gets a budget when it's added.
 
 ## Charts (dataviz skill rules)

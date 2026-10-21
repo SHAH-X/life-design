@@ -38,6 +38,8 @@ export function isEntry(x: unknown): x is Entry {
     isStrList(x.where) &&
     isStrList(x.people) &&
     isStrList(x.objects) &&
+    (x.during === undefined || isStrList(x.during)) && // files from before v0.5 have no feeling words
+    (x.after === undefined || isStrList(x.after)) &&
     isStr(x.note) &&
     (x.source === 'evening' || x.source === 'quick' || x.source === 'import') &&
     hasTimes(x)
@@ -123,6 +125,9 @@ export function isReview(x: unknown): x is Review {
     BALANCE_AREAS.every((area) => balance[area] === null || isGauge(balance[area])) &&
     isAeiouNote(x.best) &&
     isAeiouNote(x.worst) &&
+    (x.alive === undefined || x.alive === null || BALANCE_AREAS.includes(x.alive as never)) &&
+    (x.neglected === undefined || x.neglected === null || BALANCE_AREAS.includes(x.neglected as never)) &&
+    (x.balanceWhy === undefined || isStr(x.balanceWhy)) &&
     isStr(x.reflection) &&
     isStr(x.takeaway) &&
     (x.completedAt === null || isNum(x.completedAt)) &&
@@ -146,7 +151,18 @@ export const VALIDATORS: { [K in TableName]: (x: unknown) => x is BackupData[K][
 
 /** Fills in fields that older files don't have yet, after validation. */
 export function normalizeRecord(table: TableName, record: unknown): unknown {
+  if (table === 'entries') {
+    const entry = record as Entry
+    return { ...entry, during: entry.during ?? [], after: entry.after ?? [] }
+  }
   if (table !== 'reviews') return record
   const review = record as Review
-  return { ...review, best: { ...review.best, why: review.best.why ?? '' }, worst: { ...review.worst, why: review.worst.why ?? '' } }
+  return {
+    ...review,
+    alive: review.alive ?? null,
+    neglected: review.neglected ?? null,
+    balanceWhy: review.balanceWhy ?? '',
+    best: { ...review.best, why: review.best.why ?? '' },
+    worst: { ...review.worst, why: review.worst.why ?? '' },
+  }
 }

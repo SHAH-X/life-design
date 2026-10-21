@@ -1,6 +1,6 @@
 // Questions drawn from your own last two weeks, worked out on the phone (no AI). They only ask about
 // real patterns (groups of 3+ entries, see MIN_COUNT), never about today, which is still in progress.
-import { balanceSummary, drainers, energisers, flowFinder, inPeriod } from '../analysis/stats'
+import { balanceTally, drainers, energisers, flowFinder, inPeriod } from '../analysis/stats'
 import type { Entry, Review } from '../db/types'
 import { addDays } from '../lib/dates'
 import { BALANCE_INFO } from '../reviews/prompts'
@@ -72,12 +72,14 @@ export function findPatterns(
     })
   }
 
-  const low = balanceSummary(reviews).lowest
-  if (low && low.avg <= 4) {
+  const tally = balanceTally(reviews)
+  const low = tally.mostNeglected
+  if (low && low.count >= 2) {
+    const when = low.count === tally.reviews ? `each of your last ${tally.reviews}` : `${low.count} of your last ${tally.reviews}`
     offer({
       id: `pattern:balance:${low.area}`,
       kind: 'balance',
-      question: `${BALANCE_INFO[low.area].label} has been low in your reviews. What's one small thing that would help?`,
+      question: `${BALANCE_INFO[low.area].label} has felt neglected in ${when} reviews. What's one small thing that would help?`,
     })
   }
 

@@ -18,6 +18,8 @@ const entry = (id: string, updatedAt: number, over: Partial<Entry> = {}): Entry 
   where: ['Allotment'],
   people: [],
   objects: ['Spade'],
+  during: ['Absorbed', 'Time flew'],
+  after: ['Energised'],
   note: '',
   source: 'evening',
   createdAt: 1000,
@@ -139,6 +141,24 @@ describe('backup and restore', () => {
     const restored = await newPhone.reviews.get(review.id)
     expect(restored?.best.why).toBe('')
     expect(restored?.worst.why).toBe('')
+  })
+
+  it('restores entries and reviews from before feeling words, filling in the new fields', async () => {
+    const oldEntry = JSON.parse(JSON.stringify(entry('a', 1000)))
+    delete oldEntry.during
+    delete oldEntry.after
+    const oldReview = JSON.parse(JSON.stringify(newReview('2026-10-12', '2026-10-18', new Date('2026-10-18T19:00:00Z'))))
+    delete oldReview.alive
+    delete oldReview.neglected
+    delete oldReview.balanceWhy
+    const file = { app: 'life-design', kind: 'backup', schemaVersion: 3, exportedAt: '2026-10-21T12:00:00Z', data: { entries: [oldEntry], reviews: [oldReview] } }
+    const detected = detectFile(JSON.stringify(file))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    const plan = await applyImport(detected.raw, newPhone)
+    expect(plan.tables.entries).toMatchObject({ added: 1, skipped: 0 })
+    expect(plan.tables.reviews).toMatchObject({ added: 1, skipped: 0 })
+    expect(await newPhone.entries.get('a')).toMatchObject({ during: [], after: [] })
+    expect(await newPhone.reviews.get(oldReview.id)).toMatchObject({ alive: null, neglected: null, balanceWhy: '' })
   })
 
   it('still restores backups made before reviews existed (format 1)', async () => {

@@ -1,21 +1,26 @@
 import { useId } from 'react'
-import { formatSigned, type MomentGroup, momentGroups, overview, type Period } from '../../analysis/stats'
+import { type MomentGroup, momentGroups, overview, type Period } from '../../analysis/stats'
 import { useDialogs } from '../../app/dialogs'
-import { type AeiouNote, type Answer, BALANCE_AREAS, type Balance, type Day, type Entry, type Review } from '../../db/types'
-import { energyLevel } from '../../domain/scales'
+import { type AeiouNote, type Answer, BALANCE_AREAS, type BalanceArea, type Day, type Entry, type Review } from '../../db/types'
+import { feelingTone, overallEnergyWord, times, wordsFor } from '../../domain/feelings'
 import { formatPeriod, shortDate, shortDay, wholeDaysBetween } from '../../lib/dates'
-import { AEIOU, BALANCE_INFO, MOMENT_QUESTIONS, REFLECTION_PROMPT } from '../../reviews/prompts'
-import { BalanceGauge } from '../../ui/BalanceGauge'
-import { EnergySymbol } from '../../ui/Signs'
+import { AEIOU, ALIVE_QUESTION, BALANCE_DEFINITIONS, BALANCE_INFO, MOMENT_QUESTIONS, NEGLECTED_QUESTION, REFLECTION_PROMPT } from '../../reviews/prompts'
+import { Question } from '../../ui/Question'
 import { StatTile } from '../../ui/StatTile'
 import { EnergyCharts } from '../insights/EnergyCharts'
 
-function EnergySign({ entry }: { entry: Entry }) {
+/** How the moment left you, in the words chosen (or read from older entries' values). */
+function LeftYou({ entry }: { entry: Entry }) {
+  const { after } = wordsFor(entry)
   return (
-    <>
-      <EnergySymbol value={entry.energy} />
-      <span className="visually-hidden">{energyLevel(entry.energy).phrase}</span>
-    </>
+    <span className="entry-feelings">
+      {after.map((word, i) => (
+        <span key={word} className={`feeling ${feelingTone(word)}`}>
+          {i > 0 ? ' · ' : ''}
+          {word.toLowerCase()}
+        </span>
+      ))}
+    </span>
   )
 }
 
@@ -25,10 +30,10 @@ function MomentLine({ group }: { group: MomentGroup }) {
     <li className="moment-line">
       <span className="grow">
         <strong>{entry.activity}</strong>
-        <span className="muted small"> · {count > 1 ? `${count}×` : shortDay(entry.date)}</span>
+        <span className="muted small"> · {count > 1 ? times(count) : shortDay(entry.date)}</span>
+        <LeftYou entry={entry} />
         {entry.note ? <span className="entry-note">{entry.note}</span> : null}
       </span>
-      <EnergySign entry={entry} />
     </li>
   )
 }
@@ -61,9 +66,9 @@ export function GlanceStep({
   return (
     <>
       <div className="kpi-row">
-        <StatTile label="Days logged" value={String(totals.daysLogged)} sub={`of ${totals.days}`} />
-        <StatTile label="Energy" value={totals.avgEnergy === null ? '–' : formatSigned(totals.avgEnergy)} />
-        <StatTile label="Time flew" value={String(totals.flow)} />
+        <StatTile label="Logged on" value={`${totals.daysLogged} ${totals.daysLogged === 1 ? 'day' : 'days'}`} />
+        <StatTile label="Energy" value={overallEnergyWord(entries.map((e) => e.energy)) ?? '–'} words />
+        <StatTile label="Time flew" value={totals.flow ? times(totals.flow) : 'not yet'} />
       </div>
       <section className="card">
         <EnergyCharts entries={entries} period={period} />
@@ -122,20 +127,49 @@ export function GlanceStep({
   )
 }
 
-export function BalanceStep({ balance, previous, onChange }: { balance: Balance; previous: Balance | null; onChange: (b: Balance) => void }) {
+export function BalanceStep({ review, onChange }: { review: Review; onChange: (patch: Partial<Review>) => void }) {
+  const aliveId = useId()
+  const neglectedId = useId()
+  const whyId = useId()
+
+  // Tap again to clear; one area can't be both most alive and most neglected.
+  const pick = (key: 'alive' | 'neglected', area: BalanceArea) => {
+    const other = key === 'alive' ? 'neglected' : 'alive'
+    const value = review[key] === area ? null : area
+    onChange(value !== null && review[other] === area ? { [key]: value, [other]: null } : { [key]: value })
+  }
+
+  const areas = (key: 'alive' | 'neglected', labelledBy: string) => (
+    <div role="group" aria-labelledby={labelledBy} className="chip-row">
+      {BALANCE_AREAS.map((area) => (
+        <button key={area} type="button" className="chip" aria-pressed={review[key] === area} onClick={() => pick(key, area)}>
+          {BALANCE_INFO[area].label}
+        </button>
+      ))}
+    </div>
+  )
+
   return (
     <section className="card">
-      <h2 className="question-text">How full is each part of your life? (0–10)</h2>
-      {BALANCE_AREAS.map((area) => (
-        <BalanceGauge
-          key={area}
-          label={BALANCE_INFO[area].label}
-          info={BALANCE_INFO[area].info}
-          value={balance[area]}
-          previous={previous?.[area] ?? null}
-          onChange={(value) => onChange({ ...balance, [area]: value })}
-        />
-      ))}
+      <Question id={aliveId} info={BALANCE_DEFINITIONS} infoLabel="What do these mean?">
+        {ALIVE_QUESTION}
+      </Question>
+      {areas('alive', aliveId)}
+      <p className="question-text" id={neglectedId}>
+        {NEGLECTED_QUESTION}
+      </p>
+      {areas('neglected', neglectedId)}
+      <label className="question-text" htmlFor={whyId}>
+        Why?
+      </label>
+      <textarea
+        id={whyId}
+        rows={3}
+        maxLength={2000}
+        placeholder="Optional"
+        value={review.balanceWhy}
+        onChange={(e) => onChange({ balanceWhy: e.target.value })}
+      />
     </section>
   )
 }
@@ -184,7 +218,7 @@ function MomentEditor({
         <option value="">None</option>
         {options.map((e) => (
           <option key={e.id} value={e.id}>
-            {shortDay(e.date)} · {e.activity} ({energyLevel(e.energy).label.toLowerCase()})
+            {shortDay(e.date)} · {e.activity} · {wordsFor(e).after.join(', ').toLowerCase()}
           </option>
         ))}
       </select>
@@ -285,7 +319,8 @@ export function FinishStep({
       <section className="card">
         <ul className="plain-list">
           <li>
-            <strong>Balance:</strong> {BALANCE_AREAS.map((a) => `${BALANCE_INFO[a].label} ${review.balance[a] ?? '–'}`).join(' · ')}
+            <strong>Most alive:</strong> {review.alive ? BALANCE_INFO[review.alive].label : '–'} · <strong>Most neglected:</strong>{' '}
+            {review.neglected ? BALANCE_INFO[review.neglected].label : '–'}
           </li>
           <li>
             <strong>Best:</strong> {name(review.best)}

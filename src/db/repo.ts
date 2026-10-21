@@ -1,3 +1,4 @@
+import type { OwnWord } from '../domain/feelings'
 import type { Energy, Engagement } from '../domain/scales'
 import { type DayPart, toDateKey } from '../lib/dates'
 import { db as defaultDb, type LifeDesignDB } from './db'
@@ -14,6 +15,9 @@ export interface EntryDraft {
   where: string[]
   people: string[]
   objects: string[]
+  /** Feeling words; engagement, energy and flow above are worked out from them by the screen. */
+  during: string[]
+  after: string[]
   note: string
 }
 
@@ -52,6 +56,8 @@ export function buildEntry(draft: EntryDraft, existing: Entry | undefined, now: 
     where: tidyList(draft.where),
     people: tidyList(draft.people),
     objects: tidyList(draft.objects),
+    during: tidyList(draft.during),
+    after: tidyList(draft.after),
     note: draft.note.trim(),
     source: existing?.source ?? entrySource(draft.date, now),
     createdAt: existing?.createdAt ?? time,
@@ -191,6 +197,9 @@ export function newReview(periodStart: string, periodEnd: string, now: Date = ne
     periodStart,
     periodEnd,
     balance: { health: null, work: null, play: null, love: null },
+    alive: null,
+    neglected: null,
+    balanceWhy: '',
     best: emptyNote(),
     worst: emptyNote(),
     reflection: '',
@@ -214,4 +223,36 @@ export async function deleteReview(id: string, database: LifeDesignDB = defaultD
 export async function firstEntryCreatedAt(database: LifeDesignDB = defaultDb): Promise<number | null> {
   const first = await database.entries.orderBy('createdAt').first()
   return first?.createdAt ?? null
+}
+
+/** Your own feeling words, checked (a backup could hold anything under this key). */
+export function cleanOwnWords(value: unknown): OwnWord[] {
+  if (!Array.isArray(value)) return []
+  return value.filter(
+    (w): w is OwnWord =>
+      typeof w === 'object' &&
+      w !== null &&
+      typeof (w as OwnWord).word === 'string' &&
+      ((w as OwnWord).kind === 'during' || (w as OwnWord).kind === 'after') &&
+      typeof (w as OwnWord).weight === 'number',
+  )
+}
+
+export async function getOwnWords(database: LifeDesignDB = defaultDb): Promise<OwnWord[]> {
+  return cleanOwnWords(await getSetting<unknown>('ownWords', [], database))
+}
+
+export async function addOwnWord(word: OwnWord, database: LifeDesignDB = defaultDb): Promise<void> {
+  const current = await getOwnWords(database)
+  const rest = current.filter((w) => !(w.kind === word.kind && w.word.toLowerCase() === word.word.toLowerCase()))
+  await setSetting('ownWords', [...rest, word], database)
+}
+
+export async function removeOwnWord(word: OwnWord, database: LifeDesignDB = defaultDb): Promise<void> {
+  const current = await getOwnWords(database)
+  await setSetting(
+    'ownWords',
+    current.filter((w) => !(w.kind === word.kind && w.word.toLowerCase() === word.word.toLowerCase())),
+    database,
+  )
 }

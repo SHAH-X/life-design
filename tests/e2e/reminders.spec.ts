@@ -73,7 +73,7 @@ test('typing a multi-digit "every N days" works key by key', async ({ page }) =>
 
 test('no link in the app opens a file inside the app (on iPhone that left the app on a blank screen)', async ({ page }) => {
   const fileLinks = page.locator('a[href*=".ics"], a[href^="data:"], a[href^="blob:"], a[download]')
-  for (const path of ['today', 'review', 'insights', 'more', 'more/reminders', 'more/evening', 'more/backup', 'more/export', 'more/phone', 'more/delete']) {
+  for (const path of ['today', 'review', 'insights', 'more', 'more/reminders', 'more/evening', 'more/words', 'more/backup', 'more/export', 'more/phone', 'more/delete']) {
     await page.goto(`./#/${path}`)
     await expect(page.locator('h1').first()).toBeVisible()
     await expect(fileLinks).toHaveCount(0)
@@ -83,7 +83,7 @@ test('no link in the app opens a file inside the app (on iPhone that left the ap
 test('More is a short list of pages, each with a way back', async ({ page }) => {
   await page.goto('./#/more')
   const list = page.getByRole('navigation', { name: 'Settings' })
-  for (const name of ['Reminders', 'Evening question', 'Backup and restore', 'Spreadsheet export', 'This phone', 'Delete everything']) {
+  for (const name of ['Reminders', 'Evening question', 'Your feeling words', 'Backup and restore', 'Spreadsheet export', 'This phone', 'Delete everything']) {
     await expect(list.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
   }
   await list.getByRole('link', { name: /^Reminders/ }).click()

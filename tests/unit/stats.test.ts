@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   activityStats,
-  balanceSummary,
+  balanceTally,
   contextStats,
   drainers,
   energisers,
   energySeries,
   flowFinder,
-  formatSigned,
   joyWords,
   overview,
 } from '../../src/analysis/stats'
@@ -28,6 +27,8 @@ const entry = (date: string, activity: string, energy: Entry['energy'], engageme
     where: [],
     people: [],
     objects: [],
+    during: [],
+    after: [],
     note: '',
     source: 'evening',
     createdAt: n,
@@ -75,7 +76,8 @@ describe('overview', () => {
 describe('what gives and drains energy', () => {
   it('groups activities ignoring case, keeping the latest spelling', () => {
     const deep = activityStats(entries).find((g) => g.label.toLowerCase() === 'deep work on the report')
-    expect(deep).toMatchObject({ label: 'deep work on the report', count: 3, flow: 2 })
+    expect(deep).toMatchObject({ label: 'deep work on the report', count: 3, flow: 2, gave: 3, took: 0 })
+    expect(activityStats(entries).find((g) => g.label === 'Commute')).toMatchObject({ count: 4, gave: 0, took: 4 })
     expect(deep?.avgEnergy).toBeCloseTo(5 / 3, 5)
   })
 
@@ -165,33 +167,46 @@ describe('small joys', () => {
   })
 })
 
-describe('balance', () => {
-  const review = (periodEnd: string, health: number, work: number, play: number, love: number, done = true): Review => ({
+describe('balance: most alive and most neglected', () => {
+  const note = { entryId: null, activities: '', environments: '', interactions: '', objects: '', users: '', why: '' }
+  const review = (periodEnd: string, over: Partial<Review>, done = true): Review => ({
     id: periodEnd,
     periodStart: periodEnd,
     periodEnd,
-    balance: { health, work, play, love },
-    best: { entryId: null, activities: '', environments: '', interactions: '', objects: '', users: '', why: '' },
-    worst: { entryId: null, activities: '', environments: '', interactions: '', objects: '', users: '', why: '' },
+    balance: { health: null, work: null, play: null, love: null },
+    alive: null,
+    neglected: null,
+    balanceWhy: '',
+    best: note,
+    worst: note,
     reflection: '',
     takeaway: '',
     completedAt: done ? 1 : null,
     createdAt: 1,
     updatedAt: 1,
+    ...over,
   })
 
-  it('shows the latest and previous balance and the lowest area lately, ignoring drafts', () => {
-    const s = balanceSummary([review('2026-10-11', 6, 7, 2, 8), review('2026-10-18', 7, 6, 4, 8), review('2026-10-25', 1, 1, 1, 1, false)])
-    expect(s.latest?.periodEnd).toBe('2026-10-18')
-    expect(s.previous?.periodEnd).toBe('2026-10-11')
-    expect(s.lowest).toEqual({ area: 'play', avg: 3 })
+  it('tallies the last four finished reviews, reading older 0–10 reviews as highest and lowest', () => {
+    const tally = balanceTally([
+      review('2026-09-27', { alive: 'love', neglected: 'work' }), // fifth from last: left out
+      review('2026-10-04', { balance: { health: 6, work: 4, play: 3, love: 8 } }), // older review: love highest, play lowest
+      review('2026-10-11', { alive: 'work', neglected: 'play' }),
+      review('2026-10-18', { alive: 'work', neglected: 'health' }),
+      review('2026-10-19', { alive: 'play', neglected: 'love' }),
+      review('2026-10-25', { alive: 'health', neglected: 'play' }, false), // draft: left out
+    ])
+    expect(tally.reviews).toBe(4)
+    expect(tally.mostNeglected).toEqual({ area: 'play', count: 2 })
+    expect(tally.mostAlive).toEqual({ area: 'work', count: 2 })
+    expect(tally.latest).toEqual({ alive: 'play', neglected: 'love' })
+  })
+
+  it('makes no pick from an older review where areas tie', () => {
+    const tally = balanceTally([review('2026-10-11', { balance: { health: 5, work: 5, play: 2, love: 2 } })])
+    expect(tally.reviews).toBe(1)
+    expect(tally.mostAlive).toBeNull()
+    expect(tally.mostNeglected).toBeNull()
   })
 })
 
-describe('formatSigned', () => {
-  it('uses a true minus sign and one decimal', () => {
-    expect(formatSigned(1.44)).toBe('+1.4')
-    expect(formatSigned(-0.46)).toBe('−0.5')
-    expect(formatSigned(0.04)).toBe('0.0')
-  })
-})

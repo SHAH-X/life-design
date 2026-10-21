@@ -56,6 +56,8 @@ describe('pickMoments', () => {
     where: [],
     people: [],
     objects: [],
+    during: [],
+    after: [],
     note: '',
     source: 'evening',
     createdAt: 1,

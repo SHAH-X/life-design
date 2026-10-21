@@ -1,14 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import {
-  balanceSummary,
+  balanceTally,
   CONTEXT_LABELS,
   type ContextKey,
   contextStats,
   drainers,
   energisers,
   flowFinder,
-  formatSigned,
   inPeriod,
   joyWords,
   MIN_COUNT,
@@ -19,7 +18,7 @@ import { db } from '../../db/db'
 import { addDays, formatPeriod, toDateKey } from '../../lib/dates'
 import { navigate } from '../../lib/route'
 import { BALANCE_INFO } from '../../reviews/prompts'
-import { BalanceMeters } from '../../ui/BalanceMeters'
+import { overallEnergyWord, times } from '../../domain/feelings'
 import { EnergyRows } from '../../ui/charts/EnergyRows'
 import { StatTile } from '../../ui/StatTile'
 import { EnergyCharts } from './EnergyCharts'
@@ -55,7 +54,7 @@ export function InsightsScreen() {
   const smallJoys = inPeriod(data.days, period).filter((d) => d.smallJoy)
   const reviews = data.reviews.filter((r) => r.periodEnd >= period.start && r.periodEnd <= period.end)
   const totals = overview(data.entries, period)
-  const balance = balanceSummary(reviews)
+  const balance = balanceTally(reviews)
   const learnings = reviews
     .filter((r) => r.completedAt !== null && r.takeaway.trim())
     .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd))
@@ -84,9 +83,9 @@ export function InsightsScreen() {
       ) : (
         <>
           <div className="kpi-row">
-            <StatTile label="Days logged" value={String(totals.daysLogged)} sub={`of ${totals.days}`} />
-            <StatTile label="Energy" value={totals.avgEnergy === null ? '–' : formatSigned(totals.avgEnergy)} />
-            <StatTile label="Time flew" value={String(totals.flow)} />
+            <StatTile label="Logged on" value={`${totals.daysLogged} ${totals.daysLogged === 1 ? 'day' : 'days'}`} />
+            <StatTile label="Energy" value={overallEnergyWord(entries.map((e) => e.energy)) ?? '–'} words />
+            <StatTile label="Time flew" value={totals.flow ? times(totals.flow) : 'not yet'} />
           </div>
 
           <section className="card">
@@ -96,11 +95,11 @@ export function InsightsScreen() {
           <section className="card">
             <div className="rank-group">
               <h2>Gives energy</h2>
-              {gives.length ? <EnergyRows rows={gives} /> : <p className="muted small">{NEED_MORE}</p>}
+              {gives.length ? <EnergyRows rows={gives} direction="gives" /> : <p className="muted small">{NEED_MORE}</p>}
             </div>
             <div className="rank-group top-gap">
               <h2>Takes energy</h2>
-              {drains.length ? <EnergyRows rows={drains} /> : <p className="muted small">{NEED_MORE}</p>}
+              {drains.length ? <EnergyRows rows={drains} direction="takes" /> : <p className="muted small">{NEED_MORE}</p>}
             </div>
           </section>
 
@@ -113,7 +112,7 @@ export function InsightsScreen() {
                     <strong>{g.label}</strong>
                     <span className="muted">
                       {' '}
-                      · {g.flow} of {g.count}
+                      · {g.flow} of {g.count} {g.count === 1 ? 'time' : 'times'}
                     </span>
                   </li>
                 ))}
@@ -132,23 +131,35 @@ export function InsightsScreen() {
                 </button>
               ))}
             </div>
-            {contextRows.length ? <EnergyRows rows={contextRows} /> : <p className="muted small">{NEED_MORE}</p>}
+            {contextRows.length ? <EnergyRows rows={contextRows} direction="context" /> : <p className="muted small">{NEED_MORE}</p>}
           </section>
 
           <section className="card">
             <h2>Balance</h2>
-            {balance.latest ? (
-              <>
-                <BalanceMeters latest={balance.latest.balance} previous={balance.previous?.balance ?? null} />
-                {balance.lowest ? (
-                  <p className="top-gap">
-                    Lowest lately: <strong>{BALANCE_INFO[balance.lowest.area].label}</strong> ({balance.lowest.avg.toFixed(1)}/10)
-                  </p>
+            {balance.mostAlive || balance.mostNeglected ? (
+              <ul className="plain-list">
+                {balance.mostAlive ? (
+                  <li>
+                    Most alive: <strong>{BALANCE_INFO[balance.mostAlive.area].label}</strong>
+                    <span className="muted">
+                      {' '}
+                      · {balance.mostAlive.count} of {balance.reviews} {balance.reviews === 1 ? 'review' : 'reviews'}
+                    </span>
+                  </li>
                 ) : null}
-              </>
+                {balance.mostNeglected ? (
+                  <li>
+                    Most neglected: <strong>{BALANCE_INFO[balance.mostNeglected.area].label}</strong>
+                    <span className="muted">
+                      {' '}
+                      · {balance.mostNeglected.count} of {balance.reviews} {balance.reviews === 1 ? 'review' : 'reviews'}
+                    </span>
+                  </li>
+                ) : null}
+              </ul>
             ) : (
               <p className="muted small">
-                Rated in each review.{' '}
+                Picked in each review.{' '}
                 <button type="button" className="link" onClick={() => navigate('review')}>
                   Review
                 </button>
@@ -162,7 +173,7 @@ export function InsightsScreen() {
               <div className="chip-row">
                 {words.map((w) => (
                   <span key={w.word} className="chip static">
-                    {w.word} <span className="muted">×{w.count}</span>
+                    {w.word} <span className="muted">· {times(w.count)}</span>
                   </span>
                 ))}
               </div>

@@ -1,17 +1,19 @@
 import { useState } from 'react'
-import { energySeries, formatSigned, overview, type Period, type SeriesPoint } from '../../analysis/stats'
+import { energySeries, inPeriod, type Period, type SeriesPoint } from '../../analysis/stats'
 import type { Entry } from '../../db/types'
+import { energyWordFor, intoItWord, overallEnergyWord } from '../../domain/feelings'
 import { dayMonth, formatPeriod, longDate, shortDay } from '../../lib/dates'
 import { type Column, ColumnChart } from '../../ui/charts/ColumnChart'
 
-const signedTick = (t: number) => (t > 0 ? `+${t}` : t < 0 ? `−${-t}` : '0')
+const ENERGY_AXIS: Record<number, string> = { 2: 'gives', 0: '', [-2]: 'takes' }
+const INTO_AXIS: Record<number, string> = { 1: 'bored', 3: 'fine', 5: 'absorbed' }
 
-/** Energy (above or below zero) or how into things you were (1–5): one chart at a time, each on its own scale. */
+/** Energy (gives or takes) or how into things you were: one chart at a time, each on its own scale, read in words. */
 export function EnergyCharts({ entries, period }: { entries: readonly Entry[]; period: Period }) {
   const [show, setShow] = useState<'energy' | 'into'>('energy')
   const series = energySeries(entries, period)
   const weekly = series.some((p) => p.start !== p.end)
-  const totals = overview(entries, period)
+  const within = inPeriod(entries, period)
   const columns = (pick: (p: SeriesPoint) => number | null): Column[] =>
     series.map((p) => ({
       key: p.start,
@@ -21,6 +23,8 @@ export function EnergyCharts({ entries, period }: { entries: readonly Entry[]; p
       count: p.count,
     }))
   const unit = weekly ? 'week' : 'day'
+  const overall = overallEnergyWord(within.map((e) => e.energy))
+  const meanInto = within.length ? within.reduce((sum, e) => sum + e.engagement, 0) / within.length : null
 
   return (
     <>
@@ -39,10 +43,11 @@ export function EnergyCharts({ entries, period }: { entries: readonly Entry[]; p
           domain={[-2, 2]}
           ticks={[-2, 0, 2]}
           mode="diverging"
-          formatValue={formatSigned}
-          formatTick={signedTick}
+          formatValue={energyWordFor}
+          formatTick={(t) => ENERGY_AXIS[t] ?? ''}
+          axisWidth={40}
           valueName="energy"
-          summary={totals.avgEnergy === null ? 'Nothing logged.' : `Average ${formatSigned(totals.avgEnergy)} · tap a column`}
+          summary={overall === null ? 'Nothing logged.' : `${overall} · tap a column`}
         />
       ) : (
         <ColumnChart
@@ -51,9 +56,11 @@ export function EnergyCharts({ entries, period }: { entries: readonly Entry[]; p
           domain={[0, 5]}
           ticks={[1, 3, 5]}
           mode="sequential"
-          formatValue={(v) => `${v.toFixed(1)}/5`}
+          formatValue={intoItWord}
+          formatTick={(t) => INTO_AXIS[t] ?? ''}
+          axisWidth={48}
           valueName="into it"
-          summary={totals.avgEngagement === null ? 'Nothing logged.' : `Average ${totals.avgEngagement.toFixed(1)}/5 · tap a column`}
+          summary={meanInto === null ? 'Nothing logged.' : `Mostly ${intoItWord(meanInto)} · tap a column`}
         />
       )}
     </>

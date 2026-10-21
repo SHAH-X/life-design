@@ -32,25 +32,24 @@ export async function sharedFile(page: Page): Promise<{ name: string; text: stri
 
 export interface NewEntry {
   activity: string
-  energy: 'Took a lot' | 'Took a little' | 'Neither' | 'Gave a little' | 'Gave a lot'
-  into: 'Not at all' | 'A little' | 'Somewhat' | 'Very' | 'Fully'
-  /** Asked only after Very or Fully. */
-  timeFlew?: boolean
+  /** "What was it like?" words. */
+  during: string[]
+  /** "How did it leave you?" words. */
+  after: string[]
   where?: string
   note?: string
 }
 
-/** Logs an activity the way it's done on the phone: one question per screen. */
+/** Logs an activity the way it's done on the phone: one question per screen, answered with feeling words. */
 export async function addEntry(page: Page, entry: NewEntry) {
   await page.getByRole('button', { name: '+ Add activity' }).click()
   const sheet = page.getByRole('dialog', { name: 'New activity' })
   await sheet.getByLabel('What did you do?').fill(entry.activity)
   await sheet.getByRole('button', { name: 'Next' }).click()
-  await sheet.getByRole('button', { name: entry.energy, exact: true }).click()
-  await sheet.getByRole('button', { name: entry.into, exact: true }).click()
-  if (entry.into === 'Very' || entry.into === 'Fully') {
-    await sheet.getByRole('button', { name: entry.timeFlew ? 'Yes' : 'No', exact: true }).click()
-  }
+  for (const word of entry.during) await sheet.getByRole('button', { name: word, exact: true }).click()
+  await sheet.getByRole('button', { name: 'Next' }).click()
+  for (const word of entry.after) await sheet.getByRole('button', { name: word, exact: true }).click()
+  await sheet.getByRole('button', { name: 'Next' }).click()
   await expect(sheet.getByRole('button', { name: 'Save' })).toBeVisible()
   if (entry.note) await sheet.locator('textarea').fill(entry.note)
   if (entry.where) {

@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
-import { getSetting } from '../../db/repo'
+import { getOwnWords, getSetting } from '../../db/repo'
 import type { OptionalPurpose } from '../../db/types'
 import { buildInfo, formatBuildInfo } from '../../lib/buildInfo'
 import { shortDate, toDateKey } from '../../lib/dates'
@@ -13,6 +13,7 @@ import { BackupCard } from './BackupCard'
 import { DeleteAllCard } from './DeleteAllCard'
 import { EveningSettings } from './EveningSettings'
 import { ExportCard } from './ExportCard'
+import { OwnWords } from './OwnWords'
 import { RemindersCard } from './RemindersCard'
 import { StorageCard } from './StorageCard'
 import { useReminderSettings } from './useReminderSettings'
@@ -20,6 +21,7 @@ import { useReminderSettings } from './useReminderSettings'
 const PAGES = {
   reminders: 'Reminders',
   evening: 'Evening question',
+  words: 'Your feeling words',
   backup: 'Backup and restore',
   export: 'Spreadsheet export',
   phone: 'This phone',
@@ -44,6 +46,7 @@ function MorePage({ page }: { page: Page }) {
       <h1>{PAGES[page]}</h1>
       {page === 'reminders' ? <RemindersPage /> : null}
       {page === 'evening' ? <EveningSettings /> : null}
+      {page === 'words' ? <OwnWords /> : null}
       {page === 'backup' ? <BackupCard /> : null}
       {page === 'export' ? <ExportCard /> : null}
       {page === 'phone' ? <StorageCard /> : null}
@@ -67,10 +70,11 @@ function useListStatus() {
     void isPersisted().then(setPersisted)
   }, [])
   const stored = useLiveQuery(async () => {
-    const [reminders, purposes, lastExportAt] = await Promise.all([
+    const [reminders, purposes, lastExportAt, own] = await Promise.all([
       getSetting<unknown>('reminders', null),
       getSetting<readonly OptionalPurpose[]>('purposes', DEFAULT_PURPOSES),
       getSetting<number | null>('lastExportAt', null),
+      getOwnWords(),
     ])
     const plan = normalizeReminderPlan(reminders, toDateKey(new Date()))
     const on = (Object.keys(REMINDER_NAMES) as (keyof typeof REMINDER_NAMES)[]).filter((k) => plan[k].on).map((k) => REMINDER_NAMES[k])
@@ -78,6 +82,7 @@ function useListStatus() {
       reminders: on.length ? on.join(' · ') : 'Off',
       evening: purposes.length ? purposes.map((p) => PURPOSES[p].label).join(' · ') : 'Know myself and joy',
       backup: lastExportAt ? `Last: ${shortDate(lastExportAt)}` : 'No backup yet',
+      words: own.length ? own.map((w) => w.word).join(' · ') : 'None yet',
     }
   }, [])
   if (stored === undefined || persisted === undefined) return undefined
@@ -93,6 +98,7 @@ function MoreList() {
   const rows: { page: Page; status?: string }[] = [
     { page: 'reminders', status: status.reminders },
     { page: 'evening', status: status.evening },
+    { page: 'words', status: status.words },
     { page: 'backup', status: status.backup },
     { page: 'export' },
     { page: 'phone', status: status.phone },

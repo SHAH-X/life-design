@@ -8,9 +8,9 @@ import { restoreSeed } from './seed'
 const BUDGETS = {
   'Today, a logged day [96]': 60,
   'New activity: what [90 for the whole form]': 25,
-  'New activity: energy': 25,
-  'New activity: into it, time flew': 25,
-  'New activity: why': 25,
+  'New activity: what it was like (10 answer words)': 25,
+  'New activity: how it left you (10 answer words)': 25,
+  'New activity: anything else': 25,
   'Review home [47]': 30,
   'Review: at a glance [114]': 90,
   'Review: moments [255]': 80,
@@ -66,14 +66,16 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
   await sheet.getByLabel('What did you do?').fill('Choir rehearsal')
   await sheet.getByRole('button', { name: 'Next' }).click()
   await settled(page)
-  await measure('New activity: energy', sheet)
-  await sheet.getByRole('button', { name: 'Gave a lot', exact: true }).click()
-  await sheet.getByRole('button', { name: 'Fully', exact: true }).click()
-  await measure('New activity: into it, time flew', sheet)
-  await sheet.getByRole('button', { name: 'Yes', exact: true }).click()
+  await measure('New activity: what it was like (10 answer words)', sheet)
+  await sheet.getByRole('button', { name: 'Absorbed', exact: true }).click()
+  await sheet.getByRole('button', { name: 'Next' }).click()
+  await settled(page)
+  await measure('New activity: how it left you (10 answer words)', sheet)
+  await sheet.getByRole('button', { name: 'Energised', exact: true }).click()
+  await sheet.getByRole('button', { name: 'Next' }).click()
   await expect(sheet.getByRole('button', { name: 'Save' })).toBeVisible()
   await settled(page)
-  await measure('New activity: why', sheet)
+  await measure('New activity: anything else', sheet)
   await sheet.getByRole('button', { name: 'Close' }).click()
 
   await page.goto('./#/review')

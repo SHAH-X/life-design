@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
-import type { Period } from '../../analysis/stats'
+import { balancePicks, type Period } from '../../analysis/stats'
 import { deleteReview, newReview, saveReview } from '../../db/repo'
-import { BALANCE_AREAS } from '../../db/types'
+import type { Review } from '../../db/types'
 import { addDays, dayHeading, formatDateKey, formatPeriod, isDateKey, toDateKey } from '../../lib/dates'
 import { navigate } from '../../lib/route'
 import { describeReviewSchedule } from '../../reviews/period'
@@ -9,6 +9,14 @@ import { BALANCE_INFO } from '../../reviews/prompts'
 import type { ReviewStatus } from '../../reviews/useReviewStatus'
 
 type Choice = 'default' | '7' | '14' | '30' | 'custom'
+
+/** "Alive: Work · Neglected: Play" (older 0–10 reviews: their highest and lowest). */
+function picksLine(review: Review): string {
+  const { alive, neglected } = balancePicks(review)
+  return [alive ? `Alive: ${BALANCE_INFO[alive].label}` : '', neglected ? `Neglected: ${BALANCE_INFO[neglected].label}` : '']
+    .filter(Boolean)
+    .join(' · ')
+}
 
 export function ReviewHome({ status }: { status: ReviewStatus }) {
   const today = toDateKey(new Date())
@@ -149,9 +157,7 @@ export function ReviewHome({ status }: { status: ReviewStatus }) {
                 <button type="button" className="review-item" onClick={() => navigate('review', r.id)}>
                   <span className="review-period">{formatPeriod(r.periodStart, r.periodEnd)}</span>
                   {r.takeaway ? <span className="review-takeaway">{r.takeaway}</span> : null}
-                  <span className="review-balance muted small">
-                    {BALANCE_AREAS.map((a) => `${BALANCE_INFO[a].label} ${r.balance[a] ?? '–'}`).join(' · ')}
-                  </span>
+                  <span className="review-balance muted small">{picksLine(r)}</span>
                 </button>
               </li>
             ))}

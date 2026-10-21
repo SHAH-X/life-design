@@ -25,6 +25,8 @@ const draft = (over: Partial<EntryDraft> = {}): EntryDraft => ({
   where: [' Home', 'home ', ''],
   people: [],
   objects: [],
+  during: ['Curious', ' curious ', 'Absorbed'],
+  after: ['Calm'],
   note: ' lovely ',
   ...over,
 })
@@ -34,6 +36,12 @@ beforeEach(async () => {
 })
 
 describe('entries', () => {
+  it('keeps the feeling words as chosen, tidied', () => {
+    const e = buildEntry(draft(), undefined, new Date('2026-10-21T20:00:00'))
+    expect(e.during).toEqual(['Curious', 'Absorbed'])
+    expect(e.after).toEqual(['Calm'])
+  })
+
   it('tidies text and removes repeated chips', () => {
     const e = buildEntry(draft(), undefined, new Date(2026, 9, 21, 20))
     expect(e.activity).toBe('Read a novel')

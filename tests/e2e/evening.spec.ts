@@ -19,7 +19,7 @@ test('the evening question saves as you type, can be swapped until answered, and
   const first = (await question.textContent()) ?? ''
   expect(first).toMatch(/\?$/)
 
-  await field.getByRole('button', { name: '↻ Another' }).click()
+  await field.getByRole('button', { name: 'Another question' }).click()
   await expect(question).not.toHaveText(first)
   const second = (await question.textContent()) ?? ''
 
@@ -28,7 +28,7 @@ test('the evening question saves as you type, can be swapped until answered, and
 
   await field.locator('textarea').fill('Naming it helped')
   await expect(field.getByText('Saved')).toBeVisible()
-  await expect(field.getByRole('button', { name: '↻ Another' })).toHaveCount(0) // answered: it stays
+  await expect(field.getByRole('button', { name: 'Another question' })).toHaveCount(0) // answered: it stays
 
   await page.reload()
   await expect(eveningQuestion(page).locator('label.question-text')).toHaveText(second)

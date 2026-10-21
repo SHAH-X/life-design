@@ -104,6 +104,8 @@ describe('questions from your own days', () => {
       where: [],
       people: [],
       objects: [],
+      during: [],
+      after: [],
       note: '',
       source: 'evening',
       createdAt: n,
@@ -127,13 +129,16 @@ describe('questions from your own days', () => {
     entry(21, 'Old chore', -2),
     entry(22, 'Old chore', -2),
   ]
-  const review = (play: number): Review => {
+  const review = (periodEnd: string, neglected: Review['neglected']): Review => {
     const note = { entryId: null, activities: '', environments: '', interactions: '', objects: '', users: '', why: '' }
     return {
-      id: `r${play}`,
-      periodStart: '2026-10-12',
-      periodEnd: '2026-10-18',
-      balance: { health: 7, work: 6, play, love: 8 },
+      id: periodEnd,
+      periodStart: periodEnd,
+      periodEnd,
+      balance: { health: null, work: null, play: null, love: null },
+      alive: 'work',
+      neglected,
+      balanceWhy: '',
       best: note,
       worst: note,
       reflection: '',
@@ -143,18 +148,19 @@ describe('questions from your own days', () => {
       updatedAt: 1,
     }
   }
+  const playLow = [review('2026-10-11', 'play'), review('2026-10-18', 'play')]
 
   it('finds what drained you, what gave you energy, where time flew, and a low balance area', () => {
-    expect(findPatterns(today, entries, [review(3)], []).map((p) => [p.id, p.question])).toEqual([
+    expect(findPatterns(today, entries, playLow, []).map((p) => [p.id, p.question])).toEqual([
       ['pattern:drain:commute', 'Commute took your energy 3 times lately. What about it drains you?'],
       ['pattern:energy:deep work', 'Deep work keeps giving you energy. What is it about it?'],
       ['pattern:flow:deep work', 'Time flew during deep work twice lately. What made that possible?'],
-      ['pattern:balance:play', "Play has been low in your reviews. What's one small thing that would help?"],
+      ['pattern:balance:play', "Play has felt neglected in each of your last 2 reviews. What's one small thing that would help?"],
     ])
   })
 
-  it('needs a real pattern: nothing from today, nothing older than two weeks, no balance above 4', () => {
-    const found = findPatterns(today, entries, [review(6)], [])
+  it('needs a real pattern: nothing from today, nothing older than two weeks, an area neglected more than once', () => {
+    const found = findPatterns(today, entries, [review('2026-10-11', 'play'), review('2026-10-18', 'health')], [])
     expect(found.some((p) => /team meeting|old chore/i.test(p.question))).toBe(false)
     expect(found.some((p) => p.kind === 'balance')).toBe(false)
   })

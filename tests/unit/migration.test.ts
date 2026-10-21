@@ -25,7 +25,7 @@ describe('database upgrade', () => {
     expect(await upgraded.entries.get('kept')).toMatchObject({ activity: 'Choir rehearsal' })
     expect(await upgraded.days.get('2026-10-20')).toMatchObject({ smallJoy: 'Fresh bread' })
     expect(await upgraded.reviews.count()).toBe(0)
-    expect(upgraded.verno).toBe(3)
+    expect(upgraded.verno).toBe(4)
     await upgraded.delete()
   })
 
@@ -67,7 +67,49 @@ describe('database upgrade', () => {
     expect(review?.updatedAt).toBe(7) // an upgrade is not an edit
     expect(await upgraded.entries.get('kept')).toMatchObject({ activity: 'Choir rehearsal' })
     expect(await upgraded.answers.count()).toBe(0)
-    expect(upgraded.verno).toBe(3)
+    expect(upgraded.verno).toBe(4)
+    await upgraded.delete()
+  })
+
+  it('gives entries and reviews from a Phase 2.5 phone empty feeling words and balance picks, changing nothing else', async () => {
+    const name = `upgrade-${crypto.randomUUID()}`
+    const phase25 = new Dexie(name)
+    phase25.version(1).stores({
+      entries: 'id, date, createdAt, updatedAt',
+      days: 'date, updatedAt',
+      ikigaiItems: 'id, updatedAt',
+      odysseyPlans: 'id, slot, updatedAt',
+      settings: 'key',
+    })
+    phase25.version(2).stores({ reviews: 'id, periodEnd, updatedAt' })
+    phase25.version(3).stores({ answers: 'id, date, updatedAt' })
+    await phase25.table('entries').put({ id: 'e1', date: '2026-10-20', activity: 'Choir rehearsal', energy: 2, engagement: 5, flow: true, updatedAt: 9, createdAt: 1 })
+    const note = { entryId: null, activities: '', environments: '', interactions: '', objects: '', users: '', why: '' }
+    await phase25.table('reviews').put({
+      id: 'r1',
+      periodStart: '2026-10-12',
+      periodEnd: '2026-10-18',
+      balance: { health: 6, work: 5, play: 3, love: 8 },
+      best: note,
+      worst: note,
+      reflection: '',
+      takeaway: 'Protect mornings',
+      completedAt: 5,
+      createdAt: 1,
+      updatedAt: 7,
+    })
+    phase25.close()
+
+    const upgraded = openDb(name)
+    expect(await upgraded.entries.get('e1')).toMatchObject({ during: [], after: [], energy: 2, engagement: 5, flow: true, updatedAt: 9 })
+    expect(await upgraded.reviews.get('r1')).toMatchObject({
+      alive: null,
+      neglected: null,
+      balanceWhy: '',
+      balance: { play: 3 },
+      updatedAt: 7,
+    })
+    expect(upgraded.verno).toBe(4)
     await upgraded.delete()
   })
 })

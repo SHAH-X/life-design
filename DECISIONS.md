@@ -15,12 +15,12 @@ Last updated: 2026-10-21
 | Fork Nomie 5 | — | REJECT | Inactive since 2021; no Designing Your Life tools |
 | Daily capture | Evening review of 3–6 activities, plus quick-add anytime | ADOPT | Close to Kahneman's Day Reconstruction Method: low effort, good for patterns |
 | Random check-in pings | — | REJECT | Highest effort and needs push notifications (possible later as an opt-in) |
-| Rating scales | Engagement 1–5, energy −2…+2, flow yes/no, asked in plain words with every answer worded (see Phase 2.5) | ADOPT | Fast taps on a phone; v1's 0–10 and −5…+5 values are converted on import |
-| No default ratings | No answer is preselected; each question waits for a tap | ADOPT | A preset value nudges the answer (anchoring) |
+| Rating scales | None since Phase 2.6. Engagement 1–5, energy −2…+2 and flow are worked out on the phone from the feeling words chosen, stored for analysis, never shown (see Phase 2.6) | ADOPT | Owner: no ratings, natural responses. v1's 0–10 and −5…+5 values are still converted on import |
+| Nothing preselected | No feeling word is preselected; each word question waits for a tap | ADOPT | A preset answer nudges the answer (anchoring) |
 | Late logging | Any earlier day can be logged (e.g. yesterday, the next morning) | ADOPT | Evening reviews get missed; reconstructing the next morning still works |
 | Entry detail | Where / with whom / using (AEIOU) are optional, behind one tap on the last screen | ADOPT | Keeps a basic entry to about 15 seconds |
 | Note | Asked right after the two ratings, worded from them ("What took your energy?", "What gave you energy?", "What kept you into it?", otherwise "Anything that stood out?"), optional | ADOPT | Phase 2.5: the why now follows the how, one screen after naming the activity. Before (Phase 1, owner's request) it sat under "What did you do?"; the aim, explaining while it's fresh, is kept |
-| Rating explanations | ⓘ next to both questions opens a short explanation | ADOPT | Owner's request: rate consistently. Engagement = attention; energy = how you came out of it |
+| Question explanations | ⓘ next to both feeling-word questions explains what each asks (attention while doing it; how you came out of it) | ADOPT | Owner's request (Phase 1): answer consistently |
 | Ikigai | Both lenses: 4-circle map plus a daily "small joy" line | ADOPT | The Venn diagram is a 2014 Western adaptation; the Japanese sense is everyday |
 | Designing Your Life tools | Health/Work/Play/Love gauges, Workview + Lifeview, Prototype tracker, AEIOU deep-dive | ADOPT | Completes the loop: notice → imagine → prototype |
 
@@ -69,15 +69,15 @@ Last updated: 2026-10-21
 
 | Area | Decision | Status | Why |
 |---|---|---|---|
-| Review steps | 1 At a glance (numbers, energy and engagement charts, high and low points, small joys) → 2 Balance (Health, Work, Play, Love, 0–10) → 3 Best and worst moments, one question each (AEIOU behind "Zoom in" since Phase 2.5) → 4 Your reflection first, then one takeaway → 5 Finish (with a backup nudge if the last backup is 7+ days old) | ADOPT | Designing Your Life's weekly reflection. The AI step slots in after the reflection in Phase 4; prototype updates arrive with Phase 3's prototype tracker |
+| Review steps | 1 At a glance (counts, energy and into-it charts in words, high and low points, small joys, evening answers) → 2 Balance: most alive and most neglected, plus why (Phase 2.6; was 0–10) → 3 Best and worst moments, one question each (AEIOU behind "Zoom in" since Phase 2.5) → 4 Your reflection first, then one takeaway → 5 Finish (with a backup nudge if the last backup is 7+ days old) | ADOPT | Designing Your Life's weekly reflection. The AI step slots in after the reflection in Phase 4; prototype updates arrive with Phase 3's prototype tracker |
 | Review period | Default: since the last review; otherwise one schedule length back, never before logging began. Can be changed to 7, 14 or 30 days, or custom dates | ADOPT | Each review covers exactly the days not yet reviewed |
 | Review due | The first scheduled day after the last review's period (or after logging began); a notice on Today and the Review tab | ADOPT | No background notifications in a PWA, so the app tells you when you open it; the calendar reminder covers the rest |
 | Drafts | A review saves as you go; it can be continued or discarded later | ADOPT | Reviews take about 10 minutes and get interrupted |
 | Best and worst moments | Pre-selected (most and least energy, then engagement), changeable; AEIOU pre-filled from the entry's where, with whom and using | ADOPT | Saves typing; you correct rather than start from blank |
 | High and low points in the review | One line per activity with how often it happened, ranked by its strongest moment | ADOPT | The same activity three times in a row told you nothing new |
 | Insights period | One filter (7 / 30 / 90 days / all, default 30) above everything; every number and chart follows it | ADOPT | Numbers always agree with each other (dataviz rule) |
-| Minimum count | Activities, places, people and so on are ranked only after 3+ entries; every average shows its count | ADOPT | One or two entries are anecdotes, not patterns |
-| Charts | Energy: columns above or below zero; how into it (engagement): its own chart, shown one at a time with an Energy / Into it switch since Phase 2.5 (never a second scale on the same chart); tap a column for its value; every chart has a table view | ADOPT | Dataviz rules: one axis per chart, tooltips never the only way to read a value |
+| Minimum count | Activities, places, people and so on are ranked only after 3+ entries; every result says how many times | ADOPT | One or two entries are anecdotes, not patterns |
+| Charts | Energy: columns above or below zero; how into it: its own chart, one at a time with an Energy / Into it switch (never a second scale on one chart). Since Phase 2.6 the axes, readout and table speak in words ("gives / takes", "mostly energising") | ADOPT | Dataviz rules: one axis per chart, a readout and table view, never colour alone |
 | Energy colours | Blue = gives energy, red = drains, everywhere (charts, badges, rating buttons); engagement = aqua | ADOPT | Green/red is unreadable with red-green colour blindness; blue/red is the validated diverging pair. Aqua passed the checks with a colour-blind and contrast warning, covered by chart titles, axis labels, readout and table |
 | Orange for engagement | — | REJECT | Failed the validator next to red (ΔE 7.1; the minimum is 15) |
 | Violet for engagement | — | REJECT | Failed the validator next to blue |
@@ -91,13 +91,13 @@ Owner feedback after Phase 2: logging felt like filling in a form, "Engagement" 
 
 | Area | Decision | Status | Why |
 |---|---|---|---|
-| Measured questions | "Did it give you energy, or take it?" (Took a lot · Took a little · Neither · Gave a little · Gave a lot); "How into it were you?" (Not at all · A little · Somewhat · Very · Fully); "Did time fly?" only after Very or Fully. Same stored values as before | ADOPT | Fully worded scales are answered more reliably than numbered ones (Alwin 2007; Saris & Gallhofer 2007). Wording stays fixed so days compare (ESM-Q, 2025). Matches the Good Time Journal's own engagement / energy / "time flew" |
-| Logging flow | One question per screen; tapping an answer moves on; a recent activity is one tap; editing shows every answer on one screen | TEST | One question per page works best on phones (GOV.UK, NHS design systems). Owner's choice |
+| Measured questions (worded scales) | "Did it give you energy, or take it?" (Took a lot … Gave a lot) and "How into it were you?" (Not at all … Fully) | REJECT | Replaced in Phase 2.6: even worded scales are ratings; the owner wants natural responses |
+| Logging flow | One question per screen: what you did → what it was like (words) → how it left you (words) → anything else; a recent activity is one tap; editing shows everything on one screen | TEST | One question per page works best on phones (GOV.UK, NHS design systems). Owner's choice |
 | Tap guard | A question that replaces another ignores taps for 300 ms (answers marked aria-disabled), so a fast double tap can't answer it | ADOPT | The "nothing moves under the finger" rule |
-| Today's list | Energy as ▲▲ ▲ – ▼ ▼▼ in blue or red, how into it as five dots, ✦ when time flew; VoiceOver hears words. The answers show the same signs | ADOPT | Same information with fewer numbers; the signs explain themselves where you answer |
+| Today's list as signs | ▲▲ ▲ – ▼ ▼▼ and five dots | REJECT | Replaced in Phase 2.6: rows show the feeling words themselves ("absorbed · time flew · energised") |
 | Evening card | The small joy stays every day, plus one optional question that changes each evening and can be swapped (↻ Another) until it's answered | TEST | Owner's choice. Variety goes where it helps reflection, not into the measured questions |
 | Purposes | Know myself and joy always; Feel calmer, Grow, Reach a goal and Learn can be switched off (all on). The goal is set in More → Evening question; goal questions wait until it is | ADOPT | Owner's choice. Methods: naming feelings (Lieberman 2007) and expressive writing; After Action Review; Progress Principle (Amabile & Kramer) and if-then plans (Gollwitzer & Sheeran 2006); What? So what? Now what? (Rolfe 2001); Three Good Things (Seligman et al. 2005) |
-| Questions from your own days | About every third evening: a pattern from the previous two weeks (what drained you, what gave you energy, when time flew, a balance area at 4/10 or lower). Worked out on the phone, no AI; not asked again within 14 days of answering | ADOPT | A question about your own life draws out a real answer; nothing leaves the phone |
+| Questions from your own days | About every third evening: a pattern from the previous two weeks (what drained you, what gave you energy, when time flew, an area felt neglected in 2+ recent reviews). Worked out on the phone, no AI; not asked again within 14 days of answering | ADOPT | A question about your own life draws out a real answer; nothing leaves the phone |
 | Evening answers data | Stored with the question asked (database version 3, backup format version 3). Each review moment gains a "why" | ADOPT | Old backups still restore (reviews get an empty "why"); older app versions refuse version 3 files |
 | Review moments | One question per moment ("What made it so good?" / "What made it so draining?"); AEIOU behind "Zoom in", pre-filled as before | ADOPT | Ten text boxes felt like a form |
 | More | A short list; each setting on its own page (#/more/reminders, …) | ADOPT | More was 460 words long |
@@ -107,6 +107,49 @@ Owner feedback after Phase 2: logging felt like filling in a form, "Engagement" 
 | One-tap two-way grid (Affect Grid) | — | REJECT | Coarse, and has to be learned |
 | UI kit (Konsta UI) | — | REJECT | Needs Tailwind and a restyle of every screen; a few dozen lines of CSS do the job |
 | Open journaling-prompt archive (CC BY-SA) | — | REJECT | Share-alike would bind this repo's licence; no other open prompt set found, so prompts are written from the methods above |
+
+## Natural responses, no ratings (Phase 2.6)
+
+Owner feedback on v0.4.0: "I don't want any rating to be given (no numbers); it should all be assessed with natural response", and look at what users of other journaling apps value and complain about.
+
+| Area | Decision | Status | Why |
+|---|---|---|---|
+| Describing an activity | Two feeling-word questions, tap as many as fit: "What was it like?" (Absorbed · Focused · Curious · Challenged · Time flew · Fine · Distracted · Restless · Bored) and "How did it leave you?" (Energised · Inspired · Proud · Calm · Satisfied · Same as before · Tired · Frustrated · Stressed · Drained), each with "+ your own word" | TEST | Owner's choice. Users ask to describe feelings in their own words but find a list helps when unsure (JMIR 2020, 1,803 reviews); naming feelings precisely is linked to better coping (Kashdan, Barrett & McKnight 2015) |
+| Working it out | On the phone, from one table of weights (`src/domain/feelings.ts`): how into it = average of the words; energy = the words added up within −2…+2; time flew = "Time flew". Stored for analysis, never shown | ADOPT | Keeps every pattern working with no AI and nothing leaving the phone |
+| Your own words | Added with one plain question ("Were you into it?" / "Did it give you energy or take it?"), offered again next time (up to 6 per question), removable in More → Your feeling words | ADOPT | Users want their own emotion words (JMIR 2020: flexibility, 20% of reviews) |
+| Words in your note | The note picks out feelings it mentions ("wiped out" → drained, "lost track of time" → time flew), skipping negations ("not bored"), as tap-to-add suggestions | ADOPT | Lets you answer in your own words; it suggests, you decide |
+| Results in words | "Gives you energy: Deep work, usually · 5 times"; tiles "Logged on 5 days", "Mostly energising / draining / Mixed"; charts read in words. Counts stay; no "of 30" | ADOPT | Owner's choice ("words everywhere"); "5 of 30" read like failing (streak-anxiety findings) |
+| Balance | "Which part of life feels most alive right now?" and "Which feels most neglected?" (one area each, not both), plus why. Insights and pattern questions tally them; older 0–10 reviews count by their highest and lowest | ADOPT | Owner's choice; captures what the Designing Your Life dashboard is for (imbalance) without a scale |
+| Guard | `no-scores.spec.ts` fails if a score pattern appears on the main screens | ADOPT | Stops ratings creeping back |
+| Data | Entries gain the words chosen; reviews gain alive / neglected / why. Database version 4 fills the new fields on existing records (a change from the plan, which had no database bump: it guarantees every record has them); backup format unchanged, older files restore with the fields filled in | ADOPT | Nothing lost in either direction |
+| Word budgets | The two word screens fit the existing 25 words (22 and 25 measured), so the planned raise to 30 wasn't needed. Today 60 at most | ADOPT | Kept strict |
+| Asking the AI to read every entry | — | REJECT | Each entry would leave the phone as you save it; breaks the founding privacy rule |
+| On-device emotion model | — | REJECT | 67–124 MB download, uncertain on iPhone Safari, and it reads emotions, not energy or attention |
+
+### What other apps teach (market research, 2026-10-21)
+
+Most valued: quick logging; your own words alongside a word list; patterns that link mood to activities; looking back at old entries; free, reliable, exportable, private; learning to name feelings; help acting on what you learn. Sources: JMIR mHealth 2020 (1,803 reviews of 53 mood apps), Caldeira et al. (32 mood apps), a 2026 analysis of low-star reviews of Day One, Journey, Reflectly, Stoic and Finch, App Store review summaries for Daylio, Apple Journal, How We Feel, Rosebud and Bearable, Mozilla's mental-health app privacy review, and 2026 AI-trust surveys.
+
+| Idea | Status | Why |
+|---|---|---|
+| Looking back ("a month ago you wrote…") in the review | TEST (Phase 3) | Day One's On This Day; rereading entries helps (JMIR 2020) |
+| Small experiments from patterns (prototype tracker) | TEST (Phase 3) | Mood apps rarely help you act on what you learn (Caldeira et al.) |
+| Readable export of the whole journal; shareable review summary | TEST (Phase 4) | Lock-in and missing export are common complaints; users value sharing with a clinician |
+| Search across entries, answers and reviews | TEST (Phase 5) | Apple Journal's most-cited gap |
+
+**Never** (standing rules; check every new feature against them):
+
+| Never | Why |
+|---|---|
+| Paywalls or subscriptions | The one complaint found for every major journaling app |
+| Streaks, guilt or "x of 30" | Lost streaks and streak anxiety make people quit (Finch reviews, habit-app research) |
+| Nagging notifications | Reflectly, Finch and Stoic reviews; reminders here are calendar alerts you set |
+| Emoji moods | "Too generic to be meaningful" (depression-app review study) |
+| Game loops (pets, points, energy meters) | "A mobile-game loop rather than self-care" (Finch reviews) |
+| Anything leaving the phone without a tap | Mozilla flagged 29 of 32 mental-health apps; only 18% of people trust AI with their data (2026) |
+| Data loss | Sync failures and data-loss scares are the most serious 1-star theme; every upgrade is tested on a real old database |
+| Crowded screens or long setup | Bearable users felt overwhelmed; word budgets guard this |
+| Repeating prompts | Reflectly's prompts "cycle back"; ours don't repeat within 30 days |
 
 ## To prove on a real iPhone
 
@@ -118,6 +161,8 @@ Owner feedback after Phase 2: logging felt like filling in a form, "Engagement" 
 | A review end to end; Insights; data kept through the update to v0.3 | 2 | TEST |
 | Logging one question at a time feels quick; the double-tap guard never gets in the way | 2.5 | TEST |
 | Evening question: answers save, ↻ Another, goal questions after setting a goal; data kept through the update to v0.4 | 2.5 | TEST |
+| Describing activities with feeling words feels natural and quick; old entries show words; your own word; a note's feelings offered | 2.6 | TEST |
+| Review balance as most alive / most neglected; Insights read in words | 2.6 | TEST |
 | Share to the Claude app; attach a downloaded review file | 4 | TEST |
 
 ## Corrections to the earlier v1 notes

@@ -87,6 +87,8 @@ export function convertV1(input: V1Backup, now: Date = new Date()): V1Conversion
       where: [],
       people: [],
       objects: [],
+      during: [],
+      after: [],
       note: '',
       source: 'import',
       createdAt: created,

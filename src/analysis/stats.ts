@@ -1,6 +1,6 @@
 // Patterns in the journal, computed on the phone (no AI). Small numbers mislead, so groups need at
 // least MIN_COUNT entries before they are ranked, and every average comes with its count.
-import type { Balance, BalanceArea, Day, Entry, Review } from '../db/types'
+import type { BalanceArea, Day, Entry, Review } from '../db/types'
 import { BALANCE_AREAS } from '../db/types'
 import { addDays, DAY_PARTS, fromDateKey, toDateKey, weekdayName } from '../lib/dates'
 
@@ -51,6 +51,9 @@ export interface GroupStat {
   avgEnergy: number
   avgEngagement: number
   flow: number
+  /** Times it gave energy, and times it took energy (for "usually", "often"…). */
+  gave: number
+  took: number
 }
 
 /** Groups entries by one or more labels each (case-insensitive); the label shown is the most recent spelling. */
@@ -77,6 +80,8 @@ function group(entries: readonly Entry[], labelsOf: (e: Entry) => string[]): Gro
     avgEnergy: mean(items.map((e) => e.energy)) ?? 0,
     avgEngagement: mean(items.map((e) => e.engagement)) ?? 0,
     flow: items.filter((e) => e.flow).length,
+    gave: items.filter((e) => e.energy > 0).length,
+    took: items.filter((e) => e.energy < 0).length,
   }))
 }
 
@@ -234,33 +239,46 @@ export function joyWords(days: readonly Day[], limit = 8): { word: string; count
     .map(([word, count]) => ({ word, count }))
 }
 
-export interface BalanceSummary {
-  latest: { periodEnd: string; balance: Balance } | null
-  previous: { periodEnd: string; balance: Balance } | null
-  /** The area with the lowest average over the last four completed reviews. */
-  lowest: { area: BalanceArea; avg: number } | null
-  history: { periodEnd: string; balance: Balance }[]
+export interface BalanceTally {
+  /** Finished reviews counted (the last four). */
+  reviews: number
+  mostAlive: { area: BalanceArea; count: number } | null
+  mostNeglected: { area: BalanceArea; count: number } | null
+  /** The latest finished review's picks. */
+  latest: { alive: BalanceArea | null; neglected: BalanceArea | null } | null
 }
 
-export function balanceSummary(reviews: readonly Review[]): BalanceSummary {
-  const done = reviews
-    .filter((r) => r.completedAt !== null && BALANCE_AREAS.some((a) => r.balance[a] !== null))
-    .sort((a, b) => a.periodEnd.localeCompare(b.periodEnd))
-    .map((r) => ({ periodEnd: r.periodEnd, balance: r.balance }))
-  const recent = done.slice(-4)
-  let lowest: BalanceSummary['lowest'] = null
-  for (const area of BALANCE_AREAS) {
-    const avg = mean(recent.flatMap((r) => (r.balance[area] === null ? [] : [r.balance[area] as number])))
-    if (avg !== null && (lowest === null || avg < lowest.avg)) lowest = { area, avg }
+/** Most alive and most neglected: a review's own picks, or for an older 0–10 review its single highest and lowest. */
+export function balancePicks(review: Review): { alive: BalanceArea | null; neglected: BalanceArea | null } {
+  if (review.alive !== null || review.neglected !== null) return { alive: review.alive, neglected: review.neglected }
+  const rated = BALANCE_AREAS.filter((a) => review.balance[a] !== null)
+  const only = (pick: (values: number[]) => number) => {
+    if (rated.length < 2) return null
+    const target = pick(rated.map((a) => review.balance[a] as number))
+    const areas = rated.filter((a) => review.balance[a] === target)
+    return areas.length === 1 ? (areas[0] as BalanceArea) : null
   }
-  return { latest: done.at(-1) ?? null, previous: done.at(-2) ?? null, lowest, history: done }
+  return { alive: only((v) => Math.max(...v)), neglected: only((v) => Math.min(...v)) }
 }
 
-/** "+1.4", "−0.5", "0.0" (true minus sign, one decimal). */
-export function formatSigned(value: number): string {
-  const rounded = Math.round(value * 10) / 10
-  if (rounded === 0) return '0.0'
-  return `${rounded > 0 ? '+' : '−'}${Math.abs(rounded).toFixed(1)}`
+/** How often each area felt most alive or most neglected over the last four finished reviews. */
+export function balanceTally(reviews: readonly Review[], last = 4): BalanceTally {
+  const done = reviews
+    .filter((r) => r.completedAt !== null)
+    .sort((a, b) => a.periodEnd.localeCompare(b.periodEnd))
+    .slice(-last)
+    .map(balancePicks)
+  const top = (key: 'alive' | 'neglected') => {
+    let best: { area: BalanceArea; count: number; lastSeen: number } | null = null
+    for (const area of BALANCE_AREAS) {
+      const indexes = done.map((p, i) => (p[key] === area ? i : -1)).filter((i) => i >= 0)
+      if (indexes.length === 0) continue
+      const candidate = { area, count: indexes.length, lastSeen: Math.max(...indexes) }
+      if (!best || candidate.count > best.count || (candidate.count === best.count && candidate.lastSeen > best.lastSeen)) best = candidate
+    }
+    return best ? { area: best.area, count: best.count } : null
+  }
+  return { reviews: done.length, mostAlive: top('alive'), mostNeglected: top('neglected'), latest: done.at(-1) ?? null }
 }
 
 export function todayKey(): string {

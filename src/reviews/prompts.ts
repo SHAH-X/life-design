@@ -8,6 +8,14 @@ export const BALANCE_INFO: Record<BalanceArea, { label: string; info: string }> 
   love: { label: 'Love', info: 'Connection: family, friends, a partner, community. The love you give and receive.' },
 }
 
+export const ALIVE_QUESTION = 'Which part of life feels most alive right now?'
+export const NEGLECTED_QUESTION = 'Which feels most neglected?'
+
+/** Behind the ⓘ on the balance step: what each part of life covers (Designing Your Life). */
+export const BALANCE_DEFINITIONS = (['health', 'work', 'play', 'love'] as const)
+  .map((area) => `${BALANCE_INFO[area].label}: ${BALANCE_INFO[area].info.charAt(0).toLowerCase()}${BALANCE_INFO[area].info.slice(1)}`)
+  .join(' ')
+
 export type AeiouField = Exclude<keyof AeiouNote, 'entryId' | 'why'>
 
 export const AEIOU: readonly { field: AeiouField; letter: string; label: string; prompt: string }[] = [
