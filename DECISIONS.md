@@ -19,10 +19,10 @@ Last updated: 2026-10-21
 | Nothing preselected | No feeling word is preselected; each word question waits for a tap | ADOPT | A preset answer nudges the answer (anchoring) |
 | Late logging | Any earlier day can be logged (e.g. yesterday, the next morning) | ADOPT | Evening reviews get missed; reconstructing the next morning still works |
 | Entry detail | Where / with whom / using (AEIOU) are optional, behind one tap on the last screen | ADOPT | Keeps a basic entry to about 15 seconds |
-| Note | Asked right after the two ratings, worded from them ("What took your energy?", "What gave you energy?", "What kept you into it?", otherwise "Anything that stood out?"), optional | ADOPT | Phase 2.5: the why now follows the how, one screen after naming the activity. Before (Phase 1, owner's request) it sat under "What did you do?"; the aim, explaining while it's fresh, is kept |
+| Note | Asked right after the two feeling-word questions, worded from them ("What took your energy?", "What gave you energy?", "What kept you into it?", otherwise "Anything that stood out?"), optional | ADOPT | Phase 2.5: the why now follows the how, one screen after naming the activity. Before (Phase 1, owner's request) it sat under "What did you do?"; the aim, explaining while it's fresh, is kept |
 | Question explanations | ⓘ next to both feeling-word questions explains what each asks (attention while doing it; how you came out of it) | ADOPT | Owner's request (Phase 1): answer consistently |
 | Ikigai | Both lenses: 4-circle map plus a daily "small joy" line | ADOPT | The Venn diagram is a 2014 Western adaptation; the Japanese sense is everyday |
-| Designing Your Life tools | Health/Work/Play/Love gauges, Workview + Lifeview, Prototype tracker, AEIOU deep-dive | ADOPT | Completes the loop: notice → imagine → prototype |
+| Designing Your Life tools | Health/Work/Play/Love balance (most alive, most neglected), Workview + Lifeview, Prototype tracker, AEIOU deep-dive | ADOPT | Completes the loop: notice → imagine → prototype |
 
 ## AI
 

@@ -13,7 +13,7 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 - The build runs in phases (see `DECISIONS.md`). Stop after each phase for the owner's OK.
 - Proof before "done": run `npm run typecheck`, `npm test` and `npm run test:e2e`, and quote the results. After a deploy, check the live URL. Anything that calls an outside API also gets a live check with fake data.
 - Bugs: write a failing test first, then fix.
-- When a decision changes, update `DECISIONS.md` in the same change.
+- When a decision changes, update `DECISIONS.md` in the same change, and search README, DECISIONS and CLAUDE for the old wording (e.g. `grep -in gauge`) so no mention is left stale. (Phase 2.6 replaced the balance gauges, but two rows and the README still described them until v0.7.)
 - Machine safety: never run `brew install` or `brew upgrade` without `--dry-run` first and the owner's OK.
 
 ## UI rules (each one came from a real bug)
