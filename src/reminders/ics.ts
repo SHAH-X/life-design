@@ -17,33 +17,8 @@ export interface IcsEvent {
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
-/** Every 15 minutes, 00:00 to 23:45. */
+/** Reminder times on offer: every 15 minutes, 00:00 to 23:45. */
 export const DAILY_TIMES: readonly string[] = Array.from({ length: 96 }, (_, i) => `${pad(Math.floor(i / 4))}:${pad((i % 4) * 15)}`)
-
-export const DEFAULT_DAILY_TIME = '21:00'
-
-export function isDailyTime(value: unknown): value is string {
-  return typeof value === 'string' && DAILY_TIMES.includes(value)
-}
-
-export function dailyLogFileName(time: string): string {
-  return `daily-log-${time.replace(':', '')}.ics`
-}
-
-export function dailyLogEvent(time: string, startDate: string, appUrl: string): IcsEvent {
-  return {
-    uid: `life-design-daily-log-${time.replace(':', '')}@shah-x.github.io`,
-    summary: 'Life Design: log your day',
-    description:
-      'Two minutes: what you did today, how engaged you were, and whether it gave or drained energy. Open Life Design from your Home Screen.',
-    url: `${appUrl}#/today`,
-    startDate,
-    startTime: time,
-    durationMinutes: 10,
-    rrule: 'FREQ=DAILY',
-    alarm: 'Time to log your day in Life Design',
-  }
-}
 
 export function escapeIcsText(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n')

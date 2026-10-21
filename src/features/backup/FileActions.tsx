@@ -13,7 +13,7 @@ interface Props {
  * No download link there: in an iPhone Home Screen app a download opens a viewer that can save the file wrongly.
  * Browsers without a share menu get a plain download.
  */
-export function FileActions({ file, saveLabel = 'Save to Files…', onSaved }: Props) {
+export function FileActions({ file, saveLabel = 'Save or share…', onSaved }: Props) {
   const [problem, setProblem] = useState<string | null>(null)
   const sharable = canShareFile(file)
 

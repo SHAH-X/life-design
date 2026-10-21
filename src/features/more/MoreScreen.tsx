@@ -4,12 +4,18 @@ import { DeleteAllCard } from './DeleteAllCard'
 import { ExportCard } from './ExportCard'
 import { RemindersCard } from './RemindersCard'
 import { StorageCard } from './StorageCard'
+import { useReminderSettings } from './useReminderSettings'
 
 export function MoreScreen() {
+  const reminders = useReminderSettings()
+
+  // Render only once the reminder settings have loaded, so the cards below never jump.
+  if (reminders === undefined) return <div className="loading" aria-busy="true" />
+
   return (
     <>
       <h1>More</h1>
-      <RemindersCard />
+      <RemindersCard settings={reminders} />
       <BackupCard />
       <StorageCard />
       <ExportCard />

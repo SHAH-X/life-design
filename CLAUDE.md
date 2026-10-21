@@ -20,7 +20,8 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 - Nothing may move under the user's finger: a screen renders only once its data has loaded, or keeps space reserved for content that arrives later. (Phase 1: a "Last backup" line loading late shifted the buttons, so a tap missed.)
 - A visually hidden native input (radio, checkbox, switch) must cover its whole tap target, so taps and tests reach it. (Phase 1: a 1px switch input couldn't be tapped.)
 - The e2e tests click straight after navigation on purpose. Keep it that way: it catches layout shifts.
-- Files leave the iPhone app only through the share menu, never a download link (in Home Screen apps a download opens a viewer that can save the file wrongly).
+- Files leave the iPhone app only through the share menu. Never a download link, and never a link or navigation to a file (.ics, data:, blob:). In the Home Screen app, "Add to Calendar" linking to an .ics file left the app on a blank screen with no way back. An e2e test guards this.
+- Inputs show the value being edited straight away from local state; saving happens in the background. Never bind an input directly to a value that comes back from the database: it snaps back mid-typing.
 - When the app refuses something (a file, a password), say exactly why and what to do next. A vague error cost a debugging round in Phase 1.
 - Every question in a form says what it means: a hint, a placeholder example, or an ⓘ explanation.
 

@@ -772,6 +772,90 @@ dialog.sheet::backdrop {
   font-weight: 600;
 }
 
+/* Reminders */
+
+.range {
+  margin: 12px 0 4px;
+}
+
+.range-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.range-row .inline-field {
+  margin: 0 0 4px;
+}
+
+.range-row input {
+  min-width: 0;
+}
+
+input[type='date']:disabled {
+  opacity: 0.45;
+}
+
+.inline-field {
+  display: block;
+  margin: 8px 0 4px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.inline-field > span {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.reminder-list {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+}
+
+.reminder-row {
+  padding: 4px 0 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Day and time side by side; "Repeats" takes its own row. */
+.reminder-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 10px;
+  padding: 0 0 6px;
+}
+
+.reminder-settings .full {
+  grid-column: 1 / -1;
+}
+
+.reminder-settings select,
+.reminder-settings input {
+  min-width: 0;
+}
+
+.summary {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.summary ul {
+  margin: 4px 0 8px;
+  padding-left: 18px;
+}
+
+.steps {
+  margin: 6px 0 10px;
+  padding-left: 22px;
+}
+
+.steps li {
+  margin-bottom: 6px;
+}
+
 .schedule {
   margin-top: 12px;
   padding: 10px 12px;

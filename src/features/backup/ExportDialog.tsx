@@ -91,7 +91,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Dialog title="Back up" onClose={onClose}>
-      <p>Saves one file with everything: activities, small joys, Ikigai, plans and settings.</p>
+      <p>Makes one file with everything: activities, small joys, Ikigai, plans and settings.</p>
 
       <Switch
         label="Protect with a password"
@@ -144,8 +144,8 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         <div className="top-gap">
           <FileActions file={ready.file} onSaved={() => void markSaved()} />
           <p className="muted small top-gap">
-            In the menu that opens, tap <strong>Save to Files</strong>, pick <em>On My iPhone</em> (or iCloud Drive), then{' '}
-            <strong>Save</strong>.
+            In the menu that opens, tap <strong>Save to Files</strong> (pick <em>On My iPhone</em> or iCloud Drive, then Save), or
+            send it by AirDrop, WhatsApp or email.
           </p>
         </div>
       ) : null}

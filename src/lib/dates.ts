@@ -34,6 +34,27 @@ export function addDays(key: string, days: number): string {
   return toDateKey(d)
 }
 
+/** Same day-of-month, n months later (clamped to the month's last day: 31 Jan + 1 month = 28 Feb). */
+export function addMonths(key: string, months: number): string {
+  const d = fromDateKey(key)
+  const day = d.getDate()
+  d.setDate(1)
+  d.setMonth(d.getMonth() + months)
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+  d.setDate(Math.min(day, lastDay))
+  return toDateKey(d)
+}
+
+/** "21 Oct 2026" for a YYYY-MM-DD key. */
+export function formatDateKey(key: string, locale?: string): string {
+  return fromDateKey(key).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+/** Weekday name for JavaScript's day number (0 = Sunday). 4 Jan 2026 was a Sunday. */
+export function weekdayName(day: number, locale?: string): string {
+  return new Date(2026, 0, 4 + day, 12).toLocaleDateString(locale, { weekday: 'long' })
+}
+
 export function partOfDay(d: Date): DayPart {
   const hour = d.getHours()
   if (hour >= 5 && hour < 12) return 'morning'

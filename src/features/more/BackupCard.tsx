@@ -26,7 +26,7 @@ export function BackupCard() {
       <div className="action-list">
         <button type="button" className="action primary" onClick={() => open('export')}>
           <span className="action-title">Back up now</span>
-          <span className="action-desc">Saves a copy of everything to the Files app.</span>
+          <span className="action-desc">Makes a file with everything. Save it to Files, or send it by AirDrop, WhatsApp or email.</span>
         </button>
         <button type="button" className="action" onClick={() => open('import')}>
           <span className="action-title">Restore from a backup file</span>

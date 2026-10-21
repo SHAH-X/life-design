@@ -20,14 +20,14 @@ test('a password-protected backup saved through the share sheet restores, emoji 
   await page.getByRole('button', { name: 'Back up now' }).click()
   const dialog = page.getByRole('dialog', { name: 'Back up' })
   // Without a password the file is ready straight away: one tap saves it.
-  await expect(dialog.getByRole('button', { name: 'Save to Files…' })).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Save or share…' })).toBeVisible()
   await expect(dialog.getByRole('button', { name: /Download/ })).toHaveCount(0)
 
   await dialog.getByRole('switch', { name: /Protect with a password/ }).check()
   await dialog.getByLabel('Password', { exact: true }).fill('Pa55 wörd—“quoted”')
   await dialog.getByLabel('Repeat password').fill('Pa55 wörd—“quoted”')
   await dialog.getByRole('button', { name: 'Protect the file' }).click()
-  await dialog.getByRole('button', { name: 'Save to Files…' }).click()
+  await dialog.getByRole('button', { name: 'Save or share…' }).click()
   await expect(dialog.getByText('✓ Backup saved.')).toBeVisible()
 
   const shared = await sharedFile(page)

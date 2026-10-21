@@ -34,7 +34,7 @@ Last updated: 2026-10-21
 | Server-side AI (Cloudflare Workers AI) | — | REJECT | Needs an extra service; its API rejects browser calls |
 | GitHub Models | — | REJECT | Retired on 30 July 2026 |
 | On-device AI in the browser | — | REJECT | Only 1–3B models fit on an iPhone; insights too shallow |
-| Review schedule | Weekly (default), monthly or every N days, plus "Review now" for any period | ADOPT | Owner's request |
+| Review schedule | Weekly (default), monthly or every N days, plus "Review now" for any period. Set in More → Reminders; the Review screen uses the same setting | ADOPT | Owner's request; one setting, so the reminder and the review always agree |
 | Review style | Auto: mirror (observations + questions) under 21 days, coach (conclusions + experiments) at 21 days or more; changeable per review | ADOPT | Over-automated reflection weakens your own insight (Reflective Agency, AIES 2025) |
 
 ## Data and privacy
@@ -58,8 +58,9 @@ Last updated: 2026-10-21
 |---|---|---|---|
 | Hosting | GitHub Pages from this public repo, built and deployed by GitHub Actions | ADOPT | Free; no server needed |
 | Cloudflare Workers | — | REJECT | An extra service that isn't needed |
-| Reminder wording | The screen spells out the schedule: every day at the chosen time, no end date, a 10-minute event with an alert, and how to change it | ADOPT | Owner couldn't tell what "Add to Calendar" would create |
-| Reminders | iPhone Calendar alerts. "Add to Calendar" opens a pre-built .ics file served by the website (one per 15-minute slot); fallbacks: a calendar file made on the phone and saved via the share sheet, or Reminders app steps | TEST | Calendar files generated inside Home Screen apps are reported to fail silently on iPhone; real files served as text/calendar open reliably in Safari. Proven on the owner's iPhone in phase 1 |
+| Reminder wording | A summary spells out every reminder in plain words plus the date range (e.g. "Daily log: Every day at 21:00 · From 21 Oct 2026 to 21 Oct 2027") | ADOPT | Owner couldn't tell what the calendar entry would be |
+| Reminders | More → Reminders: daily log, review (incl. AI review), backup and quarterly check-in, each with a switch, its own time and pattern; one date range for all (default: one year from today; quick picks 3/6/12 months or no end). "Get calendar file…" sends one .ics with all of them through the share menu: Mail to yourself, AirDrop to a Mac, or Save to Files. Reminders-app steps as a fallback | TEST | iPhone only adds calendar files from Safari or Mail, not from a Home Screen app. Waiting for the owner's iPhone test |
+| "Add to Calendar" link to a calendar file inside the app | — | REJECT | On the owner's iPhone it left the Home Screen app on a blank screen with no way back. Home Screen apps keep all navigation inside the app, and that view can't hand files to Calendar. An e2e test now fails if any link points at a file |
 | Web Push via a scheduler | — | REJECT | Needs a server; GitHub's scheduler can run late and stops after 60 days without repo activity |
 | Stack | Vite 8, React 19, TypeScript 7, vite-plugin-pwa 2, Dexie 4; hash routes; Vitest and Playwright (WebKit) | ADOPT | Maintained PWA tooling; routes never 404 on Pages |
 | Local Node | Node 22 LTS (Vite needs 22.12 or newer) | ADOPT | Same major as before on the owner's Mac |
@@ -70,7 +71,7 @@ Last updated: 2026-10-21
 |---|---|---|
 | Add to Home Screen, open offline | 0–1 | TEST |
 | Export via share sheet → Save to Files, then re-import | 1 | TEST |
-| Calendar alerts from the .ics file | 1 | TEST |
+| Reminders calendar file reaches Calendar via Mail, AirDrop to Mac, or Files | 1 | TEST |
 | Share to the Claude app; attach a downloaded review file | 4 | TEST |
 
 ## Corrections to the earlier v1 notes
