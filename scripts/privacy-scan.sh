@@ -1,8 +1,9 @@
 #!/bin/sh
 # Refuses a commit when staged files contain the owner's personal details. The patterns live in
 # private/scan-patterns.txt (git-ignored), so this public repo never holds them.
-# A scan that can't run must stop the commit, never pass it: in Phase 2 a mistyped `git grep` failed
-# and a fallback printed "none found", so one commit went out unchecked (nothing had leaked).
+# A scan that can't run must stop the commit, never pass it: for the very first commit (Phase 0) a
+# mistyped `git grep` failed and a fallback printed "none found", so it went out unchecked. A re-scan
+# of the whole history in Phase 2.5 found nothing had leaked.
 set -u
 cd "$(git rev-parse --show-toplevel)" || exit 2
 patterns=private/scan-patterns.txt
