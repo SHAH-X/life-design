@@ -35,8 +35,10 @@ test('the app shell loads, navigates, and is an installable offline-ready PWA', 
   })
 
   // A service worker takes control, which is what makes the app open offline.
-  const swState = await page.evaluate(async () => (await navigator.serviceWorker.ready).active?.state)
-  expect(swState).toBe('activated')
+  // `ready` resolves while the worker may still be "activating" (precaching over a slow network), so poll.
+  await expect
+    .poll(() => page.evaluate(async () => (await navigator.serviceWorker.ready).active?.state), { timeout: 20_000 })
+    .toBe('activated')
 
   expect(consoleErrors).toEqual([])
 })
