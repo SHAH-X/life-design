@@ -1,6 +1,7 @@
 import { buildInfo, formatBuildInfo } from '../../lib/buildInfo'
 import { BackupCard } from './BackupCard'
 import { DeleteAllCard } from './DeleteAllCard'
+import { ExportCard } from './ExportCard'
 import { RemindersCard } from './RemindersCard'
 import { StorageCard } from './StorageCard'
 
@@ -11,6 +12,7 @@ export function MoreScreen() {
       <RemindersCard />
       <BackupCard />
       <StorageCard />
+      <ExportCard />
       <section className="card">
         <h2>Your data</h2>
         <p>

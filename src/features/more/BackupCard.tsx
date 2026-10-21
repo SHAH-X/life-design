@@ -10,27 +10,27 @@ export function BackupCard() {
     return { last, changed: await countChangesSince(last) }
   }, [])
 
+  const status = info
+    ? `${info.last ? `Last backup: ${shortDate(info.last)}` : 'No backup yet'}${
+        info.changed > 0 ? ` · ${info.changed} ${info.changed === 1 ? 'change' : 'changes'} since` : ''
+      }`
+    : ' ' // keeps the line's space while loading, so the buttons below never shift
+
   return (
     <section className="card">
-      <h2>Backup</h2>
-      <p className="muted">Your journal lives only on this phone. A backup file is your safety copy if the phone is lost or replaced.</p>
-      {/* Always one line, filled in once loaded, so the buttons below never shift. */}
-      <p>
-        {info
-          ? `${info.last ? `Last backup: ${shortDate(info.last)}` : 'No backup yet'}${
-              info.changed > 0 ? ` · ${info.changed} ${info.changed === 1 ? 'change' : 'changes'} since` : ''
-            }`
-          : ' '}
+      <h2>Backup and restore</h2>
+      <p className="muted">
+        Your journal is stored only on this phone. A backup file keeps it safe if the phone is lost, broken or replaced.
       </p>
-      <div className="stack">
-        <button type="button" className="primary wide" onClick={() => open('export')}>
-          Back up now
+      <p className="status-line">{status}</p>
+      <div className="action-list">
+        <button type="button" className="action primary" onClick={() => open('export')}>
+          <span className="action-title">Back up now</span>
+          <span className="action-desc">Saves a copy of everything to the Files app.</span>
         </button>
-        <button type="button" className="wide" onClick={() => open('import')}>
-          Restore from a backup
-        </button>
-        <button type="button" className="wide" onClick={() => open('csv')}>
-          Export entries as CSV
+        <button type="button" className="action" onClick={() => open('import')}>
+          <span className="action-title">Restore from a backup file</span>
+          <span className="action-desc">Brings your data back, for example on a new phone. Nothing here is deleted.</span>
         </button>
       </div>
     </section>

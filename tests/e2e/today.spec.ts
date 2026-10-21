@@ -50,6 +50,29 @@ test('log, edit and delete activities, and keep a small joy', async ({ page }) =
   await expect(entryButton(page, 'Repotted the balcony plants')).toBeVisible()
 })
 
+test('the note sits under "What did you do?" and the ⓘ buttons explain the ratings', async ({ page }) => {
+  await page.getByRole('button', { name: '+ Add activity' }).click()
+  const sheet = page.getByRole('dialog', { name: 'New activity' })
+
+  // The note comes straight after the activity, before any ratings.
+  const order = await sheet.evaluate((dialog) => {
+    const fields = [...dialog.querySelectorAll('input:not([type]), textarea, fieldset legend')]
+    return fields.map((el) => (el.tagName === 'LEGEND' ? el.textContent?.split(' ')[0] : el.getAttribute('placeholder')?.slice(0, 12)))
+  })
+  expect(order.slice(0, 3)).toEqual(['e.g. Team me', 'e.g. Lost tr', 'When'])
+
+  const engagementInfo = sheet.getByRole('button', { name: 'What does engagement mean?' })
+  await expect(engagementInfo).toHaveAttribute('aria-expanded', 'false')
+  await engagementInfo.click()
+  await expect(engagementInfo).toHaveAttribute('aria-expanded', 'true')
+  await expect(sheet.getByText(/How absorbed were you\?/)).toBeVisible()
+  await engagementInfo.click()
+  await expect(sheet.getByText(/How absorbed were you\?/)).toBeHidden()
+
+  await sheet.getByRole('button', { name: 'What does energy mean?' }).click()
+  await expect(sheet.getByText(/Did it give you energy or take it away\?/)).toBeVisible()
+})
+
 test('log an activity for yesterday', async ({ page }) => {
   await page.getByRole('button', { name: 'Previous day' }).click()
   await expect(page.getByRole('heading', { name: 'Yesterday' })).toBeVisible()

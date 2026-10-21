@@ -38,6 +38,10 @@ export function RemindersCard() {
           </option>
         ))}
       </select>
+      <p className="schedule">
+        <strong>Every day at {clock}</strong>, from now on, with no end date. It's a 10-minute event in your Calendar, and your
+        iPhone alerts you at {clock}.
+      </p>
       <div className="stack top-gap">
         <a
           className="button primary wide"
@@ -49,8 +53,8 @@ export function RemindersCard() {
           Add to Calendar
         </a>
         <p className="muted small">
-          A calendar file opens: tap <strong>Add All</strong>. To change the time later, first delete the old “Life Design” event in
-          Calendar.
+          A calendar file opens: tap <strong>Add All</strong>. To change the time later, open the “Life Design: log your day” event
+          in Calendar, tap Delete Event → Delete All Future Events, then add it again here.
         </p>
         <p className="muted small">{addedAt ? `Last added on ${shortDate(addedAt)}.` : 'Not added yet.'}</p>
       </div>

@@ -8,16 +8,21 @@ interface Props {
   onSaved?: (how: 'shared' | 'downloaded') => void
 }
 
-/** "Save to Files…" through the share sheet where the phone supports it, with a download as the fallback. */
+/**
+ * Where the phone supports it, one button that opens the share menu (Save to Files, AirDrop, WhatsApp…).
+ * No download link there: in an iPhone Home Screen app a download opens a viewer that can save the file wrongly.
+ * Browsers without a share menu get a plain download.
+ */
 export function FileActions({ file, saveLabel = 'Save to Files…', onSaved }: Props) {
-  const [shareFailed, setShareFailed] = useState(false)
-  const sharable = canShareFile(file) && !shareFailed
+  const [problem, setProblem] = useState<string | null>(null)
+  const sharable = canShareFile(file)
 
   async function share() {
+    setProblem(null)
     try {
       if ((await shareFile(file)) === 'shared') onSaved?.('shared')
     } catch {
-      setShareFailed(true)
+      setProblem("The share menu didn't open. Please try again.")
     }
   }
 
@@ -33,20 +38,15 @@ export function FileActions({ file, saveLabel = 'Save to Files…', onSaved }: P
         <span className="muted">{formatBytes(file.size)}</span>
       </p>
       {sharable ? (
-        <>
-          <button type="button" className="primary wide" onClick={() => void share()}>
-            {saveLabel}
-          </button>
-          <button type="button" className="link" onClick={download}>
-            Download instead
-          </button>
-        </>
+        <button type="button" className="primary wide" onClick={() => void share()}>
+          {saveLabel}
+        </button>
       ) : (
         <button type="button" className="primary wide" onClick={download}>
           Download file
         </button>
       )}
-      {shareFailed ? <p className="muted small">The share sheet didn't open, so use Download.</p> : null}
+      {problem ? <p className="error small">{problem}</p> : null}
     </div>
   )
 }

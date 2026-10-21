@@ -20,10 +20,10 @@ export function CsvDialog({ onClose }: { onClose: () => void }) {
   }, [])
 
   return (
-    <Dialog title="Export entries (CSV)" onClose={onClose}>
+    <Dialog title="Spreadsheet export" onClose={onClose}>
       <p>
-        A spreadsheet of your journal entries for Numbers, Excel or Google Sheets. It's for looking at your data, not for
-        restoring: use Back up for a full copy.
+        Your activities as a table (CSV) for Numbers, Excel or Google Sheets. It's for looking at your data. It isn't a backup
+        and can't be restored.
       </p>
       {prepared ? (
         <>

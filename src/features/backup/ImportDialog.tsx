@@ -1,11 +1,37 @@
 import { useState } from 'react'
-import { applyImport, type DetectedFile, detectFile, type ImportPlan, planImport, type RawData, type TablePlan } from '../../db/backup'
+import {
+  applyImport,
+  type DetectedFile,
+  detectFile,
+  type FileProblem,
+  type ImportPlan,
+  planImport,
+  type RawData,
+  type TablePlan,
+} from '../../db/backup'
 import { type LockedEnvelope, unlockText, WrongPassphraseError } from '../../db/crypto'
 import { TABLE_LABELS, TABLE_NAMES } from '../../db/types'
+import { formatBytes } from '../../lib/storage'
 import { Dialog } from '../../ui/Dialog'
 
+const PROBLEMS: Record<FileProblem, string> = {
+  empty: 'This file is empty.',
+  'web-page': 'This is a web page, not a backup. Make a new backup and save it with “Save to Files”.',
+  spreadsheet: 'This is the spreadsheet (CSV) export. It is for reading in Numbers or Excel and can’t be restored. Choose a backup file instead.',
+  calendar: 'This is the calendar reminder file, not a backup.',
+  'not-json': 'This isn’t a Life Design backup file.',
+  damaged: 'This looks like a Life Design backup, but it is incomplete or damaged, so it can’t be restored.',
+  'damaged-lock': 'This is a password-protected backup, but part of it is missing or changed, so it can’t be opened.',
+  'other-json': 'This is a data file from another app, not a Life Design backup.',
+}
+
+interface Chosen {
+  name: string
+  size: number
+}
+
 type State =
-  | { kind: 'choose'; error?: string }
+  | { kind: 'choose'; error?: string; chosen?: Chosen }
   | { kind: 'unlock'; envelope: LockedEnvelope; error?: string; busy?: boolean }
   | { kind: 'preview'; raw: RawData; plan: ImportPlan; fromV1: boolean; skipped: number }
   | { kind: 'importing' }
@@ -37,9 +63,9 @@ function Summary({ plan }: { plan: ImportPlan }) {
 
 export function ImportDialog({ onClose }: { onClose: () => void }) {
   const [state, setState] = useState<State>({ kind: 'choose' })
-  const [passphrase, setPassphrase] = useState('')
+  const [password, setPassword] = useState('')
 
-  async function handle(detected: DetectedFile) {
+  async function handle(detected: DetectedFile, chosen?: Chosen) {
     switch (detected.format) {
       case 'locked':
         setState({ kind: 'unlock', envelope: detected.envelope })
@@ -51,35 +77,42 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
         setState({ kind: 'preview', raw: detected.raw, plan: await planImport(detected.raw), fromV1: true, skipped: detected.skipped })
         return
       case 'too-new':
-        setState({ kind: 'choose', error: 'This backup comes from a newer version of Life Design. Update the app, then try again.' })
+        setState({ kind: 'choose', error: 'This backup comes from a newer version of Life Design. Update the app, then try again.', chosen })
         return
       case 'unknown':
-        setState({ kind: 'choose', error: "This file isn't a Life Design backup." })
+        setState({ kind: 'choose', error: PROBLEMS[detected.problem], chosen })
     }
   }
 
   async function chooseFile(file: File | undefined) {
     if (!file) return
+    const chosen = { name: file.name, size: file.size }
+    let text: string
     try {
-      await handle(detectFile(await file.text()))
+      text = await file.text()
     } catch {
-      setState({ kind: 'choose', error: "That file couldn't be read." })
+      setState({ kind: 'choose', error: 'That file couldn’t be read.', chosen })
+      return
     }
+    await handle(detectFile(text), chosen)
   }
 
   async function unlock(envelope: LockedEnvelope) {
     setState({ kind: 'unlock', envelope, busy: true })
+    let text: string
     try {
-      const detected = detectFile(await unlockText(envelope, passphrase))
-      if (detected.format !== 'backup') {
-        setState({ kind: 'choose', error: "The unlocked file isn't a Life Design backup." })
-        return
-      }
-      await handle(detected)
+      text = await unlockText(envelope, password)
     } catch (error) {
-      const message = error instanceof WrongPassphraseError ? error.message : "This file couldn't be unlocked."
+      const message = error instanceof WrongPassphraseError ? error.message : 'This file couldn’t be unlocked.'
       setState({ kind: 'unlock', envelope, error: message })
+      return
     }
+    const detected = detectFile(text)
+    if (detected.format !== 'backup') {
+      setState({ kind: 'choose', error: 'The password was right, but the backup inside is damaged, so it can’t be restored.' })
+      return
+    }
+    await handle(detected)
   }
 
   async function runImport(raw: RawData) {
@@ -87,7 +120,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
     try {
       setState({ kind: 'done', plan: await applyImport(raw) })
     } catch {
-      setState({ kind: 'choose', error: 'The import failed, so nothing was changed.' })
+      setState({ kind: 'choose', error: 'The restore failed, so nothing was changed.' })
     }
   }
 
@@ -96,17 +129,29 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
       {state.kind === 'choose' ? (
         <>
           <p>Choose a Life Design backup file. Backups from the earlier one-file version (v1) work too.</p>
-          <p className="muted small">Restoring adds and updates entries. It never deletes anything already on this phone.</p>
+          <p className="muted small">Restoring adds and updates. It never deletes anything already on this phone.</p>
           <label className="button primary wide">
             Choose backup file
             <input
               type="file"
               accept=".json,application/json"
               className="visually-hidden"
-              onChange={(event) => void chooseFile(event.target.files?.[0])}
+              onChange={(event) => {
+                void chooseFile(event.target.files?.[0])
+                event.target.value = '' // so choosing the same file again still works
+              }}
             />
           </label>
-          {state.error ? <p className="error">{state.error}</p> : null}
+          {state.error ? (
+            <div className="notice warn top-gap" role="alert">
+              <p>{state.error}</p>
+              {state.chosen ? (
+                <p className="small muted">
+                  File: {state.chosen.name} · {formatBytes(state.chosen.size)}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </>
       ) : null}
 
@@ -117,13 +162,17 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
             void unlock(state.envelope)
           }}
         >
-          <p>This backup is locked.</p>
+          <p>This backup is protected with a password.</p>
           <label className="field">
-            <span>Passphrase</span>
-            <input type="password" autoComplete="current-password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} />
+            <span>Password</span>
+            <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </label>
+          <p className="field-help">
+            If your iPhone suggested a strong password when you made the backup, it's in the Passwords app under
+            shah-x.github.io.
+          </p>
           {state.error ? <p className="error">{state.error}</p> : null}
-          <button type="submit" className="primary wide" disabled={!passphrase || state.busy}>
+          <button type="submit" className="primary wide" disabled={!password || state.busy}>
             {state.busy ? 'Unlocking…' : 'Unlock'}
           </button>
         </form>
@@ -140,19 +189,19 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
           <Summary plan={state.plan} />
           {state.plan.changes > 0 ? (
             <button type="button" className="primary wide" onClick={() => void runImport(state.raw)}>
-              Import
+              Restore
             </button>
           ) : (
-            <p className="muted">Nothing new in this file: everything is already on this phone.</p>
+            <p className="muted">Nothing new in this file: everything in it is already on this phone.</p>
           )}
         </>
       ) : null}
 
-      {state.kind === 'importing' ? <p className="muted">Importing…</p> : null}
+      {state.kind === 'importing' ? <p className="muted">Restoring…</p> : null}
 
       {state.kind === 'done' ? (
         <>
-          <p className="success">✓ Imported.</p>
+          <p className="success">✓ Restored.</p>
           <Summary plan={state.plan} />
           <button type="button" className="primary wide" onClick={onClose}>
             Done

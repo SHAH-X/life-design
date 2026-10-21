@@ -15,7 +15,7 @@ export interface LockedEnvelope {
 
 export class WrongPassphraseError extends Error {
   constructor() {
-    super("That passphrase didn't open this file.")
+    super("That password didn't open this file. Passwords are case-sensitive.")
     this.name = 'WrongPassphraseError'
   }
 }

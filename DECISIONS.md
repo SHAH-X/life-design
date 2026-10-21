@@ -18,7 +18,9 @@ Last updated: 2026-10-21
 | Rating scales | Engagement 1–5, energy −2…+2, flow yes/no | ADOPT | Fast taps on a phone; v1's 0–10 and −5…+5 values are converted on import |
 | No default ratings | Save stays disabled until engagement and energy are both chosen | ADOPT | A preset value nudges the answer (anchoring); two taps keep the data honest |
 | Late logging | Any earlier day can be logged (e.g. yesterday, the next morning) | ADOPT | Evening reviews get missed; reconstructing the next morning still works |
-| Entry detail | Where / with whom / using (AEIOU) and a note are optional, behind one tap | ADOPT | Keeps a basic entry to about 15 seconds |
+| Entry detail | Where / with whom / using (AEIOU) are optional, behind one tap | ADOPT | Keeps a basic entry to about 15 seconds |
+| Note ("What stood out?") | Directly under "What did you do?", always visible, optional, with a hint: why it felt the way it did | ADOPT | Owner's request: explain while it's fresh. The "why" is what reveals patterns later |
+| Rating explanations | ⓘ next to Engagement and Energy opens a short explanation with examples | ADOPT | Owner's request: rate consistently. Engagement = attention; energy = how you came out of it |
 | Ikigai | Both lenses: 4-circle map plus a daily "small joy" line | ADOPT | The Venn diagram is a 2014 Western adaptation; the Japanese sense is everyday |
 | Designing Your Life tools | Health/Work/Play/Love gauges, Workview + Lifeview, Prototype tracker, AEIOU deep-dive | ADOPT | Completes the loop: notice → imagine → prototype |
 
@@ -45,6 +47,10 @@ Last updated: 2026-10-21
 | "Warn when phone storage is low" | — | REJECT | Not possible from a web app |
 | Encrypted cloud backup or sync; Google Sheets backup | — | REJECT | Owner chose phone-only |
 | AI API key | Stored only on the phone; never exported, logged or committed | ADOPT | Keeps the key private |
+| Saving backup files | One "Save to Files…" button (the share menu: Files, AirDrop, WhatsApp…). The file is prepared when the dialog opens, so it's one tap; a password adds one "Protect the file" step | ADOPT | Owner found the old two-step flow confusing |
+| "Download" link inside the iPhone app | — | REJECT | In Home Screen apps, downloads open a viewer that can strand the app and save files wrongly (named "unknown"); kept only for browsers without a share menu |
+| Restore errors | Name the exact problem (empty, web page, spreadsheet export, calendar file, damaged, damaged password-protected file, other app's file) plus the file name and size | ADOPT | So any failed restore can be diagnosed from one message |
+| Password-protected backup restore on iPhone | Failed once with "This file isn't a Life Design backup" although the file looked right; the same flow passes in Safari's engine, including emoji, curly quotes and the share path | WATCH | Not reproduced. The new precise errors will show the cause if it happens again |
 
 ## Platform
 
@@ -52,6 +58,7 @@ Last updated: 2026-10-21
 |---|---|---|---|
 | Hosting | GitHub Pages from this public repo, built and deployed by GitHub Actions | ADOPT | Free; no server needed |
 | Cloudflare Workers | — | REJECT | An extra service that isn't needed |
+| Reminder wording | The screen spells out the schedule: every day at the chosen time, no end date, a 10-minute event with an alert, and how to change it | ADOPT | Owner couldn't tell what "Add to Calendar" would create |
 | Reminders | iPhone Calendar alerts. "Add to Calendar" opens a pre-built .ics file served by the website (one per 15-minute slot); fallbacks: a calendar file made on the phone and saved via the share sheet, or Reminders app steps | TEST | Calendar files generated inside Home Screen apps are reported to fail silently on iPhone; real files served as text/calendar open reliably in Safari. Proven on the owner's iPhone in phase 1 |
 | Web Push via a scheduler | — | REJECT | Needs a server; GitHub's scheduler can run late and stops after 60 days without repo activity |
 | Stack | Vite 8, React 19, TypeScript 7, vite-plugin-pwa 2, Dexie 4; hash routes; Vitest and Playwright (WebKit) | ADOPT | Maintained PWA tooling; routes never 404 on Pages |

@@ -24,12 +24,23 @@ export interface BackupFile {
 /** Records as read from a file, before validation. */
 export type RawData = Record<TableName, unknown[]>
 
+/** Why a chosen file can't be restored, so the message can say exactly what it is. */
+export type FileProblem =
+  | 'empty'
+  | 'web-page'
+  | 'spreadsheet'
+  | 'calendar'
+  | 'not-json'
+  | 'damaged'
+  | 'damaged-lock'
+  | 'other-json'
+
 export type DetectedFile =
   | { format: 'backup'; raw: RawData; exportedAt: string }
   | { format: 'locked'; envelope: LockedEnvelope }
   | { format: 'v1'; raw: RawData; skipped: number }
   | { format: 'too-new'; schemaVersion: number }
-  | { format: 'unknown' }
+  | { format: 'unknown'; problem: FileProblem }
 
 export interface TablePlan {
   incoming: number
@@ -70,13 +81,27 @@ function toRawData(data: unknown): RawData {
   return raw
 }
 
+function classifyUnparseable(text: string): FileProblem {
+  const head = text.slice(0, 200).toLowerCase()
+  if (head.startsWith('<')) return 'web-page'
+  if (head.startsWith('begin:vcalendar')) return 'calendar'
+  if (head.startsWith('date,part_of_day')) return 'spreadsheet'
+  if (head.startsWith('{') || head.startsWith('[')) return 'damaged'
+  return 'not-json'
+}
+
 export function detectFile(text: string, now: Date = new Date()): DetectedFile {
+  // Some apps add a byte-order mark or line breaks when they save a file; neither changes the backup.
+  const content = text.replace(/^﻿/, '').trim()
+  if (!content) return { format: 'unknown', problem: 'empty' }
+
   let json: unknown
   try {
-    json = JSON.parse(text)
+    json = JSON.parse(content)
   } catch {
-    return { format: 'unknown' }
+    return { format: 'unknown', problem: classifyUnparseable(content) }
   }
+
   if (isLockedEnvelope(json)) return { format: 'locked', envelope: json }
   if (isV1Backup(json)) {
     const { data, skipped } = convertV1(json, now)
@@ -84,14 +109,17 @@ export function detectFile(text: string, now: Date = new Date()): DetectedFile {
   }
   if (typeof json === 'object' && json !== null) {
     const r = json as Record<string, unknown>
-    if (r.app === APP_ID && r.kind === 'backup' && typeof r.data === 'object' && r.data !== null) {
+    if (r.app === APP_ID && r.kind === 'locked-backup') return { format: 'unknown', problem: 'damaged-lock' }
+    if (r.app === APP_ID && r.kind === 'backup') {
       const schemaVersion = Number(r.schemaVersion)
-      if (!Number.isInteger(schemaVersion) || schemaVersion < 1) return { format: 'unknown' }
+      if (typeof r.data !== 'object' || r.data === null || !Number.isInteger(schemaVersion) || schemaVersion < 1) {
+        return { format: 'unknown', problem: 'damaged' }
+      }
       if (schemaVersion > BACKUP_SCHEMA_VERSION) return { format: 'too-new', schemaVersion }
       return { format: 'backup', raw: toRawData(r.data), exportedAt: String(r.exportedAt ?? '') }
     }
   }
-  return { format: 'unknown' }
+  return { format: 'unknown', problem: 'other-json' }
 }
 
 type Versioned = { updatedAt: number }

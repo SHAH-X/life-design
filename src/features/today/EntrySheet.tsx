@@ -1,7 +1,14 @@
 import { useId, useState } from 'react'
 import { deleteEntry, type Suggestions, saveEntry } from '../../db/repo'
 import type { Entry } from '../../db/types'
-import { ENERGY_LEVELS, type Energy, ENGAGEMENT_LEVELS, type Engagement } from '../../domain/scales'
+import {
+  ENERGY_INFO,
+  ENERGY_LEVELS,
+  type Energy,
+  ENGAGEMENT_INFO,
+  ENGAGEMENT_LEVELS,
+  type Engagement,
+} from '../../domain/scales'
 import { DAY_PARTS, type DayPart, partOfDay, toDateKey } from '../../lib/dates'
 import { ChipPicker } from '../../ui/ChipPicker'
 import { Dialog } from '../../ui/Dialog'
@@ -18,7 +25,9 @@ interface Props {
 export function EntrySheet({ date, existing, suggestions, onClose }: Props) {
   const activityId = useId()
   const noteId = useId()
+  const noteHelpId = useId()
   const [activity, setActivity] = useState(existing?.activity ?? '')
+  const [note, setNote] = useState(existing?.note ?? '')
   const [part, setPart] = useState<DayPart>(() => existing?.part ?? (date === toDateKey(new Date()) ? partOfDay(new Date()) : 'evening'))
   const [engagement, setEngagement] = useState<Engagement | null>(existing?.engagement ?? null)
   const [energy, setEnergy] = useState<Energy | null>(existing?.energy ?? null)
@@ -26,10 +35,7 @@ export function EntrySheet({ date, existing, suggestions, onClose }: Props) {
   const [where, setWhere] = useState<string[]>(existing?.where ?? [])
   const [people, setPeople] = useState<string[]>(existing?.people ?? [])
   const [objects, setObjects] = useState<string[]>(existing?.objects ?? [])
-  const [note, setNote] = useState(existing?.note ?? '')
-  const [showDetail, setShowDetail] = useState(
-    Boolean(existing && (existing.where.length || existing.people.length || existing.objects.length || existing.note)),
-  )
+  const [showContext, setShowContext] = useState(Boolean(existing && (existing.where.length || existing.people.length || existing.objects.length)))
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -96,7 +102,7 @@ export function EntrySheet({ date, existing, suggestions, onClose }: Props) {
         value={activity}
         maxLength={120}
         autoCapitalize="sentences"
-        enterKeyHint="done"
+        enterKeyHint="next"
         placeholder="e.g. Team meeting, cooking, a run"
         onChange={(e) => setActivity(e.target.value)}
       />
@@ -110,6 +116,24 @@ export function EntrySheet({ date, existing, suggestions, onClose }: Props) {
         </div>
       ) : null}
 
+      <label className="field" htmlFor={noteId}>
+        <span>
+          What stood out? <span className="optional">(optional)</span>
+        </span>
+      </label>
+      <p id={noteHelpId} className="field-help">
+        A few words on why it felt the way it did. Over time, these details show what really energises or drains you.
+      </p>
+      <textarea
+        id={noteId}
+        value={note}
+        rows={2}
+        maxLength={1000}
+        aria-describedby={noteHelpId}
+        placeholder="e.g. Lost track of time solving the budget puzzle · Kept getting interrupted"
+        onChange={(e) => setNote(e.target.value)}
+      />
+
       <Segmented legend="When" options={DAY_PARTS} value={part} onChange={setPart} />
 
       <Segmented
@@ -118,6 +142,7 @@ export function EntrySheet({ date, existing, suggestions, onClose }: Props) {
         value={engagement}
         onChange={setEngagement}
         ends={['Bored', 'Absorbed']}
+        info={ENGAGEMENT_INFO}
       />
 
       <Segmented
@@ -127,22 +152,19 @@ export function EntrySheet({ date, existing, suggestions, onClose }: Props) {
         value={energy}
         onChange={setEnergy}
         ends={['Drained', 'Energised']}
+        info={ENERGY_INFO}
       />
 
-      <Switch label="I lost track of time" hint="A sign of flow" checked={flow} onChange={setFlow} />
+      <Switch label="I lost track of time (flow)" hint="So absorbed that time disappeared" checked={flow} onChange={setFlow} />
 
-      {showDetail ? (
+      {showContext ? (
         <>
           <ChipPicker legend="Where" values={where} suggestions={suggestions.where} onChange={setWhere} placeholder="e.g. Home, office" />
           <ChipPicker legend="With whom" values={people} suggestions={suggestions.people} onChange={setPeople} placeholder="e.g. Alex, team" />
           <ChipPicker legend="Using" values={objects} suggestions={suggestions.objects} onChange={setObjects} placeholder="e.g. Laptop, guitar" />
-          <label className="field" htmlFor={noteId}>
-            <span>Note</span>
-          </label>
-          <textarea id={noteId} value={note} maxLength={1000} placeholder="Anything that made it better or worse?" onChange={(e) => setNote(e.target.value)} />
         </>
       ) : (
-        <button type="button" className="link" onClick={() => setShowDetail(true)}>
+        <button type="button" className="link" onClick={() => setShowContext(true)}>
           + Where, with whom, using what (optional)
         </button>
       )}

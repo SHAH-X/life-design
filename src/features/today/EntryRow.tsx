@@ -10,6 +10,7 @@ export function EntryRow({ entry, onOpen }: { entry: Entry; onOpen: () => void }
     <button type="button" className="entry-row" onClick={onOpen}>
       <span className="entry-text">
         <span className="entry-activity">{entry.activity}</span>
+        {entry.note ? <span className="entry-note">{entry.note}</span> : null}
         <span className="entry-meta">{details}</span>
       </span>
       <span className="entry-badges">

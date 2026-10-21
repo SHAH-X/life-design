@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { expect, type Page, type TestInfo, test } from '@playwright/test'
 import { addEntry, entryButton, useDownloadsInsteadOfShareSheet } from './helpers'
@@ -10,16 +10,16 @@ test.beforeEach(async ({ page }) => {
   await useDownloadsInsteadOfShareSheet(page)
 })
 
-async function backUp(page: Page, testInfo: TestInfo, passphrase?: string): Promise<string> {
+async function backUp(page: Page, testInfo: TestInfo, password?: string): Promise<string> {
   await page.goto('./#/more')
   await page.getByRole('button', { name: 'Back up now' }).click()
   const dialog = page.getByRole('dialog', { name: 'Back up' })
-  if (passphrase) {
-    await dialog.getByRole('switch', { name: /Lock with a passphrase/ }).check()
-    await dialog.getByLabel('Passphrase', { exact: true }).fill(passphrase)
-    await dialog.getByLabel('Repeat passphrase').fill(passphrase)
+  if (password) {
+    await dialog.getByRole('switch', { name: /Protect with a password/ }).check()
+    await dialog.getByLabel('Password', { exact: true }).fill(password)
+    await dialog.getByLabel('Repeat password').fill(password)
+    await dialog.getByRole('button', { name: 'Protect the file' }).click()
   }
-  await dialog.getByRole('button', { name: 'Create backup file' }).click()
   const downloading = page.waitForEvent('download')
   await dialog.getByRole('button', { name: 'Download file' }).click()
   const download = await downloading
@@ -40,7 +40,7 @@ async function deleteEverything(page: Page) {
 
 async function openRestore(page: Page, file: string) {
   await page.goto('./#/more')
-  await page.getByRole('button', { name: 'Restore from a backup' }).click()
+  await page.getByRole('button', { name: 'Restore from a backup file' }).click()
   const dialog = page.getByRole('dialog', { name: 'Restore' })
   await dialog.locator('input[type="file"]').setInputFiles(file)
   return dialog
@@ -48,7 +48,7 @@ async function openRestore(page: Page, file: string) {
 
 test('back up, delete everything, then restore it all', async ({ page }, testInfo) => {
   await page.goto('./#/today')
-  await addEntry(page, { activity: 'Choir rehearsal', engagement: 'Absorbed', energy: 'Energised' })
+  await addEntry(page, { activity: 'Choir rehearsal', engagement: 'Absorbed', energy: 'Energised', note: 'The new piece finally clicked' })
   await addEntry(page, { activity: 'Tax paperwork', engagement: 'Bored', energy: 'Drained' })
   await page.getByLabel('Small joy').fill('A neighbour waved')
   await expect(page.getByText('Saved', { exact: true })).toBeVisible()
@@ -69,60 +69,73 @@ test('back up, delete everything, then restore it all', async ({ page }, testInf
   const dialog = await openRestore(page, file)
   await expect(dialog.getByText('Journal entries: 2 new')).toBeVisible()
   await expect(dialog.getByText('Small joys: 1 new')).toBeVisible()
-  await dialog.getByRole('button', { name: 'Import' }).click()
-  await expect(dialog.getByText('✓ Imported.')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Restore', exact: true }).click()
+  await expect(dialog.getByText('✓ Restored.')).toBeVisible()
   await dialog.getByRole('button', { name: 'Done' }).click()
 
   await page.goto('./#/today')
-  await expect(entryButton(page, 'Choir rehearsal')).toBeVisible()
+  await expect(entryButton(page, 'Choir rehearsal')).toContainText('The new piece finally clicked')
   await expect(entryButton(page, 'Tax paperwork')).toBeVisible()
   await expect(page.getByLabel('Small joy')).toHaveValue('A neighbour waved')
 
-  // Importing the same file again adds nothing.
+  // Restoring the same file again adds nothing.
   const again = await openRestore(page, file)
   await expect(again.getByText('Nothing new in this file')).toBeVisible()
 })
 
-test('a locked backup opens only with the right passphrase', async ({ page }, testInfo) => {
+test('a password-protected backup opens only with the right password', async ({ page }, testInfo) => {
   await page.goto('./#/today')
   await addEntry(page, { activity: 'Pottery class', engagement: 'Engaged', energy: 'A bit energised' })
-  const file = await backUp(page, testInfo, 'a long test passphrase')
+  const file = await backUp(page, testInfo, 'a long test password')
   const text = await readFile(file, 'utf8')
   expect(text).toContain('"kind":"locked-backup"')
   expect(text).not.toContain('Pottery class')
 
   await deleteEverything(page)
   const dialog = await openRestore(page, file)
-  await dialog.getByLabel('Passphrase').fill('the wrong passphrase')
+  await dialog.getByLabel('Password').fill('the wrong password')
   await dialog.getByRole('button', { name: 'Unlock' }).click()
-  await expect(dialog.getByText("That passphrase didn't open this file.")).toBeVisible()
+  await expect(dialog.getByText(/That password didn't open this file/)).toBeVisible()
 
-  await dialog.getByLabel('Passphrase').fill('a long test passphrase')
+  await dialog.getByLabel('Password').fill('a long test password')
   await dialog.getByRole('button', { name: 'Unlock' }).click()
   await expect(dialog.getByText('Journal entries: 1 new')).toBeVisible()
-  await dialog.getByRole('button', { name: 'Import' }).click()
-  await expect(dialog.getByText('✓ Imported.')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Restore', exact: true }).click()
+  await expect(dialog.getByText('✓ Restored.')).toBeVisible()
 })
 
-test('a backup from the earlier v1 app is converted and imported', async ({ page }) => {
+test('a backup from the earlier v1 app is converted and restored', async ({ page }) => {
   const dialog = await openRestore(page, V1_FIXTURE)
   await expect(dialog.getByText(/From the earlier v1 app/)).toBeVisible()
   await expect(dialog.getByText(/1 unreadable items will be left out/)).toBeVisible()
   await expect(dialog.getByText('Journal entries: 2 new')).toBeVisible()
   await expect(dialog.getByText('Ikigai items: 1 new')).toBeVisible()
   await expect(dialog.getByText('Odyssey Plans: 1 new')).toBeVisible()
-  await dialog.getByRole('button', { name: 'Import' }).click()
-  await expect(dialog.getByText('✓ Imported.')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Restore', exact: true }).click()
+  await expect(dialog.getByText('✓ Restored.')).toBeVisible()
   await dialog.getByRole('button', { name: 'Done' }).click()
   await expect(page.getByText('2 entries, 0 small joys')).toBeVisible()
 })
 
-test('entries export as a CSV spreadsheet', async ({ page }, testInfo) => {
+test('choosing the wrong kind of file says exactly what it is', async ({ page }, testInfo) => {
+  const csv = testInfo.outputPath('life-design-entries.csv')
+  await writeFile(csv, '﻿date,part_of_day,activity,engagement_1_to_5\r\n2026-10-20,morning,Run,4\r\n')
+  let dialog = await openRestore(page, csv)
+  await expect(dialog.getByRole('alert')).toContainText('This is the spreadsheet (CSV) export')
+  await expect(dialog.getByRole('alert')).toContainText('File: life-design-entries.csv')
+
+  const page404 = testInfo.outputPath('backup.json')
+  await writeFile(page404, '<!DOCTYPE html><html><body>Not found</body></html>')
+  dialog = await openRestore(page, page404)
+  await expect(dialog.getByRole('alert')).toContainText('This is a web page, not a backup')
+})
+
+test('activities export as a CSV spreadsheet', async ({ page }, testInfo) => {
   await page.goto('./#/today')
   await addEntry(page, { activity: 'Choir rehearsal', engagement: 'Absorbed', energy: 'Energised', where: 'Church hall' })
   await page.goto('./#/more')
-  await page.getByRole('button', { name: 'Export entries as CSV' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Export entries (CSV)' })
+  await page.getByRole('button', { name: 'Export activities (CSV)' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Spreadsheet export' })
   const downloading = page.waitForEvent('download')
   await dialog.getByRole('button', { name: 'Download file' }).click()
   const path = testInfo.outputPath('entries.csv')

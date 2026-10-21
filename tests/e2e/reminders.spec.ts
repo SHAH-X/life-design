@@ -3,6 +3,9 @@ import { expect, test } from '@playwright/test'
 test('the daily reminder links to a real calendar file for the chosen time', async ({ page, request }) => {
   await page.goto('./#/more')
   await page.getByLabel('Time').selectOption('07:30')
+  // The schedule is spelled out: every day, at that time, no end date.
+  await expect(page.getByText(/Every day at 0?7:30/)).toBeVisible()
+  await expect(page.getByText(/no end date/)).toBeVisible()
   const link = page.getByRole('link', { name: 'Add to Calendar' })
   await expect(link).toHaveAttribute('href', /reminders\/daily-log-0730\.ics$/)
 

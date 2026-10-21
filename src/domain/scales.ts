@@ -25,6 +25,13 @@ export const ENERGY_LEVELS: readonly Level<Energy>[] = [
   { value: 2, label: 'Energised', short: '+2' },
 ]
 
+/** Shown behind the ⓘ buttons (Designing Your Life treats engagement and energy as two separate gauges). */
+export const ENGAGEMENT_INFO =
+  "How absorbed were you? 5 = fully focused and interested, time flew. 1 = bored, distracted or restless. It's about your attention, not whether it was pleasant."
+
+export const ENERGY_INFO =
+  'Did it give you energy or take it away? +2 = you came out lifted and motivated. −2 = you came out tired, flat or drained. Something can be engaging and still draining, like a tough but interesting meeting.'
+
 export function isEngagement(x: unknown): x is Engagement {
   return x === 1 || x === 2 || x === 3 || x === 4 || x === 5
 }
