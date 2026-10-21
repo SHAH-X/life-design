@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "icons": "pwa-assets-generator"
+    "icons": "pwa-assets-generator",
+    "privacy-scan": "sh scripts/privacy-scan.sh"
   },
   "dependencies": {
     "dexie": "^4.4.6",
