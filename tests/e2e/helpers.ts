@@ -63,7 +63,7 @@ export async function addEntry(page: Page, entry: NewEntry) {
 }
 
 /** The small joy box on Today. */
-export const smallJoy = (page: Page) => page.getByLabel('One small joy from the day?')
+export const smallJoy = (page: Page) => page.getByLabel('Small joy of the day?')
 
 /** The evening question's box and its save status on Today (its wording changes daily). */
 export const eveningQuestion = (page: Page) => page.locator('section.evening .evening-field').nth(1)

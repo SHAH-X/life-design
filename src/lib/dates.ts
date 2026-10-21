@@ -96,6 +96,17 @@ export function dayHeading(key: string, today: string, locale?: string): string 
 }
 
 /** "Tuesday 21 October" (order follows the phone's locale). */
+/** "22 October": for under a heading that already names the day ("Today", "Monday"). */
+export function dayMonthLong(key: string, locale?: string): string {
+  return fromDateKey(key).toLocaleDateString(locale, { day: 'numeric', month: 'long' })
+}
+
+/** "18–22 Oct": a recent period, where the year goes without saying. */
+export function formatRecentPeriod(start: string, end: string, locale?: string): string {
+  const format = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' })
+  return start === end ? format.format(fromDateKey(start)) : format.formatRange(fromDateKey(start), fromDateKey(end))
+}
+
 export function longDate(key: string, locale?: string): string {
   return fromDateKey(key).toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })
 }

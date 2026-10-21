@@ -4,7 +4,7 @@ import { Notices, useExportNudge } from '../../app/Notices'
 import { db } from '../../db/db'
 import { loadSuggestions, type Suggestions } from '../../db/repo'
 import type { Entry } from '../../db/types'
-import { addDays, dayHeading, longDate, PART_ORDER } from '../../lib/dates'
+import { addDays, dayHeading, dayMonthLong, PART_ORDER } from '../../lib/dates'
 import { useTonight } from '../../prompts/useTonight'
 import { useReviewStatus } from '../../reviews/useReviewStatus'
 import { EntryEdit } from './EntryEdit'
@@ -50,7 +50,7 @@ export function TodayScreen() {
         </button>
         <div className="day-title">
           <h1>{dayHeading(date, today)}</h1>
-          <p className="muted">{longDate(date)}</p>
+          <p className="muted">{dayMonthLong(date)}</p>
         </div>
         <button type="button" className="icon-button" aria-label="Next day" disabled={date >= today} onClick={() => setDate(addDays(date, 1))}>
           ›

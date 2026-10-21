@@ -14,7 +14,7 @@ export function SmallJoy({ date, saved }: { date: string; saved: string }) {
   return (
     <div className="evening-field">
       <Question as="label" htmlFor={id} info={SMALL_JOY_INFO} infoLabel="Why a small joy?">
-        One small joy from the day?
+        Small joy of the day?
       </Question>
       <textarea
         id={id}

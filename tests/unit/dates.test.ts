@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { addDays, DAY_MS, dayHeading, dayNumber, isDateKey, partOfDay, toDateKey, wholeDaysBetween } from '../../src/lib/dates'
+import { addDays, DAY_MS, dayHeading, dayMonthLong, dayNumber, formatRecentPeriod, isDateKey, partOfDay, toDateKey, wholeDaysBetween } from '../../src/lib/dates'
 
 describe('dates', () => {
   it('keys days by the local calendar date', () => {
@@ -65,5 +65,13 @@ describe('dayNumber', () => {
     expect(dayNumber('2026-10-21') - dayNumber('2026-10-20')).toBe(1)
     expect(dayNumber('2026-03-30') - dayNumber('2026-03-28')).toBe(2)
     expect(dayNumber('2026-10-26') - dayNumber('2026-10-24')).toBe(2)
+  })
+})
+
+describe('short date wording', () => {
+  it('leaves out what the screen already says: the weekday under a day heading, the year of a recent period', () => {
+    expect(dayMonthLong('2026-10-22', 'en-GB')).toBe('22 October')
+    expect(formatRecentPeriod('2026-10-18', '2026-10-22', 'en-GB')).toMatch(/^18\s*–\s*22 Oct$/)
+    expect(formatRecentPeriod('2026-10-22', '2026-10-22', 'en-GB')).toBe('22 Oct')
   })
 })

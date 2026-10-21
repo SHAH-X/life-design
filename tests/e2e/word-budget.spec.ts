@@ -23,6 +23,10 @@ const BUDGETS = {
 
 type Screen = keyof typeof BUDGETS
 
+// A fixed evening, so the day's question (its length varies day to day) is always the same. The day
+// before it is a "pattern" evening, so Today is measured with the longest kind of question.
+const EVENING = new Date(2026, 9, 23, 20, 0)
+
 async function visibleWords(scope: Locator): Promise<number> {
   return scope.evaluate((root) => {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
@@ -42,7 +46,8 @@ async function visibleWords(scope: Locator): Promise<number> {
 }
 
 test('every main screen stays within its word budget', async ({ page }, testInfo) => {
-  await restoreSeed(page, testInfo.outputPath('seed.json'))
+  await page.clock.setFixedTime(EVENING)
+  await restoreSeed(page, testInfo.outputPath('seed.json'), EVENING)
   const counts: Partial<Record<Screen, number>> = {}
   const main = page.locator('main')
   const sheet = page.locator('dialog[open]')

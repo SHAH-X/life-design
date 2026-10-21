@@ -33,7 +33,7 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 - A status is one short line. Today shows at most one notice (backup due, then review due, then install).
 - Settings live on their own pages; More stays a short list.
 - Daily screens use words and symbols (▲▼, dots, ✦), with words for VoiceOver; numbers belong in Insights.
-- Word budgets: `tests/e2e/word-budget.spec.ts` counts the visible words on each main screen with the fictional seed and fails above its budget. Raise a budget only with the owner's OK; a new main screen gets a budget when it's added.
+- Word budgets: `tests/e2e/word-budget.spec.ts` counts the visible words on each main screen with the fictional seed and fails above its budget. It runs at a fixed date on purpose: the evening question changes daily, and a floating date let the test pass or fail by chance. Raise a budget only with the owner's OK; a new main screen gets a budget when it's added.
 
 ## Charts (dataviz skill rules)
 - Colours come only from the `--viz-*` tokens in `styles.css`. Before adding a colour, run the dataviz validator against both card surfaces (`#ffffff`, `#21201e`). Orange failed next to red; violet failed next to blue.

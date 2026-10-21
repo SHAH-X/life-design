@@ -3,7 +3,7 @@ import { useState } from 'react'
 import type { Period } from '../analysis/stats'
 import { countChangesSince, firstEntryCreatedAt, getSetting, setSetting } from '../db/repo'
 import { exportNudge, type Nudge } from '../domain/nudge'
-import { DAY_MS, formatPeriod } from '../lib/dates'
+import { DAY_MS, formatRecentPeriod } from '../lib/dates'
 import { navigate } from '../lib/route'
 import { isStandalone } from '../lib/storage'
 import { useDialogs } from './dialogs'
@@ -42,7 +42,7 @@ export function Notices({ nudge, reviewDue }: { nudge: Nudge; reviewDue: Period 
     return (
       <aside className="notice">
         <p>
-          <strong>Review due</strong> · {formatPeriod(reviewDue.start, reviewDue.end)}
+          <strong>Review due</strong> · {formatRecentPeriod(reviewDue.start, reviewDue.end)}
         </p>
         <button type="button" className="primary" onClick={() => navigate('review')}>
           Start review
