@@ -64,6 +64,8 @@ Last updated: 2026-10-21
 | Web Push via a scheduler | — | REJECT | Needs a server; GitHub's scheduler can run late and stops after 60 days without repo activity |
 | Stack | Vite 8, React 19, TypeScript 7, vite-plugin-pwa 2, Dexie 4; hash routes; Vitest and Playwright (WebKit) | ADOPT | Maintained PWA tooling; routes never 404 on Pages |
 | Local Node | Node 22 LTS (Vite needs 22.12 or newer) | ADOPT | Same major as before on the owner's Mac |
+| Sheets and the iPhone keyboard | Every sheet sits on top of the keyboard: `useKeyboardInset` follows `window.visualViewport` and lifts the sheet by the part the keyboard covers, caps its height to what's left, and keeps the focused field in sight. The keyboard still opens straight away on "What did you do?" | TEST | v0.6: the keyboard covered "What did you do?". iOS shrinks only the visible area for the keyboard, never the page, and Safari doesn't support `interactive-widget=resizes-content`. An e2e test fakes the keyboard |
+| A drawer library for sheets (e.g. react-bottom-fixed, drawer components) | — | REJECT | react-bottom-fixed (v0.1.0) handles fixed buttons, not sheets; a drawer library would replace the native `<dialog>` and its tested focus, Escape and VoiceOver handling. A 30-line hook does the job |
 
 ## Review and Insights (Phase 2)
 
@@ -180,6 +182,7 @@ Phase 3 ships in two parts (owner's choice): 3a "Imagine" now, 3b "Test and lear
 | Describing activities with feeling words feels natural and quick; old entries show words; your own word; a note's feelings offered | 2.6 | TEST |
 | Review balance as most alive / most neglected; Insights read in words | 2.6 | TEST |
 | Writing an Odyssey Plan through the guided screens; the three cards read well side by side; Workview & Lifeview | 3a | TEST |
+| Add activity: the question, field, recent activities and Next sit above the keyboard; the same for "+ your own word" and the note | 3a.5 | TEST |
 | Share to the Claude app; attach a downloaded review file | 4 | TEST |
 
 ## Corrections to the earlier v1 notes

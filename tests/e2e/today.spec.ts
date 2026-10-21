@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addEntry, entryButton, smallJoy } from './helpers'
+import { addEntry, entryButton, expectAboveKeyboard, fakeKeyboard, showKeyboard, smallJoy } from './helpers'
 
 // Fictional example data.
 test.beforeEach(async ({ page }) => {
@@ -114,6 +114,36 @@ test('a sheet opens on its content, not on ✕ Close', async ({ page }) => {
 
   await page.getByRole('button', { name: '+ Add activity' }).click()
   await expect(page.getByRole('dialog', { name: 'New activity' }).getByLabel('What did you do?')).toBeFocused()
+})
+
+test('sheets sit above the keyboard, so what you type into stays in sight', async ({ page }) => {
+  // v0.6 on the iPhone: the keyboard covered "What did you do?". iOS doesn't shrink the page for the keyboard,
+  // so a sheet pinned to the bottom stayed behind it.
+  await fakeKeyboard(page)
+  await page.reload()
+  await addEntry(page, { activity: 'Reading', during: ['Curious'], after: ['Calm'] })
+
+  await page.getByRole('button', { name: '+ Add activity' }).click()
+  const sheet = page.getByRole('dialog', { name: 'New activity' })
+  await showKeyboard(page)
+  await expectAboveKeyboard(page, sheet.getByText('What did you do?', { exact: true }))
+  await expectAboveKeyboard(page, sheet.getByLabel('What did you do?'))
+  await expectAboveKeyboard(page, sheet.getByRole('button', { name: 'Reading' }))
+  await expectAboveKeyboard(page, sheet.getByRole('button', { name: 'Next' }))
+
+  // A field further down a longer sheet is scrolled into sight too.
+  await showKeyboard(page, 0)
+  await sheet.getByLabel('What did you do?').fill('Answered emails')
+  await sheet.getByRole('button', { name: 'Next' }).click()
+  await sheet.getByRole('button', { name: '+ your own word' }).click()
+  await sheet.getByLabel('Your own word').click()
+  await showKeyboard(page)
+  await expectAboveKeyboard(page, sheet.getByLabel('Your own word'))
+
+  // With the keyboard gone, the sheet is back at the bottom of the screen.
+  await showKeyboard(page, 0)
+  const screenHeight = await page.evaluate(() => window.innerHeight)
+  await expect.poll(async () => Math.round(((await sheet.boundingBox())?.y ?? 0) + ((await sheet.boundingBox())?.height ?? 0))).toBe(screenHeight)
 })
 
 test('log an activity for yesterday', async ({ page }) => {
