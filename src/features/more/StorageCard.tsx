@@ -17,13 +17,12 @@ export function StorageCard() {
 
   return (
     <section className="card">
-      <h2>On this phone</h2>
       <div className="kv">
         <span>Installed as an app</span>
         <strong>{installed ? 'Yes' : 'No'}</strong>
       </div>
       <div className="kv">
-        <span>Protected from automatic clean-up</span>
+        <span>Protected from clean-up</span>
         <strong>{protection}</strong>
       </div>
       <div className="kv">
@@ -35,9 +34,7 @@ export function StorageCard() {
           {status?.usage != null ? ` · ${formatBytes(status.usage)}` : ''}
         </strong>
       </div>
-      <p className="muted small top-gap">
-        If protection says No, iOS may clear this app's data when the phone runs short of space, so back up regularly.
-      </p>
+      {status?.persisted === false ? <p className="muted small top-gap">iOS may clear unprotected data when space runs low. Back up often.</p> : null}
     </section>
   )
 }

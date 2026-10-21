@@ -1,7 +1,18 @@
 // Shape checks for records arriving from a backup file. Anything that fails is skipped, never imported.
 import { isEnergy, isEngagement } from '../domain/scales'
 import { isDateKey } from '../lib/dates'
-import { BALANCE_AREAS, type BackupData, type Day, type Entry, type IkigaiItem, type OdysseyPlan, type Review, type Setting, type TableName } from './types'
+import {
+  type Answer,
+  BALANCE_AREAS,
+  type BackupData,
+  type Day,
+  type Entry,
+  type IkigaiItem,
+  type OdysseyPlan,
+  type Review,
+  type Setting,
+  type TableName,
+} from './types'
 
 type Rec = Record<string, unknown>
 
@@ -35,6 +46,21 @@ export function isEntry(x: unknown): x is Entry {
 
 export function isDay(x: unknown): x is Day {
   return isObj(x) && isDateKey(x.date) && isStr(x.smallJoy) && hasTimes(x)
+}
+
+const ANSWER_PURPOSES: readonly unknown[] = ['know', 'calm', 'grow', 'goal', 'learn', 'joy', 'pattern']
+
+export function isAnswer(x: unknown): x is Answer {
+  return (
+    isObj(x) &&
+    isNonEmptyStr(x.id) &&
+    isDateKey(x.date) &&
+    isNonEmptyStr(x.promptId) &&
+    ANSWER_PURPOSES.includes(x.purpose) &&
+    isNonEmptyStr(x.question) &&
+    isStr(x.text) &&
+    hasTimes(x)
+  )
 }
 
 export function isIkigaiItem(x: unknown): x is IkigaiItem {
@@ -81,7 +107,8 @@ function isAeiouNote(x: unknown): boolean {
     isStr(x.environments) &&
     isStr(x.interactions) &&
     isStr(x.objects) &&
-    isStr(x.users)
+    isStr(x.users) &&
+    (x.why === undefined || isStr(x.why)) // files from before v0.4 have no "why"
   )
 }
 
@@ -110,8 +137,16 @@ export function isSetting(x: unknown): x is Setting {
 export const VALIDATORS: { [K in TableName]: (x: unknown) => x is BackupData[K][number] } = {
   entries: isEntry,
   days: isDay,
+  answers: isAnswer,
   ikigaiItems: isIkigaiItem,
   odysseyPlans: isOdysseyPlan,
   reviews: isReview,
   settings: isSetting,
+}
+
+/** Fills in fields that older files don't have yet, after validation. */
+export function normalizeRecord(table: TableName, record: unknown): unknown {
+  if (table !== 'reviews') return record
+  const review = record as Review
+  return { ...review, best: { ...review.best, why: review.best.why ?? '' }, worst: { ...review.worst, why: review.worst.why ?? '' } }
 }

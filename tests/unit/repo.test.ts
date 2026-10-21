@@ -9,6 +9,7 @@ import {
   type EntryDraft,
   entrySource,
   firstEntryCreatedAt,
+  saveAnswer,
   saveEntry,
   setSmallJoy,
 } from '../../src/db/repo'
@@ -93,6 +94,22 @@ describe('small joys', () => {
   })
 })
 
+describe('evening answers', () => {
+  const prompt = { id: 'learn-1', purpose: 'learn' as const, question: 'What did you learn today, and how will you use it?' }
+
+  it('saves only real changes, keeping the question with the answer', async () => {
+    expect(await saveAnswer('2026-10-21', prompt, '   ')).toBeNull()
+    expect(await db.answers.count()).toBe(0)
+
+    const saved = await saveAnswer('2026-10-21', prompt, ' Pairing beats debugging alone ')
+    expect(saved).toMatchObject({ date: '2026-10-21', promptId: 'learn-1', purpose: 'learn', question: prompt.question, text: 'Pairing beats debugging alone' })
+
+    const again = await saveAnswer('2026-10-21', prompt, 'Pairing beats debugging alone', saved ?? undefined)
+    expect(again?.updatedAt).toBe(saved?.updatedAt)
+    expect(await db.answers.count()).toBe(1)
+  })
+})
+
 describe('suggestions', () => {
   it('lists recent activities first and frequent places, people and objects', () => {
     const e = (activity: string, updatedAt: number, where: string[]) => ({
@@ -110,7 +127,8 @@ describe('backup bookkeeping', () => {
     const a = await saveEntry(draft({ activity: 'One' }))
     await saveEntry(draft({ activity: 'Two' }))
     await setSmallJoy('2026-10-21', 'Tea')
-    expect(await countChangesSince(null)).toBe(3)
+    await saveAnswer('2026-10-21', { id: 'know-1', purpose: 'know', question: 'When did you feel most like yourself today?' }, 'On the walk home')
+    expect(await countChangesSince(null)).toBe(4)
     expect(await countChangesSince(Date.now() + 1)).toBe(0)
     expect(await firstEntryCreatedAt()).toBe(a.createdAt)
   })

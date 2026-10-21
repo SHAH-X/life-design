@@ -1,32 +1,121 @@
+import { useLiveQuery } from 'dexie-react-hooks'
+import { useEffect, useState } from 'react'
+import { getSetting } from '../../db/repo'
+import type { OptionalPurpose } from '../../db/types'
 import { buildInfo, formatBuildInfo } from '../../lib/buildInfo'
+import { shortDate, toDateKey } from '../../lib/dates'
+import { hashFor } from '../../lib/route'
+import { isPersisted, isStandalone } from '../../lib/storage'
+import { PURPOSES } from '../../prompts/bank'
+import { DEFAULT_PURPOSES } from '../../prompts/useTonight'
+import { normalizeReminderPlan } from '../../reminders/schedule'
 import { BackupCard } from './BackupCard'
 import { DeleteAllCard } from './DeleteAllCard'
+import { EveningSettings } from './EveningSettings'
 import { ExportCard } from './ExportCard'
 import { RemindersCard } from './RemindersCard'
 import { StorageCard } from './StorageCard'
 import { useReminderSettings } from './useReminderSettings'
 
-export function MoreScreen() {
-  const reminders = useReminderSettings()
+const PAGES = {
+  reminders: 'Reminders',
+  evening: 'Evening question',
+  backup: 'Backup and restore',
+  export: 'Spreadsheet export',
+  phone: 'This phone',
+  delete: 'Delete everything',
+} as const
 
-  // Render only once the reminder settings have loaded, so the cards below never jump.
+type Page = keyof typeof PAGES
+
+const isPage = (sub: string | null): sub is Page => sub !== null && Object.hasOwn(PAGES, sub)
+
+/** More is a short list; each row opens its own page at #/more/<page>. */
+export function MoreScreen({ sub }: { sub: string | null }) {
+  return isPage(sub) ? <MorePage page={sub} /> : <MoreList />
+}
+
+function MorePage({ page }: { page: Page }) {
+  return (
+    <>
+      <a className="back-link" href={hashFor('more')}>
+        ‹ More
+      </a>
+      <h1>{PAGES[page]}</h1>
+      {page === 'reminders' ? <RemindersPage /> : null}
+      {page === 'evening' ? <EveningSettings /> : null}
+      {page === 'backup' ? <BackupCard /> : null}
+      {page === 'export' ? <ExportCard /> : null}
+      {page === 'phone' ? <StorageCard /> : null}
+      {page === 'delete' ? <DeleteAllCard /> : null}
+    </>
+  )
+}
+
+function RemindersPage() {
+  const reminders = useReminderSettings()
+  // Render only once the settings have loaded, so nothing below jumps.
   if (reminders === undefined) return <div className="loading" aria-busy="true" />
+  return <RemindersCard settings={reminders} />
+}
+
+const REMINDER_NAMES = { daily: 'Daily log', review: 'Review', backup: 'Backup', quarterly: 'Quarterly' } as const
+
+function useListStatus() {
+  const [persisted, setPersisted] = useState<boolean | null | undefined>(undefined)
+  useEffect(() => {
+    void isPersisted().then(setPersisted)
+  }, [])
+  const stored = useLiveQuery(async () => {
+    const [reminders, purposes, lastExportAt] = await Promise.all([
+      getSetting<unknown>('reminders', null),
+      getSetting<readonly OptionalPurpose[]>('purposes', DEFAULT_PURPOSES),
+      getSetting<number | null>('lastExportAt', null),
+    ])
+    const plan = normalizeReminderPlan(reminders, toDateKey(new Date()))
+    const on = (Object.keys(REMINDER_NAMES) as (keyof typeof REMINDER_NAMES)[]).filter((k) => plan[k].on).map((k) => REMINDER_NAMES[k])
+    return {
+      reminders: on.length ? on.join(' · ') : 'Off',
+      evening: purposes.length ? purposes.map((p) => PURPOSES[p].label).join(' · ') : 'Know myself and joy',
+      backup: lastExportAt ? `Last: ${shortDate(lastExportAt)}` : 'No backup yet',
+    }
+  }, [])
+  if (stored === undefined || persisted === undefined) return undefined
+  const phone = !isStandalone() ? 'Not installed' : persisted === true ? 'Protected' : persisted === false ? 'Not protected' : ''
+  return { ...stored, phone }
+}
+
+function MoreList() {
+  const status = useListStatus()
+  // Render only once every status line has loaded, so the rows never jump.
+  if (status === undefined) return <div className="loading" aria-busy="true" />
+
+  const rows: { page: Page; status?: string }[] = [
+    { page: 'reminders', status: status.reminders },
+    { page: 'evening', status: status.evening },
+    { page: 'backup', status: status.backup },
+    { page: 'export' },
+    { page: 'phone', status: status.phone },
+    { page: 'delete' },
+  ]
 
   return (
     <>
       <h1>More</h1>
-      <RemindersCard settings={reminders} />
-      <BackupCard />
-      <StorageCard />
-      <ExportCard />
-      <section className="card">
-        <h2>Your data</h2>
-        <p>
-          Everything you log stays on this phone. Nothing is sent anywhere unless you choose to export a file or, later, run an AI
-          review.
-        </p>
-      </section>
-      <DeleteAllCard />
+      <nav className="list" aria-label="Settings">
+        {rows.map((row) => (
+          <a key={row.page} className={`list-row${row.page === 'delete' ? ' danger-text' : ''}`} href={hashFor('more', row.page)}>
+            <span className="list-text">
+              <span className="list-title">{PAGES[row.page]}</span>
+              {row.status ? <span className="list-status">{row.status}</span> : null}
+            </span>
+            <span className="list-chevron" aria-hidden="true">
+              ›
+            </span>
+          </a>
+        ))}
+      </nav>
+      <p className="muted small top-gap">Your journal stays on this phone.</p>
       <p className="muted small">{formatBuildInfo(buildInfo)}</p>
     </>
   )

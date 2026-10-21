@@ -2,7 +2,7 @@ import type { Energy, Engagement } from '../domain/scales'
 import { type DayPart, toDateKey } from '../lib/dates'
 import { db as defaultDb, type LifeDesignDB } from './db'
 import { guardWrite } from './saveErrors'
-import type { AeiouNote, Entry, EntrySource, Review } from './types'
+import type { AeiouNote, Answer, Entry, EntrySource, Purpose, Review } from './types'
 
 export interface EntryDraft {
   date: string
@@ -81,6 +81,42 @@ export async function setSmallJoy(date: string, text: string, database: LifeDesi
   })
 }
 
+export interface AskedPrompt {
+  id: string
+  purpose: Purpose | 'pattern'
+  question: string
+}
+
+/**
+ * Saves the evening answer for a day, with the question it answers. Saves only real changes;
+ * nothing typed and nothing saved yet means nothing to save (returns null).
+ * `existing` is that day's answer, if any: it keeps its id, and takes the question shown now.
+ */
+export async function saveAnswer(
+  date: string,
+  prompt: AskedPrompt,
+  text: string,
+  existing?: Answer,
+  database: LifeDesignDB = defaultDb,
+): Promise<Answer | null> {
+  const value = text.trim()
+  if (!existing && !value) return null
+  if (existing && existing.text === value && existing.promptId === prompt.id) return existing
+  const now = Date.now()
+  const answer: Answer = {
+    id: existing?.id ?? crypto.randomUUID(),
+    date,
+    promptId: prompt.id,
+    purpose: prompt.purpose,
+    question: prompt.question,
+    text: value,
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now,
+  }
+  await guardWrite(() => database.answers.put(answer))
+  return answer
+}
+
 export async function getSetting<T>(key: string, fallback: T, database: LifeDesignDB = defaultDb): Promise<T> {
   const row = await database.settings.get(key)
   return row === undefined ? fallback : (row.value as T)
@@ -131,9 +167,9 @@ export async function loadSuggestions(database: LifeDesignDB = defaultDb): Promi
   return computeSuggestions(recent)
 }
 
-/** Entries, days and reviews created or changed after `since` (everything when never backed up). */
+/** Entries, days, evening answers and reviews created or changed after `since` (everything when never backed up). */
 export async function countChangesSince(since: number | null, database: LifeDesignDB = defaultDb): Promise<number> {
-  const tables = [database.entries, database.days, database.reviews] as const
+  const tables = [database.entries, database.days, database.answers, database.reviews] as const
   const counts = await Promise.all(tables.map((t) => (since === null ? t.count() : t.where('updatedAt').above(since).count())))
   return counts.reduce((sum, n) => sum + n, 0)
 }
@@ -145,6 +181,7 @@ const emptyNote = (entryId: string | null = null): AeiouNote => ({
   interactions: '',
   objects: '',
   users: '',
+  why: '',
 })
 
 export function newReview(periodStart: string, periodEnd: string, now: Date = new Date()): Review {

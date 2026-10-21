@@ -3,8 +3,8 @@ import { captureShareSheet, sharedFile } from './helpers'
 
 test('choose reminders, times and a date range, then get one calendar file with all of them', async ({ page }) => {
   await captureShareSheet(page)
-  await page.goto('./#/more')
-  const card = page.locator('section.card', { has: page.getByRole('heading', { name: 'Reminders' }) })
+  await page.goto('./#/more/reminders')
+  const card = page.locator('section.card')
 
   // Defaults: all four reminders on, one year from today.
   for (const name of [/^Daily log/, /^Review \(incl\. AI review\)/, /^Backup/, /^Quarterly check-in/]) {
@@ -49,7 +49,7 @@ test('choose reminders, times and a date range, then get one calendar file with 
 
 test('"No end date" leaves the reminders open-ended', async ({ page }) => {
   await captureShareSheet(page)
-  await page.goto('./#/more')
+  await page.goto('./#/more/reminders')
   await page.getByRole('button', { name: 'No end date' }).click()
   await expect(page.getByLabel('To', { exact: true })).toBeDisabled()
   await expect(page.locator('.summary')).toContainText('with no end date')
@@ -58,7 +58,7 @@ test('"No end date" leaves the reminders open-ended', async ({ page }) => {
 })
 
 test('typing a multi-digit "every N days" works key by key', async ({ page }) => {
-  await page.goto('./#/more')
+  await page.goto('./#/more/reminders')
   await page.getByLabel('Review repeats').selectOption('days')
   const every = page.getByLabel('Review every (days)')
   await every.fill('')
@@ -72,7 +72,23 @@ test('typing a multi-digit "every N days" works key by key', async ({ page }) =>
 })
 
 test('no link in the app opens a file inside the app (on iPhone that left the app on a blank screen)', async ({ page }) => {
+  const fileLinks = page.locator('a[href*=".ics"], a[href^="data:"], a[href^="blob:"], a[download]')
+  for (const path of ['today', 'review', 'insights', 'more', 'more/reminders', 'more/evening', 'more/backup', 'more/export', 'more/phone', 'more/delete']) {
+    await page.goto(`./#/${path}`)
+    await expect(page.locator('h1').first()).toBeVisible()
+    await expect(fileLinks).toHaveCount(0)
+  }
+})
+
+test('More is a short list of pages, each with a way back', async ({ page }) => {
   await page.goto('./#/more')
-  await expect(page.getByRole('heading', { name: 'Reminders' })).toBeVisible()
-  await expect(page.locator('a[href*=".ics"], a[href^="data:"], a[href^="blob:"], a[download]')).toHaveCount(0)
+  const list = page.getByRole('navigation', { name: 'Settings' })
+  for (const name of ['Reminders', 'Evening question', 'Backup and restore', 'Spreadsheet export', 'This phone', 'Delete everything']) {
+    await expect(list.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
+  }
+  await list.getByRole('link', { name: /^Reminders/ }).click()
+  await expect(page).toHaveURL(/#\/more\/reminders$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Reminders' })).toBeVisible()
+  await page.getByRole('link', { name: '‹ More' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'More' })).toBeVisible()
 })

@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
-import { addEntry, captureShareSheet, sharedFile } from './helpers'
+import { addEntry, captureShareSheet, sharedFile, smallJoy } from './helpers'
 
 // The iPhone path: the backup leaves through the share sheet ("Save to Files"), with a password and with the
 // characters an iPhone keyboard produces (emoji, curly quotes, dashes). Fictional example data.
@@ -9,14 +9,15 @@ test('a password-protected backup saved through the share sheet restores, emoji 
   await page.goto('./#/today')
   await addEntry(page, {
     activity: 'Coffee ☕️ with “Sam” — it’s been ages',
-    engagement: 'Absorbed',
-    energy: 'Energised',
+    energy: 'Gave a lot',
+    into: 'Fully',
+    timeFlew: true,
     note: 'Talked for hours… felt great 🙌',
   })
-  await page.getByLabel('Small joy').fill('Sunset 🌅 over the river · 日本語')
-  await expect(page.getByText('Saved', { exact: true })).toBeVisible()
+  await smallJoy(page).fill('Sunset 🌅 over the river · 日本語')
+  await expect(page.locator('section.evening .evening-field').first().getByText('Saved')).toBeVisible()
 
-  await page.goto('./#/more')
+  await page.goto('./#/more/backup')
   await page.getByRole('button', { name: 'Back up now' }).click()
   const dialog = page.getByRole('dialog', { name: 'Back up' })
   // Without a password the file is ready straight away: one tap saves it.

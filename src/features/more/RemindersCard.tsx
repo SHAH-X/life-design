@@ -26,10 +26,20 @@ const RANGES = [
   { label: 'No end date', months: null },
 ] as const
 
-function TimeSelect({ label, value, onChange }: { label: string; value: string; onChange: (time: string) => void }) {
+/** A short visible label ("Time") with its context spoken too ("Daily log time"). */
+function FieldLabel({ context, label }: { context: string; label: string }) {
+  return (
+    <span>
+      <span className="visually-hidden">{context} </span>
+      {label}
+    </span>
+  )
+}
+
+function TimeSelect({ context, value, onChange }: { context: string; value: string; onChange: (time: string) => void }) {
   return (
     <label className="inline-field">
-      <span>{label}</span>
+      <FieldLabel context={context} label="Time" />
       <select value={value} onChange={(e) => onChange(e.target.value)}>
         {DAILY_TIMES.map((t) => (
           <option key={t} value={t}>
@@ -41,10 +51,10 @@ function TimeSelect({ label, value, onChange }: { label: string; value: string; 
   )
 }
 
-function DaySelect({ label, value, onChange }: { label: string; value: Weekday; onChange: (day: Weekday) => void }) {
+function DaySelect({ context, label, value, onChange }: { context: string; label: string; value: Weekday; onChange: (day: Weekday) => void }) {
   return (
     <label className="inline-field">
-      <span>{label}</span>
+      <FieldLabel context={context} label={label} />
       <select value={value} onChange={(e) => onChange(Number(e.target.value) as Weekday)}>
         {WEEKDAYS.map((d) => (
           <option key={d} value={d}>
@@ -103,9 +113,6 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
 
   return (
     <section className="card">
-      <h2>Reminders</h2>
-      <p className="muted">Repeating events with an alert in your iPhone Calendar. Choose what to be reminded about, then get one calendar file with all of them.</p>
-
       <fieldset className="range">
         <legend>Date range</legend>
         <div className="range-row">
@@ -163,13 +170,12 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
         <div className="reminder-row">
           <Switch
             label="Daily log"
-            hint={plan.daily.on ? `Every day at ${formatClockTime(plan.daily.time)}` : 'Off'}
             checked={plan.daily.on}
             onChange={(on) => savePlan({ ...plan, daily: { ...plan.daily, on } })}
           />
           {plan.daily.on ? (
             <div className="reminder-settings">
-              <TimeSelect label="Daily log time" value={plan.daily.time} onChange={(time) => savePlan({ ...plan, daily: { ...plan.daily, time } })} />
+              <TimeSelect context="Daily log" value={plan.daily.time} onChange={(time) => savePlan({ ...plan, daily: { ...plan.daily, time } })} />
             </div>
           ) : null}
         </div>
@@ -177,14 +183,13 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
         <div className="reminder-row">
           <Switch
             label="Review (incl. AI review)"
-            hint={plan.review.on ? (planned.find((p) => p.kind === 'review')?.when ?? '') : 'Off'}
             checked={plan.review.on}
             onChange={(on) => savePlan({ ...plan, review: { ...plan.review, on } })}
           />
           {plan.review.on ? (
             <div className="reminder-settings">
               <label className="inline-field full">
-                <span>Review repeats</span>
+                <FieldLabel context="Review" label="Repeats" />
                 <select
                   value={reviewKind}
                   onChange={(e) => {
@@ -200,7 +205,7 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
               </label>
               {review.kind === 'days' ? (
                 <label className="inline-field">
-                  <span>Review every (days)</span>
+                  <FieldLabel context="Review" label="Every (days)" />
                   <input
                     type="number"
                     inputMode="numeric"
@@ -224,12 +229,13 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
                 </label>
               ) : (
                 <DaySelect
-                  label={review.kind === 'monthly' ? 'Review on the first' : 'Review day'}
+                  context="Review"
+                  label={review.kind === 'monthly' ? 'On the first' : 'Day'}
                   value={review.day}
                   onChange={(day) => saveReview({ kind: review.kind, day })}
                 />
               )}
-              <TimeSelect label="Review time" value={plan.review.time} onChange={(time) => savePlan({ ...plan, review: { ...plan.review, time } })} />
+              <TimeSelect context="Review" value={plan.review.time} onChange={(time) => savePlan({ ...plan, review: { ...plan.review, time } })} />
             </div>
           ) : null}
         </div>
@@ -237,14 +243,13 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
         <div className="reminder-row">
           <Switch
             label="Backup"
-            hint={plan.backup.on ? (planned.find((p) => p.kind === 'backup')?.when ?? '') : 'Off'}
             checked={plan.backup.on}
             onChange={(on) => savePlan({ ...plan, backup: { ...plan.backup, on } })}
           />
           {plan.backup.on ? (
             <div className="reminder-settings">
               <label className="inline-field full">
-                <span>Backup repeats</span>
+                <FieldLabel context="Backup" label="Repeats" />
                 <select
                   value={backupSchedule.kind}
                   onChange={(e) => {
@@ -257,11 +262,12 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
                 </select>
               </label>
               <DaySelect
-                label={backupSchedule.kind === 'monthly' ? 'Backup on the first' : 'Backup day'}
+                context="Backup"
+                label={backupSchedule.kind === 'monthly' ? 'On the first' : 'Day'}
                 value={backupSchedule.day}
                 onChange={(day) => savePlan({ ...plan, backup: { ...plan.backup, schedule: { ...backupSchedule, day } } })}
               />
-              <TimeSelect label="Backup time" value={plan.backup.time} onChange={(time) => savePlan({ ...plan, backup: { ...plan.backup, time } })} />
+              <TimeSelect context="Backup" value={plan.backup.time} onChange={(time) => savePlan({ ...plan, backup: { ...plan.backup, time } })} />
             </div>
           ) : null}
         </div>
@@ -269,19 +275,19 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
         <div className="reminder-row">
           <Switch
             label="Quarterly check-in"
-            hint={plan.quarterly.on ? (planned.find((p) => p.kind === 'quarterly')?.when ?? '') : 'Off'}
             checked={plan.quarterly.on}
             onChange={(on) => savePlan({ ...plan, quarterly: { ...plan.quarterly, on } })}
           />
           {plan.quarterly.on ? (
             <div className="reminder-settings">
               <DaySelect
-                label="Check-in on the first"
+                context="Check-in"
+                label="On the first"
                 value={plan.quarterly.day}
                 onChange={(day) => savePlan({ ...plan, quarterly: { ...plan.quarterly, day } })}
               />
               <TimeSelect
-                label="Check-in time"
+                context="Check-in"
                 value={plan.quarterly.time}
                 onChange={(time) => savePlan({ ...plan, quarterly: { ...plan.quarterly, time } })}
               />
@@ -292,7 +298,7 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
 
       <div className="summary" aria-live="polite">
         <p>
-          <strong>Your calendar file will contain:</strong>
+          <strong>Your calendar file</strong>
         </p>
         {planned.length > 0 ? (
           <ul>
@@ -312,30 +318,29 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
       <button type="button" className="primary wide top-gap" disabled={events.length === 0} onClick={getFile}>
         Get calendar file…
       </button>
-      <p className="muted small top-gap">{sentAt ? `Last calendar file: ${shortDate(sentAt)}.` : 'No calendar file yet.'}</p>
-
-      <p className="top-gap">
-        <strong>Then add it to your calendar</strong> (iPhone can't do that straight from a Home Screen app):
-      </p>
-      <ol className="steps">
-        <li>
-          <strong>Mail</strong>: send it to yourself, open the email, tap the file, then <strong>Add All</strong>.
-        </li>
-        <li>
-          <strong>AirDrop</strong> it to your Mac: it opens in Calendar there, and with iCloud Calendar the reminders appear on your
-          iPhone too.
-        </li>
-        <li>
-          <strong>Save to Files</strong>, then tap the file in the Files app. Depending on your iOS version, it may offer Add All.
-        </li>
-      </ol>
-      <p className="field-help">
-        To change reminders later: in Calendar, open an old “Life Design” event → Delete Event → Delete All Future Events, then get a
-        new file here.
-      </p>
+      {sentAt ? <p className="muted small top-gap">Last calendar file: {shortDate(sentAt)}.</p> : null}
 
       <details className="more-ways">
-        <summary>Or set them up in the Reminders app</summary>
+        <summary>How to add it to Calendar</summary>
+        <ol className="steps">
+          <li>
+            <strong>Mail</strong> it to yourself, open the email, tap the file, then <strong>Add All</strong>.
+          </li>
+          <li>
+            <strong>AirDrop</strong> it to your Mac: it opens in Calendar, and iCloud brings it to your iPhone.
+          </li>
+          <li>
+            <strong>Save to Files</strong>, then tap it in the Files app (newer iOS offers Add All).
+          </li>
+        </ol>
+        <p className="field-help">
+          To change them later: in Calendar, open an old “Life Design” event → Delete Event → Delete All Future Events, then get a new
+          file here.
+        </p>
+      </details>
+
+      <details className="more-ways">
+        <summary>Or use the Reminders app</summary>
         <ol className="steps">
           {planned.map((p) => (
             <li key={p.kind}>{p.remindersApp}</li>

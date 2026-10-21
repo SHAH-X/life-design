@@ -1,70 +1,33 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId } from 'react'
 import { setSmallJoy } from '../../db/repo'
+import { Question } from '../../ui/Question'
+import { useAutosave } from '../../ui/useAutosave'
+
+const SMALL_JOY_INFO =
+  'Ikigai in its everyday sense: the small things that make life worth living. The words that keep coming back show up in Insights.'
 
 /** One line a day: the small, everyday kind of ikigai. Saves as you type. */
 export function SmallJoy({ date, saved }: { date: string; saved: string }) {
   const id = useId()
-  const [text, setText] = useState(saved)
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
-  const edited = useRef(false)
-  const pending = useRef(false)
-  const latest = useRef(text)
-  latest.current = text
-
-  // Show the stored value once it loads, unless you've already started typing.
-  useEffect(() => {
-    if (!edited.current) setText(saved)
-  }, [saved])
-
-  async function persist(value: string) {
-    pending.current = false
-    setStatus('saving')
-    try {
-      await setSmallJoy(date, value)
-      setStatus('saved')
-    } catch {
-      setStatus('idle')
-    }
-  }
-
-  useEffect(() => {
-    if (!edited.current) return
-    const timer = setTimeout(() => void persist(text), 800)
-    return () => clearTimeout(timer)
-  }, [text])
-
-  // Leaving the screen within the typing delay still saves.
-  useEffect(
-    () => () => {
-      if (pending.current) void setSmallJoy(date, latest.current)
-    },
-    [date],
-  )
+  const field = useAutosave(saved, (value) => setSmallJoy(date, value))
 
   return (
-    <section className="card small-joy">
-      <h2>
-        <label htmlFor={id}>Small joy</label>
-      </h2>
-      <p className="muted small">One small thing that gave today meaning or joy.</p>
+    <div className="evening-field">
+      <Question as="label" htmlFor={id} info={SMALL_JOY_INFO} infoLabel="Why a small joy?">
+        One small joy from the day?
+      </Question>
       <textarea
         id={id}
-        value={text}
+        value={field.text}
         rows={2}
         maxLength={280}
-        placeholder="e.g. Coffee in the sun before work"
-        onChange={(event) => {
-          edited.current = true
-          pending.current = true
-          setText(event.target.value)
-        }}
-        onBlur={() => {
-          if (pending.current) void persist(latest.current)
-        }}
+        placeholder="e.g. Coffee in the sun"
+        onChange={(e) => field.onChange(e.target.value)}
+        onBlur={field.onBlur}
       />
       <p className="save-status" aria-live="polite">
-        {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : ''}
+        {field.status === 'saving' ? 'Saving…' : field.status === 'saved' ? 'Saved' : ''}
       </p>
-    </section>
+    </div>
   )
 }

@@ -18,19 +18,15 @@ export function BackupCard() {
 
   return (
     <section className="card">
-      <h2>Backup and restore</h2>
-      <p className="muted">
-        Your journal is stored only on this phone. A backup file keeps it safe if the phone is lost, broken or replaced.
-      </p>
       <p className="status-line">{status}</p>
       <div className="action-list">
         <button type="button" className="action primary" onClick={() => open('export')}>
           <span className="action-title">Back up now</span>
-          <span className="action-desc">Makes a file with everything. Save it to Files, or send it by AirDrop, WhatsApp or email.</span>
+          <span className="action-desc">Save it to Files, or send it by AirDrop, WhatsApp or email.</span>
         </button>
         <button type="button" className="action" onClick={() => open('import')}>
           <span className="action-title">Restore from a backup file</span>
-          <span className="action-desc">Brings your data back, for example on a new phone. Nothing here is deleted.</span>
+          <span className="action-desc">Adds what's missing. Deletes nothing.</span>
         </button>
       </div>
     </section>

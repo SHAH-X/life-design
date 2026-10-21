@@ -6,21 +6,23 @@ test('a due review: glance, balance, best and worst moments, reflection, finish'
 
   // Reviews are every 2 days and logging began 5 days ago, so one is due, and Today says so.
   await page.goto('./#/today')
-  await expect(page.getByText('Your review is due.')).toBeVisible()
+  await expect(page.locator('aside.notice')).toContainText('Review due')
   await page.getByRole('button', { name: 'Start review' }).click()
-  await expect(page.getByRole('heading', { name: 'Your review is due' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Review due' })).toBeVisible()
 
+  await page.getByRole('button', { name: 'Change period' }).click()
   await page.getByLabel('Look back over').selectOption('7')
   await page.getByRole('button', { name: 'Start review' }).click()
 
   // 1. At a glance
-  await expect(page.getByText('Step 1 of 5: At a glance')).toBeVisible()
-  await expect(page.locator('.kpi-row .stat-tile', { hasText: 'Activities' })).toContainText('17')
-  await expect(page.locator('section.card', { hasText: 'Gave you the most energy' })).toContainText('Deep work on the report')
+  await expect(page.getByRole('heading', { level: 1, name: 'At a glance' })).toBeVisible()
+  await expect(page.getByText(/^1 of 5 · /)).toBeVisible()
+  await expect(page.locator('.kpi-row .stat-tile', { hasText: 'Days logged' })).toContainText('5')
+  await expect(page.locator('section.card', { hasText: 'Gave energy' })).toContainText('Deep work on the report')
   await page.getByRole('button', { name: 'Next' }).click()
 
   // 2. Balance: sliders start unrated; arrow keys rate them.
-  await expect(page.getByText('Step 2 of 5: Balance')).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Balance' })).toBeVisible()
   const health = page.getByRole('slider', { name: 'Health' })
   await health.focus()
   await page.keyboard.press('ArrowRight')
@@ -30,27 +32,28 @@ test('a due review: glance, balance, best and worst moments, reflection, finish'
   await expect(page.getByText('Things you do just for the joy of it')).toBeVisible()
   await page.getByRole('button', { name: 'Next' }).click()
 
-  // 3. Best and worst moments are pre-selected, with AEIOU pre-filled from the entry.
-  await expect(page.getByText('Step 3 of 5: Best and worst moments')).toBeVisible()
-  const best = page.locator('section.card', { hasText: 'Best moment' })
-  await expect(best.getByRole('combobox')).toHaveValue(/seed-/)
-  await expect(best.locator('select option:checked')).toContainText('Deep work on the report')
-  await expect(best.getByLabel('E · Environment')).toHaveValue('Home')
-  await expect(best.getByLabel('O · Objects')).toHaveValue('Laptop')
-  await best.getByLabel('A · Activities').fill('Writing the analysis section, alone and uninterrupted')
-  const worst = page.locator('section.card', { hasText: 'Worst moment' })
-  await expect(worst.locator('select option:checked')).toContainText('Commute')
+  // 3. Best and worst moments are pre-selected; one question each, with AEIOU (pre-filled) to zoom in.
+  await expect(page.getByRole('heading', { level: 1, name: 'Best and worst moments' })).toBeVisible()
+  const best = page.getByLabel('Which moment gave you the most energy?')
+  await expect(best).toHaveValue(/seed-/)
+  await expect(best.locator('option:checked')).toContainText('Deep work on the report')
+  await page.getByLabel('What made it so good?').fill('Writing the analysis, alone and uninterrupted')
+  const bestCard = page.locator('section.card', { has: best })
+  await bestCard.getByText('Zoom in with AEIOU').click()
+  await expect(bestCard.getByLabel('E · Environment')).toHaveValue('Home')
+  await expect(bestCard.getByLabel('O · Objects')).toHaveValue('Laptop')
+  await expect(page.getByLabel('Which moment took the most energy?').locator('option:checked')).toContainText('Commute')
   await page.getByRole('button', { name: 'Next' }).click()
 
   // 4. Reflection and takeaway
   await page.getByLabel('What do you notice?').fill('Mornings at home give me energy; commutes and long meetings drain it.')
-  await page.getByLabel('One thing to carry forward').fill('Protect mornings for deep work')
+  await page.getByLabel('One thing to carry forward?').fill('Protect mornings for deep work')
   await page.getByRole('button', { name: 'Next' }).click()
 
   // 5. Finish, with a backup nudge (nothing backed up yet)
-  await expect(page.getByText('Step 5 of 5: Finish')).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Finish' })).toBeVisible()
   await expect(page.getByText('Takeaway: Protect mornings for deep work')).toBeVisible()
-  await expect(page.getByText("Back up while you're here.")).toBeVisible()
+  await expect(page.getByText('Nothing is backed up yet.')).toBeVisible()
   await page.getByRole('button', { name: 'Finish review' }).click()
   await expect(page.getByText(/✓ Review complete/)).toBeVisible()
   await page.getByRole('button', { name: 'Done' }).click()
@@ -82,5 +85,5 @@ test('a review in progress is kept, and can be continued or discarded', async ({
   await page.getByRole('link', { name: 'Review' }).click()
   await page.getByRole('button', { name: 'Discard this review' }).click()
   await page.getByRole('button', { name: 'Discard', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Your review is due' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Review due' })).toBeVisible()
 })

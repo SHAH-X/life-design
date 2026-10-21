@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { openDb } from '../../src/db/db'
 
 describe('database upgrade', () => {
-  it('keeps everything from a Phase 1 phone and adds the reviews table', async () => {
+  it('keeps everything from a Phase 1 phone and adds the newer tables', async () => {
     const name = `upgrade-${crypto.randomUUID()}`
 
     // A phone still running Phase 1 (schema version 1, no reviews table).
@@ -25,7 +25,49 @@ describe('database upgrade', () => {
     expect(await upgraded.entries.get('kept')).toMatchObject({ activity: 'Choir rehearsal' })
     expect(await upgraded.days.get('2026-10-20')).toMatchObject({ smallJoy: 'Fresh bread' })
     expect(await upgraded.reviews.count()).toBe(0)
-    expect(upgraded.verno).toBe(2)
+    expect(upgraded.verno).toBe(3)
+    await upgraded.delete()
+  })
+
+  it('keeps everything from a Phase 2 phone, adds evening answers and gives old reviews an empty "why"', async () => {
+    const name = `upgrade-${crypto.randomUUID()}`
+
+    // A phone still running Phase 2 (schema version 2: reviews, no evening answers).
+    const phase2 = new Dexie(name)
+    phase2.version(1).stores({
+      entries: 'id, date, createdAt, updatedAt',
+      days: 'date, updatedAt',
+      ikigaiItems: 'id, updatedAt',
+      odysseyPlans: 'id, slot, updatedAt',
+      settings: 'key',
+    })
+    phase2.version(2).stores({ reviews: 'id, periodEnd, updatedAt' })
+    const note = { entryId: null, activities: '', environments: 'Home', interactions: '', objects: '', users: '' }
+    await phase2.table('reviews').put({
+      id: 'r1',
+      periodStart: '2026-10-12',
+      periodEnd: '2026-10-18',
+      balance: { health: 6, work: 5, play: 3, love: 8 },
+      best: note,
+      worst: { ...note, environments: '' },
+      reflection: 'Mornings matter',
+      takeaway: 'Protect mornings',
+      completedAt: 5,
+      createdAt: 1,
+      updatedAt: 7,
+    })
+    await phase2.table('entries').put({ id: 'kept', date: '2026-10-20', activity: 'Choir rehearsal', updatedAt: 1, createdAt: 1 })
+    phase2.close()
+
+    const upgraded = openDb(name)
+    const review = await upgraded.reviews.get('r1')
+    expect(review?.best).toMatchObject({ environments: 'Home', why: '' })
+    expect(review?.worst.why).toBe('')
+    expect(review?.takeaway).toBe('Protect mornings')
+    expect(review?.updatedAt).toBe(7) // an upgrade is not an edit
+    expect(await upgraded.entries.get('kept')).toMatchObject({ activity: 'Choir rehearsal' })
+    expect(await upgraded.answers.count()).toBe(0)
+    expect(upgraded.verno).toBe(3)
     await upgraded.delete()
   })
 })

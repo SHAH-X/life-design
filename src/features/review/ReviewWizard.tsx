@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { db } from '../../db/db'
 import { deleteReview, getSetting, saveReview } from '../../db/repo'
-import type { Day, Entry, Review } from '../../db/types'
+import type { Answer, Day, Entry, Review } from '../../db/types'
 import { formatDateKey, formatPeriod, toDateKey } from '../../lib/dates'
 import { navigate } from '../../lib/route'
 import { pickMoments } from '../../reviews/period'
@@ -14,6 +14,7 @@ interface Loaded {
   review: Review
   entries: Entry[]
   days: Day[]
+  answers: Answer[]
   previous: Review | null
   lastExportAt: number | null
 }
@@ -22,9 +23,10 @@ export function ReviewWizard({ id }: { id: string }) {
   const loaded = useLiveQuery(async (): Promise<Loaded | null> => {
     const review = await db.reviews.get(id)
     if (!review) return null
-    const [entries, days, all, lastExportAt] = await Promise.all([
+    const [entries, days, answers, all, lastExportAt] = await Promise.all([
       db.entries.where('date').between(review.periodStart, review.periodEnd, true, true).toArray(),
       db.days.where('date').between(review.periodStart, review.periodEnd, true, true).toArray(),
+      db.answers.where('date').between(review.periodStart, review.periodEnd, true, true).toArray(),
       db.reviews.toArray(),
       getSetting<number | null>('lastExportAt', null),
     ])
@@ -32,7 +34,7 @@ export function ReviewWizard({ id }: { id: string }) {
       all
         .filter((r) => r.id !== id && r.completedAt !== null && r.periodEnd < review.periodEnd)
         .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd))[0] ?? null
-    return { review, entries, days, previous, lastExportAt }
+    return { review, entries, days, answers, previous, lastExportAt }
   }, [id])
 
   if (loaded === undefined) return <div className="loading" aria-busy="true" />
@@ -58,7 +60,7 @@ function withMoments(review: Review, entries: readonly Entry[]): Review {
   return { ...review, best: best ? prefillMoment(best) : review.best, worst: worst ? prefillMoment(worst) : review.worst }
 }
 
-function WizardBody({ review: initial, entries, days, previous, lastExportAt }: Loaded) {
+function WizardBody({ review: initial, entries, days, answers, previous, lastExportAt }: Loaded) {
   // The screen keeps its own copy (instant updates); saving is debounced in the background.
   const [review, setReview] = useState(() => withMoments(initial, entries))
   const [step, setStep] = useState(initial.completedAt !== null ? STEPS.length - 1 : 0)
@@ -113,17 +115,16 @@ function WizardBody({ review: initial, entries, days, previous, lastExportAt }: 
         <button type="button" className="link" onClick={() => navigate('review')}>
           ‹ Reviews
         </button>
-        <h1>Review</h1>
-        <p className="muted">{formatPeriod(period.start, period.end)}</p>
-        <p className="wizard-step">
-          Step {step + 1} of {STEPS.length}: <strong>{STEPS[step]}</strong>
+        <h1>{STEPS[step]}</h1>
+        <p className="muted wizard-step">
+          {step + 1} of {STEPS.length} · {formatPeriod(period.start, period.end)}
         </p>
         <div className="progress" aria-hidden="true">
           <span style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
         </div>
       </div>
 
-      {step === 0 ? <GlanceStep entries={entries} days={days} period={period} /> : null}
+      {step === 0 ? <GlanceStep entries={entries} days={days} answers={answers} period={period} /> : null}
       {step === 1 ? <BalanceStep balance={review.balance} previous={previous?.balance ?? null} onChange={(balance) => update({ balance })} /> : null}
       {step === 2 ? <MomentsStep review={review} entries={entries} onChange={update} /> : null}
       {step === 3 ? <ReflectStep review={review} onChange={update} /> : null}

@@ -4,7 +4,7 @@ import { applyImport, BACKUP_SCHEMA_VERSION, createBackup, detectFile, planImpor
 import { lockText, unlockText } from '../../src/db/crypto'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { newReview } from '../../src/db/repo'
-import type { Entry } from '../../src/db/types'
+import type { Answer, Entry } from '../../src/db/types'
 
 // Fictional example data.
 const entry = (id: string, updatedAt: number, over: Partial<Entry> = {}): Entry => ({
@@ -25,7 +25,7 @@ const entry = (id: string, updatedAt: number, over: Partial<Entry> = {}): Entry 
   ...over,
 })
 
-const emptyRaw = (): RawData => ({ entries: [], days: [], ikigaiItems: [], odysseyPlans: [], reviews: [], settings: [] })
+const emptyRaw = (): RawData => ({ entries: [], days: [], answers: [], ikigaiItems: [], odysseyPlans: [], reviews: [], settings: [] })
 
 let phone: LifeDesignDB
 let newPhone: LifeDesignDB
@@ -106,6 +106,39 @@ describe('backup and restore', () => {
     const plan = await applyImport(detected.raw, newPhone)
     expect(plan.tables.reviews).toMatchObject({ added: 1, skipped: 0 })
     expect(await newPhone.reviews.get(review.id)).toMatchObject({ takeaway: 'Protect mornings', balance: { play: 3 } })
+  })
+
+  it('backs up and restores evening answers', async () => {
+    const answer: Answer = {
+      id: 'ans-1',
+      date: '2026-10-20',
+      promptId: 'learn-1',
+      purpose: 'learn',
+      question: 'What did you learn today, and how will you use it?',
+      text: 'Pairing beats debugging alone',
+      createdAt: 1000,
+      updatedAt: 1000,
+    }
+    await phone.answers.put(answer)
+    const detected = detectFile(JSON.stringify(await createBackup(phone)))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    const plan = await applyImport(detected.raw, newPhone)
+    expect(plan.tables.answers).toMatchObject({ added: 1, skipped: 0 })
+    expect(await newPhone.answers.get('ans-1')).toEqual(answer)
+  })
+
+  it('restores reviews from a format 2 file, which have no "why" yet', async () => {
+    const review = JSON.parse(JSON.stringify(newReview('2026-10-12', '2026-10-18', new Date('2026-10-18T19:00:00Z'))))
+    delete review.best.why
+    delete review.worst.why
+    const old = { app: 'life-design', kind: 'backup', schemaVersion: 2, exportedAt: '2026-10-21T12:00:00Z', data: { reviews: [review] } }
+    const detected = detectFile(JSON.stringify(old))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    const plan = await applyImport(detected.raw, newPhone)
+    expect(plan.tables.reviews).toMatchObject({ added: 1, skipped: 0 })
+    const restored = await newPhone.reviews.get(review.id)
+    expect(restored?.best.why).toBe('')
+    expect(restored?.worst.why).toBe('')
   })
 
   it('still restores backups made before reviews existed (format 1)', async () => {

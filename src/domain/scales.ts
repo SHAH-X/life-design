@@ -1,36 +1,55 @@
-// Rating scales for Good Time Journal entries. Five taps each: quick to answer honestly on a phone.
+// The two Good Time Journal ratings, asked in plain words. Every answer is a phrase, not a number:
+// fully worded scales are answered more reliably. The wording stays the same every day so patterns compare.
 
 export type Engagement = 1 | 2 | 3 | 4 | 5
 export type Energy = -2 | -1 | 0 | 1 | 2
 
 export interface Level<T> {
   value: T
+  /** The answer as you tap it. */
   label: string
-  short: string
+  /** How a list reads it out, e.g. "gave a lot of energy". */
+  phrase: string
 }
 
-export const ENGAGEMENT_LEVELS: readonly Level<Engagement>[] = [
-  { value: 1, label: 'Bored', short: '1' },
-  { value: 2, label: 'Low engagement', short: '2' },
-  { value: 3, label: 'Some engagement', short: '3' },
-  { value: 4, label: 'Engaged', short: '4' },
-  { value: 5, label: 'Absorbed', short: '5' },
-]
+export const ENERGY_QUESTION = 'Did it give you energy, or take it?'
+export const ENGAGEMENT_QUESTION = 'How into it were you?'
+export const FLOW_QUESTION = 'Did time fly?'
 
 export const ENERGY_LEVELS: readonly Level<Energy>[] = [
-  { value: -2, label: 'Drained', short: '−2' },
-  { value: -1, label: 'A bit drained', short: '−1' },
-  { value: 0, label: 'Neutral', short: '0' },
-  { value: 1, label: 'A bit energised', short: '+1' },
-  { value: 2, label: 'Energised', short: '+2' },
+  { value: -2, label: 'Took a lot', phrase: 'took a lot of energy' },
+  { value: -1, label: 'Took a little', phrase: 'took a little energy' },
+  { value: 0, label: 'Neither', phrase: 'neither gave nor took energy' },
+  { value: 1, label: 'Gave a little', phrase: 'gave a little energy' },
+  { value: 2, label: 'Gave a lot', phrase: 'gave a lot of energy' },
 ]
 
-/** Shown behind the ⓘ buttons (Designing Your Life treats engagement and energy as two separate gauges). */
-export const ENGAGEMENT_INFO =
-  "How absorbed were you? 5 = fully focused and interested, time flew. 1 = bored, distracted or restless. It's about your attention, not whether it was pleasant."
+export const ENGAGEMENT_LEVELS: readonly Level<Engagement>[] = [
+  { value: 1, label: 'Not at all', phrase: 'not at all into it' },
+  { value: 2, label: 'A little', phrase: 'a little into it' },
+  { value: 3, label: 'Somewhat', phrase: 'somewhat into it' },
+  { value: 4, label: 'Very', phrase: 'very into it' },
+  { value: 5, label: 'Fully', phrase: 'fully into it' },
+]
 
+/** Behind the ⓘ buttons. Designing Your Life treats engagement and energy as two separate gauges. */
 export const ENERGY_INFO =
-  'Did it give you energy or take it away? +2 = you came out lifted and motivated. −2 = you came out tired, flat or drained. Something can be engaging and still draining, like a tough but interesting meeting.'
+  'How did you come out of it: lifted, or flat? Something absorbing can still take energy, like a tough meeting.'
+
+export const ENGAGEMENT_INFO = "Where was your attention? It's about attention, not whether you liked it."
+
+/** Flow only happens when you're deeply into something, so the question is asked only then. */
+export function asksAboutFlow(engagement: Engagement): boolean {
+  return engagement >= 4
+}
+
+/** The optional note, asked in words that follow on from the two answers. */
+export function followUpQuestion(energy: Energy, engagement: Engagement): string {
+  if (energy < 0) return 'What took your energy?'
+  if (energy > 0) return 'What gave you energy?'
+  if (asksAboutFlow(engagement)) return 'What kept you into it?'
+  return 'Anything that stood out?'
+}
 
 export function isEngagement(x: unknown): x is Engagement {
   return x === 1 || x === 2 || x === 3 || x === 4 || x === 5
@@ -40,16 +59,17 @@ export function isEnergy(x: unknown): x is Energy {
   return x === -2 || x === -1 || x === 0 || x === 1 || x === 2
 }
 
-export function engagementLabel(value: Engagement): string {
-  return ENGAGEMENT_LEVELS.find((l) => l.value === value)?.label ?? ''
+export function energyLevel(value: Energy): Level<Energy> {
+  return ENERGY_LEVELS.find((l) => l.value === value) ?? { value, label: String(value), phrase: '' }
 }
 
-export function energyLabel(value: Energy): string {
-  return ENERGY_LEVELS.find((l) => l.value === value)?.label ?? ''
+export function engagementLevel(value: Engagement): Level<Engagement> {
+  return ENGAGEMENT_LEVELS.find((l) => l.value === value) ?? { value, label: String(value), phrase: '' }
 }
 
-export function energyShort(value: Energy): string {
-  return ENERGY_LEVELS.find((l) => l.value === value)?.short ?? String(value)
+/** ▲▲ ▲ – ▼ ▼▼: energy at a glance in lists (always shown with its colour and a spoken phrase). */
+export function energySymbol(value: Energy): string {
+  return value > 0 ? '▲'.repeat(value) : value < 0 ? '▼'.repeat(-value) : '–'
 }
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n))

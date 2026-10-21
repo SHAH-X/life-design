@@ -357,84 +357,125 @@ legend {
   height: 22px;
 }
 
-/* Segmented rows (native radios underneath) */
+/* Worded answers (one question at a time, or compact when editing) */
 
-.seg-row {
-  display: grid;
-  grid-auto-columns: 1fr;
-  grid-auto-flow: column;
-  gap: 6px;
-}
-
-.seg {
-  position: relative;
+.answers {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 48px;
-  padding: 0 4px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  font-weight: 600;
-  text-align: center;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+  gap: 8px;
+  margin: 4px 0 8px;
 }
 
-.seg input {
-  position: absolute;
-  inset: 0;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
+.answers.list {
+  flex-direction: column;
 }
 
-.seg:has(input:checked) {
+.answers.wrap {
+  flex-wrap: wrap;
+}
+
+.answer {
+  justify-content: flex-start;
+  min-height: 52px;
+  padding: 0 16px;
+  border-radius: 12px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.answers.wrap .answer {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 22px;
+}
+
+.answer[aria-pressed='true'] {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-text);
 }
 
-.seg:has(input:focus-visible) {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+.answer-marker {
+  margin-left: auto;
+  display: inline-flex;
 }
 
-.segmented.energy .seg:has(input:checked) {
+.answer[aria-pressed='true'] .sign-dots i {
+  background: currentColor;
+  opacity: 0.35;
+}
+
+.answer[aria-pressed='true'] .sign-dots i.on {
+  opacity: 1;
+}
+
+/* Energy answers: tinted blue (gives) or red (takes) when chosen, with a ring; the words say it too. */
+.answers.energy .answer[aria-pressed='true'] {
   color: var(--text);
-  background: var(--surface);
   border-color: transparent;
 }
 
-.segmented.energy .seg[data-value='-2']:has(input:checked) {
+.answers.energy .answer[data-value='-2'][aria-pressed='true'] {
   background: color-mix(in srgb, var(--viz-neg) 32%, var(--surface));
   box-shadow: inset 0 0 0 2px var(--viz-neg);
 }
 
-.segmented.energy .seg[data-value='-1']:has(input:checked) {
+.answers.energy .answer[data-value='-1'][aria-pressed='true'] {
   background: color-mix(in srgb, var(--viz-neg) 14%, var(--surface));
   box-shadow: inset 0 0 0 2px var(--viz-neg);
 }
 
-.segmented.energy .seg[data-value='0']:has(input:checked) {
+.answers.energy .answer[data-value='0'][aria-pressed='true'] {
   background: var(--bg);
   box-shadow: inset 0 0 0 2px var(--viz-axis);
 }
 
-.segmented.energy .seg[data-value='1']:has(input:checked) {
+.answers.energy .answer[data-value='1'][aria-pressed='true'] {
   background: color-mix(in srgb, var(--viz-pos) 14%, var(--surface));
   box-shadow: inset 0 0 0 2px var(--viz-pos);
 }
 
-.segmented.energy .seg[data-value='2']:has(input:checked) {
+.answers.energy .answer[data-value='2'][aria-pressed='true'] {
   background: color-mix(in srgb, var(--viz-pos) 32%, var(--surface));
   box-shadow: inset 0 0 0 2px var(--viz-pos);
 }
 
-.seg-current {
-  font-weight: 400;
-  color: var(--muted);
+/* A question: its words, an optional ⓘ and actions on one line; the explanation opens below. */
+
+.question {
+  margin: 18px 0 8px;
+}
+
+.question-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.question-text {
+  display: block;
+  margin: 18px 0 8px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.question .question-text {
+  margin: 0;
+}
+
+.question-text:focus {
+  outline: none;
+}
+
+.question-row .link {
+  margin-left: auto;
+  min-height: 36px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.question .info-panel {
+  margin-top: 8px;
 }
 
 .seg-ends {
@@ -676,45 +717,55 @@ dialog.sheet::backdrop {
   color: var(--muted);
 }
 
-.entry-badges {
+.entry-signs {
   flex: none;
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
 }
 
-.badge {
-  padding: 3px 8px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.badge.flow {
-  border-color: transparent;
-  background: var(--accent-soft);
+.sign-flow {
   color: var(--accent);
+  font-size: 0.9rem;
 }
 
-.badge.e-2 {
-  border-color: transparent;
-  background: color-mix(in srgb, var(--viz-neg) 26%, var(--surface));
+.sign-dots {
+  display: flex;
+  gap: 3px;
 }
 
-.badge.e-1 {
-  border-color: transparent;
-  background: color-mix(in srgb, var(--viz-neg) 12%, var(--surface));
+.sign-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
 }
 
-.badge.e1 {
-  border-color: transparent;
-  background: color-mix(in srgb, var(--viz-pos) 12%, var(--surface));
+.sign-dots i.on {
+  background: var(--viz-seq);
 }
 
-.badge.e2 {
-  border-color: transparent;
-  background: color-mix(in srgb, var(--viz-pos) 26%, var(--surface));
+.sign-energy {
+  min-width: 34px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: -0.08em;
+  text-align: center;
+}
+
+.sign-energy.e-2,
+.sign-energy.e-1 {
+  background: color-mix(in srgb, var(--viz-neg) 16%, var(--surface));
+  color: var(--viz-neg);
+}
+
+.sign-energy.e1,
+.sign-energy.e2 {
+  background: color-mix(in srgb, var(--viz-pos) 16%, var(--surface));
+  color: var(--viz-pos);
 }
 
 .empty {
@@ -734,16 +785,30 @@ dialog.sheet::backdrop {
   background: var(--warn-bg);
 }
 
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
 .notice p {
-  margin: 0 0 8px;
+  flex: 1 1 12rem;
+  margin: 0;
 }
 
-.notice p:last-child {
-  margin-bottom: 0;
-}
+/* The evening card: small joy and the changing question */
 
-.small-joy {
+.evening {
   margin-top: 20px;
+}
+
+.evening-field + .evening-field {
+  margin-top: 4px;
+}
+
+.evening .question {
+  margin-top: 0;
 }
 
 .save-status {
@@ -1165,11 +1230,6 @@ details.more-ways summary {
   white-space: nowrap;
 }
 
-.context-group h3 {
-  margin: 14px 0 0;
-  font-size: 0.9rem;
-}
-
 /* Headline numbers */
 
 .kpi-row {
@@ -1362,4 +1422,134 @@ input[type='range'].unset {
 
 .review-period {
   font-weight: 600;
+}
+
+/* ---------- One question at a time ---------- */
+
+.sheet-header h2.visually-hidden + .sheet-toolbar {
+  flex: 1;
+}
+
+.sheet-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+}
+
+.step-dots {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.step-dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.step-dots i.on {
+  background: var(--accent);
+}
+
+/* A new question fades in; it also ignores taps for a moment (see EntryFlow), so a double tap can't answer it. */
+.step {
+  animation: step-in 0.2s ease-out;
+}
+
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step {
+    animation: none;
+  }
+}
+
+.step-context {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.step > .question-text:first-child {
+  margin-top: 8px;
+}
+
+.follow-on {
+  margin-top: 12px;
+}
+
+.chip-row.when {
+  margin: 14px 0 10px;
+}
+
+/* ---------- More: a short list of pages ---------- */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 16px;
+  color: var(--text);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.list-row + .list-row {
+  border-top: 1px solid var(--border);
+}
+
+.list-row.danger-text {
+  color: var(--danger);
+}
+
+.list-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.list-title {
+  font-weight: 600;
+}
+
+.list-status {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.list-chevron {
+  color: var(--muted);
+  font-size: 1.3rem;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.chart-switch {
+  margin-bottom: 8px;
 }

@@ -32,29 +32,41 @@ export async function sharedFile(page: Page): Promise<{ name: string; text: stri
 
 export interface NewEntry {
   activity: string
-  engagement: 'Bored' | 'Low engagement' | 'Some engagement' | 'Engaged' | 'Absorbed'
-  energy: 'Drained' | 'A bit drained' | 'Neutral' | 'A bit energised' | 'Energised'
-  flow?: boolean
+  energy: 'Took a lot' | 'Took a little' | 'Neither' | 'Gave a little' | 'Gave a lot'
+  into: 'Not at all' | 'A little' | 'Somewhat' | 'Very' | 'Fully'
+  /** Asked only after Very or Fully. */
+  timeFlew?: boolean
   where?: string
   note?: string
 }
 
+/** Logs an activity the way it's done on the phone: one question per screen. */
 export async function addEntry(page: Page, entry: NewEntry) {
   await page.getByRole('button', { name: '+ Add activity' }).click()
   const sheet = page.getByRole('dialog', { name: 'New activity' })
   await sheet.getByLabel('What did you do?').fill(entry.activity)
-  if (entry.note) await sheet.getByLabel('What stood out?').fill(entry.note)
-  await sheet.getByRole('radio', { name: entry.engagement, exact: true }).check()
-  await sheet.getByRole('radio', { name: entry.energy, exact: true }).check()
-  if (entry.flow) await sheet.getByRole('switch', { name: /I lost track of time/ }).check()
+  await sheet.getByRole('button', { name: 'Next' }).click()
+  await sheet.getByRole('button', { name: entry.energy, exact: true }).click()
+  await sheet.getByRole('button', { name: entry.into, exact: true }).click()
+  if (entry.into === 'Very' || entry.into === 'Fully') {
+    await sheet.getByRole('button', { name: entry.timeFlew ? 'Yes' : 'No', exact: true }).click()
+  }
+  await expect(sheet.getByRole('button', { name: 'Save' })).toBeVisible()
+  if (entry.note) await sheet.locator('textarea').fill(entry.note)
   if (entry.where) {
-    await sheet.getByRole('button', { name: /Where, with whom/ }).click()
+    await sheet.getByRole('button', { name: '+ Where, who, what' }).click()
     await sheet.getByLabel('Add to where').fill(entry.where)
     await sheet.getByLabel('Add to where').press('Enter')
   }
   await sheet.getByRole('button', { name: 'Save' }).click()
   await expect(sheet).toBeHidden()
 }
+
+/** The small joy box on Today. */
+export const smallJoy = (page: Page) => page.getByLabel('One small joy from the day?')
+
+/** The evening question's box and its save status on Today (its wording changes daily). */
+export const eveningQuestion = (page: Page) => page.locator('section.evening .evening-field').nth(1)
 
 export function entryButton(page: Page, activity: string) {
   return page.getByRole('button', { name: new RegExp(`^${activity}`) })

@@ -82,6 +82,12 @@ export function wholeDaysBetween(fromMs: number, toMs: number): number {
   return Math.floor((toMs - fromMs) / DAY_MS)
 }
 
+/** Days since 1 Jan 1970 for a YYYY-MM-DD key: one step per calendar date, whatever the clocks do. */
+export function dayNumber(key: string): number {
+  const [y = 1970, m = 1, d = 1] = key.split('-').map(Number)
+  return Math.round(Date.UTC(y, m - 1, d) / DAY_MS)
+}
+
 /** "Today", "Yesterday", otherwise the weekday ("Sunday"). */
 export function dayHeading(key: string, today: string, locale?: string): string {
   if (key === today) return 'Today'

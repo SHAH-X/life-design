@@ -15,8 +15,7 @@ export function DeleteAllCard() {
 
   return (
     <section className="card">
-      <h2 className="danger-text">Delete everything</h2>
-      <p className="muted">Removes all your entries and settings from this phone. Back up first if you might want them again.</p>
+      <p className="muted">Removes everything from this phone. Back up first.</p>
       <button type="button" className="danger wide" onClick={() => setOpen(true)}>
         Delete everything on this phone…
       </button>

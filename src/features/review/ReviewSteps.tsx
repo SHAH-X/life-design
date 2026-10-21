@@ -1,13 +1,23 @@
 import { useId } from 'react'
 import { formatSigned, type MomentGroup, momentGroups, overview, type Period } from '../../analysis/stats'
 import { useDialogs } from '../../app/dialogs'
-import { type AeiouNote, BALANCE_AREAS, type Balance, type Day, type Entry, type Review } from '../../db/types'
-import { energyShort } from '../../domain/scales'
+import { type AeiouNote, type Answer, BALANCE_AREAS, type Balance, type Day, type Entry, type Review } from '../../db/types'
+import { energyLevel } from '../../domain/scales'
 import { formatPeriod, shortDate, shortDay, wholeDaysBetween } from '../../lib/dates'
-import { AEIOU, BALANCE_INFO, REFLECTION_PROMPT } from '../../reviews/prompts'
+import { AEIOU, BALANCE_INFO, MOMENT_QUESTIONS, REFLECTION_PROMPT } from '../../reviews/prompts'
 import { BalanceGauge } from '../../ui/BalanceGauge'
+import { EnergySymbol } from '../../ui/Signs'
 import { StatTile } from '../../ui/StatTile'
 import { EnergyCharts } from '../insights/EnergyCharts'
+
+function EnergySign({ entry }: { entry: Entry }) {
+  return (
+    <>
+      <EnergySymbol value={entry.energy} />
+      <span className="visually-hidden">{energyLevel(entry.energy).phrase}</span>
+    </>
+  )
+}
 
 function MomentLine({ group }: { group: MomentGroup }) {
   const { entry, count } = group
@@ -15,24 +25,35 @@ function MomentLine({ group }: { group: MomentGroup }) {
     <li className="moment-line">
       <span className="grow">
         <strong>{entry.activity}</strong>
-        <span className="muted small"> · {count > 1 ? `${count} times` : shortDay(entry.date)}</span>
+        <span className="muted small"> · {count > 1 ? `${count}×` : shortDay(entry.date)}</span>
         {entry.note ? <span className="entry-note">{entry.note}</span> : null}
       </span>
-      <span className={`badge energy e${entry.energy}`}>{energyShort(entry.energy)}</span>
+      <EnergySign entry={entry} />
     </li>
   )
 }
 
-export function GlanceStep({ entries, days, period }: { entries: readonly Entry[]; days: readonly Day[]; period: Period }) {
+export function GlanceStep({
+  entries,
+  days,
+  answers,
+  period,
+}: {
+  entries: readonly Entry[]
+  days: readonly Day[]
+  answers: readonly Answer[]
+  period: Period
+}) {
   const totals = overview(entries, period)
   const high = momentGroups(entries, 'high')
   const low = momentGroups(entries, 'low')
   const joys = [...days].filter((d) => d.smallJoy).sort((a, b) => a.date.localeCompare(b.date))
+  const answered = [...answers].filter((a) => a.text.trim()).sort((a, b) => a.date.localeCompare(b.date))
 
   if (entries.length === 0) {
     return (
       <section className="card">
-        <p>Nothing was logged in {formatPeriod(period.start, period.end)}. You can still rate your balance and reflect.</p>
+        <p>Nothing logged in {formatPeriod(period.start, period.end)}.</p>
       </section>
     )
   }
@@ -40,16 +61,15 @@ export function GlanceStep({ entries, days, period }: { entries: readonly Entry[
   return (
     <>
       <div className="kpi-row">
-        <StatTile label="Activities" value={String(totals.entries)} />
         <StatTile label="Days logged" value={String(totals.daysLogged)} sub={`of ${totals.days}`} />
-        <StatTile label="Average energy" value={totals.avgEnergy === null ? '–' : formatSigned(totals.avgEnergy)} />
-        <StatTile label="Flow moments" value={String(totals.flow)} />
+        <StatTile label="Energy" value={totals.avgEnergy === null ? '–' : formatSigned(totals.avgEnergy)} />
+        <StatTile label="Time flew" value={String(totals.flow)} />
       </div>
       <section className="card">
         <EnergyCharts entries={entries} period={period} />
       </section>
       <section className="card">
-        <h2>Gave you the most energy</h2>
+        <h2>Gave energy</h2>
         {high.length ? (
           <ul className="plain-list">
             {high.map((g) => (
@@ -57,11 +77,9 @@ export function GlanceStep({ entries, days, period }: { entries: readonly Entry[
             ))}
           </ul>
         ) : (
-          <p className="muted small">Nothing gave clear energy this time.</p>
+          <p className="muted small">Nothing this time.</p>
         )}
-      </section>
-      <section className="card">
-        <h2>Drained you the most</h2>
+        <h2 className="top-gap">Took energy</h2>
         {low.length ? (
           <ul className="plain-list">
             {low.map((g) => (
@@ -69,12 +87,12 @@ export function GlanceStep({ entries, days, period }: { entries: readonly Entry[
             ))}
           </ul>
         ) : (
-          <p className="muted small">Nothing clearly drained you this time.</p>
+          <p className="muted small">Nothing this time.</p>
         )}
       </section>
-      <section className="card">
-        <h2>Small joys</h2>
-        {joys.length ? (
+      {joys.length ? (
+        <section className="card">
+          <h2>Small joys</h2>
           <ul className="plain-list">
             {joys.map((d) => (
               <li key={d.date}>
@@ -82,10 +100,24 @@ export function GlanceStep({ entries, days, period }: { entries: readonly Entry[
               </li>
             ))}
           </ul>
-        ) : (
-          <p className="muted small">No small joys noted in this period.</p>
-        )}
-      </section>
+        </section>
+      ) : null}
+      {answered.length ? (
+        <section className="card">
+          <h2>Evening answers</h2>
+          <ul className="plain-list">
+            {answered.map((a) => (
+              <li key={a.id}>
+                <span className="muted small">
+                  {shortDay(a.date)} · {a.question}
+                </span>
+                <br />
+                {a.text}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </>
   )
 }
@@ -93,7 +125,7 @@ export function GlanceStep({ entries, days, period }: { entries: readonly Entry[
 export function BalanceStep({ balance, previous, onChange }: { balance: Balance; previous: Balance | null; onChange: (b: Balance) => void }) {
   return (
     <section className="card">
-      <p className="muted">How full is each part of your life right now? Rate each from empty (0) to full (10).</p>
+      <h2 className="question-text">How full is each part of your life? (0–10)</h2>
       {BALANCE_AREAS.map((area) => (
         <BalanceGauge
           key={area}
@@ -117,11 +149,12 @@ function fillFromEntry(note: AeiouNote, entry: Entry | null): AeiouNote {
     interactions: note.interactions,
     objects: note.objects || (entry?.objects.join(', ') ?? ''),
     users: note.users || (entry?.people.join(', ') ?? ''),
+    why: note.why,
   }
 }
 
 export function prefillMoment(entry: Entry | null): AeiouNote {
-  return fillFromEntry({ entryId: null, activities: '', environments: '', interactions: '', objects: '', users: '' }, entry)
+  return fillFromEntry({ entryId: null, activities: '', environments: '', interactions: '', objects: '', users: '', why: '' }, entry)
 }
 
 function MomentEditor({
@@ -136,45 +169,52 @@ function MomentEditor({
   onChange: (note: AeiouNote) => void
 }) {
   const selectId = useId()
+  const whyId = useId()
   const fieldId = useId()
   const entry = entries.find((e) => e.id === note.entryId) ?? null
   const options = [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt)
+  const questions = MOMENT_QUESTIONS[kind]
 
   return (
     <section className="card">
-      <h2>{kind === 'best' ? 'Best moment' : 'Worst moment'}</h2>
-      <label className="inline-field" htmlFor={selectId}>
-        <span>{kind === 'best' ? 'What gave you the most energy?' : 'What drained you the most?'}</span>
+      <label className="question-text" htmlFor={selectId}>
+        {questions.pick}
       </label>
       <select id={selectId} value={note.entryId ?? ''} onChange={(e) => onChange(fillFromEntry(note, entries.find((x) => x.id === e.target.value) ?? null))}>
         <option value="">None</option>
         {options.map((e) => (
           <option key={e.id} value={e.id}>
-            {shortDay(e.date)} · {e.activity} ({energyShort(e.energy)})
+            {shortDay(e.date)} · {e.activity} ({energyLevel(e.energy).label.toLowerCase()})
           </option>
         ))}
       </select>
       {entry ? (
         <>
           {entry.note ? <p className="entry-note top-gap">“{entry.note}”</p> : null}
-          <p className="muted small top-gap">Zoom in with AEIOU. A few words each is plenty; skip any that don't apply.</p>
-          {AEIOU.map((f) => (
-            <div key={f.field}>
-              <label className="field" htmlFor={`${fieldId}-${f.field}`}>
-                <span>
-                  {f.letter} · {f.label}
-                </span>
-              </label>
-              <p className="field-help">{f.prompt}</p>
-              <textarea
-                id={`${fieldId}-${f.field}`}
-                rows={2}
-                maxLength={500}
-                value={note[f.field]}
-                onChange={(e) => onChange({ ...note, [f.field]: e.target.value })}
-              />
-            </div>
-          ))}
+          <label className="question-text" htmlFor={whyId}>
+            {questions.why}
+          </label>
+          <textarea id={whyId} rows={3} maxLength={1000} value={note.why} onChange={(e) => onChange({ ...note, why: e.target.value })} />
+          <details className="more-ways">
+            <summary>Zoom in with AEIOU</summary>
+            {AEIOU.map((f) => (
+              <div key={f.field}>
+                <label className="field" htmlFor={`${fieldId}-${f.field}`}>
+                  <span>
+                    {f.letter} · {f.label}
+                  </span>
+                </label>
+                <textarea
+                  id={`${fieldId}-${f.field}`}
+                  rows={2}
+                  maxLength={500}
+                  placeholder={f.prompt}
+                  value={note[f.field]}
+                  onChange={(e) => onChange({ ...note, [f.field]: e.target.value })}
+                />
+              </div>
+            ))}
+          </details>
         </>
       ) : null}
     </section>
@@ -185,13 +225,12 @@ export function MomentsStep({ review, entries, onChange }: { review: Review; ent
   if (entries.length === 0) {
     return (
       <section className="card">
-        <p className="muted">No activities were logged in this period, so there are no moments to look at.</p>
+        <p className="muted">Nothing was logged in this period.</p>
       </section>
     )
   }
   return (
     <>
-      <p className="muted">Look closely at one high and one low point to see why they felt that way.</p>
       <MomentEditor kind="best" note={review.best} entries={entries} onChange={(best) => onChange({ best })} />
       <MomentEditor kind="worst" note={review.worst} entries={entries} onChange={(worst) => onChange({ worst })} />
     </>
@@ -203,15 +242,20 @@ export function ReflectStep({ review, onChange }: { review: Review; onChange: (p
   const takeawayId = useId()
   return (
     <section className="card">
-      <label className="field" htmlFor={reflectionId}>
-        <span>What do you notice?</span>
+      <label className="question-text" htmlFor={reflectionId}>
+        What do you notice?
       </label>
-      <p className="field-help">{REFLECTION_PROMPT}</p>
-      <textarea id={reflectionId} rows={6} maxLength={4000} value={review.reflection} onChange={(e) => onChange({ reflection: e.target.value })} />
-      <label className="field" htmlFor={takeawayId}>
-        <span>One thing to carry forward</span>
+      <textarea
+        id={reflectionId}
+        rows={6}
+        maxLength={4000}
+        placeholder={REFLECTION_PROMPT}
+        value={review.reflection}
+        onChange={(e) => onChange({ reflection: e.target.value })}
+      />
+      <label className="question-text" htmlFor={takeawayId}>
+        One thing to carry forward?
       </label>
-      <p className="field-help">It's collected in Insights → What I'm learning.</p>
       <input
         id={takeawayId}
         maxLength={200}
@@ -239,16 +283,15 @@ export function FinishStep({
   return (
     <>
       <section className="card">
-        <h2>{formatPeriod(review.periodStart, review.periodEnd)}</h2>
         <ul className="plain-list">
           <li>
             <strong>Balance:</strong> {BALANCE_AREAS.map((a) => `${BALANCE_INFO[a].label} ${review.balance[a] ?? '–'}`).join(' · ')}
           </li>
           <li>
-            <strong>Best moment:</strong> {name(review.best)}
+            <strong>Best:</strong> {name(review.best)}
           </li>
           <li>
-            <strong>Worst moment:</strong> {name(review.worst)}
+            <strong>Worst:</strong> {name(review.worst)}
           </li>
           <li>
             <strong>Takeaway:</strong> {review.takeaway || '–'}
@@ -257,12 +300,9 @@ export function FinishStep({
       </section>
       {backupDue ? (
         <section className="notice warn">
-          <p>
-            <strong>Back up while you're here.</strong>{' '}
-            {lastExportAt === null ? 'Nothing is backed up yet.' : `Last backup: ${shortDate(lastExportAt)}.`}
-          </p>
+          <p>{lastExportAt === null ? 'Nothing is backed up yet.' : `Last backup: ${shortDate(lastExportAt)}.`}</p>
           <button type="button" className="primary" onClick={() => open('export')}>
-            Back up now
+            Back up
           </button>
         </section>
       ) : null}

@@ -15,6 +15,7 @@ export function ReviewHome({ status }: { status: ReviewStatus }) {
   const fromId = useId()
   const toId = useId()
   const [choice, setChoice] = useState<Choice>('default')
+  const [changing, setChanging] = useState(false)
   const [custom, setCustom] = useState<Period>(status.defaultPeriod)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
 
@@ -44,7 +45,7 @@ export function ReviewHome({ status }: { status: ReviewStatus }) {
       {status.draft ? (
         <section className="card">
           <h2>Review in progress</h2>
-          <p>Looking back over {formatPeriod(status.draft.periodStart, status.draft.periodEnd)}.</p>
+          <p className="muted">{formatPeriod(status.draft.periodStart, status.draft.periodEnd)}</p>
           <div className="stack top-gap">
             <button type="button" className="primary wide" onClick={() => status.draft && navigate('review', status.draft.id)}>
               Continue review
@@ -68,28 +69,28 @@ export function ReviewHome({ status }: { status: ReviewStatus }) {
         </section>
       ) : (
         <section className="card">
-          <h2>{status.due ? 'Your review is due' : 'Next review'}</h2>
+          <h2>{status.due ? 'Review due' : 'Next review'}</h2>
           {nothingLogged ? (
-            <p className="muted">Log a few days first. Your first review will look back over them.</p>
+            <p className="muted">Log a few days first.</p>
           ) : (
             <p className="muted">
-              {status.due
-                ? 'About 10 minutes: look back, rate your balance, and note what you learn.'
-                : status.next
-                  ? `${dayHeading(status.next, today)}, ${formatDateKey(status.next)}. You can also review now.`
-                  : ''}
+              {status.due || !status.next
+                ? formatPeriod(period.start, period.end)
+                : `${dayHeading(status.next, today)}, ${formatDateKey(status.next)} · ${describeReviewSchedule(status.schedule)}`}
             </p>
           )}
-          <label className="inline-field">
-            <span>Look back over</span>
-            <select value={choice} disabled={nothingLogged} onChange={(e) => setChoice(e.target.value as Choice)}>
-              <option value="default">{defaultLabel}</option>
-              <option value="7">The last 7 days</option>
-              <option value="14">The last 14 days</option>
-              <option value="30">The last 30 days</option>
-              <option value="custom">Choose dates…</option>
-            </select>
-          </label>
+          {changing ? (
+            <label className="inline-field top-gap">
+              <span>Look back over</span>
+              <select value={choice} disabled={nothingLogged} onChange={(e) => setChoice(e.target.value as Choice)}>
+                <option value="default">{defaultLabel}</option>
+                <option value="7">The last 7 days</option>
+                <option value="14">The last 14 days</option>
+                <option value="30">The last 30 days</option>
+                <option value="custom">Choose dates…</option>
+              </select>
+            </label>
+          ) : null}
           {choice === 'custom' ? (
             <div className="range-row top-gap">
               <div>
@@ -127,16 +128,20 @@ export function ReviewHome({ status }: { status: ReviewStatus }) {
           <button type="button" className={`${status.due ? 'primary ' : ''}wide top-gap`} disabled={nothingLogged} onClick={() => void start()}>
             {status.due ? 'Start review' : 'Review now'}
           </button>
-          <p className="muted small top-gap">
-            Reviews are due {describeReviewSchedule(status.schedule)}. Change this in More → Reminders.
-          </p>
+          {!changing && !nothingLogged ? (
+            <p className="center top-gap">
+              <button type="button" className="link" onClick={() => setChanging(true)}>
+                Change period
+              </button>
+            </p>
+          ) : null}
         </section>
       )}
 
       <section className="card">
         <h2>Past reviews</h2>
         {status.completed.length === 0 ? (
-          <p className="muted small">Your finished reviews will be listed here.</p>
+          <p className="muted small">None yet.</p>
         ) : (
           <ul className="review-list">
             {status.completed.map((r) => (

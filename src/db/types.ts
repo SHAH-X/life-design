@@ -33,6 +33,25 @@ export interface Day {
   updatedAt: number
 }
 
+/** Why you journal. "know" and "joy" are always on; the others are chosen in More → Evening question. */
+export type Purpose = 'know' | 'calm' | 'grow' | 'goal' | 'learn' | 'joy'
+
+export const OPTIONAL_PURPOSES = ['calm', 'grow', 'goal', 'learn'] as const
+export type OptionalPurpose = (typeof OPTIONAL_PURPOSES)[number]
+
+/** An answer to the evening question. The question is kept with it, so it reads right even if the wording changes later. */
+export interface Answer {
+  id: string
+  date: string
+  /** A prompt from the bank (e.g. "calm-2") or a pattern (e.g. "pattern:drain:commute"). */
+  promptId: string
+  purpose: Purpose | 'pattern'
+  question: string
+  text: string
+  createdAt: number
+  updatedAt: number
+}
+
 export interface IkigaiItem {
   id: string
   text: string
@@ -89,6 +108,8 @@ export interface AeiouNote {
   interactions: string
   objects: string
   users: string
+  /** The one question asked first: what made the moment so good, or so draining. */
+  why: string
 }
 
 export interface Review {
@@ -111,6 +132,7 @@ export interface Review {
 export interface BackupData {
   entries: Entry[]
   days: Day[]
+  answers: Answer[]
   ikigaiItems: IkigaiItem[]
   odysseyPlans: OdysseyPlan[]
   reviews: Review[]
@@ -119,11 +141,12 @@ export interface BackupData {
 
 export type TableName = keyof BackupData
 
-export const TABLE_NAMES: readonly TableName[] = ['entries', 'days', 'ikigaiItems', 'odysseyPlans', 'reviews', 'settings']
+export const TABLE_NAMES: readonly TableName[] = ['entries', 'days', 'answers', 'ikigaiItems', 'odysseyPlans', 'reviews', 'settings']
 
 export const TABLE_LABELS: Record<TableName, string> = {
   entries: 'Journal entries',
   days: 'Small joys',
+  answers: 'Evening answers',
   ikigaiItems: 'Ikigai items',
   odysseyPlans: 'Odyssey Plans',
   reviews: 'Reviews',

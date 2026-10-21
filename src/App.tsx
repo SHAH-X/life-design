@@ -26,7 +26,7 @@ function Screen({ route }: { route: Route }) {
         </ComingSoon>
       )
     case 'more':
-      return <MoreScreen />
+      return <MoreScreen sub={route.sub} />
   }
 }
 

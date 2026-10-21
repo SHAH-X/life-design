@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { addDays, DAY_MS, dayHeading, isDateKey, partOfDay, toDateKey, wholeDaysBetween } from '../../src/lib/dates'
+import { addDays, DAY_MS, dayHeading, dayNumber, isDateKey, partOfDay, toDateKey, wholeDaysBetween } from '../../src/lib/dates'
 
 describe('dates', () => {
   it('keys days by the local calendar date', () => {
@@ -56,5 +56,14 @@ describe('dates', () => {
   it('counts whole days', () => {
     expect(wholeDaysBetween(0, 7 * DAY_MS - 1)).toBe(6)
     expect(wholeDaysBetween(0, 7 * DAY_MS)).toBe(7)
+  })
+})
+
+describe('dayNumber', () => {
+  it('counts calendar days, one per date, even across a daylight-saving change', () => {
+    expect(dayNumber('1970-01-02')).toBe(1)
+    expect(dayNumber('2026-10-21') - dayNumber('2026-10-20')).toBe(1)
+    expect(dayNumber('2026-03-30') - dayNumber('2026-03-28')).toBe(2)
+    expect(dayNumber('2026-10-26') - dayNumber('2026-10-24')).toBe(2)
   })
 })

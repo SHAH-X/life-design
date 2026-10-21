@@ -8,25 +8,21 @@ export const BALANCE_INFO: Record<BalanceArea, { label: string; info: string }> 
   love: { label: 'Love', info: 'Connection: family, friends, a partner, community. The love you give and receive.' },
 }
 
-export type AeiouField = Exclude<keyof AeiouNote, 'entryId'>
+export type AeiouField = Exclude<keyof AeiouNote, 'entryId' | 'why'>
 
 export const AEIOU: readonly { field: AeiouField; letter: string; label: string; prompt: string }[] = [
-  {
-    field: 'activities',
-    letter: 'A',
-    label: 'Activities',
-    prompt: 'What exactly were you doing? Was it structured or loose? Were you leading, or part of a team?',
-  },
-  { field: 'environments', letter: 'E', label: 'Environment', prompt: 'Where were you, and how did the place make you feel?' },
-  {
-    field: 'interactions',
-    letter: 'I',
-    label: 'Interactions',
-    prompt: 'What or who were you dealing with? Was it new or familiar, formal or informal?',
-  },
-  { field: 'objects', letter: 'O', label: 'Objects', prompt: 'Were you using any objects or devices that made it better or worse?' },
-  { field: 'users', letter: 'U', label: 'Users', prompt: 'Who else was there, and did they add to it or take away from it?' },
+  { field: 'activities', letter: 'A', label: 'Activities', prompt: 'What exactly were you doing? Leading, or part of a team?' },
+  { field: 'environments', letter: 'E', label: 'Environment', prompt: 'Where were you, and how did the place feel?' },
+  { field: 'interactions', letter: 'I', label: 'Interactions', prompt: 'Who or what were you dealing with? New or familiar?' },
+  { field: 'objects', letter: 'O', label: 'Objects', prompt: 'Any objects or devices that made it better or worse?' },
+  { field: 'users', letter: 'U', label: 'Users', prompt: 'Who else was there? Did they add to it or take away?' },
 ]
 
-export const REFLECTION_PROMPT =
-  'What patterns do you notice? What gave you the most energy, and what drained it? Any surprises? What would you like more of, or less of?'
+/** One question per moment first; AEIOU is there to zoom in further. */
+export const MOMENT_QUESTIONS = {
+  best: { pick: 'Which moment gave you the most energy?', why: 'What made it so good?' },
+  worst: { pick: 'Which moment took the most energy?', why: 'What made it so draining?' },
+} as const
+
+/** Placeholder for the reflection box. */
+export const REFLECTION_PROMPT = 'Patterns, surprises, what you want more or less of…'

@@ -16,7 +16,7 @@ import {
   type Period,
 } from '../../analysis/stats'
 import { db } from '../../db/db'
-import { addDays, formatDateKey, formatPeriod, toDateKey } from '../../lib/dates'
+import { addDays, formatPeriod, toDateKey } from '../../lib/dates'
 import { navigate } from '../../lib/route'
 import { BALANCE_INFO } from '../../reviews/prompts'
 import { BalanceMeters } from '../../ui/BalanceMeters'
@@ -34,8 +34,11 @@ type RangeKey = (typeof RANGES)[number]['key']
 
 const CONTEXTS: readonly ContextKey[] = ['where', 'people', 'objects', 'part', 'weekday']
 
+const NEED_MORE = `Shows after ${MIN_COUNT}+ entries.`
+
 export function InsightsScreen() {
   const [range, setRange] = useState<RangeKey>('30')
+  const [context, setContext] = useState<ContextKey>('where')
   const data = useLiveQuery(async () => {
     const [entries, days, reviews] = await Promise.all([db.entries.toArray(), db.days.toArray(), db.reviews.toArray()])
     return { entries, days, reviews }
@@ -60,8 +63,7 @@ export function InsightsScreen() {
   const gives = energisers(entries)
   const drains = drainers(entries)
   const flow = flowFinder(entries)
-  const contexts = CONTEXTS.map((key) => ({ key, rows: contextStats(entries, key) })).filter((c) => c.rows.length > 0)
-  const needMore = `Shows once something has been logged at least ${MIN_COUNT} times in this period.`
+  const contextRows = contextStats(entries, context)
 
   return (
     <>
@@ -77,16 +79,14 @@ export function InsightsScreen() {
 
       {data.entries.length === 0 ? (
         <section className="card">
-          <p>Nothing logged yet. Patterns appear here as you log your days.</p>
+          <p>Patterns appear here as you log.</p>
         </section>
       ) : (
         <>
           <div className="kpi-row">
-            <StatTile label="Activities" value={String(totals.entries)} />
             <StatTile label="Days logged" value={String(totals.daysLogged)} sub={`of ${totals.days}`} />
-            <StatTile label="Average energy" value={totals.avgEnergy === null ? '–' : formatSigned(totals.avgEnergy)} />
-            <StatTile label="Average engagement" value={totals.avgEngagement === null ? '–' : totals.avgEngagement.toFixed(1)} sub="of 5" />
-            <StatTile label="Flow moments" value={String(totals.flow)} />
+            <StatTile label="Energy" value={totals.avgEnergy === null ? '–' : formatSigned(totals.avgEnergy)} />
+            <StatTile label="Time flew" value={String(totals.flow)} />
           </div>
 
           <section className="card">
@@ -94,17 +94,18 @@ export function InsightsScreen() {
           </section>
 
           <section className="card">
-            <h2>What gives you energy</h2>
-            {gives.length ? <EnergyRows rows={gives} /> : <p className="muted small">{needMore}</p>}
+            <div className="rank-group">
+              <h2>Gives energy</h2>
+              {gives.length ? <EnergyRows rows={gives} /> : <p className="muted small">{NEED_MORE}</p>}
+            </div>
+            <div className="rank-group top-gap">
+              <h2>Takes energy</h2>
+              {drains.length ? <EnergyRows rows={drains} /> : <p className="muted small">{NEED_MORE}</p>}
+            </div>
           </section>
 
           <section className="card">
-            <h2>What drains you</h2>
-            {drains.length ? <EnergyRows rows={drains} /> : <p className="muted small">{needMore}</p>}
-          </section>
-
-          <section className="card">
-            <h2>Where you find flow</h2>
+            <h2>Time flew</h2>
             {flow.length ? (
               <ul className="plain-list">
                 {flow.map((g) => (
@@ -112,36 +113,32 @@ export function InsightsScreen() {
                     <strong>{g.label}</strong>
                     <span className="muted">
                       {' '}
-                      · flow {g.flow} of {g.count} {g.count === 1 ? 'time' : 'times'}
+                      · {g.flow} of {g.count}
                     </span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="muted small">No flow moments in this period. Switch on “I lost track of time” when it happens.</p>
+              <p className="muted small">Not yet in this period.</p>
             )}
           </section>
 
           <section className="card">
-            <h2>Context</h2>
-            <p className="muted small">Average energy by where you were, who you were with, what you used, and when.</p>
-            {contexts.length ? (
-              contexts.map(({ key, rows }) => (
-                <div key={key} className="context-group">
-                  <h3>{CONTEXT_LABELS[key]}</h3>
-                  <EnergyRows rows={rows} />
-                </div>
-              ))
-            ) : (
-              <p className="muted small">{needMore} Adding where, with whom and using what to entries makes this richer.</p>
-            )}
+            <h2>Energy by context</h2>
+            <div className="chip-row" role="group" aria-label="Context">
+              {CONTEXTS.map((key) => (
+                <button key={key} type="button" className="chip" aria-pressed={context === key} onClick={() => setContext(key)}>
+                  {CONTEXT_LABELS[key]}
+                </button>
+              ))}
+            </div>
+            {contextRows.length ? <EnergyRows rows={contextRows} /> : <p className="muted small">{NEED_MORE}</p>}
           </section>
 
           <section className="card">
             <h2>Balance</h2>
             {balance.latest ? (
               <>
-                <p className="muted small">From your latest review, ending {formatDateKey(balance.latest.periodEnd)}.</p>
                 <BalanceMeters latest={balance.latest.balance} previous={balance.previous?.balance ?? null} />
                 {balance.lowest ? (
                   <p className="top-gap">
@@ -151,21 +148,17 @@ export function InsightsScreen() {
               </>
             ) : (
               <p className="muted small">
-                Health, Work, Play and Love are rated in each review.{' '}
+                Rated in each review.{' '}
                 <button type="button" className="link" onClick={() => navigate('review')}>
-                  Go to Review
+                  Review
                 </button>
               </p>
             )}
           </section>
 
-          <section className="card">
-            <h2>Small joys</h2>
-            <p className="muted small">
-              {smallJoys.length} {smallJoys.length === 1 ? 'small joy' : 'small joys'} in this period.
-              {words.length ? ' Words that keep coming back:' : ''}
-            </p>
-            {words.length ? (
+          {words.length ? (
+            <section className="card">
+              <h2>Small joys</h2>
               <div className="chip-row">
                 {words.map((w) => (
                   <span key={w.word} className="chip static">
@@ -173,8 +166,8 @@ export function InsightsScreen() {
                   </span>
                 ))}
               </div>
-            ) : null}
-          </section>
+            </section>
+          ) : null}
 
           <section className="card">
             <h2>What I'm learning</h2>
@@ -189,7 +182,7 @@ export function InsightsScreen() {
                 ))}
               </ul>
             ) : (
-              <p className="muted small">The takeaway from each review is collected here.</p>
+              <p className="muted small">Takeaways from reviews land here.</p>
             )}
           </section>
         </>

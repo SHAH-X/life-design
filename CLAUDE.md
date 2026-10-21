@@ -23,7 +23,16 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 - Files leave the iPhone app only through the share menu. Never a download link, and never a link or navigation to a file (.ics, data:, blob:). In the Home Screen app, "Add to Calendar" linking to an .ics file left the app on a blank screen with no way back. An e2e test guards this.
 - Inputs show the value being edited straight away from local state; saving happens in the background. Never bind an input directly to a value that comes back from the database: it snaps back mid-typing.
 - When the app refuses something (a file, a password), say exactly why and what to do next. A vague error cost a debugging round in Phase 1.
-- Every question in a form says what it means: a hint, a placeholder example, or an ⓘ explanation.
+- Every question explains itself in plain words (e.g. "Did it give you energy, or take it?", not "Energy"), and every answer is worded, not a number. The deeper "why" sits behind ⓘ. (Phase 2.5: number buttons under one-word labels felt like a form and didn't draw out a real answer.)
+- A question that replaces another under the finger ignores taps for 300 ms and marks its answers `aria-disabled` meanwhile, so a fast double tap can't answer it. An e2e test taps twice to prove it.
+- The measured questions (energy, how into it, did time fly) keep exactly the same wording every day so patterns stay comparable. Variety goes into the evening question only.
+
+## Words and clutter (Phase 2.5: "the app feels wordy")
+- A screen is a title, the questions or content, and one main action. No help paragraphs: a question explains itself; anything more goes behind ⓘ or a collapsed section.
+- A status is one short line. Today shows at most one notice (backup due, then review due, then install).
+- Settings live on their own pages; More stays a short list.
+- Daily screens use words and symbols (▲▼, dots, ✦), with words for VoiceOver; numbers belong in Insights.
+- Word budgets: `tests/e2e/word-budget.spec.ts` counts the visible words on each main screen with the fictional seed and fails above its budget. Raise a budget only with the owner's OK; a new main screen gets a budget when it's added.
 
 ## Charts (dataviz skill rules)
 - Colours come only from the `--viz-*` tokens in `styles.css`. Before adding a colour, run the dataviz validator against both card surfaces (`#ffffff`, `#21201e`). Orange failed next to red; violet failed next to blue.

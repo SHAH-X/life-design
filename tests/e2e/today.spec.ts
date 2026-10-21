@@ -1,84 +1,100 @@
 import { expect, test } from '@playwright/test'
-import { addEntry, entryButton } from './helpers'
+import { addEntry, entryButton, smallJoy } from './helpers'
 
 // Fictional example data.
 test.beforeEach(async ({ page }) => {
   await page.goto('./#/today')
 })
 
-test('log, edit and delete activities, and keep a small joy', async ({ page }) => {
-  await expect(page.getByText('Nothing logged yet today.')).toBeVisible()
+test('log activities one question at a time, edit and delete them, and keep a small joy', async ({ page }) => {
+  await expect(page.getByText('Add the 3–6 main things you did.')).toBeVisible()
 
-  await addEntry(page, { activity: 'Repotted the balcony plants', engagement: 'Absorbed', energy: 'Energised', flow: true, where: 'Balcony' })
+  await addEntry(page, { activity: 'Repotted the balcony plants', energy: 'Gave a lot', into: 'Fully', timeFlew: true, where: 'Balcony' })
   const plants = entryButton(page, 'Repotted the balcony plants')
-  await expect(plants).toContainText('+2')
-  await expect(plants).toContainText('5/5')
-  await expect(plants).toContainText('Flow')
+  await expect(plants).toContainText('gave a lot of energy')
+  await expect(plants).toContainText('fully into it')
+  await expect(plants).toContainText('time flew')
   await expect(plants).toContainText('Balcony')
 
-  // Recent activities appear as quick picks, and Save waits for both ratings.
+  // A recent activity is one tap and moves straight on; Back returns to it.
   await page.getByRole('button', { name: '+ Add activity' }).click()
   const sheet = page.getByRole('dialog', { name: 'New activity' })
   await sheet.getByRole('button', { name: 'Repotted the balcony plants' }).click()
+  await expect(sheet.getByRole('heading', { name: 'Did it give you energy, or take it?' })).toBeVisible()
+  await sheet.getByRole('button', { name: '‹ Back' }).click()
   await expect(sheet.getByLabel('What did you do?')).toHaveValue('Repotted the balcony plants')
   await sheet.getByLabel('What did you do?').fill('Answered emails')
-  await expect(sheet.getByRole('button', { name: 'Save' })).toBeDisabled()
-  await sheet.getByRole('radio', { name: 'Bored', exact: true }).check()
-  await expect(sheet.getByRole('button', { name: 'Save' })).toBeDisabled()
-  await sheet.getByRole('radio', { name: 'A bit drained', exact: true }).check()
+  await sheet.getByRole('button', { name: 'Next' }).click()
+  await sheet.getByRole('button', { name: 'Took a little', exact: true }).click()
+  // "Did time fly?" is asked only after Very or Fully, and the follow-up is worded from the answers.
+  await sheet.getByRole('button', { name: 'Not at all', exact: true }).click()
+  await expect(sheet.getByLabel('What took your energy?')).toBeVisible()
+  await expect(sheet.getByText('Did time fly?')).toHaveCount(0)
+  await sheet.getByLabel('What took your energy?').fill('Too many threads at once')
   await sheet.getByRole('button', { name: 'Save' }).click()
-  await expect(entryButton(page, 'Answered emails')).toContainText('−1')
+  const emails = entryButton(page, 'Answered emails')
+  await expect(emails).toContainText('took a little energy')
+  await expect(emails).toContainText('Too many threads at once')
 
-  // Edit
-  await entryButton(page, 'Answered emails').click()
+  // Editing shows every answer on one screen.
+  await emails.click()
   const edit = page.getByRole('dialog', { name: 'Edit activity' })
-  await edit.getByRole('radio', { name: 'Drained', exact: true }).check()
+  await expect(edit.getByRole('button', { name: 'Took a little', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await edit.getByRole('button', { name: 'Took a lot', exact: true }).click()
   await edit.getByRole('button', { name: 'Save' }).click()
-  await expect(entryButton(page, 'Answered emails')).toContainText('−2')
+  await expect(emails).toContainText('took a lot of energy')
 
   // Delete (with confirmation)
-  await entryButton(page, 'Answered emails').click()
+  await emails.click()
   await edit.getByRole('button', { name: 'Delete' }).click()
   await edit.getByRole('button', { name: 'Yes, delete' }).click()
-  await expect(entryButton(page, 'Answered emails')).toHaveCount(0)
+  await expect(emails).toHaveCount(0)
 
   // The small joy saves by itself and survives a reload, as do the entries.
-  await page.getByLabel('Small joy').fill('Sun on the balcony at breakfast')
-  await expect(page.getByText('Saved', { exact: true })).toBeVisible()
+  await smallJoy(page).fill('Sun on the balcony at breakfast')
+  await expect(page.locator('section.evening .evening-field').first().getByText('Saved')).toBeVisible()
   await page.reload()
-  await expect(page.getByLabel('Small joy')).toHaveValue('Sun on the balcony at breakfast')
+  await expect(smallJoy(page)).toHaveValue('Sun on the balcony at breakfast')
   await expect(entryButton(page, 'Repotted the balcony plants')).toBeVisible()
 })
 
-test('the note sits under "What did you do?" and the ⓘ buttons explain the ratings', async ({ page }) => {
+test('ⓘ explains each question, and a quick double tap never answers the next one', async ({ page }) => {
   await page.getByRole('button', { name: '+ Add activity' }).click()
   const sheet = page.getByRole('dialog', { name: 'New activity' })
+  await sheet.getByLabel('What did you do?').fill('Choir rehearsal')
+  await sheet.getByRole('button', { name: 'Next' }).click()
 
-  // The note comes straight after the activity, before any ratings.
-  const order = await sheet.evaluate((dialog) => {
-    const fields = [...dialog.querySelectorAll('input:not([type]), textarea, fieldset legend')]
-    return fields.map((el) => (el.tagName === 'LEGEND' ? el.textContent?.split(' ')[0] : el.getAttribute('placeholder')?.slice(0, 12)))
+  const info = sheet.getByRole('button', { name: 'What does energy mean?' })
+  await info.click()
+  await expect(sheet.getByText(/How did you come out of it/)).toBeVisible()
+  await info.click()
+  await expect(sheet.getByText(/How did you come out of it/)).toBeHidden()
+
+  // Tap an answer, then tap the same spot again just after the next question appears.
+  const gave = sheet.getByRole('button', { name: 'Gave a lot', exact: true })
+  const box = await gave.boundingBox()
+  if (!box) throw new Error('answer button not on screen')
+  const x = box.x + box.width / 2
+  const y = box.y + box.height / 2
+  await page.mouse.click(x, y)
+  await page.waitForFunction(() => document.querySelector('dialog[open] h2.question-text')?.textContent === 'How into it were you?', undefined, {
+    polling: 'raf',
   })
-  expect(order.slice(0, 3)).toEqual(['e.g. Team me', 'e.g. Lost tr', 'When'])
+  await page.mouse.click(x, y)
+  const into = sheet.getByRole('group', { name: 'How into it were you?' })
+  await expect(into.getByRole('button', { pressed: true })).toHaveCount(0)
+  await expect(sheet.getByRole('heading', { name: 'How into it were you?' })).toBeVisible()
 
-  const engagementInfo = sheet.getByRole('button', { name: 'What does engagement mean?' })
-  await expect(engagementInfo).toHaveAttribute('aria-expanded', 'false')
-  await engagementInfo.click()
-  await expect(engagementInfo).toHaveAttribute('aria-expanded', 'true')
-  await expect(sheet.getByText(/How absorbed were you\?/)).toBeVisible()
-  await engagementInfo.click()
-  await expect(sheet.getByText(/How absorbed were you\?/)).toBeHidden()
-
-  await sheet.getByRole('button', { name: 'What does energy mean?' }).click()
-  await expect(sheet.getByText(/Did it give you energy or take it away\?/)).toBeVisible()
+  await sheet.getByRole('button', { name: 'What does into it mean?' }).click()
+  await expect(sheet.getByText(/Where was your attention/)).toBeVisible()
 })
 
 test('log an activity for yesterday', async ({ page }) => {
   await page.getByRole('button', { name: 'Previous day' }).click()
   await expect(page.getByRole('heading', { name: 'Yesterday' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Next day' })).toBeEnabled()
-  await addEntry(page, { activity: 'Evening walk', engagement: 'Engaged', energy: 'A bit energised' })
-  await expect(entryButton(page, 'Evening walk')).toBeVisible()
+  await addEntry(page, { activity: 'Evening walk', energy: 'Gave a little', into: 'Very', timeFlew: false })
+  await expect(entryButton(page, 'Evening walk')).toContainText('very into it')
 
   await page.getByRole('button', { name: 'Back to today' }).click()
   await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()

@@ -5,11 +5,14 @@ import { db as defaultDb, type LifeDesignDB } from './db'
 import { convertV1, isV1Backup } from './importV1'
 import { guardWrite } from './saveErrors'
 import { type BackupData, TABLE_NAMES, type TableName } from './types'
-import { VALIDATORS } from './validate'
+import { normalizeRecord, VALIDATORS } from './validate'
 
 export const APP_ID = 'life-design'
-/** 1 = Phase 1; 2 adds reviews. Older files still restore; newer ones are refused by older app versions. */
-export const BACKUP_SCHEMA_VERSION = 2
+/**
+ * 1 = Phase 1; 2 adds reviews; 3 adds evening answers and each review moment's "why".
+ * Older files still restore; newer ones are refused by older app versions.
+ */
+export const BACKUP_SCHEMA_VERSION = 3
 
 /** Settings that never leave the phone, not even inside a backup. */
 export const SECRET_SETTING_KEYS: ReadonlySet<string> = new Set(['aiKey'])
@@ -61,6 +64,7 @@ export async function createBackup(database: LifeDesignDB = defaultDb, now: Date
   const data = await database.transaction('r', database.tables, async () => ({
     entries: await database.entries.toArray(),
     days: await database.days.toArray(),
+    answers: await database.answers.toArray(),
     ikigaiItems: await database.ikigaiItems.toArray(),
     odysseyPlans: await database.odysseyPlans.toArray(),
     reviews: await database.reviews.toArray(),
@@ -148,7 +152,7 @@ async function comparePlan(raw: RawData, database: LifeDesignDB): Promise<Import
       if (name === 'settings' && SECRET_SETTING_KEYS.has(primaryKey(name, record))) continue
       const key = primaryKey(name, record)
       const current = newest.get(key)
-      if (!current || (record as Versioned).updatedAt > current.updatedAt) newest.set(key, record as Versioned)
+      if (!current || (record as Versioned).updatedAt > current.updatedAt) newest.set(key, normalizeRecord(name, record) as Versioned)
     }
 
     const keys = [...newest.keys()]
