@@ -174,10 +174,9 @@ export function wordsFor(entry: { during: readonly string[]; after: readonly str
   }
 }
 
-/** Whether an "after" word gives (+), takes (−) or neither, for its colour. */
-export function feelingTone(word: string, own: readonly OwnWord[] = []): 'gives' | 'takes' | 'neutral' {
-  const weight = weightOf(word, 'after', own) ?? 0
-  return weight > 0 ? 'gives' : weight < 0 ? 'takes' : 'neutral'
+/** Which way an activity left you, for the thin coloured edge beside it (blue gave, red took). The words say it too. */
+export function energyEdge(energy: number): 'gives' | 'takes' | undefined {
+  return energy > 0 ? 'gives' : energy < 0 ? 'takes' : undefined
 }
 
 export type HowOften = 'almost always' | 'usually' | 'often' | 'sometimes'

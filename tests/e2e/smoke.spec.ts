@@ -8,6 +8,8 @@ test('the app shell loads, navigates, and is an installable offline-ready PWA', 
 
   await page.goto('./')
   await expect(page).toHaveTitle('Life Design')
+  // A new phone opens on the short welcome.
+  await page.getByRole('button', { name: 'Skip' }).click()
   await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()
 
   const nav = page.getByRole('navigation', { name: 'Main' })

@@ -39,6 +39,26 @@ test('the evening question saves as you type, can be swapped until answered, and
   await expect(eveningQuestion(page).locator('label.question-text')).not.toHaveText(second)
 })
 
+test('"Need a start?" under the evening question types in an opener that fits it', async ({ page }) => {
+  await page.goto('./#/today')
+  const field = eveningQuestion(page)
+  await field.getByRole('button', { name: 'Need a start?' }).click()
+  const openers = field.getByRole('group', { name: 'Openers' })
+  await expect(openers.getByRole('button')).toHaveCount(3)
+  const opener = ((await openers.getByRole('button').first().textContent()) ?? '').replace('…', ' ')
+  await openers.getByRole('button').first().click()
+
+  const box = field.locator('textarea')
+  await expect(box).toHaveValue(opener)
+  await expect(box).toBeFocused()
+  await expect(field.getByRole('button', { name: 'Need a start?' })).toBeHidden()
+  await box.press('End')
+  await box.pressSequentially('the walk home')
+  await expect(field.getByText('Saved')).toBeVisible()
+  await page.reload()
+  await expect(eveningQuestion(page).locator('textarea')).toHaveValue(`${opener}the walk home`)
+})
+
 test('some evenings ask about a pattern in your own last two weeks', async ({ page }, testInfo) => {
   const evening = nextPatternEvening()
   await page.clock.setFixedTime(evening)

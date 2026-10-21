@@ -21,6 +21,9 @@
   --viz-axis: #c3c2b7;
   --viz-muted: #898781;
   --viz-hover: rgb(11 11 11 / 0.05);
+  /* The evening's pale sand (evening card, small joys). Text, muted text and links on it pass WCAG AA. */
+  --evening-bg: #f8eedb;
+  --evening-border: #e8d9b8;
   --radius: 14px;
   --tabbar-height: 60px;
 }
@@ -46,6 +49,8 @@
     --viz-axis: #4a4844;
     --viz-muted: #898781;
     --viz-hover: rgb(255 255 255 / 0.06);
+    --evening-bg: #2c261c;
+    --evening-border: #4a3f2c;
   }
 }
 
@@ -83,6 +88,13 @@ h1 {
 h2 {
   font-size: 1.05rem;
   margin: 0 0 6px;
+}
+
+/* Titles and questions in the iPhone's serif (New York): it reads like a journal, not a form. */
+h1,
+h2,
+.question-text {
+  font-family: ui-serif, 'New York', Georgia, serif;
 }
 
 p {
@@ -589,24 +601,60 @@ dialog.sheet::backdrop {
   margin: 0;
 }
 
+/* The day's activities: one rounded list with thin lines between them, like iPhone Settings. */
 .entry-list {
   list-style: none;
   margin: 0 0 12px;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.entry-list li + li {
+  border-top: 1px solid var(--border);
 }
 
 .entry-row {
+  display: flex;
   width: 100%;
   justify-content: flex-start;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 12px 14px 12px 10px;
   min-height: 60px;
-  border-radius: var(--radius);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   text-align: left;
   font-weight: 400;
+}
+
+button.entry-row:active {
+  background: var(--viz-hover);
+}
+
+button.entry-row:focus-visible {
+  outline-offset: -3px;
+}
+
+/* A thin edge says how an activity left you: blue gave energy, red took it (the chart colours).
+   The words say it too, in ink: red text read like an error. */
+.entry-row::before,
+.moment-line::before {
+  content: '';
+  flex: none;
+  align-self: stretch;
+  width: 4px;
+  border-radius: 2px;
+}
+
+[data-energy='gives']::before {
+  background: var(--viz-pos);
+}
+
+[data-energy='takes']::before {
+  background: var(--viz-neg);
 }
 
 .entry-text {
@@ -638,15 +686,6 @@ dialog.sheet::backdrop {
 .entry-feelings {
   font-size: 0.85rem;
   color: var(--muted);
-}
-
-/* "How it left you" words take the energy colours; the word always says it too. */
-.feeling.gives {
-  color: var(--viz-pos);
-}
-
-.feeling.takes {
-  color: var(--viz-neg);
 }
 
 .empty {
@@ -682,6 +721,42 @@ dialog.sheet::backdrop {
 
 .evening {
   margin-top: 20px;
+  background: var(--evening-bg);
+  border-color: var(--evening-border);
+}
+
+.evening textarea {
+  background: var(--surface);
+}
+
+.chip.static.joy {
+  background: var(--evening-bg);
+  border-color: var(--evening-border);
+}
+
+/* The line under a writing box: "Need a start?" on the left, the save status on the right. It keeps its
+   height, so nothing below moves when the link hides. */
+.field-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 12px;
+  min-height: 36px;
+}
+
+.field-foot .save-status {
+  margin: 0 0 0 auto;
+}
+
+.field-foot button.link {
+  min-height: 36px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.field-foot .chip-row {
+  flex-basis: 100%;
+  margin: 0 0 8px;
 }
 
 .evening-field + .evening-field {
@@ -1185,6 +1260,22 @@ details.more-ways summary {
 
 .wizard-step {
   margin: 8px 0 6px;
+}
+
+/* The welcome: its step count on the left, Skip on the right. */
+.welcome-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+}
+
+.welcome-top .wizard-step {
+  margin: 0;
+}
+
+.welcome-lead {
+  font-size: 1.05rem;
 }
 
 .progress {

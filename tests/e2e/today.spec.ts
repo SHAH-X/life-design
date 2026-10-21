@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { addEntry, entryButton, expectAboveKeyboard, fakeKeyboard, showKeyboard, smallJoy } from './helpers'
+import { restoreSeed } from './seed'
 
 // Fictional example data.
 test.beforeEach(async ({ page }) => {
@@ -7,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('describe activities with feeling words, never ratings; edit and delete them; keep a small joy', async ({ page }) => {
-  await expect(page.getByText('Add the 3–6 main things you did.')).toBeVisible()
+  await expect(page.getByText('Start with one thing you did.')).toBeVisible()
 
   await addEntry(page, { activity: 'Repotted the balcony plants', during: ['Absorbed', 'Time flew'], after: ['Energised'], where: 'Balcony' })
   await expect(entryButton(page, 'Repotted the balcony plants')).toContainText('absorbed · time flew · energised')
@@ -144,6 +145,66 @@ test('sheets sit above the keyboard, so what you type into stays in sight', asyn
   await showKeyboard(page, 0)
   const screenHeight = await page.evaluate(() => window.innerHeight)
   await expect.poll(async () => Math.round(((await sheet.boundingBox())?.y ?? 0) + ((await sheet.boundingBox())?.height ?? 0))).toBe(screenHeight)
+})
+
+test('a thin coloured edge shows how each activity left you; the words stay in ink', async ({ page }) => {
+  await addEntry(page, { activity: 'Evening run', during: ['Focused'], after: ['Energised'] })
+  await addEntry(page, { activity: 'Commute', during: ['Bored'], after: ['Drained'] })
+  await addEntry(page, { activity: 'Lunch', during: ['Fine'], after: ['Same as before'] })
+  await expect(entryButton(page, 'Evening run')).toHaveAttribute('data-energy', 'gives')
+  await expect(entryButton(page, 'Commute')).toHaveAttribute('data-energy', 'takes')
+  await expect(entryButton(page, 'Lunch')).not.toHaveAttribute('data-energy')
+
+  // Blue gave energy, red took it (the chart colours); the words carry the meaning too.
+  const edge = (name: string) => entryButton(page, name).evaluate((el) => getComputedStyle(el, '::before').backgroundColor)
+  expect(await edge('Evening run')).toBe('rgb(42, 120, 214)')
+  expect(await edge('Commute')).toBe('rgb(227, 73, 72)')
+  // Red words read like an error, so every feeling word is the same quiet ink.
+  for (const name of ['Evening run', 'Commute']) {
+    const colours = await entryButton(page, name)
+      .locator('.entry-feelings, .entry-feelings *')
+      .evaluateAll((els) => els.map((el) => getComputedStyle(el).color))
+    expect(new Set(colours).size).toBe(1)
+  }
+  // One list with thin lines between the activities, not a box each.
+  await expect(page.locator('.entry-list')).toHaveCSS('border-top-width', '1px')
+  await expect(entryButton(page, 'Commute')).toHaveCSS('border-top-width', '0px')
+})
+
+test('"Need a start?" offers openers that fit the note question, and types one in', async ({ page }) => {
+  await page.getByRole('button', { name: '+ Add activity' }).click()
+  const sheet = page.getByRole('dialog', { name: 'New activity' })
+  await sheet.getByLabel('What did you do?').fill('Team meeting')
+  await sheet.getByRole('button', { name: 'Next' }).click()
+  await sheet.getByRole('button', { name: 'Distracted', exact: true }).click()
+  await sheet.getByRole('button', { name: 'Next' }).click()
+  await sheet.getByRole('button', { name: 'Tired', exact: true }).click()
+  await sheet.getByRole('button', { name: 'Next' }).click()
+
+  const note = sheet.getByLabel('What took your energy?')
+  await sheet.getByRole('button', { name: 'Need a start?' }).click()
+  const openers = sheet.getByRole('group', { name: 'Openers' })
+  await expect(openers.getByRole('button')).toHaveText(['It took energy because…', 'The hard part was…', "Next time I'll…"])
+  await openers.getByRole('button', { name: 'It took energy because…' }).click()
+  await expect(note).toHaveValue('It took energy because ')
+  await expect(note).toBeFocused()
+  await expect(sheet.getByRole('button', { name: 'Need a start?' })).toBeHidden()
+  await note.press('End')
+  await note.pressSequentially('it ran long')
+  await sheet.getByRole('button', { name: 'Save' }).click()
+  await expect(entryButton(page, 'Team meeting')).toContainText('It took energy because it ran long')
+})
+
+test('back after a few days away, Today says missed days don\'t matter: no counts, no streaks', async ({ page }, testInfo) => {
+  // The fictional entries end 5 days ago.
+  await restoreSeed(page, testInfo.outputPath('seed.json'), new Date(Date.now() - 4 * 86_400_000))
+  await page.goto('./#/today')
+  await expect(page.getByText("Welcome back. Missed days don't matter: start with one thing you did.")).toBeVisible()
+  await page.getByRole('button', { name: 'Previous day' }).click()
+  await expect(page.getByText('Start with one thing you did.', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Next day' }).click()
+  await addEntry(page, { activity: 'Reading', during: ['Curious'], after: ['Calm'] })
+  await expect(page.getByText(/Welcome back/)).toHaveCount(0)
 })
 
 test('log an activity for yesterday', async ({ page }) => {

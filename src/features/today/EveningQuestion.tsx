@@ -1,8 +1,10 @@
 import { useId, useRef } from 'react'
 import { saveAnswer, setSetting } from '../../db/repo'
 import { nextTonight } from '../../prompts/pick'
+import { eveningStarters } from '../../prompts/starters'
 import type { Tonight, TonightChoice } from '../../prompts/useTonight'
 import { Question } from '../../ui/Question'
+import { Starters, typeInto } from '../../ui/Starters'
 import { useAutosave } from '../../ui/useAutosave'
 
 /** The changing evening question: optional, saves as you type, and can be swapped until it's answered. */
@@ -10,6 +12,7 @@ export function EveningQuestion({ date, tonight }: { date: string; tonight: Toni
   const id = useId()
   const { prompt } = tonight
   const answer = useRef(tonight.answer)
+  const box = useRef<HTMLTextAreaElement>(null)
   const field = useAutosave(tonight.answer?.text ?? '', async (value) => {
     const saved = await saveAnswer(date, prompt, value, answer.current ?? undefined)
     if (saved) answer.current = saved
@@ -39,6 +42,7 @@ export function EveningQuestion({ date, tonight }: { date: string; tonight: Toni
         {prompt.question}
       </Question>
       <textarea
+        ref={box}
         id={id}
         value={field.text}
         rows={2}
@@ -47,9 +51,14 @@ export function EveningQuestion({ date, tonight }: { date: string; tonight: Toni
         onChange={(e) => field.onChange(e.target.value)}
         onBlur={field.onBlur}
       />
-      <p className="save-status" aria-live="polite">
-        {field.status === 'saving' ? 'Saving…' : field.status === 'saved' ? 'Saved' : ''}
-      </p>
+      <div className="field-foot">
+        {field.text.trim() === '' ? (
+          <Starters starters={eveningStarters(prompt.purpose)} onPick={(text) => typeInto(box.current, text, field.onChange)} />
+        ) : null}
+        <p className="save-status" aria-live="polite">
+          {field.status === 'saving' ? 'Saving…' : field.status === 'saved' ? 'Saved' : ''}
+        </p>
+      </div>
     </div>
   )
 }

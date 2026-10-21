@@ -44,7 +44,8 @@ export function Notices({ nudge, reviewDue }: { nudge: Nudge; reviewDue: Period 
         <p>
           <strong>Review due</strong> · {formatRecentPeriod(reviewDue.start, reviewDue.end)}
         </p>
-        <button type="button" className="primary" onClick={() => navigate('review')}>
+        {/* Not filled: "+ Add activity" stays the one main button on Today. */}
+        <button type="button" onClick={() => navigate('review')}>
           Start review
         </button>
       </aside>

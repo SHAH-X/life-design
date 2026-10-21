@@ -13,7 +13,7 @@ Last updated: 2026-10-21
 | Build vs adopt | Build new. The earlier single-file v1 is the spec; v1 backup files can be imported | ADOPT | No existing app combines Good Time Journal, Odyssey Plans and Ikigai |
 | Memex + a small plans app | — | REJECT | Native app, not built around energy and engagement; two apps |
 | Fork Nomie 5 | — | REJECT | Inactive since 2021; no Designing Your Life tools |
-| Daily capture | Evening review of 3–6 activities, plus quick-add anytime | ADOPT | Close to Kahneman's Day Reconstruction Method: low effort, good for patterns |
+| Daily capture | Evening review of the day's main activities (an empty day says "Start with one thing you did"; 3–6 is typical), plus quick-add anytime | ADOPT | Close to Kahneman's Day Reconstruction Method: low effort, good for patterns |
 | Random check-in pings | — | REJECT | Highest effort and needs push notifications (possible later as an opt-in) |
 | Rating scales | None since Phase 2.6. Engagement 1–5, energy −2…+2 and flow are worked out on the phone from the feeling words chosen, stored for analysis, never shown (see Phase 2.6) | ADOPT | Owner: no ratings, natural responses. v1's 0–10 and −5…+5 values are still converted on import |
 | Nothing preselected | No feeling word is preselected; each word question waits for a tap | ADOPT | A preset answer nudges the answer (anchoring) |
@@ -80,7 +80,7 @@ Last updated: 2026-10-21
 | Insights period | One filter (7 / 30 / 90 days / all, default 30) above everything; every number and chart follows it | ADOPT | Numbers always agree with each other (dataviz rule) |
 | Minimum count | Activities, places, people and so on are ranked only after 3+ entries; every result says how many times | ADOPT | One or two entries are anecdotes, not patterns |
 | Charts | Energy: columns above or below zero; how into it: its own chart, one at a time with an Energy / Into it switch (never a second scale on one chart). Since Phase 2.6 the axes, readout and table speak in words ("gives / takes", "mostly energising") | ADOPT | Dataviz rules: one axis per chart, a readout and table view, never colour alone |
-| Energy colours | Blue = gives energy, red = drains, everywhere (charts, badges, rating buttons); engagement = aqua | ADOPT | Green/red is unreadable with red-green colour blindness; blue/red is the validated diverging pair. Aqua passed the checks with a colour-blind and contrast warning, covered by chart titles, axis labels, readout and table |
+| Energy colours | Blue = gives energy, red = drains: in charts, and since v0.7 as the thin edge beside each activity (the feeling words stay in ink); engagement = aqua | ADOPT | Green/red is unreadable with red-green colour blindness; blue/red is the validated diverging pair. Aqua passed the checks with a colour-blind and contrast warning, covered by chart titles, axis labels, readout and table |
 | Orange for engagement | — | REJECT | Failed the validator next to red (ΔE 7.1; the minimum is 15) |
 | Violet for engagement | — | REJECT | Failed the validator next to blue |
 | What I'm learning | Review takeaways collected in Insights (moved forward from Phase 3; Phase 3 adds pinning and your own notes) | ADOPT | Reviews needed somewhere for their takeaway to land |
@@ -169,6 +169,23 @@ Phase 3 ships in two parts (owner's choice): 3a "Imagine" now, 3b "Test and lear
 | Dedicated Odyssey / Ikigai apps | — | REJECT | None exist (only printable worksheets); a "Life Designer" Claude skill's Socratic dialogue is noted as an idea for Phase 4 |
 | Data | Plans gain feelings, needs, what exactly, fit and writtenAt; new tables for earlier plan versions and Workview & Lifeview; database version 5, backup format 4 (older files still restore; v0.5 refuses v4 files instead of dropping them) | ADOPT | Nothing lost in either direction |
 
+## An easier start (Phase 3a.5)
+
+Owner's questions (2026-10-21): starting to journal is hard, so what would help a beginner? Should the app get a little colour while staying minimal, and can the layout improve? And the keyboard covered "What did you do?" (fixed in v0.6.1; see Platform).
+
+| Area | Decision | Status | Why |
+|---|---|---|---|
+| Welcome | Only on a first open: the start page (a Home Screen launch or the bare address, never a link to a page), an empty journal, not welcomed yet. Three short screens: 1 what it's for, two example activities, "A few words is enough. Everything stays on this phone.", "Have a backup? Restore it"; 2 "What would you like it to help with?" (the Evening question switches); 3 "A nudge each evening?" (Set a reminder → More → Reminders). Skip on the first two (on the last, Start does the same). Finishing, skipping or restoring sets `welcomed` | TEST | Owner's choice. Beginners need the why and an example; journaling apps that ask what you want help with and offer a reminder up front keep people longer. Never a long setup |
+| Sentence starters | "Need a start?" under an empty note or evening question: three openers that fit the question (by its purpose, or by how the activity left you). Tapping one types it in and opens the keyboard | TEST | Owner's choice. The blank page is the main beginner barrier (JED); openers appear only when asked for, so answers don't all sound alike |
+| Gentle first steps | Empty day: "Start with one thing you did." After 3+ days without an entry: "Welcome back. Missed days don't matter: start with one thing you did." (`AWAY_DAYS`). Insights and Review say when they fill in | TEST | Owner's choice. Missing a day doesn't derail a habit (Lally et al. 2010); no streaks or counts (see the never list) |
+| Colour with meaning | A thin edge beside each activity and review moment: blue gave energy, red took it, none for neither. The feeling words are back in ink. The evening card and small joys are pale sand (`--evening-bg`). Text, muted text and links on the sand pass WCAG AA in light and dark; the edges pass 3:1 on both card surfaces | TEST | Owner's choice: a little colour, only where it means something. Red feeling words read like an error |
+| Ink-only, or a colour per tab | — | REJECT | Owner's choice. A colour per tab carries no meaning and competes with the energy colours |
+| Today's list | One rounded list with thin lines between activities, not a box each. "Start review" is no longer filled, so "+ Add activity" is the one main button; the backup nudge keeps its filled button (losing data is the bigger risk) | TEST | Owner's choice; calmer, like iPhone Settings |
+| Insights order | "Gives energy" and "Takes energy" first, then the summary tiles and the chart | TEST | Owner's choice: the words are what people look for |
+| Titles | Page titles, card titles and questions in the iPhone's serif (New York, `ui-serif`); everything else unchanged | TEST | Owner's choice: reads like a journal, not a form |
+| A tips page in More | — | REJECT | Owner's choice: the welcome, openers and empty states cover it |
+| Word budgets | Today 60 → 63 for "Need a start?"; the welcome screens 55 / 65 / 20 (the middle one reuses More → Evening question as it is) | ADOPT | Set from measurements, in the owner-approved plan |
+
 ## To prove on a real iPhone
 
 | Item | Phase | Status |
@@ -183,6 +200,7 @@ Phase 3 ships in two parts (owner's choice): 3a "Imagine" now, 3b "Test and lear
 | Review balance as most alive / most neglected; Insights read in words | 2.6 | TEST |
 | Writing an Odyssey Plan through the guided screens; the three cards read well side by side; Workview & Lifeview | 3a | TEST |
 | Add activity: the question, field, recent activities and Next sit above the keyboard; the same for "+ your own word" and the note | 3a.5 | TEST |
+| The welcome (open the address in Safari: its storage is separate from the Home Screen app's, so it starts fresh); "Need a start?" under the evening question; the colours, Today's list and serif titles in light and dark | 3a.5 | TEST |
 | Share to the Claude app; attach a downloaded review file | 4 | TEST |
 
 ## Corrections to the earlier v1 notes

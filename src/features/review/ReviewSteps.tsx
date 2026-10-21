@@ -2,7 +2,7 @@ import { useId } from 'react'
 import { type MomentGroup, momentGroups, overview, type Period } from '../../analysis/stats'
 import { useDialogs } from '../../app/dialogs'
 import { type AeiouNote, type Answer, BALANCE_AREAS, type BalanceArea, type Day, type Entry, type Review } from '../../db/types'
-import { feelingTone, overallEnergyWord, times, wordsFor } from '../../domain/feelings'
+import { energyEdge, overallEnergyWord, times, wordsFor } from '../../domain/feelings'
 import { formatPeriod, shortDate, shortDay, wholeDaysBetween } from '../../lib/dates'
 import { AEIOU, ALIVE_QUESTION, BALANCE_DEFINITIONS, BALANCE_INFO, MOMENT_QUESTIONS, NEGLECTED_QUESTION, REFLECTION_PROMPT } from '../../reviews/prompts'
 import { Question } from '../../ui/Question'
@@ -12,22 +12,13 @@ import { EnergyCharts } from '../insights/EnergyCharts'
 /** How the moment left you, in the words chosen (or read from older entries' values). */
 function LeftYou({ entry }: { entry: Entry }) {
   const { after } = wordsFor(entry)
-  return (
-    <span className="entry-feelings">
-      {after.map((word, i) => (
-        <span key={word} className={`feeling ${feelingTone(word)}`}>
-          {i > 0 ? ' · ' : ''}
-          {word.toLowerCase()}
-        </span>
-      ))}
-    </span>
-  )
+  return <span className="entry-feelings">{after.map((word) => word.toLowerCase()).join(' · ')}</span>
 }
 
 function MomentLine({ group }: { group: MomentGroup }) {
   const { entry, count } = group
   return (
-    <li className="moment-line">
+    <li className="moment-line" data-energy={energyEdge(entry.energy)}>
       <span className="grow">
         <strong>{entry.activity}</strong>
         <span className="muted small"> · {count > 1 ? times(count) : shortDay(entry.date)}</span>

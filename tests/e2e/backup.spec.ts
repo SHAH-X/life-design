@@ -68,7 +68,7 @@ test('back up, delete everything, then restore it all', async ({ page }, testInf
 
   await deleteEverything(page)
   await page.goto('./#/today')
-  await expect(page.getByText('Add the 3–6 main things you did.')).toBeVisible()
+  await expect(page.getByText('Start with one thing you did.')).toBeVisible()
 
   const dialog = await openRestore(page, file)
   await expect(dialog.getByText('Journal entries: 2 new')).toBeVisible()

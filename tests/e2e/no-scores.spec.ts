@@ -56,6 +56,15 @@ test('no screen asks for or shows a rating or score', async ({ page }, testInfo)
   }
 })
 
+test('the welcome shows no scores', async ({ page }) => {
+  await page.goto('./')
+  for (const step of ['Life Design', 'What would you like it to help with?', 'A nudge each evening?']) {
+    await expect(page.getByRole('heading', { level: 1, name: step })).toBeVisible()
+    await expectNoScores(page, `Welcome: ${step}`)
+    if (step !== 'A nudge each evening?') await page.getByRole('button', { name: 'Next' }).click()
+  }
+})
+
 test('an entry logged in words reads back in words', async ({ page }) => {
   await page.goto('./#/today')
   await addEntry(page, { activity: 'Choir rehearsal', during: ['Absorbed', 'Time flew'], after: ['Energised', 'Tired'] })

@@ -8,6 +8,7 @@ import { InsightsScreen } from './features/insights/InsightsScreen'
 import { MoreScreen } from './features/more/MoreScreen'
 import { ReviewScreen } from './features/review/ReviewScreen'
 import { TodayScreen } from './features/today/TodayScreen'
+import { useWelcome, Welcome } from './features/welcome/Welcome'
 import type { Route } from './lib/route'
 import { ensurePersistentStorage } from './lib/storage'
 
@@ -28,6 +29,7 @@ function Screen({ route }: { route: Route }) {
 
 export function App() {
   const route = useRoute()
+  const welcome = useWelcome()
 
   // Ask iOS to keep this app's data even when the phone is short of space (asked on every launch).
   useEffect(() => {
@@ -37,10 +39,16 @@ export function App() {
   return (
     <DialogsProvider>
       <main className="app">
-        <Screen route={route} />
+        {welcome.show === undefined ? (
+          <div className="loading" aria-busy="true" />
+        ) : welcome.show ? (
+          <Welcome onDone={welcome.done} />
+        ) : (
+          <Screen route={route} />
+        )}
       </main>
       <UpdateBanner />
-      <TabBar current={route.tab} />
+      {welcome.show === false ? <TabBar current={route.tab} /> : null}
     </DialogsProvider>
   )
 }

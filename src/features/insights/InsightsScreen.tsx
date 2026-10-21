@@ -78,20 +78,11 @@ export function InsightsScreen() {
 
       {data.entries.length === 0 ? (
         <section className="card">
-          <p>Patterns appear here as you log.</p>
+          <p>After a few days of logging, this shows what gives you energy and what takes it.</p>
         </section>
       ) : (
         <>
-          <div className="kpi-row">
-            <StatTile label="Logged on" value={`${totals.daysLogged} ${totals.daysLogged === 1 ? 'day' : 'days'}`} />
-            <StatTile label="Energy" value={overallEnergyWord(entries.map((e) => e.energy)) ?? '–'} words />
-            <StatTile label="Time flew" value={totals.flow ? times(totals.flow) : 'not yet'} />
-          </div>
-
-          <section className="card">
-            <EnergyCharts entries={data.entries} period={period} />
-          </section>
-
+          {/* Words first: what gives and takes energy is what people look for; the summary and chart follow. */}
           <section className="card">
             <div className="rank-group">
               <h2>Gives energy</h2>
@@ -101,6 +92,16 @@ export function InsightsScreen() {
               <h2>Takes energy</h2>
               {drains.length ? <EnergyRows rows={drains} direction="takes" /> : <p className="muted small">{NEED_MORE}</p>}
             </div>
+          </section>
+
+          <div className="kpi-row">
+            <StatTile label="Logged on" value={`${totals.daysLogged} ${totals.daysLogged === 1 ? 'day' : 'days'}`} />
+            <StatTile label="Energy" value={overallEnergyWord(entries.map((e) => e.energy)) ?? '–'} words />
+            <StatTile label="Time flew" value={totals.flow ? times(totals.flow) : 'not yet'} />
+          </div>
+
+          <section className="card">
+            <EnergyCharts entries={data.entries} period={period} />
           </section>
 
           <section className="card">
@@ -172,7 +173,7 @@ export function InsightsScreen() {
               <h2>Small joys</h2>
               <div className="chip-row">
                 {words.map((w) => (
-                  <span key={w.word} className="chip static">
+                  <span key={w.word} className="chip static joy">
                     {w.word} <span className="muted">· {times(w.count)}</span>
                   </span>
                 ))}

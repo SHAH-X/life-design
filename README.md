@@ -7,6 +7,8 @@ A private daily journal for iPhone, built on *Designing Your Life* (Burnett & Ev
 - **Reviews on your schedule:** which part of life feels most alive and which most neglected, your best and worst moments, and an optional AI review using the AI of your choice.
 - **Life design:** three Odyssey Plans (five-year lives you sketch, title and judge in words: how each feels, what it would take, whether it fits your views), your Workview and Lifeview, with earlier versions kept automatically. Coming next: an Ikigai map and small experiments to try.
 
+**Easy to start:** a short welcome, openers when a blank box stares back, and no streaks to keep.
+
 **Privacy:** everything you log stays on your phone. There is no account, server or analytics. Data leaves the phone only when you choose to export it or send a review to an AI.
 
 > Work in progress: features arrive in phases. See [DECISIONS.md](DECISIONS.md).

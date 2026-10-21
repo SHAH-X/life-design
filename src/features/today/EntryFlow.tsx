@@ -15,8 +15,10 @@ import {
 } from '../../domain/feelings'
 import { followUpQuestion } from '../../domain/scales'
 import { type DayPart, partOfDay, toDateKey } from '../../lib/dates'
+import { noteStarters } from '../../prompts/starters'
 import { Dialog } from '../../ui/Dialog'
 import { Question } from '../../ui/Question'
+import { Starters, typeInto } from '../../ui/Starters'
 import { WordPicker } from '../../ui/WordPicker'
 import { EntryDetails } from './EntryDetails'
 
@@ -53,6 +55,7 @@ export function EntryFlow({ date, suggestions, own, onClose }: Props) {
   const [settling, setSettling] = useState(false)
   const settle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const heading = useRef<HTMLHeadingElement>(null)
+  const noteBox = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => () => clearTimeout(settle.current), [])
 
@@ -190,7 +193,12 @@ export function EntryFlow({ date, suggestions, own, onClose }: Props) {
         <label className="question-text" htmlFor={noteId}>
           {followUpQuestion(energy, engagement)}
         </label>
-        <textarea id={noteId} value={note} rows={3} maxLength={4000} placeholder="Optional" onChange={(e) => setNote(e.target.value)} />
+        <textarea ref={noteBox} id={noteId} value={note} rows={3} maxLength={4000} placeholder="Optional" onChange={(e) => setNote(e.target.value)} />
+        <div className="field-foot">
+          {note.trim() === '' ? (
+            <Starters starters={noteStarters(energy, engagement)} onPick={(text) => typeInto(noteBox.current, text, setNote)} />
+          ) : null}
+        </div>
         <p className="field-help">Tap the mic on the keyboard to speak.</p>
         {suggested.length ? (
           <div className="chip-row suggested" role="group" aria-label="Feelings in your note">

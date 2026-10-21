@@ -79,7 +79,7 @@ export function ReviewHome({ status }: { status: ReviewStatus }) {
         <section className="card">
           <h2>{status.due ? 'Review due' : 'Next review'}</h2>
           {nothingLogged ? (
-            <p className="muted">Log a few days first.</p>
+            <p className="muted">After a few days of logging, your first review starts here.</p>
           ) : (
             <p className="muted">
               {status.due || !status.next

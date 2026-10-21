@@ -21,6 +21,10 @@ test('Insights shows what gives and takes energy, when time flew, context and sm
   await expect(ranked('Takes energy').locator('.bar-row')).toHaveText([/Commute\s*almost always · 4 times/, /Team meeting\s*almost always · 4 times/])
   // Cooking dinner was logged only once, so it isn't ranked.
   await expect(page.getByText('Cooking dinner')).toHaveCount(0)
+  // Words first: what gives and takes energy sits above the summary and the chart.
+  const top = async (l: ReturnType<typeof page.locator>) => (await l.boundingBox())?.y ?? Number.POSITIVE_INFINITY
+  expect(await top(page.getByRole('heading', { name: 'Gives energy', exact: true }))).toBeLessThan(await top(kpis))
+  expect(await top(kpis)).toBeLessThan(await top(page.getByRole('group', { name: 'Chart' })))
   await expect(section('Time flew')).toContainText('Deep work on the report · 3 of 5 times')
 
   // Context shows one list at a time: Where first, then With whom.

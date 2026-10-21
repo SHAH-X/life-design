@@ -1,26 +1,27 @@
 import type { Entry } from '../../db/types'
-import { feelingTone, type OwnWord, wordsFor } from '../../domain/feelings'
+import { energyEdge, wordsFor } from '../../domain/feelings'
 
-/** One activity: what you did, the words you described it with, and your note. Time, place and people are in the edit view. */
-export function EntryRow({ entry, own, onOpen }: { entry: Entry; own: readonly OwnWord[]; onOpen: () => void }) {
+/**
+ * One activity: what you did, the words you described it with, and your note. A thin edge shows how it left you
+ * (blue gave energy, red took it); the words stay in ink. Time, place and people are in the edit view.
+ * Without `onOpen` it's a plain example, as on the welcome.
+ */
+export function EntryRow({ entry, onOpen }: { entry: Entry; onOpen?: () => void }) {
   const { during, after } = wordsFor(entry)
-
-  return (
-    <button type="button" className="entry-row" onClick={onOpen}>
-      <span className="entry-text">
-        <span className="entry-activity">{entry.activity}</span>
-        <span className="entry-feelings">
-          {[...during.map((word) => ({ word, tone: 'neutral' as const })), ...after.map((word) => ({ word, tone: feelingTone(word, own) }))].map(
-            ({ word, tone }, i) => (
-              <span key={`${i}:${word}`} className={`feeling ${tone}`}>
-                {i > 0 ? ' · ' : ''}
-                {word.toLowerCase()}
-              </span>
-            ),
-          )}
-        </span>
-        {entry.note ? <span className="entry-note">{entry.note}</span> : null}
-      </span>
+  const content = (
+    <span className="entry-text">
+      <span className="entry-activity">{entry.activity}</span>
+      <span className="entry-feelings">{[...during, ...after].map((word) => word.toLowerCase()).join(' · ')}</span>
+      {entry.note ? <span className="entry-note">{entry.note}</span> : null}
+    </span>
+  )
+  return onOpen ? (
+    <button type="button" className="entry-row" data-energy={energyEdge(entry.energy)} onClick={onOpen}>
+      {content}
     </button>
+  ) : (
+    <div className="entry-row" data-energy={energyEdge(entry.energy)}>
+      {content}
+    </div>
   )
 }

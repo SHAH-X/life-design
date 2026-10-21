@@ -9,6 +9,7 @@ import {
   type EntryDraft,
   entrySource,
   firstEntryCreatedAt,
+  hasJournalData,
   latestViews,
   saveAnswer,
   saveEntry,
@@ -186,5 +187,25 @@ describe('Workview and Lifeview keep earlier versions', () => {
     await saveViews({ workview: 'Work is craft and service', lifeview: 'Life is relationships', coherence: '' }, undefined, T + 10 * DAY)
     expect(await db.views.count()).toBe(2)
     expect(await latestViews()).toMatchObject({ workview: 'Work is craft and service', lifeview: 'Life is relationships' })
+  })
+})
+
+describe('hasJournalData: whether anything has been written yet', () => {
+  it('is false on a new phone, even with settings saved', async () => {
+    await db.settings.put({ key: 'purposes', value: ['calm'], updatedAt: 1 })
+    expect(await hasJournalData()).toBe(false)
+  })
+
+  it('is true once there is an entry, a small joy or an evening answer', async () => {
+    await saveEntry(draft())
+    expect(await hasJournalData()).toBe(true)
+    await db.entries.clear()
+    await setSmallJoy('2026-10-21', 'Coffee in the sun')
+    expect(await hasJournalData()).toBe(true)
+  })
+
+  it('is true with only a plan or a Workview', async () => {
+    await saveViews({ workview: 'Work is how I serve', lifeview: '', coherence: '' })
+    expect(await hasJournalData()).toBe(true)
   })
 })

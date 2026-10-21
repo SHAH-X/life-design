@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
   AFTER_WORDS,
-  DURING_WORDS,
   deriveEnergy,
   deriveEngagement,
   deriveFlow,
+  DURING_WORDS,
+  energyEdge,
   howOften,
   intoItWord,
-  type OwnWord,
   overallEnergyWord,
+  type OwnWord,
   spotFeelings,
   wordsFor,
 } from '../../src/domain/feelings'
@@ -131,5 +132,14 @@ describe('results in words', () => {
 
   it('describe how into things you were', () => {
     expect([4.6, 4, 3, 2, 1.2].map(intoItWord)).toEqual(['absorbed', 'into it', 'fine', 'distracted', 'bored'])
+  })
+})
+
+describe('energyEdge: the thin coloured edge beside an activity', () => {
+  it('is blue for gave energy, red for took it, and none for neither', () => {
+    expect(energyEdge(2)).toBe('gives')
+    expect(energyEdge(1)).toBe('gives')
+    expect(energyEdge(-1)).toBe('takes')
+    expect(energyEdge(0)).toBeUndefined()
   })
 })

@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { Notices, useExportNudge } from '../../app/Notices'
+import { isBackAfterBreak } from '../../app/welcome'
 import { db } from '../../db/db'
 import { loadSuggestions, type Suggestions } from '../../db/repo'
 import type { Entry } from '../../db/types'
@@ -29,6 +30,7 @@ export function TodayScreen() {
 
   const entries = useLiveQuery(() => db.entries.where('date').equals(date).toArray(), [date])
   const day = useLiveQuery(() => db.days.get(date).then((d) => d ?? null), [date])
+  const lastEntryDate = useLiveQuery(() => db.entries.where('date').below(today).last().then((e) => e?.date ?? null), [today])
   const nudge = useExportNudge()
   const reviewStatus = useReviewStatus()
   const tonight = useTonight(date)
@@ -43,11 +45,14 @@ export function TodayScreen() {
     nudge === undefined ||
     reviewStatus === undefined ||
     tonight === undefined ||
-    own === undefined
+    own === undefined ||
+    lastEntryDate === undefined
   ) {
     return <div className="loading" aria-busy="true" />
   }
   const sorted = [...entries].sort(byTimeOfDay)
+  // After a few days away: no counts or streaks, just a way back in.
+  const welcomeBack = isToday && sorted.length === 0 && isBackAfterBreak(lastEntryDate, today)
 
   return (
     <>
@@ -75,12 +80,12 @@ export function TodayScreen() {
 
       <section aria-label="Activities">
         {sorted.length === 0 ? (
-          <p className="empty">Add the 3–6 main things you did.</p>
+          <p className="empty">{welcomeBack ? "Welcome back. Missed days don't matter: start with one thing you did." : 'Start with one thing you did.'}</p>
         ) : (
           <ul className="entry-list">
             {sorted.map((entry) => (
               <li key={entry.id}>
-                <EntryRow entry={entry} own={own} onOpen={() => setSheet({ existing: entry })} />
+                <EntryRow entry={entry} onOpen={() => setSheet({ existing: entry })} />
               </li>
             ))}
           </ul>

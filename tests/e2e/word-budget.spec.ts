@@ -6,7 +6,7 @@ import { restoreSeed } from './seed'
 // collapsed sections, unselected menu options, chart tooltips and screen-reader-only text don't count.
 // Raise a budget only with the owner's OK. Baseline before Phase 2.5 (v0.3.0) in brackets.
 const BUDGETS = {
-  'Today, a logged day [96]': 60,
+  'Today, a logged day [96]': 63, // 60 until v0.7: +3 for "Need a start?" under the evening question (owner-approved plan)
   'New activity: what [90 for the whole form]': 25,
   'New activity: what it was like (10 answer words)': 25,
   'New activity: how it left you (10 answer words)': 25,
@@ -125,4 +125,30 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
   console.log(counts)
   const over = (Object.keys(BUDGETS) as Screen[]).filter((s) => (counts[s] ?? Number.POSITIVE_INFINITY) > BUDGETS[s])
   expect(over.map((s) => `${s}: ${counts[s]} words, budget ${BUDGETS[s]}`)).toEqual([])
+})
+
+// The welcome on a new phone (Phase 3a.5). Set from measurements; raise only with the owner's OK.
+const WELCOME_BUDGETS = {
+  'Welcome: Life Design': 55,
+  'Welcome: what it helps with': 65, // reuses More → Evening question as it is
+  'Welcome: a nudge each evening': 20,
+} as const
+
+test('the welcome stays within its word budget', async ({ page }, testInfo) => {
+  await page.goto('./')
+  const main = page.locator('main')
+  const counts: Record<string, number> = {}
+  for (const [screen, heading] of [
+    ['Welcome: Life Design', 'Life Design'],
+    ['Welcome: what it helps with', 'What would you like it to help with?'],
+    ['Welcome: a nudge each evening', 'A nudge each evening?'],
+  ] as const) {
+    await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible()
+    counts[screen] = await visibleWords(main)
+    if (screen !== 'Welcome: a nudge each evening') await page.getByRole('button', { name: 'Next' }).click()
+  }
+  testInfo.annotations.push({ type: 'words', description: JSON.stringify(counts) })
+  console.log(counts)
+  const over = (Object.keys(WELCOME_BUDGETS) as (keyof typeof WELCOME_BUDGETS)[]).filter((s) => (counts[s] ?? Infinity) > WELCOME_BUDGETS[s])
+  expect(over.map((s) => `${s}: ${counts[s]} words, budget ${WELCOME_BUDGETS[s]}`)).toEqual([])
 })

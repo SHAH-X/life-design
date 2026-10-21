@@ -221,6 +221,11 @@ export async function deleteReview(id: string, database: LifeDesignDB = defaultD
   await guardWrite(() => database.reviews.delete(id))
 }
 
+/** Whether anything has been written yet: entries, small joys, answers, reviews, plans or views. Settings don't count. */
+export async function hasJournalData(database: LifeDesignDB = defaultDb): Promise<boolean> {
+  return (await countChangesSince(null, database)) > 0
+}
+
 export async function firstEntryCreatedAt(database: LifeDesignDB = defaultDb): Promise<number | null> {
   const first = await database.entries.orderBy('createdAt').first()
   return first?.createdAt ?? null

@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { addOwnWord, deleteEntry, type Suggestions, saveEntry } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import {
@@ -16,8 +16,10 @@ import {
 } from '../../domain/feelings'
 import { followUpQuestion } from '../../domain/scales'
 import type { DayPart } from '../../lib/dates'
+import { noteStarters } from '../../prompts/starters'
 import { Dialog } from '../../ui/Dialog'
 import { Question } from '../../ui/Question'
+import { Starters, typeInto } from '../../ui/Starters'
 import { WordPicker } from '../../ui/WordPicker'
 import { EntryDetails } from './EntryDetails'
 
@@ -47,6 +49,7 @@ export function EntryEdit({ existing, suggestions, own, onClose }: Props) {
   const [objects, setObjects] = useState(existing.objects)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [busy, setBusy] = useState(false)
+  const noteBox = useRef<HTMLTextAreaElement>(null)
 
   const addOwn = (word: OwnWord) => {
     setOwnWords((current) => [...current.filter((w) => !(w.kind === word.kind && w.word === word.word)), word])
@@ -121,7 +124,12 @@ export function EntryEdit({ existing, suggestions, own, onClose }: Props) {
       <label className="question-text" htmlFor={noteId}>
         {followUpQuestion(energy, engagement)}
       </label>
-      <textarea id={noteId} value={note} rows={2} maxLength={4000} placeholder="Optional" onChange={(e) => setNote(e.target.value)} />
+      <textarea ref={noteBox} id={noteId} value={note} rows={2} maxLength={4000} placeholder="Optional" onChange={(e) => setNote(e.target.value)} />
+      <div className="field-foot">
+        {note.trim() === '' ? (
+          <Starters starters={noteStarters(energy, engagement)} onPick={(text) => typeInto(noteBox.current, text, setNote)} />
+        ) : null}
+      </div>
 
       <EntryDetails
         part={part}
