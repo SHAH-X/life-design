@@ -1,17 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { parseHash, type Tab } from '../lib/route'
 
+function subscribe(onChange: () => void) {
+  window.addEventListener('hashchange', onChange)
+  return () => window.removeEventListener('hashchange', onChange)
+}
+
+const readHash = () => window.location.hash
+
+// useSyncExternalStore re-reads the hash after subscribing, so a route change that lands between
+// the first render and the subscription (e.g. right after a reload) is never missed.
 export function useRoute(): Tab {
-  const [tab, setTab] = useState<Tab>(() => parseHash(window.location.hash))
+  const tab = parseHash(useSyncExternalStore(subscribe, readHash))
 
   useEffect(() => {
-    const onHashChange = () => {
-      setTab(parseHash(window.location.hash))
-      window.scrollTo(0, 0)
-    }
-    window.addEventListener('hashchange', onHashChange)
-    return () => window.removeEventListener('hashchange', onHashChange)
-  }, [])
+    window.scrollTo(0, 0)
+  }, [tab])
 
   return tab
 }
