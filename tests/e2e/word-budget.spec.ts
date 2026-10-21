@@ -19,6 +19,10 @@ const BUDGETS = {
   'More → Reminders [266]': 133,
   'More → Evening question': 60,
   'More → Backup and restore [67]': 40,
+  'Life Design': 20,
+  'Odyssey Plans': 55,
+  'Plan, first screen': 20,
+  'Workview & Lifeview': 40,
 } as const
 
 type Screen = keyof typeof BUDGETS
@@ -103,6 +107,17 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
   ] as const) {
     await page.goto(`./#/more/${path}`)
     await expect(page.getByRole('link', { name: '‹ More' })).toBeVisible()
+    await measure(screen, main)
+  }
+
+  for (const [path, screen] of [
+    ['design', 'Life Design'],
+    ['design/odyssey', 'Odyssey Plans'],
+    ['design/plan-1', 'Plan, first screen'],
+    ['design/views', 'Workview & Lifeview'],
+  ] as const) {
+    await page.goto(`./#/${path}`)
+    await expect(page.locator('h1').first()).toBeVisible()
     await measure(screen, main)
   }
 

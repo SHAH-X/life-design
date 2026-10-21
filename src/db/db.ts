@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { Answer, Day, Entry, IkigaiItem, OdysseyPlan, Review, Setting } from './types'
+import type { Answer, Day, Entry, IkigaiItem, OdysseyPlan, PlanVersion, Review, Setting, Views } from './types'
 
 export type LifeDesignDB = Dexie & {
   entries: EntityTable<Entry, 'id'>
@@ -7,6 +7,8 @@ export type LifeDesignDB = Dexie & {
   answers: EntityTable<Answer, 'id'>
   ikigaiItems: EntityTable<IkigaiItem, 'id'>
   odysseyPlans: EntityTable<OdysseyPlan, 'id'>
+  planVersions: EntityTable<PlanVersion, 'id'>
+  views: EntityTable<Views, 'id'>
   reviews: EntityTable<Review, 'id'>
   settings: EntityTable<Setting, 'key'>
 }
@@ -61,6 +63,26 @@ export function openDb(name = DB_NAME): LifeDesignDB {
           if (typeof review.balanceWhy !== 'string') review.balanceWhy = ''
         })
     })
+  // v0.6 (Phase 3a): earlier versions of Odyssey Plans, and Workview & Lifeview. Plans gain word answers in place of
+  // gauges; a plan with content counts as written, so it opens as a page, not the guided flow. Not edits: updatedAt stays.
+  database
+    .version(5)
+    .stores({
+      planVersions: 'id, planId, savedAt, updatedAt',
+      views: 'id, updatedAt',
+    })
+    .upgrade((tx) =>
+      tx
+        .table('odysseyPlans')
+        .toCollection()
+        .modify((plan: Record<string, unknown>) => {
+          if (!Array.isArray(plan.feelings)) plan.feelings = []
+          if (!Array.isArray(plan.needs)) plan.needs = []
+          if (typeof plan.needsNote !== 'string') plan.needsNote = ''
+          if (typeof plan.fit !== 'string') plan.fit = ''
+          if (plan.writtenAt === undefined) plan.writtenAt = plan.title || plan.description ? plan.updatedAt : null
+        }),
+    )
   return database
 }
 

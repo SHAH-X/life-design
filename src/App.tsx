@@ -1,9 +1,9 @@
 import { useEffect } from 'react'
-import { ComingSoon } from './app/ComingSoon'
 import { DialogsProvider } from './app/dialogs'
 import { TabBar } from './app/TabBar'
 import { UpdateBanner } from './app/UpdateBanner'
 import { useRoute } from './app/useRoute'
+import { DesignScreen } from './features/design/DesignScreen'
 import { InsightsScreen } from './features/insights/InsightsScreen'
 import { MoreScreen } from './features/more/MoreScreen'
 import { ReviewScreen } from './features/review/ReviewScreen'
@@ -20,11 +20,7 @@ function Screen({ route }: { route: Route }) {
     case 'insights':
       return <InsightsScreen />
     case 'design':
-      return (
-        <ComingSoon title="Life Design" phase={3}>
-          Odyssey Plans, your Ikigai map, Workview and Lifeview, and small experiments to try.
-        </ComingSoon>
-      )
+      return <DesignScreen sub={route.sub} />
     case 'more':
       return <MoreScreen sub={route.sub} />
   }

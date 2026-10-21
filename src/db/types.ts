@@ -76,16 +76,53 @@ export interface OdysseyGauges {
   coherence: number
 }
 
+/** What a plan would need that's missing (Designing Your Life's "resources"). */
+export type Need = 'time' | 'money' | 'skills' | 'people'
+
 export interface OdysseyPlan {
   id: string
   slot: 1 | 2 | 3
+  /** The six-word title. */
   title: string
   description: string
   /** Five lists of milestones, one per year. */
   years: string[][]
+  /** What living it would help you find out. */
   questions: string[]
-  gauges: OdysseyGauges
+  /** "How do you feel about this future?": likeability and confidence, in words. */
+  feelings: string[]
+  /** "What would it take?": what's missing, and what exactly. */
+  needs: Need[]
+  needsNote: string
+  /** "Does it fit your Workview and Lifeview?" (coherence), in your own words. */
+  fit: string
   notes: string
+  /** When the guided flow was finished; until then, opening the plan resumes the flow. */
+  writtenAt: number | null
+  /** 0–10 gauges from the v1 app: kept, never shown (nothing in this app is rated). */
+  gauges?: OdysseyGauges
+  createdAt: number
+  updatedAt: number
+}
+
+/** A plan as it was before a later change (kept automatically; see keepsVersion). */
+export interface PlanVersion {
+  id: string
+  planId: string
+  slot: 1 | 2 | 3
+  /** When this version was last changed. */
+  savedAt: number
+  plan: OdysseyPlan
+  createdAt: number
+  updatedAt: number
+}
+
+/** Workview and Lifeview, and how they fit together. Each record is one version; the newest is current. */
+export interface Views {
+  id: string
+  workview: string
+  lifeview: string
+  coherence: string
   createdAt: number
   updatedAt: number
 }
@@ -145,13 +182,25 @@ export interface BackupData {
   answers: Answer[]
   ikigaiItems: IkigaiItem[]
   odysseyPlans: OdysseyPlan[]
+  planVersions: PlanVersion[]
+  views: Views[]
   reviews: Review[]
   settings: Setting[]
 }
 
 export type TableName = keyof BackupData
 
-export const TABLE_NAMES: readonly TableName[] = ['entries', 'days', 'answers', 'ikigaiItems', 'odysseyPlans', 'reviews', 'settings']
+export const TABLE_NAMES: readonly TableName[] = [
+  'entries',
+  'days',
+  'answers',
+  'ikigaiItems',
+  'odysseyPlans',
+  'planVersions',
+  'views',
+  'reviews',
+  'settings',
+]
 
 export const TABLE_LABELS: Record<TableName, string> = {
   entries: 'Journal entries',
@@ -159,6 +208,8 @@ export const TABLE_LABELS: Record<TableName, string> = {
   answers: 'Evening answers',
   ikigaiItems: 'Ikigai items',
   odysseyPlans: 'Odyssey Plans',
+  planVersions: 'Earlier versions of plans',
+  views: 'Workview & Lifeview',
   reviews: 'Reviews',
   settings: 'Settings',
 }

@@ -62,7 +62,10 @@ describe('convertV1', () => {
     ])
     expect(data.odysseyPlans[0]).toMatchObject({
       questions: ['Would I enjoy early starts?'],
-      gauges: { resources: 7, likability: 6, confidence: 8, coherence: 7 },
+      gauges: { resources: 7, likability: 6, confidence: 8, coherence: 7 }, // kept, never shown
+      feelings: [],
+      needs: [],
+      writtenAt: 1,
     })
   })
 

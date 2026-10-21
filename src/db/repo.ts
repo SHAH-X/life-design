@@ -3,7 +3,8 @@ import type { Energy, Engagement } from '../domain/scales'
 import { type DayPart, toDateKey } from '../lib/dates'
 import { db as defaultDb, type LifeDesignDB } from './db'
 import { guardWrite } from './saveErrors'
-import type { AeiouNote, Answer, Entry, EntrySource, Purpose, Review } from './types'
+import { keepsVersion } from '../domain/lifeDesign'
+import type { AeiouNote, Answer, Entry, EntrySource, OdysseyPlan, Purpose, Review, Views } from './types'
 
 export interface EntryDraft {
   date: string
@@ -173,9 +174,9 @@ export async function loadSuggestions(database: LifeDesignDB = defaultDb): Promi
   return computeSuggestions(recent)
 }
 
-/** Entries, days, evening answers and reviews created or changed after `since` (everything when never backed up). */
+/** Entries, days, evening answers, reviews, plans and views created or changed after `since` (everything when never backed up). */
 export async function countChangesSince(since: number | null, database: LifeDesignDB = defaultDb): Promise<number> {
-  const tables = [database.entries, database.days, database.answers, database.reviews] as const
+  const tables = [database.entries, database.days, database.answers, database.reviews, database.odysseyPlans, database.views] as const
   const counts = await Promise.all(tables.map((t) => (since === null ? t.count() : t.where('updatedAt').above(since).count())))
   return counts.reduce((sum, n) => sum + n, 0)
 }
@@ -233,7 +234,7 @@ export function cleanOwnWords(value: unknown): OwnWord[] {
       typeof w === 'object' &&
       w !== null &&
       typeof (w as OwnWord).word === 'string' &&
-      ((w as OwnWord).kind === 'during' || (w as OwnWord).kind === 'after') &&
+      ((w as OwnWord).kind === 'during' || (w as OwnWord).kind === 'after' || (w as OwnWord).kind === 'plan') &&
       typeof (w as OwnWord).weight === 'number',
   )
 }
@@ -254,5 +255,60 @@ export async function removeOwnWord(word: OwnWord, database: LifeDesignDB = defa
     'ownWords',
     current.filter((w) => !(w.kind === word.kind && w.word.toLowerCase() === word.word.toLowerCase())),
     database,
+  )
+}
+
+const planContent = (plan: OdysseyPlan) => {
+  const { updatedAt: _updated, createdAt: _created, ...content } = plan
+  return JSON.stringify(content)
+}
+
+/**
+ * Saves an Odyssey Plan. Once a plan is written, the first change made 7+ days after the last one keeps the
+ * plan as it was, as a dated earlier version (no extra step for you; see keepsVersion).
+ */
+export async function savePlan(plan: OdysseyPlan, database: LifeDesignDB = defaultDb, now: number = Date.now()): Promise<OdysseyPlan> {
+  return guardWrite(() =>
+    database.transaction('rw', database.odysseyPlans, database.planVersions, async () => {
+      const current = await database.odysseyPlans.get(plan.id)
+      if (current && current.writtenAt !== null && keepsVersion(current.updatedAt, now) && planContent(current) !== planContent(plan)) {
+        await database.planVersions.put({
+          id: crypto.randomUUID(),
+          planId: current.id,
+          slot: current.slot,
+          savedAt: current.updatedAt,
+          plan: current,
+          createdAt: now,
+          updatedAt: now,
+        })
+      }
+      const saved = { ...plan, updatedAt: now }
+      await database.odysseyPlans.put(saved)
+      return saved
+    }),
+  )
+}
+
+export type ViewsText = Pick<Views, 'workview' | 'lifeview' | 'coherence'>
+
+/** The current Workview & Lifeview: the newest version. */
+export async function latestViews(database: LifeDesignDB = defaultDb): Promise<Views | undefined> {
+  return database.views.orderBy('updatedAt').last()
+}
+
+/** Saves Workview & Lifeview: edited in place within a week, as a new version after (the old one stays). */
+export async function saveViews(text: ViewsText, database: LifeDesignDB = defaultDb, now: number = Date.now()): Promise<Views> {
+  return guardWrite(() =>
+    database.transaction('rw', database.views, async () => {
+      const latest = await latestViews(database)
+      const same = latest && latest.workview === text.workview && latest.lifeview === text.lifeview && latest.coherence === text.coherence
+      if (latest && same) return latest
+      const record: Views =
+        latest && !keepsVersion(latest.updatedAt, now)
+          ? { ...latest, ...text, updatedAt: now }
+          : { id: crypto.randomUUID(), ...text, createdAt: now, updatedAt: now }
+      await database.views.put(record)
+      return record
+    }),
   )
 }

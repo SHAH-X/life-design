@@ -9,10 +9,10 @@ import { normalizeRecord, VALIDATORS } from './validate'
 
 export const APP_ID = 'life-design'
 /**
- * 1 = Phase 1; 2 adds reviews; 3 adds evening answers and each review moment's "why".
- * Older files still restore; newer ones are refused by older app versions.
+ * 1 = Phase 1; 2 adds reviews; 3 adds evening answers and each review moment's "why"; 4 adds earlier versions of
+ * Odyssey Plans and Workview & Lifeview. Older files still restore; newer ones are refused by older app versions.
  */
-export const BACKUP_SCHEMA_VERSION = 3
+export const BACKUP_SCHEMA_VERSION = 4
 
 /** Settings that never leave the phone, not even inside a backup. */
 export const SECRET_SETTING_KEYS: ReadonlySet<string> = new Set(['aiKey'])
@@ -67,6 +67,8 @@ export async function createBackup(database: LifeDesignDB = defaultDb, now: Date
     answers: await database.answers.toArray(),
     ikigaiItems: await database.ikigaiItems.toArray(),
     odysseyPlans: await database.odysseyPlans.toArray(),
+    planVersions: await database.planVersions.toArray(),
+    views: await database.views.toArray(),
     reviews: await database.reviews.toArray(),
     settings: (await database.settings.toArray()).filter((s) => !SECRET_SETTING_KEYS.has(s.key)),
   }))

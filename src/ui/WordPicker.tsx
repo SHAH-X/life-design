@@ -14,8 +14,11 @@ interface Props {
   settling?: boolean
 }
 
-/** The one plain question asked when you add a word of your own, so the app knows what it says. */
-const PLACE = {
+/**
+ * The one plain question asked when you add a word of your own, so the app knows what it says. Words about a
+ * possible future need none: nothing is worked out from them.
+ */
+const PLACE: Partial<Record<FeelingKind, { question: string; answers: readonly { label: string; weight: number }[] }>> = {
   during: {
     question: 'Were you into it?',
     answers: [
@@ -31,7 +34,7 @@ const PLACE = {
       { label: 'Neither', weight: 0 },
     ],
   },
-} as const
+}
 
 const tidy = (s: string) => s.trim().replace(/\s+/g, ' ')
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
@@ -58,6 +61,13 @@ export function WordPicker({ labelledBy, kind, presets, own, value, onChange, on
     const existing = words.find((w) => same(w, word))
     if (existing) {
       if (!chosen(existing)) onChange([...value, existing])
+      setDraft('')
+      setAdding(false)
+      return
+    }
+    if (!PLACE[kind]) {
+      onAddOwn({ word, kind, weight: 0 })
+      onChange([...value, word])
       setDraft('')
       setAdding(false)
       return
@@ -110,7 +120,7 @@ export function WordPicker({ labelledBy, kind, presets, own, value, onChange, on
           </button>
         </div>
       ) : null}
-      {placing !== null ? (
+      {placing !== null && PLACE[kind] ? (
         <div className="follow-on">
           <p className="question-text" id={placeId}>
             “{placing}”: {PLACE[kind].question}

@@ -25,7 +25,7 @@ describe('database upgrade', () => {
     expect(await upgraded.entries.get('kept')).toMatchObject({ activity: 'Choir rehearsal' })
     expect(await upgraded.days.get('2026-10-20')).toMatchObject({ smallJoy: 'Fresh bread' })
     expect(await upgraded.reviews.count()).toBe(0)
-    expect(upgraded.verno).toBe(4)
+    expect(upgraded.verno).toBe(5)
     await upgraded.delete()
   })
 
@@ -67,7 +67,7 @@ describe('database upgrade', () => {
     expect(review?.updatedAt).toBe(7) // an upgrade is not an edit
     expect(await upgraded.entries.get('kept')).toMatchObject({ activity: 'Choir rehearsal' })
     expect(await upgraded.answers.count()).toBe(0)
-    expect(upgraded.verno).toBe(4)
+    expect(upgraded.verno).toBe(5)
     await upgraded.delete()
   })
 
@@ -109,7 +109,53 @@ describe('database upgrade', () => {
       balance: { play: 3 },
       updatedAt: 7,
     })
-    expect(upgraded.verno).toBe(4)
+    expect(upgraded.verno).toBe(5)
+    await upgraded.delete()
+  })
+
+  it('gives Odyssey Plans from a Phase 2.6 phone their new fields, and adds plan versions and Workview & Lifeview', async () => {
+    const name = `upgrade-${crypto.randomUUID()}`
+    const phase26 = new Dexie(name)
+    phase26.version(1).stores({
+      entries: 'id, date, createdAt, updatedAt',
+      days: 'date, updatedAt',
+      ikigaiItems: 'id, updatedAt',
+      odysseyPlans: 'id, slot, updatedAt',
+      settings: 'key',
+    })
+    phase26.version(2).stores({ reviews: 'id, periodEnd, updatedAt' })
+    phase26.version(3).stores({ answers: 'id, date, updatedAt' })
+    phase26.version(4).stores({})
+    await phase26.table('odysseyPlans').bulkPut([
+      {
+        id: 'plan-1',
+        slot: 1,
+        title: 'Open a small bakery',
+        description: 'Early mornings',
+        years: [[], [], [], [], []],
+        questions: ['Would I enjoy early starts?'],
+        gauges: { resources: 6, likability: 8, confidence: 5, coherence: 7 },
+        notes: '',
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ])
+    phase26.close()
+
+    const upgraded = openDb(name)
+    expect(await upgraded.odysseyPlans.get('plan-1')).toMatchObject({
+      title: 'Open a small bakery',
+      feelings: [],
+      needs: [],
+      needsNote: '',
+      fit: '',
+      writtenAt: 1, // it has content, so it opens as a written plan, not the guided flow
+      gauges: { likability: 8 }, // kept, never shown
+      updatedAt: 1,
+    })
+    expect(await upgraded.planVersions.count()).toBe(0)
+    expect(await upgraded.views.count()).toBe(0)
+    expect(upgraded.verno).toBe(5)
     await upgraded.delete()
   })
 })

@@ -9,9 +9,11 @@ import {
   type Entry,
   type IkigaiItem,
   type OdysseyPlan,
+  type PlanVersion,
   type Review,
   type Setting,
   type TableName,
+  type Views,
 } from './types'
 
 type Rec = Record<string, unknown>
@@ -80,8 +82,10 @@ export function isIkigaiItem(x: unknown): x is IkigaiItem {
   )
 }
 
+const NEED_VALUES: readonly unknown[] = ['time', 'money', 'skills', 'people']
+
 export function isOdysseyPlan(x: unknown): x is OdysseyPlan {
-  if (!isObj(x) || !isObj(x.gauges)) return false
+  if (!isObj(x)) return false
   const g = x.gauges
   return (
     isNonEmptyStr(x.id) &&
@@ -92,13 +96,32 @@ export function isOdysseyPlan(x: unknown): x is OdysseyPlan {
     x.years.length <= 5 &&
     x.years.every(isStrList) &&
     isStrList(x.questions) &&
-    isGauge(g.resources) &&
-    isGauge(g.likability) &&
-    isGauge(g.confidence) &&
-    isGauge(g.coherence) &&
+    // v1's 0–10 gauges: kept when present, never required (Phase 3a asks in words instead)
+    (g === undefined || (isObj(g) && isGauge(g.resources) && isGauge(g.likability) && isGauge(g.confidence) && isGauge(g.coherence))) &&
+    (x.feelings === undefined || isStrList(x.feelings)) && // files from before v0.6 have no word answers
+    (x.needs === undefined || (Array.isArray(x.needs) && x.needs.every((n) => NEED_VALUES.includes(n)))) &&
+    (x.needsNote === undefined || isStr(x.needsNote)) &&
+    (x.fit === undefined || isStr(x.fit)) &&
+    (x.writtenAt === undefined || x.writtenAt === null || isNum(x.writtenAt)) &&
     isStr(x.notes) &&
     hasTimes(x)
   )
+}
+
+export function isPlanVersion(x: unknown): x is PlanVersion {
+  return (
+    isObj(x) &&
+    isNonEmptyStr(x.id) &&
+    isNonEmptyStr(x.planId) &&
+    (x.slot === 1 || x.slot === 2 || x.slot === 3) &&
+    isNum(x.savedAt) &&
+    isOdysseyPlan(x.plan) &&
+    hasTimes(x)
+  )
+}
+
+export function isViews(x: unknown): x is Views {
+  return isObj(x) && isNonEmptyStr(x.id) && isStr(x.workview) && isStr(x.lifeview) && isStr(x.coherence) && hasTimes(x)
 }
 
 function isAeiouNote(x: unknown): boolean {
@@ -145,12 +168,30 @@ export const VALIDATORS: { [K in TableName]: (x: unknown) => x is BackupData[K][
   answers: isAnswer,
   ikigaiItems: isIkigaiItem,
   odysseyPlans: isOdysseyPlan,
+  planVersions: isPlanVersion,
+  views: isViews,
   reviews: isReview,
   settings: isSetting,
 }
 
 /** Fills in fields that older files don't have yet, after validation. */
+function normalizePlan(plan: OdysseyPlan): OdysseyPlan {
+  return {
+    ...plan,
+    feelings: plan.feelings ?? [],
+    needs: plan.needs ?? [],
+    needsNote: plan.needsNote ?? '',
+    fit: plan.fit ?? '',
+    writtenAt: plan.writtenAt !== undefined ? plan.writtenAt : plan.title || plan.description ? plan.updatedAt : null,
+  }
+}
+
 export function normalizeRecord(table: TableName, record: unknown): unknown {
+  if (table === 'odysseyPlans') return normalizePlan(record as OdysseyPlan)
+  if (table === 'planVersions') {
+    const version = record as PlanVersion
+    return { ...version, plan: normalizePlan(version.plan) }
+  }
   if (table === 'entries') {
     const entry = record as Entry
     return { ...entry, during: entry.during ?? [], after: entry.after ?? [] }

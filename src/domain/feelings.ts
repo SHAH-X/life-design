@@ -5,7 +5,8 @@
 // The weights below are a judgment call: tune them here, and the tests say what each word does.
 import type { Energy, Engagement } from './scales'
 
-export type FeelingKind = 'during' | 'after'
+/** What the words describe: an activity while doing it, how it left you, or how a possible future feels. */
+export type FeelingKind = 'during' | 'after' | 'plan'
 
 export interface FeelingWord {
   word: string
@@ -84,7 +85,7 @@ export const OWN_WORDS_MAX = 6
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
-function weightOf(word: string, kind: FeelingKind, own: readonly OwnWord[]): number | null {
+function weightOf(word: string, kind: 'during' | 'after', own: readonly OwnWord[]): number | null {
   const preset = (kind === 'during' ? DURING_WORDS : AFTER_WORDS).find((w) => same(w.word, word))
   if (preset) return preset.weight
   const mine = own.find((w) => w.kind === kind && same(w.word, word))
@@ -134,7 +135,7 @@ export function spotFeelings(
   own: readonly OwnWord[] = [],
 ): { during: string[]; after: string[] } {
   const clean = text.toLowerCase().replace(/[’‘]/g, "'")
-  const find = (kind: FeelingKind) => {
+  const find = (kind: 'during' | 'after') => {
     const taken = kind === 'during' ? chosen.during : chosen.after
     const words = [
       ...(kind === 'during' ? DURING_WORDS : AFTER_WORDS).map((w) => ({ word: w.word, phrases: [w.word.toLowerCase(), ...w.phrases] })),
@@ -146,7 +147,7 @@ export function spotFeelings(
       .map((w) => w.word)
   }
   // Order by where they appear in the note, which reads more naturally than list order.
-  const byPosition = (words: string[], kind: FeelingKind) => {
+  const byPosition = (words: string[], kind: 'during' | 'after') => {
     const all = kind === 'during' ? DURING_WORDS : AFTER_WORDS
     const firstAt = (word: string) => {
       const phrases = [word.toLowerCase(), ...(all.find((w) => w.word === word)?.phrases ?? [])]

@@ -140,12 +140,17 @@ export function convertV1(input: V1Backup, now: Date = new Date()): V1Conversion
       description,
       years: [[], [], [], [], []],
       questions: question ? [question] : [],
-      gauges,
+      gauges, // kept, never shown: nothing in this app is rated
+      feelings: [],
+      needs: [],
+      needsNote: '',
+      fit: '',
+      writtenAt: V1_TIMESTAMP,
       notes: '',
       createdAt: V1_TIMESTAMP,
       updatedAt: V1_TIMESTAMP,
     })
   })
 
-  return { data: { entries, days: [], answers: [], ikigaiItems, odysseyPlans, reviews: [], settings: [] }, skipped }
+  return { data: { entries, days: [], answers: [], ikigaiItems, odysseyPlans, planVersions: [], views: [], reviews: [], settings: [] }, skipped }
 }

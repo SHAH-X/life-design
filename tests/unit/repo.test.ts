@@ -9,10 +9,14 @@ import {
   type EntryDraft,
   entrySource,
   firstEntryCreatedAt,
+  latestViews,
   saveAnswer,
   saveEntry,
+  savePlan,
+  saveViews,
   setSmallJoy,
 } from '../../src/db/repo'
+import { emptyPlan } from '../../src/domain/lifeDesign'
 import { onSaveError } from '../../src/db/saveErrors'
 
 const draft = (over: Partial<EntryDraft> = {}): EntryDraft => ({
@@ -139,5 +143,48 @@ describe('backup bookkeeping', () => {
     expect(await countChangesSince(null)).toBe(4)
     expect(await countChangesSince(Date.now() + 1)).toBe(0)
     expect(await firstEntryCreatedAt()).toBe(a.createdAt)
+  })
+})
+
+describe('Odyssey Plans keep earlier versions', () => {
+  const T = Date.UTC(2026, 9, 1)
+  const DAY = 86_400_000
+
+  it('keeps the old plan only on a change made 7 or more days after the last one', async () => {
+    let plan = await savePlan({ ...emptyPlan(1, T), title: 'Leading the analytics team', writtenAt: T }, undefined, T)
+    plan = await savePlan({ ...plan, title: 'Leading the data team' }, undefined, T + 3 * DAY)
+    expect(await db.planVersions.count()).toBe(0)
+
+    plan = await savePlan({ ...plan, feelings: ['Trapped'] }, undefined, T + 11 * DAY)
+    const versions = await db.planVersions.toArray()
+    expect(versions).toHaveLength(1)
+    expect(versions[0]).toMatchObject({ planId: 'plan-1', slot: 1, savedAt: T + 3 * DAY, plan: { title: 'Leading the data team', feelings: [] } })
+
+    await savePlan({ ...plan, feelings: ['Trapped', 'Unsure'] }, undefined, T + 11 * DAY + 3_600_000)
+    expect(await db.planVersions.count()).toBe(1)
+    expect((await db.odysseyPlans.get('plan-1'))?.feelings).toEqual(['Trapped', 'Unsure'])
+  })
+
+  it('keeps no versions while a plan is first being written, or when nothing changed', async () => {
+    let plan = await savePlan({ ...emptyPlan(2, T), description: 'Teaching' }, undefined, T)
+    plan = await savePlan({ ...plan, title: 'Teaching design by the Lisbon sea' }, undefined, T + 10 * DAY)
+    expect(await db.planVersions.count()).toBe(0)
+    plan = await savePlan({ ...plan, writtenAt: T + 10 * DAY }, undefined, T + 10 * DAY)
+    await savePlan(plan, undefined, T + 30 * DAY)
+    expect(await db.planVersions.count()).toBe(0)
+  })
+})
+
+describe('Workview and Lifeview keep earlier versions', () => {
+  const T = Date.UTC(2026, 9, 1)
+  const DAY = 86_400_000
+
+  it('edit in place within a week, and start a new version after', async () => {
+    await saveViews({ workview: 'Work is service', lifeview: '', coherence: '' }, undefined, T)
+    await saveViews({ workview: 'Work is service', lifeview: 'Life is relationships', coherence: '' }, undefined, T + 2 * DAY)
+    expect(await db.views.count()).toBe(1)
+    await saveViews({ workview: 'Work is craft and service', lifeview: 'Life is relationships', coherence: '' }, undefined, T + 10 * DAY)
+    expect(await db.views.count()).toBe(2)
+    expect(await latestViews()).toMatchObject({ workview: 'Work is craft and service', lifeview: 'Life is relationships' })
   })
 })

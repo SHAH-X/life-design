@@ -40,6 +40,12 @@ test('no screen asks for or shows a rating or score', async ({ page }, testInfo)
     await page.getByRole('group', { name: 'Chart' }).getByRole('button', { name: 'Energy' }).click()
   }
 
+  for (const path of ['design', 'design/odyssey', 'design/plan-1', 'design/views']) {
+    await page.goto(`./#/${path}`)
+    await expect(page.locator('h1').first()).toBeVisible()
+    await expectNoScores(page, `Life Design: ${path}`)
+  }
+
   await page.goto('./#/review')
   await expectNoScores(page, 'Review')
   await page.getByRole('button', { name: /^(Start review|Review now)$/ }).click()

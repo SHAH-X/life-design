@@ -73,7 +73,23 @@ test('typing a multi-digit "every N days" works key by key', async ({ page }) =>
 
 test('no link in the app opens a file inside the app (on iPhone that left the app on a blank screen)', async ({ page }) => {
   const fileLinks = page.locator('a[href*=".ics"], a[href^="data:"], a[href^="blob:"], a[download]')
-  for (const path of ['today', 'review', 'insights', 'more', 'more/reminders', 'more/evening', 'more/words', 'more/backup', 'more/export', 'more/phone', 'more/delete']) {
+  for (const path of [
+    'today',
+    'review',
+    'insights',
+    'design',
+    'design/odyssey',
+    'design/plan-1',
+    'design/views',
+    'more',
+    'more/reminders',
+    'more/evening',
+    'more/words',
+    'more/backup',
+    'more/export',
+    'more/phone',
+    'more/delete',
+  ]) {
     await page.goto(`./#/${path}`)
     await expect(page.locator('h1').first()).toBeVisible()
     await expect(fileLinks).toHaveCount(0)

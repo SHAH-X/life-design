@@ -151,6 +151,22 @@ Most valued: quick logging; your own words alongside a word list; patterns that 
 | Crowded screens or long setup | Bearable users felt overwhelmed; word budgets guard this |
 | Repeating prompts | Reflectly's prompts "cycle back"; ours don't repeat within 30 days |
 
+## Imagine: Odyssey Plans, Workview and Lifeview (Phase 3a)
+
+Phase 3 ships in two parts (owner's choice): 3a "Imagine" now, 3b "Test and learn" (prototypes, Ikigai map, pinning, looking back, deep review) next.
+
+| Area | Decision | Status | Why |
+|---|---|---|---|
+| Life Design tab | A short list of pages (Odyssey Plans, Workview & Lifeview), like More | ADOPT | Same calm pattern as More |
+| Odyssey Plans | Three five-year lives: your current path; if that path vanished; if money and image didn't matter. Shown as three cards that double as the side-by-side comparison (title, feeling words, "Needs: money") | TEST | Designing Your Life's Odyssey Plans (UF/CMC worksheets, CreativeLive) |
+| Writing a plan | First time: seven guided screens (what it's about, year by year, six-word title, questions it answers, how it feels, what it would take, does it fit), saved as you go and resumed where you left off. After that: one page, saved as you edit | TEST | One question per screen for first-time flows (Phase 2.5 rule); a plan is long to type on a phone, so nothing is lost if you stop |
+| The plan "dashboard" | No gauges. Likeability and confidence: "How do you feel about this future?" (Excited · Curious · Hopeful · Confident · Calm · Unsure · Anxious · Scared · Trapped · Bored · own words). Resources: "What would it take?" (tap what's missing: time, money, skills, people, plus what exactly). Coherence: "Does it fit your Workview and Lifeview?" in your own words, with them shown alongside | ADOPT | Owner's choice; the no-ratings rule (Phase 2.6) |
+| v1's 0–10 plan sliders and "out of 40" | Kept in storage from v1 files, never shown | REJECT (as a display) | Ratings; v1 plans keep their title, description and question |
+| Workview & Lifeview | One page: "What is work for, to you?", "What is life for, to you?" (DYL prompts behind ⓘ; about 250 words each) and "Where do they agree, where do they clash, and does one drive the other?" | TEST | Designing Your Life (Aalto task sheet, UNMC handout) |
+| Earlier versions | The first change made 7+ days after the last keeps the plan (or Workview & Lifeview) as it was, dated and read-only. No extra step | ADOPT | Shows how your futures and views shift over time; one constant (`VERSION_AFTER_DAYS`) to tune |
+| Dedicated Odyssey / Ikigai apps | — | REJECT | None exist (only printable worksheets); a "Life Designer" Claude skill's Socratic dialogue is noted as an idea for Phase 4 |
+| Data | Plans gain feelings, needs, what exactly, fit and writtenAt; new tables for earlier plan versions and Workview & Lifeview; database version 5, backup format 4 (older files still restore; v0.5 refuses v4 files instead of dropping them) | ADOPT | Nothing lost in either direction |
+
 ## To prove on a real iPhone
 
 | Item | Phase | Status |
@@ -163,6 +179,7 @@ Most valued: quick logging; your own words alongside a word list; patterns that 
 | Evening question: answers save, ↻ Another, goal questions after setting a goal; data kept through the update to v0.4 | 2.5 | TEST |
 | Describing activities with feeling words feels natural and quick; old entries show words; your own word; a note's feelings offered | 2.6 | TEST |
 | Review balance as most alive / most neglected; Insights read in words | 2.6 | TEST |
+| Writing an Odyssey Plan through the guided screens; the three cards read well side by side; Workview & Lifeview | 3a | TEST |
 | Share to the Claude app; attach a downloaded review file | 4 | TEST |
 
 ## Corrections to the earlier v1 notes

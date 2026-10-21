@@ -4,6 +4,7 @@ import { applyImport, BACKUP_SCHEMA_VERSION, createBackup, detectFile, planImpor
 import { lockText, unlockText } from '../../src/db/crypto'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { newReview } from '../../src/db/repo'
+import { emptyPlan } from '../../src/domain/lifeDesign'
 import type { Answer, Entry } from '../../src/db/types'
 
 // Fictional example data.
@@ -27,7 +28,17 @@ const entry = (id: string, updatedAt: number, over: Partial<Entry> = {}): Entry 
   ...over,
 })
 
-const emptyRaw = (): RawData => ({ entries: [], days: [], answers: [], ikigaiItems: [], odysseyPlans: [], reviews: [], settings: [] })
+const emptyRaw = (): RawData => ({
+  entries: [],
+  days: [],
+  answers: [],
+  ikigaiItems: [],
+  odysseyPlans: [],
+  planVersions: [],
+  views: [],
+  reviews: [],
+  settings: [],
+})
 
 let phone: LifeDesignDB
 let newPhone: LifeDesignDB
@@ -159,6 +170,40 @@ describe('backup and restore', () => {
     expect(plan.tables.reviews).toMatchObject({ added: 1, skipped: 0 })
     expect(await newPhone.entries.get('a')).toMatchObject({ during: [], after: [] })
     expect(await newPhone.reviews.get(oldReview.id)).toMatchObject({ alive: null, neglected: null, balanceWhy: '' })
+  })
+
+  it('backs up and restores Odyssey Plans, their earlier versions, and Workview & Lifeview', async () => {
+    const plan = { ...emptyPlan(3, 1000), title: 'Teaching design by the Lisbon sea', feelings: ['Excited', 'Scared'], needs: ['money' as const], writtenAt: 1000 }
+    await phone.odysseyPlans.put(plan)
+    await phone.planVersions.put({ id: 'v1', planId: 'plan-3', slot: 3, savedAt: 900, plan: { ...plan, title: 'Teaching in Lisbon' }, createdAt: 1000, updatedAt: 1000 })
+    await phone.views.put({ id: 'views-1', workview: 'Work is service', lifeview: 'Life is people', coherence: 'They agree', createdAt: 1000, updatedAt: 1000 })
+    const detected = detectFile(JSON.stringify(await createBackup(phone)))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    await applyImport(detected.raw, newPhone)
+    expect(await newPhone.odysseyPlans.get('plan-3')).toEqual(plan)
+    expect(await newPhone.planVersions.get('v1')).toMatchObject({ plan: { title: 'Teaching in Lisbon' } })
+    expect(await newPhone.views.get('views-1')).toMatchObject({ workview: 'Work is service' })
+  })
+
+  it('restores Odyssey Plans from before Phase 3, filling in the new fields', async () => {
+    const old = {
+      id: 'plan-1',
+      slot: 1,
+      title: 'Open a small bakery',
+      description: '',
+      years: [[], [], [], [], []],
+      questions: [],
+      gauges: { resources: 6, likability: 8, confidence: 5, coherence: 7 },
+      notes: '',
+      createdAt: 1000,
+      updatedAt: 1000,
+    }
+    const file = { app: 'life-design', kind: 'backup', schemaVersion: 3, exportedAt: '2026-10-21T12:00:00Z', data: { odysseyPlans: [old] } }
+    const detected = detectFile(JSON.stringify(file))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    const plan = await applyImport(detected.raw, newPhone)
+    expect(plan.tables.odysseyPlans).toMatchObject({ added: 1, skipped: 0 })
+    expect(await newPhone.odysseyPlans.get('plan-1')).toMatchObject({ feelings: [], needs: [], needsNote: '', fit: '', writtenAt: 1000 })
   })
 
   it('still restores backups made before reviews existed (format 1)', async () => {
