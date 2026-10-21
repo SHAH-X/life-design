@@ -132,7 +132,7 @@ export function EntryFlow({ date, suggestions, onClose }: Props) {
         </label>
         <input
           id={activityId}
-          autoFocus
+          data-autofocus
           value={activity}
           maxLength={120}
           autoCapitalize="sentences"

@@ -101,3 +101,16 @@ test('log an activity for yesterday', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Next day' })).toBeDisabled()
   await expect(entryButton(page, 'Evening walk')).toHaveCount(0)
 })
+
+test('a sheet opens on its content, not on ✕ Close', async ({ page }) => {
+  // Focus on Close showed a ring on every sheet, and Enter or Space straight away would have closed it.
+  await addEntry(page, { activity: 'Reading', energy: 'Gave a little', into: 'Somewhat' })
+  await entryButton(page, 'Reading').click()
+  const edit = page.getByRole('dialog', { name: 'Edit activity' })
+  await expect(edit).toBeVisible()
+  await expect(edit.getByRole('button', { name: 'Close' })).not.toBeFocused()
+  await edit.getByRole('button', { name: 'Close' }).click()
+
+  await page.getByRole('button', { name: '+ Add activity' }).click()
+  await expect(page.getByRole('dialog', { name: 'New activity' }).getByLabel('What did you do?')).toBeFocused()
+})

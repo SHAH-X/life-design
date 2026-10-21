@@ -18,13 +18,19 @@ export function Dialog({ title, titleHidden = false, toolbar, onClose, children,
 
   useEffect(() => {
     const dialog = ref.current
-    if (dialog && !dialog.open) dialog.showModal()
+    if (dialog && !dialog.open) {
+      dialog.showModal()
+      // Start on a field marked data-autofocus, or on the sheet itself: never on ✕ Close, where a stray
+      // Enter would close the sheet (the browser's default picks the first button, which is Close).
+      ;(dialog.querySelector<HTMLElement>('[data-autofocus]') ?? dialog).focus()
+    }
     return () => dialog?.close()
   }, [])
 
   return (
     <dialog
       ref={ref}
+      tabIndex={-1}
       className="sheet"
       aria-labelledby={titleId}
       onCancel={(event) => {
