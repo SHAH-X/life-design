@@ -62,7 +62,12 @@ export function seedBackup(now: Date = new Date()) {
 
 /** Restores the fictional data through the app's own Restore screen (dated relative to `now`). */
 export async function restoreSeed(page: Page, path: string, now: Date = new Date()) {
-  await writeFile(path, JSON.stringify(seedBackup(now)))
+  await restoreBackup(page, path, seedBackup(now))
+}
+
+/** Restores a backup through the app's own Restore screen. */
+export async function restoreBackup(page: Page, path: string, backup: object) {
+  await writeFile(path, JSON.stringify(backup))
   await page.goto('./#/more/backup')
   await page.getByRole('button', { name: 'Restore from a backup file' }).click()
   const dialog = page.getByRole('dialog', { name: 'Restore' })

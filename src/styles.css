@@ -791,7 +791,7 @@ button.entry-row:focus-visible {
   color: var(--accent);
 }
 
-/* "For: Understand myself", the purpose this entry reflects for. */
+/* "Questions for: Understand myself": the purpose whose questions this entry gets. */
 .purpose-line {
   display: flex;
   align-items: center;
@@ -812,7 +812,28 @@ button.entry-row:focus-visible {
   margin-top: 4px;
 }
 
-.reflection + .reflection {
+/* The writing box's helpers (v0.9): your purpose's questions to think with, quiet, right above the one box. */
+.helpers {
+  margin: 4px 0 10px;
+}
+
+.helper-focus {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+}
+
+.helper-list {
+  margin: 6px 0 2px;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.helper-list li + li {
+  margin-top: 4px;
+}
+
+.earlier-answer + .earlier-answer {
   margin-top: 4px;
 }
 

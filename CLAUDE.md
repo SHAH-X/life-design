@@ -35,7 +35,7 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 - A question that replaces another under the finger ignores taps for 300 ms and marks its answers `aria-disabled` meanwhile, so a fast double tap can't answer it. An e2e test taps twice to prove it.
 - The activity questions ("What was it like?", "What did it do to your energy?", "How did you feel?") and their word lists stay the same every day so patterns stay comparable; tune weights in `feelings.ts`, not the words. Variety goes into the purpose questions and the evening question. (v0.8 replaced "How did it leave you?" with the energy question and a feelings list, per the owner's brief; older words still read and count.)
 - Every step after "What did you do?" can be skipped, and a skipped question is recorded in `skipped`, never guessed: Insights leave it out. (Owner's brief: "do not invent missing information".)
-- Purpose questions: one at a time, at most three per entry, every one optional. "Make sense of a hard time" never pushes for a lesson.
+- Purpose questions are helpers above one writing box, never fields to fill: three at a time, "↻ Other questions" for more. "Make sense of a hard time" never pushes for a lesson. (v0.9, owner: "just one box … without thinking how much to include against which question".)
 
 ## No ratings, natural responses (Phase 2.6: "I don't want any rating to be given")
 - Nothing asks for or shows a rating, score, average or scale: not as numbers, not as stars, not as ordered word scales. Answers are natural words (feeling words, your own words, notes); results are words ("usually gives you energy"). Plain counts are fine ("5 times", "on 4 days").

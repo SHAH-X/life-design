@@ -36,33 +36,32 @@ test('reflect on an activity in words, never ratings; edit it without losing any
   await expect(sheet.getByRole('button', { name: 'Foggy', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await sheet.getByRole('button', { name: 'Next' }).click()
 
-  // One question for your purpose; it fits what you said (it used up your energy).
-  await expect(sheet.getByLabel('For')).toHaveValue('know')
-  await sheet.getByLabel('How did you feel, and what might have influenced that?').fill('Too many threads at once')
-  await sheet.getByRole('button', { name: 'Next' }).click()
-
-  // Anything else, and feelings found in your words are offered.
-  await sheet.getByLabel('What else would you like to record?').fill('I was so tired by the end')
+  // One box to write in; your purpose's questions are helpers above it, and fit what you said (it used up your energy).
+  await expect(sheet.getByLabel('Questions for')).toHaveValue('know')
+  await expect(sheet.getByRole('list', { name: 'Questions to think about' }).getByRole('listitem').first()).toHaveText(
+    'How did you feel, and what might have influenced that?',
+  )
+  await sheet.getByLabel("What's on your mind about it?").fill('Too many threads at once. I was so tired by the end')
+  // Feelings found in your words are offered.
   await sheet.getByRole('button', { name: '+ tired' }).click()
   await sheet.getByRole('button', { name: 'Save' }).click()
   await closeSaved(page, 'Answered emails')
   const emails = entryButton(page, 'Answered emails')
   await expect(emails).toContainText('distracted · used up energy · foggy · tired')
-  await expect(emails).toContainText('I was so tired by the end')
+  await expect(emails).toContainText('Too many threads at once. I was so tired by the end')
 
   // Editing shows everything on one screen, and keeps what isn't changed.
   const edit = await openEdit(page, 'Answered emails')
   await expect(edit.getByRole('button', { name: 'Tired', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(edit.getByRole('button', { name: 'It used up my energy' })).toHaveAttribute('aria-pressed', 'true')
-  await expect(edit.getByLabel('How did you feel, and what might have influenced that?')).toHaveValue('Too many threads at once')
+  await expect(edit.getByLabel("What's on your mind about it?")).toHaveValue('Too many threads at once. I was so tired by the end')
   await edit.getByRole('button', { name: 'Anxious', exact: true }).click()
   await edit.getByRole('button', { name: 'Save' }).click()
   // After saving an edit, the entry reads back again.
   await page.getByRole('dialog', { name: 'Answered emails' }).getByRole('button', { name: 'Done', exact: true }).click()
   await expect(emails).toContainText('foggy · tired · anxious')
   await openEdit(page, 'Answered emails')
-  await expect(edit.getByLabel('How did you feel, and what might have influenced that?')).toHaveValue('Too many threads at once')
-  await expect(edit.getByLabel('What else would you like to record?')).toHaveValue('I was so tired by the end')
+  await expect(edit.getByLabel("What's on your mind about it?")).toHaveValue('Too many threads at once. I was so tired by the end')
 
   // Delete (with confirmation)
   await edit.getByRole('button', { name: 'Delete' }).click()
@@ -207,31 +206,22 @@ test('a thin coloured edge shows how each activity left you; the words stay in i
   await expect(entryButton(page, 'Commute')).toHaveCSS('border-top-width', '0px')
 })
 
-test('"Need a start?" offers openers that fit the note question, and types one in', async ({ page }) => {
-  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
-  const sheet = page.getByRole('dialog', { name: 'New activity' })
-  await sheet.getByLabel('What did you do?').fill('Team meeting')
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  await sheet.getByRole('button', { name: 'Distracted', exact: true }).click()
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  await sheet.getByRole('button', { name: 'It used up my energy' }).click()
-  await sheet.getByRole('button', { name: 'Tired', exact: true }).click()
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  await sheet.getByRole('button', { name: 'Skip' }).click()
-
-  const note = sheet.getByLabel('What else would you like to record?')
+test('"Need a start?" on Write freely types in an opener, and the rest is yours', async ({ page }) => {
+  await page.getByRole('button', { name: 'Write freely' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Write freely' })
+  const box = sheet.getByLabel("What's on your mind?")
   await sheet.getByRole('button', { name: 'Need a start?' }).click()
   const openers = sheet.getByRole('group', { name: 'Openers' })
-  await expect(openers.getByRole('button')).toHaveText(['It took energy because…', 'The hard part was…', "Next time I'll…"])
-  await openers.getByRole('button', { name: 'It took energy because…' }).click()
-  await expect(note).toHaveValue('It took energy because ')
-  await expect(note).toBeFocused()
+  await expect(openers.getByRole('button')).toHaveText(['Today I…', 'I keep thinking about…', 'Something I want to remember is…'])
+  await openers.getByRole('button', { name: 'I keep thinking about…' }).click()
+  await expect(box).toHaveValue('I keep thinking about ')
+  await expect(box).toBeFocused()
   await expect(sheet.getByRole('button', { name: 'Need a start?' })).toBeHidden()
-  await note.press('End')
-  await note.pressSequentially('it ran long')
+  await box.press('End')
+  await box.pressSequentially('the move')
   await sheet.getByRole('button', { name: 'Save' }).click()
-  await closeSaved(page, 'Team meeting')
-  await expect(entryButton(page, 'Team meeting')).toContainText('It took energy because it ran long')
+  await closeSaved(page, 'I keep thinking about the move')
+  await expect(entryButton(page, 'I keep thinking about the move')).toBeVisible()
 })
 
 test('back after a few days away, Today says missed days don\'t matter: no counts, no streaks', async ({ page }, testInfo) => {

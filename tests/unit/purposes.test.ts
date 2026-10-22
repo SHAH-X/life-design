@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PURPOSE_KEYS, purposeInfo, type QuestionContext, questionsFor } from '../../src/domain/purposes'
+import { focusFor, HELPERS_SHOWN, helpersPage, PURPOSE_KEYS, purposeInfo, type QuestionContext, questionsFor } from '../../src/domain/purposes'
 
 describe('the seven purposes', () => {
   it('cover what journaling can be for, in plain words, each with a one-line hint', () => {
@@ -73,5 +73,39 @@ describe('questionsFor: the reflection questions for one entry', () => {
       const ids = questionsFor(key, { ...plain, during: ['Time flew'], energyEffect: 'used' }).map((q) => q.id)
       expect(new Set(ids).size).toBe(ids.length)
     }
+  })
+})
+
+describe('helpersPage: the questions shown above the writing box', () => {
+  const context: QuestionContext = { energyEffect: null, during: [], after: [], turn: 0, goal: '' }
+
+  it('shows three at a time, best first, and the next three on request, wrapping round', () => {
+    const all = questionsFor('know', context)
+    expect(all).toHaveLength(4) // the "time flew" question only comes when time flew
+    expect(HELPERS_SHOWN).toBe(3)
+    expect(helpersPage(all, 0).map((q) => q.id)).toEqual(['know-a', 'know-b', 'know-c'])
+    expect(helpersPage(all, 1).map((q) => q.id)).toEqual(['know-d', 'know-a', 'know-b'])
+  })
+
+  it('shows all of them when there are three or fewer, and none for free writing', () => {
+    const two = questionsFor('grow', context).slice(0, 2)
+    expect(helpersPage(two, 0)).toEqual(two)
+    expect(helpersPage(two, 5)).toEqual(two)
+    expect(helpersPage(questionsFor('free', context), 0)).toEqual([])
+  })
+})
+
+describe('focusFor: your own focus, shown with the helper questions', () => {
+  const focus = { know: 'What kind of work suits me', grow: '  ', learn: 'Spanish', goal: 'Run a half marathon' }
+
+  it('shows what you wrote for Understand myself, Improve myself or Learn something', () => {
+    expect(focusFor('know', focus)).toBe('What kind of work suits me')
+    expect(focusFor('learn', focus)).toBe('Spanish')
+  })
+
+  it('leaves out an empty answer, and the goal, which its questions already name', () => {
+    expect(focusFor('grow', focus)).toBe('')
+    expect(focusFor('goal', focus)).toBe('')
+    expect(focusFor('calm', focus)).toBe('')
   })
 })

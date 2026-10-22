@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Fragment, type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { db } from '../../db/db'
 import { addOwnWord, isDone, saveEntry, type Suggestions } from '../../db/repo'
-import type { Duration, EnergyEffect, Entry, Measure, Purpose } from '../../db/types'
+import type { Duration, EnergyEffect, Entry, Measure, Purpose, Reflection } from '../../db/types'
 import {
   AFTER_INFO,
   AFTER_QUESTION,
@@ -19,31 +19,30 @@ import {
   type OwnWord,
   spotFeelings,
 } from '../../domain/feelings'
-import { questionsFor } from '../../domain/purposes'
+import { focusFor, questionsFor } from '../../domain/purposes'
 import { type DayPart, partOfDay, toDateKey } from '../../lib/dates'
-import { noteStarters } from '../../prompts/starters'
 import { Dialog } from '../../ui/Dialog'
 import { Question } from '../../ui/Question'
-import { Starters, typeInto } from '../../ui/Starters'
 import { WordPicker } from '../../ui/WordPicker'
+import { EarlierAnswers } from './EarlierAnswers'
 import { EntryDetails } from './EntryDetails'
-import { questionsForPurpose, ReflectStep, type ShownQuestion } from './ReflectStep'
+import { WriteBox } from './WriteBox'
 
-const STEPS = 6
+const STEPS = 5
 /** A new question ignores taps this long, so a quick double tap can't answer it by accident. */
 const SETTLE_MS = 300
 /** A draft is saved this long after the last change. */
 const DRAFT_DELAY_MS = 500
 
-export const NOTE_QUESTION = 'What else would you like to record?'
-
 interface Props {
   date: string
   suggestions: Suggestions
   own: readonly OwnWord[]
-  /** Your primary purpose: where the reflection questions start. */
+  /** Your primary purpose: where the helper questions start. */
   purpose: Purpose
   goal: string
+  /** Your own focus for each purpose (More → Your purpose). */
+  focus: Partial<Record<Purpose, string>>
   /** An unfinished entry to carry on with. */
   draft?: Entry
   onClose: () => void
@@ -53,8 +52,9 @@ interface Props {
 
 /** Where to pick up an unfinished entry: the step after the last one answered. */
 function resumeStep(draft: Entry): number {
-  if (draft.note || draft.where.length || draft.people.length || draft.objects.length || draft.duration) return 5
-  if (draft.reflections.length || draft.after.length) return 4
+  if (draft.note || draft.reflections.length || draft.after.length || draft.where.length || draft.people.length || draft.objects.length || draft.duration) {
+    return 4
+  }
   if (draft.energyEffect) return 3
   if (draft.during.length) return 2
   return 1
@@ -62,10 +62,11 @@ function resumeStep(draft: Entry): number {
 
 /**
  * Reflect on an activity, one question per screen, every answer in words and every step after the first
- * optional: what you did, what it was like, what it did to your energy, how you felt, a question or two for
- * your purpose, and anything else. Saved as a draft from the first step on, so nothing is lost if you stop.
+ * optional: what you did, what it was like, what it did to your energy, how you felt, then one box to write in,
+ * with your purpose's questions above it as helpers. Saved as a draft from the first step on, so nothing is lost
+ * if you stop.
  */
-export function EntryFlow({ date, suggestions, own, purpose: primary, goal, draft, onClose, onSaved }: Props) {
+export function EntryFlow({ date, suggestions, own, purpose: primary, goal, focus, draft, onClose, onSaved }: Props) {
   const activityId = useId()
   const duringId = useId()
   const energyId = useId()
@@ -77,9 +78,8 @@ export function EntryFlow({ date, suggestions, own, purpose: primary, goal, draf
   const [energyEffect, setEnergyEffect] = useState<EnergyEffect | null>(draft?.energyEffect ?? null)
   const [after, setAfter] = useState<string[]>(draft?.after ?? [])
   const [purpose, setPurpose] = useState<Purpose>(draft?.purpose ?? primary)
-  const [shown, setShown] = useState<ShownQuestion[]>(() =>
-    (draft?.reflections ?? []).map((r, i) => ({ id: `saved-${i}`, question: r.question, text: r.text })),
-  )
+  // Separate answers from v0.8.0, on a draft from then: kept as they are.
+  const [earlier, setEarlier] = useState<Reflection[]>(draft?.reflections ?? [])
   const [ownWords, setOwnWords] = useState<OwnWord[]>([...own])
   const [note, setNote] = useState(draft?.note ?? '')
   const [part, setPart] = useState<DayPart>(() => draft?.part ?? (date === toDateKey(new Date()) ? partOfDay(new Date()) : 'evening'))
@@ -91,7 +91,6 @@ export function EntryFlow({ date, suggestions, own, purpose: primary, goal, draf
   const [settling, setSettling] = useState(false)
   const settle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const heading = useRef<HTMLHeadingElement>(null)
-  const noteBox = useRef<HTMLTextAreaElement>(null)
 
   // Saves go one after another, so a late draft save can never undo the finished one.
   const saved = useRef<Entry | undefined>(draft)
@@ -100,7 +99,7 @@ export function EntryFlow({ date, suggestions, own, purpose: primary, goal, draf
   const started = useRef(Boolean(draft))
   const draftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  // How many entries you've written for this purpose: the reflection questions take turns from it.
+  // How many entries you've written for this purpose: the helper questions take turns from it.
   const turn = useLiveQuery(() => db.entries.filter((e) => isDone(e) && e.purpose === purpose).count(), [purpose], 0)
   const candidates = questionsFor(purpose, { energyEffect, during, after, turn, goal })
 
@@ -125,7 +124,7 @@ export function EntryFlow({ date, suggestions, own, purpose: primary, goal, draf
       purpose,
       energyEffect,
       duration,
-      reflections: shown.map((q) => ({ question: q.question, text: q.text })),
+      reflections: earlier,
       skipped,
     }
   }
@@ -182,7 +181,6 @@ export function EntryFlow({ date, suggestions, own, purpose: primary, goal, draf
   function goTo(next: number) {
     clearTimeout(settle.current)
     if (next > 0 && named) started.current = true
-    if (next === 4 && shown.length === 0) setShown(questionsForPurpose(candidates, []))
     setStep(next)
     setSettling(true)
     settle.current = setTimeout(() => setSettling(false), SETTLE_MS)
@@ -209,7 +207,7 @@ export function EntryFlow({ date, suggestions, own, purpose: primary, goal, draf
   }
 
   const recent = suggestions.activities.filter((a) => a.toLowerCase() !== named.toLowerCase()).slice(0, 6)
-  const written = [note, ...shown.map((q) => q.text)].join('\n')
+  const written = [note, ...earlier.map((r) => r.text)].join('\n')
   const spotted = spotFeelings(written, { during, after }, ownWords)
   const skipOrNext = (answered: boolean) => (answered ? 'Next' : 'Skip')
 
@@ -340,42 +338,22 @@ export function EntryFlow({ date, suggestions, own, purpose: primary, goal, draf
         {skipOrNext(energyEffect !== null)}
       </button>
     )
-  } else if (step === 4) {
-    body = (
-      <>
-        {context}
-        <ReflectStep
-          purpose={purpose}
-          onPurpose={(next) => {
-            setPurpose(next)
-            setShown((current) => questionsForPurpose(questionsFor(next, { energyEffect, during, after, turn: 0, goal }), current))
-          }}
-          candidates={candidates}
-          shown={shown}
-          onShown={setShown}
-        />
-      </>
-    )
-    footer = (
-      <button type="button" className="primary wide" onClick={() => goTo(5)}>
-        {skipOrNext(shown.some((q) => q.text.trim()))}
-      </button>
-    )
   } else {
-    const { energy } = energyFrom(energyEffect, after, ownWords)
     const suggested = [...spotted.during.map((w) => ({ word: w, kind: 'during' as const })), ...spotted.after.map((w) => ({ word: w, kind: 'after' as const }))]
     body = (
       <>
         {context}
-        <label className="question-text" htmlFor={noteId}>
-          {NOTE_QUESTION}
-        </label>
-        <textarea ref={noteBox} id={noteId} value={note} rows={3} maxLength={4000} placeholder="Optional" onChange={(e) => setNote(e.target.value)} />
-        <div className="field-foot">
-          {note.trim() === '' ? (
-            <Starters starters={noteStarters(energy, deriveEngagement(during, ownWords))} onPick={(text) => typeInto(noteBox.current, text, setNote)} />
-          ) : null}
-        </div>
+        <EarlierAnswers answers={earlier} onChange={setEarlier} />
+        <WriteBox
+          id={noteId}
+          purpose={purpose}
+          onPurpose={setPurpose}
+          candidates={candidates}
+          focus={focusFor(purpose, focus)}
+          text={note}
+          onText={setNote}
+          headingRef={heading}
+        />
         <p className="field-help">Tap the mic on the keyboard to speak.</p>
         {suggested.length ? (
           <div className="chip-row suggested" role="group" aria-label="Feelings in your words">

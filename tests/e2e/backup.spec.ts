@@ -48,7 +48,7 @@ async function openRestore(page: Page, file: string) {
 
 test('back up, delete everything, then restore it all', async ({ page }, testInfo) => {
   await page.goto('./#/today')
-  await addEntry(page, { activity: 'Choir rehearsal', during: ['Absorbed', 'Time flew'], energy: 'It gave me energy', note: 'The new piece finally clicked' })
+  await addEntry(page, { activity: 'Choir rehearsal', during: ['Absorbed', 'Time flew'], energy: 'It gave me energy', writing: 'The new piece finally clicked' })
   await addEntry(page, { activity: 'Tax paperwork', during: ['Bored'], energy: 'It used up my energy', after: ['Tired'] })
   await smallJoy(page).fill('A neighbour waved')
   await expect(page.locator('section.evening .evening-field').first().getByText('Saved')).toBeVisible()

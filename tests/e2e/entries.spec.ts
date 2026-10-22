@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 /** Reflects on an activity and stays on what it reads back afterwards. */
-async function saveAndStay(page: Page, activity: string, energy: string, reflect?: string) {
+async function saveAndStay(page: Page, activity: string, energy: string, writing?: string) {
   await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
   const sheet = page.getByRole('dialog', { name: 'New activity' })
   await sheet.getByLabel('What did you do?').fill(activity)
@@ -18,8 +18,7 @@ async function saveAndStay(page: Page, activity: string, energy: string, reflect
   await sheet.getByRole('button', { name: energy }).click()
   await sheet.getByRole('button', { name: 'Frustrated', exact: true }).click()
   await sheet.getByRole('button', { name: 'Next' }).click()
-  if (reflect) await sheet.locator('.reflection textarea').first().fill(reflect)
-  await sheet.getByRole('button', { name: reflect ? 'Next' : 'Skip' }).click()
+  if (writing) await sheet.getByLabel("What's on your mind about it?").fill(writing)
   await sheet.getByRole('button', { name: 'Save' }).click()
   const view = page.getByRole('dialog', { name: activity })
   await expect(view.getByText('✓ Saved')).toBeVisible()
@@ -84,7 +83,7 @@ test('"Remember this" lands in Insights → What I\'m learning', async ({ page }
 })
 
 test('Entries: everything, newest first, unfinished on top, found by any word', async ({ page }) => {
-  await addEntry(page, { activity: 'Team meeting', energy: 'It used up my energy', reflect: ['Long agenda, no decisions'] })
+  await addEntry(page, { activity: 'Team meeting', energy: 'It used up my energy', writing: 'Long agenda, no decisions' })
   await addEntry(page, { activity: 'Evening run', energy: 'It gave me energy' })
   await page.getByRole('button', { name: 'Write freely' }).click()
   await page.getByRole('dialog', { name: 'Write freely' }).getByLabel("What's on your mind?").fill('Thinking about the move')

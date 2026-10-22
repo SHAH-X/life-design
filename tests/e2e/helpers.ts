@@ -40,10 +40,9 @@ export interface NewEntry {
   energy?: EnergyAnswer
   /** "How did you feel?" words; left out, skipped. */
   after?: string[]
-  /** Answers to the purpose questions, in order (a second one adds "+ Another question"). */
-  reflect?: string[]
+  /** What you write in the one box (your purpose's questions are helpers above it); left out, nothing written. */
+  writing?: string
   where?: string
-  note?: string
 }
 
 /** Reflects on an activity the way it's done on the phone: one question per screen, anything after the first skippable. */
@@ -64,15 +63,8 @@ export async function addEntry(page: Page, entry: NewEntry) {
   for (const word of entry.after ?? []) await sheet.getByRole('button', { name: word, exact: true }).click()
   await sheet.getByRole('button', { name: entry.after?.length ? 'Next' : 'Skip' }).click()
 
-  await expect(sheet.getByLabel('For')).toBeVisible()
-  for (const [i, text] of (entry.reflect ?? []).entries()) {
-    if (i > 0) await sheet.getByRole('button', { name: '+ Another question' }).click()
-    await sheet.locator('.reflection textarea').nth(i).fill(text)
-  }
-  await sheet.getByRole('button', { name: entry.reflect?.length ? 'Next' : 'Skip' }).click()
-
-  await expect(sheet.getByRole('button', { name: 'Save' })).toBeVisible()
-  if (entry.note) await sheet.getByLabel('What else would you like to record?').fill(entry.note)
+  await expect(sheet.getByLabel('Questions for')).toBeVisible()
+  if (entry.writing) await sheet.getByLabel("What's on your mind about it?").fill(entry.writing)
   if (entry.where) {
     await sheet.getByRole('button', { name: '+ How long, where, who' }).click()
     await sheet.getByLabel('Add to where').fill(entry.where)

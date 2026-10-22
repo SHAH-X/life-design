@@ -1,8 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useId, useRef, useState } from 'react'
+import { useId, useState } from 'react'
 import { db } from '../../db/db'
 import { addOwnWord, deleteEntry, isDone, saveEntry, type Suggestions } from '../../db/repo'
-import type { Duration, EnergyEffect, Entry, Measure, Purpose } from '../../db/types'
+import type { Duration, EnergyEffect, Entry, Measure, Purpose, Reflection } from '../../db/types'
 import {
   AFTER_INFO,
   AFTER_QUESTION,
@@ -19,27 +19,27 @@ import {
   type OwnWord,
   wordsFor,
 } from '../../domain/feelings'
-import { questionsFor } from '../../domain/purposes'
+import { focusFor, questionsFor } from '../../domain/purposes'
 import type { DayPart } from '../../lib/dates'
-import { noteStarters } from '../../prompts/starters'
 import { Dialog } from '../../ui/Dialog'
 import { Question } from '../../ui/Question'
-import { Starters, typeInto } from '../../ui/Starters'
 import { WordPicker } from '../../ui/WordPicker'
+import { EarlierAnswers } from './EarlierAnswers'
 import { EntryDetails } from './EntryDetails'
-import { NOTE_QUESTION } from './EntryFlow'
-import { questionsForPurpose, ReflectStep, type ShownQuestion } from './ReflectStep'
+import { WriteBox } from './WriteBox'
 
 interface Props {
   existing: Entry
   suggestions: Suggestions
   own: readonly OwnWord[]
   goal: string
+  /** Your own focus for each purpose (More → Your purpose). */
+  focus: Partial<Record<Purpose, string>>
   onClose: () => void
 }
 
 /** Changing an entry: everything on one screen, in the words it was written with. Nothing else is lost. */
-export function EntryEdit({ existing, suggestions, own, goal, onClose }: Props) {
+export function EntryEdit({ existing, suggestions, own, goal, focus, onClose }: Props) {
   const activityId = useId()
   const duringId = useId()
   const energyId = useId()
@@ -53,7 +53,8 @@ export function EntryEdit({ existing, suggestions, own, goal, onClose }: Props) 
   const [energyEffect, setEnergyEffect] = useState<EnergyEffect | null>(existing.energyEffect)
   const [after, setAfter] = useState<string[]>(initial.after)
   const [purpose, setPurpose] = useState<Purpose>(existing.purpose ?? 'know')
-  const [shown, setShown] = useState<ShownQuestion[]>(existing.reflections.map((r, i) => ({ id: `saved-${i}`, question: r.question, text: r.text })))
+  // Separate answers from v0.8.0: kept, each under its question.
+  const [earlier, setEarlier] = useState<Reflection[]>(existing.reflections)
   const [ownWords, setOwnWords] = useState<OwnWord[]>([...own])
   const [note, setNote] = useState(existing.note)
   const [part, setPart] = useState<DayPart>(existing.part)
@@ -63,7 +64,6 @@ export function EntryEdit({ existing, suggestions, own, goal, onClose }: Props) 
   const [objects, setObjects] = useState(existing.objects)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [busy, setBusy] = useState(false)
-  const noteBox = useRef<HTMLTextAreaElement>(null)
 
   const turn = useLiveQuery(() => db.entries.filter((e) => isDone(e) && e.purpose === purpose).count(), [purpose], 0)
   const candidates = questionsFor(purpose, { energyEffect, during, after, turn, goal })
@@ -104,7 +104,7 @@ export function EntryEdit({ existing, suggestions, own, goal, onClose }: Props) 
           purpose: free ? 'free' : purpose,
           energyEffect,
           duration,
-          reflections: shown.map((q) => ({ question: q.question, text: q.text })),
+          reflections: earlier,
           skipped,
           status: 'done',
         },
@@ -147,7 +147,6 @@ export function EntryEdit({ existing, suggestions, own, goal, onClose }: Props) 
     )
   }
 
-  const { energy } = energyFrom(energyEffect, after, ownWords)
   return (
     <Dialog title="Edit activity" onClose={onClose} footer={footer}>
       <label className="question-text" htmlFor={activityId}>
@@ -176,26 +175,16 @@ export function EntryEdit({ existing, suggestions, own, goal, onClose }: Props) 
       </Question>
       <WordPicker labelledBy={afterId} kind="after" presets={AFTER_WORDS} own={ownWords} value={after} onChange={setAfter} onAddOwn={addOwn} />
 
-      <ReflectStep
+      <EarlierAnswers answers={earlier} onChange={setEarlier} />
+      <WriteBox
+        id={noteId}
         purpose={purpose}
-        onPurpose={(next) => {
-          setPurpose(next)
-          setShown((current) => questionsForPurpose(questionsFor(next, { energyEffect, during, after, turn: 0, goal }), current))
-        }}
+        onPurpose={setPurpose}
         candidates={candidates}
-        shown={shown}
-        onShown={setShown}
+        focus={focusFor(purpose, focus)}
+        text={note}
+        onText={setNote}
       />
-
-      <label className="question-text" htmlFor={noteId}>
-        {NOTE_QUESTION}
-      </label>
-      <textarea ref={noteBox} id={noteId} value={note} rows={2} maxLength={4000} placeholder="Optional" onChange={(e) => setNote(e.target.value)} />
-      <div className="field-foot">
-        {note.trim() === '' ? (
-          <Starters starters={noteStarters(energy, deriveEngagement(during, ownWords))} onPick={(text) => typeInto(noteBox.current, text, setNote)} />
-        ) : null}
-      </div>
 
       <EntryDetails
         part={part}

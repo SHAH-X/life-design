@@ -122,9 +122,9 @@ export interface QuestionContext {
 const isOneOf = (words: readonly string[], list: readonly string[]) => words.some((w) => list.some((l) => l.toLowerCase() === w.toLowerCase()))
 
 /**
- * The questions for one entry, best first. The screen shows the first and adds the next on request (never more
- * than three). They take turns between entries; a hard moment brings "what made it harder" forward, and "what
- * made it so absorbing" only comes up when time flew.
+ * The questions for one entry, best first: helpers shown above the one writing box (v0.9), a few at a time. They
+ * take turns between entries; a hard moment brings "what made it harder" forward, and "what made it so absorbing"
+ * only comes up when time flew.
  */
 export function questionsFor(purpose: Purpose, context: QuestionContext): EntryQuestion[] {
   const flow = isOneOf(context.during, ['Time flew'])
@@ -139,4 +139,23 @@ export function questionsFor(purpose: Purpose, context: QuestionContext): EntryQ
     ...q,
     text: q.text.replace('{ toward goal}', goal ? ` toward ${midSentence(goal)}` : ''),
   }))
+}
+
+/** How many helper questions show at once above the writing box. */
+export const HELPERS_SHOWN = 3
+
+/** The helpers on screen: three at a time from the best-first list; each page moves on by three, wrapping round. */
+export function helpersPage(candidates: readonly EntryQuestion[], page: number): EntryQuestion[] {
+  if (candidates.length <= HELPERS_SHOWN) return [...candidates]
+  const start = (page * HELPERS_SHOWN) % candidates.length
+  return Array.from({ length: HELPERS_SHOWN }, (_, i) => candidates[(start + i) % candidates.length] as EntryQuestion)
+}
+
+/**
+ * Your own focus for a purpose (More → Your purpose), shown with its helper questions. Not for a goal: its
+ * questions already name it.
+ */
+export function focusFor(purpose: Purpose, focus: Partial<Record<Purpose, string>>): string {
+  if (purpose === 'goal' || !purposeInfo(purpose).focus) return ''
+  return focus[purpose]?.trim() ?? ''
 }

@@ -31,7 +31,18 @@ export function EntrySheet({ state, onChange, suggestions, own, purpose }: Props
   const show = (entry: Entry) => onChange({ kind: 'open', entry, fresh: true })
 
   if (state.kind === 'new') {
-    return <EntryFlow date={state.date} suggestions={suggestions} own={own} purpose={purpose.primary} goal={purpose.goal} onClose={close} onSaved={show} />
+    return (
+      <EntryFlow
+        date={state.date}
+        suggestions={suggestions}
+        own={own}
+        purpose={purpose.primary}
+        goal={purpose.goal}
+        focus={purpose.focus}
+        onClose={close}
+        onSaved={show}
+      />
+    )
   }
   if (state.kind === 'free') return <FreeWrite date={state.date} onClose={close} onSaved={show} />
   if (state.kind === 'edit') {
@@ -41,6 +52,7 @@ export function EntrySheet({ state, onChange, suggestions, own, purpose }: Props
         suggestions={suggestions}
         own={own}
         goal={purpose.goal}
+        focus={purpose.focus}
         onClose={() => onChange({ kind: 'open', entry: state.entry })}
       />
     )
@@ -56,6 +68,7 @@ export function EntrySheet({ state, onChange, suggestions, own, purpose }: Props
         own={own}
         purpose={purpose.primary}
         goal={purpose.goal}
+        focus={purpose.focus}
         draft={entry}
         onClose={close}
         onSaved={show}

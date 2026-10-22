@@ -13,8 +13,7 @@ const BUDGETS = {
   'New activity: what it was like (10 answer words)': 25,
   'New activity: energy (4 answers)': 30,
   'New activity: how you felt (12 answer words)': 30,
-  'New activity: reflect': 25,
-  'New activity: anything else': 30,
+  'New activity: write (helpers and one box)': 60, // v0.9: one screen instead of reflect (25) and anything else (30); three helper questions
   'Write freely': 25,
   'Entry, read back after saving': 90, // summary, a possible insight, your words, and the next-step choices
   'Entries [the fictional five days]': 125,
@@ -82,11 +81,7 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
   await sheet.getByRole('button', { name: 'Happy', exact: true }).click()
   await sheet.getByRole('button', { name: 'Next' }).click()
   await settled(page)
-  await measure('New activity: reflect', sheet)
-  await sheet.getByRole('button', { name: 'Skip' }).click()
-  await expect(sheet.getByRole('button', { name: 'Save' })).toBeVisible()
-  await settled(page)
-  await measure('New activity: anything else', sheet)
+  await measure('New activity: write (helpers and one box)', sheet)
   await sheet.getByRole('button', { name: 'Close' }).click()
 
   await page.getByRole('button', { name: 'Write freely' }).click()
@@ -101,8 +96,6 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
   await sheet.getByRole('button', { name: 'Next' }).click()
   await settled(page)
   await sheet.getByRole('button', { name: 'It used up my energy' }).click()
-  await settled(page)
-  await sheet.getByRole('button', { name: 'Skip' }).click()
   await settled(page)
   await sheet.getByRole('button', { name: 'Skip' }).click()
   await sheet.getByRole('button', { name: 'Save' }).click()

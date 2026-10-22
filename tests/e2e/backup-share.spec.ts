@@ -12,7 +12,7 @@ test('a password-protected backup saved through the share sheet restores, emoji 
     during: ['Absorbed'],
     energy: 'It gave me energy',
     after: ['Proud'],
-    note: 'Talked for hours… felt great 🙌',
+    writing: 'Talked for hours… felt great 🙌',
   })
   await smallJoy(page).fill('Sunset 🌅 over the river · 日本語')
   await expect(page.locator('section.evening .evening-field').first().getByText('Saved')).toBeVisible()

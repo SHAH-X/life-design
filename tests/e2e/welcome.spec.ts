@@ -52,8 +52,10 @@ test('the welcome asks what journaling is for, with a follow-up, then starts on 
   await sheet.getByRole('button', { name: 'Skip' }).click()
   await sheet.getByRole('button', { name: 'Skip' }).click()
   await sheet.getByRole('button', { name: 'Skip' }).click()
-  await expect(sheet.getByLabel('For')).toHaveValue('grow')
-  await expect(sheet.getByLabel('What went well?')).toBeVisible()
+  await expect(sheet.getByLabel('Questions for')).toHaveValue('grow')
+  await expect(sheet.getByRole('list', { name: 'Questions to think about' })).toContainText('What went well?')
+  // The focus you wrote shows with its questions.
+  await expect(sheet.getByText('Your focus: Staying calm in meetings')).toBeVisible()
   await sheet.getByRole('button', { name: 'Close' }).click()
 
   await page.goto('./#/more/purpose')

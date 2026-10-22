@@ -1,7 +1,7 @@
 // "Need a start?": a few openers under an empty writing box, for the blank-page moment. Tapping one types it in
 // (with a space after it) and the rest is yours. Each set fits its question; keep them short and open-ended.
+// On Write freely and the evening question; an activity's writing box has its purpose's questions instead (v0.9).
 import type { Purpose } from '../db/types'
-import type { Energy, Engagement } from '../domain/scales'
 
 /** Follows the evening question's purpose (see the question bank), plus questions drawn from your patterns. */
 const EVENING: Record<Purpose | 'pattern', readonly string[]> = {
@@ -17,12 +17,4 @@ const EVENING: Record<Purpose | 'pattern', readonly string[]> = {
 
 export function eveningStarters(purpose: Purpose | 'pattern'): readonly string[] {
   return EVENING[purpose]
-}
-
-/** Follows the note's question (followUpQuestion): what took your energy, what gave it, what kept you into it, or anything. */
-export function noteStarters(energy: Energy | number, engagement: Engagement | number): readonly string[] {
-  if (energy < 0) return ['It took energy because', 'The hard part was', "Next time I'll"]
-  if (energy > 0) return ['What I liked was', 'It worked because', "I'd like more of"]
-  if (engagement >= 4) return ['I was into it because', 'What kept me going was', 'I noticed']
-  return ['I noticed', 'It felt', "Next time I'll"]
 }

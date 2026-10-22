@@ -35,7 +35,7 @@ test("the week's next steps are followed up, and not yet is fine", async ({ page
   const sheet = page.getByRole('dialog', { name: 'New activity' })
   await sheet.getByLabel('What did you do?').fill('Team meeting')
   await sheet.getByRole('button', { name: 'Next' }).click()
-  for (let i = 0; i < 4; i += 1) await sheet.getByRole('button', { name: 'Skip' }).click()
+  for (let i = 0; i < 3; i += 1) await sheet.getByRole('button', { name: 'Skip' }).click()
   await sheet.getByRole('button', { name: 'Save' }).click()
   const view = page.getByRole('dialog', { name: 'Team meeting' })
   await view.getByRole('button', { name: 'Try something differently' }).click()
