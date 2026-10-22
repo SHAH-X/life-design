@@ -137,10 +137,10 @@ Most valued: quick logging; your own words alongside a word list; patterns that 
 
 | Idea | Status | Why |
 |---|---|---|
-| Looking back ("a month ago you wrote…") in the review | TEST (Phase 3) | TEST (later)
-| Small experiments from patterns (prototype tracker) | TEST (Phase 3) | REJECT (parked with Phase 3b); next steps on entries instead (v0.8)
-| Readable export of the whole journal; shareable review summary | TEST (Phase 4) | TEST (Phase 5)
-| Search across entries, answers and reviews | TEST (Phase 5) | Apple Journal's most-cited gap |
+| Looking back ("a month ago you wrote…") | TEST (later; Insights → Earlier weeks reopens past weeks since v0.8) | Day One's On This Day; rereading entries helps (JMIR 2020) |
+| Small experiments from patterns (prototype tracker) | REJECT (parked with Phase 3b); a next step on each entry instead, followed up in the weekly review (v0.8) | Mood apps rarely help you act on what you learn (Caldeira et al.) |
+| Readable export of the whole journal; shareable review summary | TEST (Phase 5) | Lock-in and missing export are common complaints; users value sharing with a clinician |
+| Search across entries, answers and reviews | TEST (v0.8: Entries searches every word of an entry and its answers) | Apple Journal's most-cited gap |
 
 **Never** (standing rules; check every new feature against them):
 
