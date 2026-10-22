@@ -30,6 +30,7 @@ npm install
 npm run dev        # local dev server
 npm test           # unit tests
 npm run test:e2e   # end-to-end tests in WebKit at iPhone size
+npm run screens    # every screen: layout check and reference screenshots, light and dark
 npm run build      # production build
 ```
 

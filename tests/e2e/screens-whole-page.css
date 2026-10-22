@@ -1,0 +1,5 @@
+/* Whole-page screenshots only (screens.spec.ts): WebKit paints a fixed bar where the first screenful ends,
+   on top of what's there, so it's hidden; the "-end" screenshots show it as a person sees it. */
+.tabbar {
+  visibility: hidden !important;
+}

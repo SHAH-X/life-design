@@ -12,12 +12,14 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 ## How we work
 - The build runs in phases (see `DECISIONS.md`). Stop after each phase for the owner's OK.
 - Proof before "done": run `npm run typecheck`, `npm test` and `npm run test:e2e`, and quote the results. After a deploy, check the live URL. Anything that calls an outside API also gets a live check with fake data.
+- Look before "done": after any change to what a screen shows, run `npm run screens`, open every changed screenshot and its `-diff.png` (in `test-results/`) and look at them, and name in the report which ones were looked at. Accept a change with `npm run screens -- --update-snapshots` only after looking. (Until v0.12 the owner found every layout fault on the iPhone: five fix releases, each test written after its bug, and no screenshot ever looked at.)
 - Bugs: write a failing test first, then fix.
 - e2e locators: `name` matches part of a name, so short button names use `exact: true` (`{ name: 'Done', exact: true }`). (v0.8: "Done" also matched "Done it" once a next step had saved, so a week test failed about one run in three.)
 - When a decision changes, update `DECISIONS.md` in the same change, and search README, DECISIONS and CLAUDE for the old wording (e.g. `grep -in gauge`) so no mention is left stale. (Phase 2.6 replaced the balance gauges, but two rows and the README still described them until v0.7.) Change a status in its Status column, never over the Why: `tests/unit/decisions.test.ts` checks every table keeps its columns (v0.8: an edit wrote statuses over three reasons).
 - Machine safety: never run `brew install` or `brew upgrade` without `--dry-run` first and the owner's OK.
 
 ## UI rules (each one came from a real bug)
+- Every main screen and sheet is in `tests/e2e/screens.spec.ts` (light and dark, the keyboard up over each text box): add a new one when it's built. There it gets the general layout check (`expectCleanLayout` in `tests/e2e/layout.ts`: sideways scroll, cut-off text, words squeezed across lines, buttons that can't be tapped or are under 24px, overlaps, things stuck behind a bar, and axe-core's WCAG AA rules including contrast) and a reference screenshot. Values that change by themselves (storage in use, the build stamp) are masked in `changing()`. `tests/e2e/layout-check.spec.ts` plants each fault to prove the check finds it: a new check gets a planted fault there.
 - Nothing may move under the user's finger: a screen renders only once its data has loaded, or keeps space reserved for content that arrives later. (Phase 1: a "Last backup" line loading late shifted the buttons, so a tap missed.)
 - A visually hidden native input (radio, checkbox, switch) must cover its whole tap target, so taps and tests reach it. (Phase 1: a 1px switch input couldn't be tapped.)
 - The e2e tests click straight after navigation on purpose. Keep it that way: it catches layout shifts.
@@ -71,6 +73,6 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 - Node 22.12 or newer (`.nvmrc`).
 
 ## Commands
-- `npm run dev` · `npm run typecheck` · `npm test` · `npm run test:e2e` (WebKit at iPhone 16 size) · `npm run build`
+- `npm run dev` · `npm run typecheck` · `npm test` · `npm run test:e2e` (WebKit at iPhone 16 size) · `npm run screens` (every screen: layout check and screenshots; part of `test:e2e` too) · `npm run build`
 - Deploy: push to `main`. GitHub Actions type-checks, tests, builds and publishes to Pages.
 - Version bump: `npm version <x.y.z> --no-git-tag-version`, so package.json and package-lock.json stay the same (a unit test checks; until v0.6.1 the lockfile still said 0.1.0).
