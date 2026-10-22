@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "screens": "playwright test tests/e2e/screens.spec.ts",
+    "ios-check": "python3 -I scripts/ios-check.py",
     "icons": "pwa-assets-generator",
     "privacy-scan": "sh scripts/privacy-scan.sh"
   },

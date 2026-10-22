@@ -12,7 +12,7 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 ## How we work
 - The build runs in phases (see `DECISIONS.md`). Stop after each phase for the owner's OK.
 - Proof before "done": run `npm run typecheck`, `npm test` and `npm run test:e2e`, and quote the results. After a deploy, check the live URL. Anything that calls an outside API also gets a live check with fake data.
-- Look before "done": after any change to what a screen shows, run `npm run screens`, open every changed screenshot and its `-diff.png` (in `test-results/`) and look at them, and name in the report which ones were looked at. Accept a change with `npm run screens -- --update-snapshots` only after looking. (Until v0.12 the owner found every layout fault on the iPhone: five fix releases, each test written after its bug, and no screenshot ever looked at.)
+- Look before "done": after any change to what a screen shows, run `npm run screens`, open every changed screenshot and its `-diff.png` (in `test-results/`) and look at them, and name in the report which ones were looked at. Accept a change with `npm run screens -- --update-snapshots` only after looking. When sheets, fields or scrolling change, also run `npm run ios-check` (real iPhone Safari in the iOS Simulator, the real keyboard) and look at its screenshots in `test-results/ios/`. (Until v0.12 the owner found every layout fault on the iPhone: five fix releases, each test written after its bug, and no screenshot ever looked at.)
 - Bugs: write a failing test first, then fix.
 - e2e locators: `name` matches part of a name, so short button names use `exact: true` (`{ name: 'Done', exact: true }`). (v0.8: "Done" also matched "Done it" once a next step had saved, so a week test failed about one run in three.)
 - When a decision changes, update `DECISIONS.md` in the same change, and search README, DECISIONS and CLAUDE for the old wording (e.g. `grep -in gauge`) so no mention is left stale. (Phase 2.6 replaced the balance gauges, but two rows and the README still described them until v0.7.) Change a status in its Status column, never over the Why: `tests/unit/decisions.test.ts` checks every table keeps its columns (v0.8: an edit wrote statuses over three reasons).
@@ -73,6 +73,6 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 - Node 22.12 or newer (`.nvmrc`).
 
 ## Commands
-- `npm run dev` · `npm run typecheck` · `npm test` · `npm run test:e2e` (WebKit at iPhone 17 size, the owner's phone) · `npm run screens` (every screen: layout check and screenshots; part of `test:e2e` too) · `npm run build`
+- `npm run dev` · `npm run typecheck` · `npm test` · `npm run test:e2e` (WebKit at iPhone 17 size, the owner's phone) · `npm run screens` (every screen: layout check and screenshots; part of `test:e2e` too) · `npm run ios-check` (sheets in the iOS Simulator with the real keyboard; needs `npm run preview` running, Xcode's iOS 27.0 simulator and idb, see DECISIONS) · `npm run build`
 - Deploy: push to `main`. GitHub Actions type-checks, tests, builds and publishes to Pages.
 - Version bump: `npm version <x.y.z> --no-git-tag-version`, so package.json and package-lock.json stay the same (a unit test checks; until v0.6.1 the lockfile still said 0.1.0).
