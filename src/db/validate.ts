@@ -10,6 +10,7 @@ import {
   type IkigaiItem,
   type OdysseyPlan,
   type PlanVersion,
+  type Prototype,
   type Review,
   type Setting,
   type TableName,
@@ -158,6 +159,26 @@ export function isReview(x: unknown): x is Review {
   )
 }
 
+const isOptional = (x: unknown, check: (y: unknown) => boolean) => x === undefined || check(x)
+
+/** A prototype needs a question and a way to find out; anything a file leaves out is filled in on import. */
+export function isPrototype(x: unknown): x is Prototype {
+  return (
+    isObj(x) &&
+    isNonEmptyStr(x.id) &&
+    isNonEmptyStr(x.question) &&
+    (x.how === 'talk' || x.how === 'try') &&
+    isStr(x.withWhat) &&
+    isOptional(x.planSlot, (v) => v === null || v === 1 || v === 2 || v === 3) &&
+    isOptional(x.when, (v) => v === null || isDateKey(v)) &&
+    isOptional(x.doneAt, (v) => v === null || isNum(v)) &&
+    isOptional(x.learned, isStr) &&
+    isOptional(x.after, isStrList) &&
+    isOptional(x.next, (v) => v === null || v === 'more' || v === 'other' || v === 'enough') &&
+    hasTimes(x)
+  )
+}
+
 export function isSetting(x: unknown): x is Setting {
   return isObj(x) && isNonEmptyStr(x.key) && 'value' in x && isNum(x.updatedAt)
 }
@@ -170,6 +191,7 @@ export const VALIDATORS: { [K in TableName]: (x: unknown) => x is BackupData[K][
   odysseyPlans: isOdysseyPlan,
   planVersions: isPlanVersion,
   views: isViews,
+  prototypes: isPrototype,
   reviews: isReview,
   settings: isSetting,
 }
@@ -191,6 +213,18 @@ export function normalizeRecord(table: TableName, record: unknown): unknown {
   if (table === 'planVersions') {
     const version = record as PlanVersion
     return { ...version, plan: normalizePlan(version.plan) }
+  }
+  if (table === 'prototypes') {
+    const p = record as Prototype
+    return {
+      ...p,
+      planSlot: p.planSlot ?? null,
+      when: p.when ?? null,
+      doneAt: p.doneAt ?? null,
+      learned: p.learned ?? '',
+      after: p.after ?? [],
+      next: p.next ?? null,
+    }
   }
   if (table === 'entries') {
     const entry = record as Entry

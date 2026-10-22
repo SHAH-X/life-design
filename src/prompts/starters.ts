@@ -25,3 +25,8 @@ export function noteStarters(energy: Energy | number, engagement: Engagement | n
   if (engagement >= 4) return ['I was into it because', 'What kept me going was', 'I noticed']
   return ['I noticed', 'It felt', "Next time I'll"]
 }
+
+/** For "What did you learn?" once a prototype is done. */
+export function learnedStarters(): readonly string[] {
+  return ['I learned that', 'I was surprised that', 'It made me wonder']
+}

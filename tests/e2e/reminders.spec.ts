@@ -88,6 +88,8 @@ test('no link in the app opens a file inside the app (on iPhone that left the ap
     'design/odyssey',
     'design/plan-1',
     'design/views',
+    'design/ikigai',
+    'design/prototypes',
     'more',
     'more/reminders',
     'more/evening',

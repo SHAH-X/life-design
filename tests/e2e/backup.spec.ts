@@ -57,7 +57,7 @@ test('back up, delete everything, then restore it all', async ({ page }, testInf
 
   const file = await backUp(page, testInfo)
   const backup = JSON.parse(await readFile(file, 'utf8'))
-  expect(backup).toMatchObject({ app: 'life-design', kind: 'backup', schemaVersion: 4 })
+  expect(backup).toMatchObject({ app: 'life-design', kind: 'backup', schemaVersion: 5 })
   expect(backup.data.entries).toHaveLength(2)
   expect(backup.data.entries.map((e: { during: string[]; after: string[] }) => [e.during, e.after])).toContainEqual([['Absorbed', 'Time flew'], ['Energised']])
   expect(backup.data.days).toHaveLength(1)
@@ -122,6 +122,13 @@ test('a backup from the earlier v1 app is converted and restored', async ({ page
   await dialog.getByRole('button', { name: 'Done' }).click()
   await page.goto('./#/more/phone')
   await expect(page.getByText('2 entries, 0 small joys')).toBeVisible()
+
+  // v1 ranked Ikigai items "x/4"; here they sit in a group, in words.
+  await page.goto('./#/design/ikigai')
+  const close = page.locator('section', { has: page.getByRole('heading', { name: 'Close to Ikigai', exact: true }) })
+  await expect(close).toContainText('Teaching beginners')
+  await expect(close).toContainText('Not yet: could be paid for it')
+  await expect(page.locator('main')).not.toContainText(/\d\s*\/\s*4/)
 })
 
 test('choosing the wrong kind of file says exactly what it is', async ({ page }, testInfo) => {

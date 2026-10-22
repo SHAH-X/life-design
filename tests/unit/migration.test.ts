@@ -25,7 +25,7 @@ describe('database upgrade', () => {
     expect(await upgraded.entries.get('kept')).toMatchObject({ activity: 'Choir rehearsal' })
     expect(await upgraded.days.get('2026-10-20')).toMatchObject({ smallJoy: 'Fresh bread' })
     expect(await upgraded.reviews.count()).toBe(0)
-    expect(upgraded.verno).toBe(5)
+    expect(upgraded.verno).toBe(6)
     await upgraded.delete()
   })
 
@@ -67,7 +67,7 @@ describe('database upgrade', () => {
     expect(review?.updatedAt).toBe(7) // an upgrade is not an edit
     expect(await upgraded.entries.get('kept')).toMatchObject({ activity: 'Choir rehearsal' })
     expect(await upgraded.answers.count()).toBe(0)
-    expect(upgraded.verno).toBe(5)
+    expect(upgraded.verno).toBe(6)
     await upgraded.delete()
   })
 
@@ -109,7 +109,7 @@ describe('database upgrade', () => {
       balance: { play: 3 },
       updatedAt: 7,
     })
-    expect(upgraded.verno).toBe(5)
+    expect(upgraded.verno).toBe(6)
     await upgraded.delete()
   })
 
@@ -155,7 +155,34 @@ describe('database upgrade', () => {
     })
     expect(await upgraded.planVersions.count()).toBe(0)
     expect(await upgraded.views.count()).toBe(0)
-    expect(upgraded.verno).toBe(5)
+    expect(upgraded.verno).toBe(6)
+    await upgraded.delete()
+  })
+
+  it('adds prototypes to a Phase 3a phone and keeps everything else as it was', async () => {
+    const name = `upgrade-${crypto.randomUUID()}`
+    const phase3a = new Dexie(name)
+    phase3a.version(1).stores({
+      entries: 'id, date, createdAt, updatedAt',
+      days: 'date, updatedAt',
+      ikigaiItems: 'id, updatedAt',
+      odysseyPlans: 'id, slot, updatedAt',
+      settings: 'key',
+    })
+    phase3a.version(2).stores({ reviews: 'id, periodEnd, updatedAt' })
+    phase3a.version(3).stores({ answers: 'id, date, updatedAt' })
+    phase3a.version(4).stores({})
+    phase3a.version(5).stores({ planVersions: 'id, planId, savedAt, updatedAt', views: 'id, updatedAt' })
+    const iki = { id: 'i1', text: 'Teaching design', love: true, goodAt: true, worldNeeds: true, paidFor: false, linkedActivities: [], notes: '', createdAt: 3, updatedAt: 3 }
+    await phase3a.table('ikigaiItems').put(iki)
+    await phase3a.table('views').put({ id: 'v1', workview: 'Work is service', lifeview: '', coherence: '', createdAt: 4, updatedAt: 4 })
+    phase3a.close()
+
+    const upgraded = openDb(name)
+    expect(upgraded.verno).toBe(6)
+    expect(await upgraded.ikigaiItems.get('i1')).toEqual(iki)
+    expect(await upgraded.views.get('v1')).toMatchObject({ workview: 'Work is service', updatedAt: 4 })
+    expect(await upgraded.prototypes.count()).toBe(0)
     await upgraded.delete()
   })
 })

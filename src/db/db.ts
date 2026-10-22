@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { Answer, Day, Entry, IkigaiItem, OdysseyPlan, PlanVersion, Review, Setting, Views } from './types'
+import type { Answer, Day, Entry, IkigaiItem, OdysseyPlan, PlanVersion, Prototype, Review, Setting, Views } from './types'
 
 export type LifeDesignDB = Dexie & {
   entries: EntityTable<Entry, 'id'>
@@ -9,6 +9,7 @@ export type LifeDesignDB = Dexie & {
   odysseyPlans: EntityTable<OdysseyPlan, 'id'>
   planVersions: EntityTable<PlanVersion, 'id'>
   views: EntityTable<Views, 'id'>
+  prototypes: EntityTable<Prototype, 'id'>
   reviews: EntityTable<Review, 'id'>
   settings: EntityTable<Setting, 'key'>
 }
@@ -83,6 +84,10 @@ export function openDb(name = DB_NAME): LifeDesignDB {
           if (plan.writtenAt === undefined) plan.writtenAt = plan.title || plan.description ? plan.updatedAt : null
         }),
     )
+  // v0.8 (Phase 3b): prototypes. A new table only; nothing else changes.
+  database.version(6).stores({
+    prototypes: 'id, updatedAt',
+  })
   return database
 }
 

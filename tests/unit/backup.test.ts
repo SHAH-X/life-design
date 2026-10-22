@@ -5,7 +5,8 @@ import { lockText, unlockText } from '../../src/db/crypto'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { newReview } from '../../src/db/repo'
 import { emptyPlan } from '../../src/domain/lifeDesign'
-import type { Answer, Entry } from '../../src/db/types'
+import type { Answer, Entry, IkigaiItem, Prototype } from '../../src/db/types'
+import { newPrototype } from '../../src/domain/prototypes'
 
 // Fictional example data.
 const entry = (id: string, updatedAt: number, over: Partial<Entry> = {}): Entry => ({
@@ -36,6 +37,7 @@ const emptyRaw = (): RawData => ({
   odysseyPlans: [],
   planVersions: [],
   views: [],
+  prototypes: [],
   reviews: [],
   settings: [],
 })
@@ -204,6 +206,40 @@ describe('backup and restore', () => {
     const plan = await applyImport(detected.raw, newPhone)
     expect(plan.tables.odysseyPlans).toMatchObject({ added: 1, skipped: 0 })
     expect(await newPhone.odysseyPlans.get('plan-1')).toMatchObject({ feelings: [], needs: [], needsNote: '', fit: '', writtenAt: 1000 })
+  })
+
+  it('backs up and restores the Ikigai map and prototypes', async () => {
+    const iki: IkigaiItem = { id: 'i1', text: 'Teaching design', love: true, goodAt: true, worldNeeds: true, paidFor: false, linkedActivities: ['Deep work'], notes: '', createdAt: 1000, updatedAt: 1000 }
+    const done: Prototype = { ...newPrototype(1000), id: 'p1', question: 'Could I be paid for teaching?', planSlot: 3, how: 'talk', withWhat: 'Maria', when: '2026-10-28', doneAt: 2000, learned: 'Evening classes pay', after: ['Energised'], next: 'more', updatedAt: 2000 }
+    await phone.ikigaiItems.put(iki)
+    await phone.prototypes.put(done)
+    const backup = await createBackup(phone)
+    expect(backup.schemaVersion).toBe(5)
+    const detected = detectFile(JSON.stringify(backup))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    await applyImport(detected.raw, newPhone)
+    expect(await newPhone.ikigaiItems.get('i1')).toEqual(iki)
+    expect(await newPhone.prototypes.get('p1')).toEqual(done)
+  })
+
+  it('restores a format 4 file, which has no prototypes yet', async () => {
+    const old = { app: 'life-design', kind: 'backup', schemaVersion: 4, exportedAt: '2026-10-21T12:00:00Z', data: { entries: [entry('a', 1000)] } }
+    const detected = detectFile(JSON.stringify(old))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    expect(detected.raw.prototypes).toEqual([])
+    await applyImport(detected.raw, newPhone)
+    expect(await newPhone.entries.count()).toBe(1)
+  })
+
+  it('fills in prototype fields a file leaves out, and skips a prototype with no question or way to find out', async () => {
+    const partial = { id: 'p2', question: 'Would I enjoy pottery?', how: 'try', withWhat: '', createdAt: 1000, updatedAt: 1000 }
+    const broken = { id: 'p3', question: 'Would I?', how: 'guess', createdAt: 1000, updatedAt: 1000 }
+    const file = { app: 'life-design', kind: 'backup', schemaVersion: 5, exportedAt: '2026-10-21T12:00:00Z', data: { prototypes: [partial, broken] } }
+    const detected = detectFile(JSON.stringify(file))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    const result = await applyImport(detected.raw, newPhone)
+    expect(result.tables.prototypes).toMatchObject({ added: 1, skipped: 1 })
+    expect(await newPhone.prototypes.get('p2')).toMatchObject({ planSlot: null, when: null, doneAt: null, learned: '', after: [], next: null })
   })
 
   it('still restores backups made before reviews existed (format 1)', async () => {

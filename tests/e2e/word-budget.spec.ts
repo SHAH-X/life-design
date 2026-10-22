@@ -152,3 +152,46 @@ test('the welcome stays within its word budget', async ({ page }, testInfo) => {
   const over = (Object.keys(WELCOME_BUDGETS) as (keyof typeof WELCOME_BUDGETS)[]).filter((s) => (counts[s] ?? Infinity) > WELCOME_BUDGETS[s])
   expect(over.map((s) => `${s}: ${counts[s]} words, budget ${WELCOME_BUDGETS[s]}`)).toEqual([])
 })
+
+// Phase 3b: the Ikigai map, prototypes and the review's follow-up, with the fictional plan, map and prototypes.
+// Set from measurements; raise only with the owner's OK.
+const TRY_BUDGETS = {
+  'Ikigai map': 60,
+  'Ikigai: add': 50, // mostly your activity names, to link
+  Prototypes: 55,
+  'New prototype: what to find out': 30,
+  'Review: experiments': 40,
+} as const
+
+test('the Ikigai map and prototypes stay within their word budgets', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(EVENING)
+  await restoreSeed(page, testInfo.outputPath('seed.json'), EVENING, { tryOut: true })
+  const main = page.locator('main')
+  const sheet = page.locator('dialog[open]')
+  const counts: Record<string, number> = {}
+
+  await page.goto('./#/design/ikigai')
+  await expect(page.getByRole('heading', { level: 1, name: 'Ikigai map' })).toBeVisible()
+  counts['Ikigai map'] = await visibleWords(main)
+  await page.getByRole('button', { name: '+ Add' }).click()
+  counts['Ikigai: add'] = await visibleWords(sheet)
+  await sheet.getByRole('button', { name: 'Close' }).click()
+
+  await page.goto('./#/design/prototypes')
+  await expect(page.getByRole('heading', { level: 1, name: 'Prototypes' })).toBeVisible()
+  counts.Prototypes = await visibleWords(main)
+  await page.getByRole('button', { name: '+ New prototype' }).click()
+  counts['New prototype: what to find out'] = await visibleWords(sheet)
+  await sheet.getByRole('button', { name: 'Close' }).click()
+
+  await page.goto('./#/review')
+  await page.getByRole('button', { name: /^(Start review|Review now)$/ }).click()
+  for (let i = 0; i < 3; i += 1) await page.getByRole('button', { name: 'Next' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Experiments' })).toBeVisible()
+  counts['Review: experiments'] = await visibleWords(main)
+
+  testInfo.annotations.push({ type: 'words', description: JSON.stringify(counts) })
+  console.log(counts)
+  const over = (Object.keys(TRY_BUDGETS) as (keyof typeof TRY_BUDGETS)[]).filter((s) => (counts[s] ?? Infinity) > TRY_BUDGETS[s])
+  expect(over.map((s) => `${s}: ${counts[s]} words, budget ${TRY_BUDGETS[s]}`)).toEqual([])
+})

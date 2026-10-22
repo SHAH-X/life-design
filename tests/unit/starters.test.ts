@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { Purpose } from '../../src/db/types'
 import { PURPOSES } from '../../src/prompts/bank'
-import { eveningStarters, noteStarters } from '../../src/prompts/starters'
+import { eveningStarters, learnedStarters, noteStarters } from '../../src/prompts/starters'
 
 const PURPOSE_KEYS = [...(Object.keys(PURPOSES) as Purpose[]), 'pattern'] as const
 const NOTE_SETS = [noteStarters(-1, 3), noteStarters(1, 3), noteStarters(0, 4), noteStarters(0, 3)]
-const ALL_SETS = [...PURPOSE_KEYS.map((p) => eveningStarters(p)), ...NOTE_SETS]
+const ALL_SETS = [...PURPOSE_KEYS.map((p) => eveningStarters(p)), ...NOTE_SETS, learnedStarters()]
 
 describe('sentence starters ("Need a start?")', () => {
   it('offers three openers for every evening purpose, pattern questions included', () => {
@@ -18,6 +18,10 @@ describe('sentence starters ("Need a start?")', () => {
     expect(noteStarters(0, 4)[0]).toBe('I was into it because')
     expect(noteStarters(0, 3)[0]).toBe('I noticed')
     for (const set of NOTE_SETS) expect(set).toHaveLength(3)
+  })
+
+  it('help say what a prototype taught you', () => {
+    expect(learnedStarters()).toEqual(['I learned that', 'I was surprised that', 'It made me wonder'])
   })
 
   it('are short and open-ended, so one can be typed in and carried on from', () => {

@@ -127,6 +127,34 @@ export interface Views {
   updatedAt: number
 }
 
+/** How a prototype finds out: Designing Your Life's two kinds, a conversation or an experience. */
+export type PrototypeHow = 'talk' | 'try'
+/** "What next?" once it's done. */
+export type PrototypeNext = 'more' | 'other' | 'enough'
+
+/** A small, cheap test of a possible future (Designing Your Life). Planned until `doneAt` is set. */
+export interface Prototype {
+  id: string
+  /** "What do you want to find out?" */
+  question: string
+  /** The Odyssey Plan the question was picked from, if any. */
+  planSlot: 1 | 2 | 3 | null
+  /** "How will you find out?" */
+  how: PrototypeHow
+  /** Who to talk to, or what to try. */
+  withWhat: string
+  /** "When?" (optional): a local date, YYYY-MM-DD. */
+  when: string | null
+  doneAt: number | null
+  /** "What did you learn?" */
+  learned: string
+  /** "How did it leave you?": the same words as an activity. */
+  after: string[]
+  next: PrototypeNext | null
+  createdAt: number
+  updatedAt: number
+}
+
 export interface Setting {
   key: string
   value: unknown
@@ -184,6 +212,7 @@ export interface BackupData {
   odysseyPlans: OdysseyPlan[]
   planVersions: PlanVersion[]
   views: Views[]
+  prototypes: Prototype[]
   reviews: Review[]
   settings: Setting[]
 }
@@ -198,6 +227,7 @@ export const TABLE_NAMES: readonly TableName[] = [
   'odysseyPlans',
   'planVersions',
   'views',
+  'prototypes',
   'reviews',
   'settings',
 ]
@@ -210,6 +240,7 @@ export const TABLE_LABELS: Record<TableName, string> = {
   odysseyPlans: 'Odyssey Plans',
   planVersions: 'Earlier versions of plans',
   views: 'Workview & Lifeview',
+  prototypes: 'Prototypes',
   reviews: 'Reviews',
   settings: 'Settings',
 }

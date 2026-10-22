@@ -774,6 +774,73 @@ button.entry-row:focus-visible {
   color: var(--muted);
 }
 
+/* ---------- Ikigai map and prototypes (Phase 3b) ---------- */
+
+/* A titled list on a page: a heading, then the rounded list (as on Today). */
+.list-section {
+  margin: 20px 0 12px;
+}
+
+.list-section h2 {
+  margin: 0 0 8px;
+}
+
+/* Four small circles, filled where true, laid out like the Ikigai diagram. Decorative: the words say it too. */
+.circle-mark {
+  display: inline-grid;
+  grid-template-columns: repeat(2, 8px);
+  gap: 3px;
+  flex: none;
+  align-self: center;
+}
+
+.circle-mark i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--muted);
+}
+
+.circle-mark i.on {
+  background: var(--text);
+  border-color: var(--text);
+}
+
+/* The Ikigai rows carry no energy edge: the circles mark them instead. */
+.ikigai-row::before {
+  display: none;
+}
+
+.suggest-row,
+.experiment-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 6px 6px 6px 14px;
+}
+
+.experiment-row {
+  padding-right: 14px;
+}
+
+.experiment-row button {
+  flex: none;
+}
+
+/* Questions to pick from: one per line, left-aligned, as they're longer than a word. */
+.chip-row.questions {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.chip-row.questions .chip {
+  justify-content: flex-start;
+  text-align: left;
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+
 /* ---------- More ---------- */
 
 .status-line {

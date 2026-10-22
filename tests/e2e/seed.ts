@@ -15,7 +15,80 @@ export function dateKey(daysAgo: number, now: Date = new Date()): string {
  * Known answers: gives energy = Deep work (+2.0, 5×), Evening run (+1.0, 3×); drains = Commute (−2.0, 4×),
  * Team meeting (−1.0, 4×); flow = Deep work 3 of 5; where = Home +2.0, Office −1.0; with = Alex −1.0.
  */
-export function seedBackup(now: Date = new Date()) {
+export interface SeedOptions {
+  /**
+   * Also an Odyssey Plan with questions, three Ikigai items and two prototypes (one planned, one done). Off by
+   * default: a planned prototype adds an "Experiments" step to the review.
+   */
+  tryOut?: boolean
+}
+
+/** Phase 3b's fictional Ikigai items, plan and prototypes. */
+function tryOutData(now: Date) {
+  const at = now.getTime()
+  const circles = (text: string, on: string) => ({
+    id: `seed-iki-${text}`,
+    text,
+    love: on.includes('L'),
+    goodAt: on.includes('G'),
+    worldNeeds: on.includes('N'),
+    paidFor: on.includes('P'),
+    linkedActivities: [],
+    notes: '',
+    createdAt: at,
+    updatedAt: at,
+  })
+  const prototype = (id: string, over: object) => ({
+    id,
+    question: '',
+    planSlot: null,
+    how: 'talk',
+    withWhat: '',
+    when: null,
+    doneAt: null,
+    learned: '',
+    after: [],
+    next: null,
+    createdAt: at,
+    updatedAt: at,
+    ...over,
+  })
+  return {
+    odysseyPlans: [
+      {
+        id: 'plan-3',
+        slot: 3,
+        title: 'Teaching design by the sea',
+        description: 'Teaching part-time, more time outdoors',
+        years: [[], [], [], [], []],
+        questions: ['Would I enjoy teaching every day?', 'Could I live on less?'],
+        feelings: ['Excited'],
+        needs: ['money'],
+        needsNote: '',
+        fit: '',
+        notes: '',
+        writtenAt: at,
+        createdAt: at,
+        updatedAt: at,
+      },
+    ],
+    ikigaiItems: [circles('Teaching design', 'LGNP'), circles('Writing', 'LGN'), circles('Cooking', 'LG')],
+    prototypes: [
+      prototype('seed-proto-planned', { question: 'Could I live on less?', planSlot: 3, how: 'try', withWhat: 'a month on a tight budget' }),
+      prototype('seed-proto-done', {
+        question: "What is a design tutor's week like?",
+        how: 'talk',
+        withWhat: 'Maria, a design tutor',
+        doneAt: at,
+        learned: 'Most of the week is marking, not teaching',
+        after: ['Inspired'],
+        next: 'more',
+      }),
+    ],
+  }
+}
+
+export function seedBackup(now: Date = new Date(), options: SeedOptions = {}) {
   const entries: object[] = []
   const add = (daysAgo: number, activity: string, energy: number, engagement: number, extra: object = {}) => {
     const at = now.getTime() - daysAgo * DAY
@@ -43,17 +116,19 @@ export function seedBackup(now: Date = new Date()) {
   for (let d = 1; d <= 3; d += 1) add(d, 'Evening run', 1, 4, { part: 'evening' })
   add(2, 'Cooking dinner', 2, 4)
   const joy = (daysAgo: number, smallJoy: string) => ({ date: dateKey(daysAgo, now), smallJoy, createdAt: 1, updatedAt: 1 })
+  const tryOut = options.tryOut ? tryOutData(now) : { odysseyPlans: [], ikigaiItems: [], prototypes: [] }
   return {
     app: 'life-design',
     kind: 'backup',
-    schemaVersion: 3,
+    schemaVersion: options.tryOut ? 5 : 3,
     exportedAt: now.toISOString(),
     data: {
       entries,
       days: [joy(1, 'Coffee in the sun'), joy(2, 'Sun on the balcony'), joy(3, 'Coffee with Alex')],
       answers: [],
-      ikigaiItems: [],
-      odysseyPlans: [],
+      ikigaiItems: tryOut.ikigaiItems,
+      odysseyPlans: tryOut.odysseyPlans,
+      prototypes: tryOut.prototypes,
       reviews: [],
       settings: [{ key: 'reviewSchedule', value: { kind: 'days', every: 2 }, updatedAt: 1 }],
     },
@@ -61,8 +136,8 @@ export function seedBackup(now: Date = new Date()) {
 }
 
 /** Restores the fictional data through the app's own Restore screen (dated relative to `now`). */
-export async function restoreSeed(page: Page, path: string, now: Date = new Date()) {
-  await writeFile(path, JSON.stringify(seedBackup(now)))
+export async function restoreSeed(page: Page, path: string, now: Date = new Date(), options: SeedOptions = {}) {
+  await writeFile(path, JSON.stringify(seedBackup(now, options)))
   await page.goto('./#/more/backup')
   await page.getByRole('button', { name: 'Restore from a backup file' }).click()
   const dialog = page.getByRole('dialog', { name: 'Restore' })

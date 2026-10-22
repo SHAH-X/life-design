@@ -4,7 +4,7 @@ import { type DayPart, toDateKey } from '../lib/dates'
 import { db as defaultDb, type LifeDesignDB } from './db'
 import { guardWrite } from './saveErrors'
 import { keepsVersion } from '../domain/lifeDesign'
-import type { AeiouNote, Answer, Entry, EntrySource, OdysseyPlan, Purpose, Review, Views } from './types'
+import type { AeiouNote, Answer, Entry, EntrySource, IkigaiItem, OdysseyPlan, Prototype, Purpose, Review, Views } from './types'
 
 export interface EntryDraft {
   date: string
@@ -176,7 +176,16 @@ export async function loadSuggestions(database: LifeDesignDB = defaultDb): Promi
 
 /** Entries, days, evening answers, reviews, plans and views created or changed after `since` (everything when never backed up). */
 export async function countChangesSince(since: number | null, database: LifeDesignDB = defaultDb): Promise<number> {
-  const tables = [database.entries, database.days, database.answers, database.reviews, database.odysseyPlans, database.views] as const
+  const tables = [
+    database.entries,
+    database.days,
+    database.answers,
+    database.reviews,
+    database.odysseyPlans,
+    database.views,
+    database.ikigaiItems,
+    database.prototypes,
+  ] as const
   const counts = await Promise.all(tables.map((t) => (since === null ? t.count() : t.where('updatedAt').above(since).count())))
   return counts.reduce((sum, n) => sum + n, 0)
 }
@@ -316,4 +325,45 @@ export async function saveViews(text: ViewsText, database: LifeDesignDB = defaul
       return record
     }),
   )
+}
+
+const tidyText = (text: string) => text.trim().replace(/\s+/g, ' ')
+
+/** An Ikigai item, tidied; keeps when it was first made. */
+export async function saveIkigaiItem(item: IkigaiItem, database: LifeDesignDB = defaultDb, now: number = Date.now()): Promise<IkigaiItem> {
+  const text = tidyText(item.text)
+  if (!text) throw new Error('An Ikigai item needs a name')
+  const saved: IkigaiItem = {
+    ...item,
+    text,
+    linkedActivities: tidyList(item.linkedActivities),
+    createdAt: item.createdAt || now,
+    updatedAt: now,
+  }
+  await guardWrite(() => database.ikigaiItems.put(saved))
+  return saved
+}
+
+export async function deleteIkigaiItem(id: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() => database.ikigaiItems.delete(id))
+}
+
+/** A prototype, tidied; keeps when it was first made. */
+export async function savePrototype(prototype: Prototype, database: LifeDesignDB = defaultDb, now: number = Date.now()): Promise<Prototype> {
+  const question = tidyText(prototype.question)
+  if (!question) throw new Error('A prototype needs a question')
+  const saved: Prototype = {
+    ...prototype,
+    question,
+    withWhat: tidyText(prototype.withWhat),
+    learned: prototype.learned.trim(),
+    createdAt: prototype.createdAt || now,
+    updatedAt: now,
+  }
+  await guardWrite(() => database.prototypes.put(saved))
+  return saved
+}
+
+export async function deletePrototype(id: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() => database.prototypes.delete(id))
 }

@@ -155,7 +155,7 @@ Most valued: quick logging; your own words alongside a word list; patterns that 
 
 ## Imagine: Odyssey Plans, Workview and Lifeview (Phase 3a)
 
-Phase 3 ships in two parts (owner's choice): 3a "Imagine" now, 3b "Test and learn" (prototypes, Ikigai map, pinning, looking back, deep review) next.
+Phase 3 ships in parts (owner's choice): 3a "Imagine" here; then 3b "Try" (prototypes, the Ikigai map) and 3c "Learn" (pinning, looking back, the deep review), split again in Phase 3b.
 
 | Area | Decision | Status | Why |
 |---|---|---|---|
@@ -186,6 +186,21 @@ Owner's questions (2026-10-21): starting to journal is hard, so what would help 
 | A tips page in More | — | REJECT | Owner's choice: the welcome, openers and empty states cover it |
 | Word budgets | Today 60 → 63 for "Need a start?"; the welcome screens 55 / 65 / 20 (the middle one reuses More → Evening question as it is) | ADOPT | Set from measurements, in the owner-approved plan |
 
+## Try: prototypes and the Ikigai map (Phase 3b)
+
+The old 3b outline had five pieces; the owner chose to split them: 3b "Try" (prototypes, the Ikigai map) now, 3c "Learn" (What I'm learning, looking back, the deep review) next.
+
+| Area | Decision | Status | Why |
+|---|---|---|---|
+| Life Design list | Four rows in Designing Your Life's order: Odyssey Plans, Workview & Lifeview, Ikigai map ("4 things"), Prototypes ("1 planned · 2 done") | ADOPT | Notice → imagine → try |
+| Ikigai map | A list in words, each item in one group: Ikigai candidates (all four circles); Close to Ikigai (three, with "Not yet: could be paid for it"); Passion, Mission, Profession, Vocation (exactly that pair, named with its meaning); Still taking shape (the rest, saying what's true). A small four-circle mark is decorative | TEST | Owner's choice ("grouped list in words"). No "x of 4": v1's ranking was a rating. "Close to Ikigai" is new since the outline: three circles is the most useful place to look |
+| Adding to the map | Name it, tap the statements that are true (I love it · I'm good at it · The world needs it · I could be paid for it); link activities that are part of it | TEST | Owner's choice: one screen, changeable any time |
+| Evidence and suggestions | Linked activities show what your days say ("usually gives energy · 6 times · time flew twice"; under 3 times only "logged twice"). "Your days suggest" offers up to three activities that keep giving energy (3+ times) and aren't on the map yet | TEST | Grounds the map in what you logged. Small-joy words aren't suggested: Insights shows them, and they're everyday ikigai, not map items |
+| Prototypes | New, one question per screen: what you want to find out (your plans' questions, and the gaps on your Ikigai map, are one tap away) → how (Talk to someone · Try it out, then who or what; nothing preselected) → when (optional). Done: what you learned ("Need a start?") → how it left you (the activity words) → what next (Keep exploring · Try something else · Enough for now) | TEST | Owner's choice. Designing Your Life's two kinds: conversations and experiences; cheap, fast, learn something |
+| Follow-up | A review gains an "Experiments" step when something is planned as it opens: "I did it", or "Not yet is fine: it'll be here next time." No "overdue": a past date is just a date | TEST | People design prototypes but often don't carry them out (EDULEARN 2026); no guilt (the never list) |
+| LifeLab: Tiny Experiments, Experiments (iOS) | — | REJECT (as apps to adopt) | Closed, separate apps: the journal would split across two apps. Ideas borrowed: frame it as a question; "not yet" is data, not failure |
+| Data | New `prototypes` table: database version 6, backup format 5 (older files still restore; v0.7 refuses format 5 instead of dropping prototypes). The backup nudge now counts Ikigai items and prototypes | ADOPT | Nothing lost in either direction. Until 3b, Ikigai items could only come from v1, so they weren't counted |
+
 ## To prove on a real iPhone
 
 | Item | Phase | Status |
@@ -201,6 +216,7 @@ Owner's questions (2026-10-21): starting to journal is hard, so what would help 
 | Writing an Odyssey Plan through the guided screens; the three cards read well side by side; Workview & Lifeview | 3a | TEST |
 | Add activity: the question, field, recent activities and Next sit above the keyboard; the same for "+ your own word" and the note | 3a.5 | TEST |
 | The welcome (open the address in Safari: its storage is separate from the Home Screen app's, so it starts fresh); "Need a start?" under the evening question; the colours, Today's list and serif titles in light and dark | 3a.5 | TEST |
+| Add to the Ikigai map from "Your days suggest"; plan a prototype from a plan question, mark it done; the Experiments step in the next review | 3b | TEST |
 | Share to the Claude app; attach a downloaded review file | 4 | TEST |
 
 ## Corrections to the earlier v1 notes

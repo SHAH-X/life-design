@@ -6,6 +6,8 @@ import {
   computeSuggestions,
   countChangesSince,
   deleteEntry,
+  deleteIkigaiItem,
+  deletePrototype,
   type EntryDraft,
   entrySource,
   firstEntryCreatedAt,
@@ -13,11 +15,14 @@ import {
   latestViews,
   saveAnswer,
   saveEntry,
+  saveIkigaiItem,
   savePlan,
+  savePrototype,
   saveViews,
   setSmallJoy,
 } from '../../src/db/repo'
 import { emptyPlan } from '../../src/domain/lifeDesign'
+import { newPrototype } from '../../src/domain/prototypes'
 import { onSaveError } from '../../src/db/saveErrors'
 
 const draft = (over: Partial<EntryDraft> = {}): EntryDraft => ({
@@ -207,5 +212,38 @@ describe('hasJournalData: whether anything has been written yet', () => {
   it('is true with only a plan or a Workview', async () => {
     await saveViews({ workview: 'Work is how I serve', lifeview: '', coherence: '' })
     expect(await hasJournalData()).toBe(true)
+  })
+})
+
+describe('the Ikigai map and prototypes', () => {
+  const blank = { id: 'i1', text: '  Teaching   design ', love: true, goodAt: false, worldNeeds: false, paidFor: false, linkedActivities: [' Deep work', 'deep work ', ''], notes: '', createdAt: 0, updatedAt: 0 }
+
+  it('saves an Ikigai item tidied, keeps when it was first made, and deletes it', async () => {
+    const saved = await saveIkigaiItem(blank, db, 5000)
+    expect(saved).toMatchObject({ text: 'Teaching design', linkedActivities: ['Deep work'], createdAt: 5000, updatedAt: 5000 })
+    const edited = await saveIkigaiItem({ ...saved, paidFor: true }, db, 6000)
+    expect(edited).toMatchObject({ paidFor: true, createdAt: 5000, updatedAt: 6000 })
+    await deleteIkigaiItem('i1')
+    expect(await db.ikigaiItems.count()).toBe(0)
+  })
+
+  it('refuses an Ikigai item with no name', async () => {
+    await expect(saveIkigaiItem({ ...blank, text: '  ' }, db, 5000)).rejects.toThrow()
+  })
+
+  it('saves a prototype tidied, then marks it done, then deletes it', async () => {
+    const planned = await savePrototype({ ...newPrototype(0), id: 'p1', question: ' Could I teach? ', how: 'talk', withWhat: ' Maria ' }, db, 5000)
+    expect(planned).toMatchObject({ question: 'Could I teach?', withWhat: 'Maria', doneAt: null, createdAt: 5000, updatedAt: 5000 })
+    const done = await savePrototype({ ...planned, doneAt: 7000, learned: ' Evening classes pay ', after: ['Energised'], next: 'more' }, db, 7000)
+    expect(done).toMatchObject({ learned: 'Evening classes pay', doneAt: 7000, createdAt: 5000, updatedAt: 7000 })
+    await deletePrototype('p1')
+    expect(await db.prototypes.count()).toBe(0)
+  })
+
+  it('counts Ikigai items and prototypes as changes since the last backup', async () => {
+    await saveIkigaiItem(blank, db, 5000)
+    await savePrototype({ ...newPrototype(0), id: 'p1', question: 'Could I teach?' }, db, 6000)
+    expect(await countChangesSince(4000)).toBe(2)
+    expect(await countChangesSince(5500)).toBe(1)
   })
 })
