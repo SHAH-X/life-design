@@ -891,7 +891,18 @@ input[type='search'] {
   color: var(--success);
 }
 
-.summary h3,
+.entry-summary {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.entry-summary ul {
+  padding-left: 18px;
+}
+
+.entry-summary h3,
 .next-step h3 {
   margin: 14px 0 4px;
   font-size: 0.95rem;
@@ -934,6 +945,89 @@ details.evidence summary {
 button.small-link {
   min-height: 36px;
   font-size: 0.85rem;
+}
+
+/* The weekly review and the entries behind each line. */
+.card.week h3 {
+  margin: 14px 0 4px;
+  font-size: 0.95rem;
+}
+
+details.week-line > summary,
+details.bar-evidence > summary,
+details.earlier-weeks > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+details.week-line > summary::-webkit-details-marker,
+details.bar-evidence > summary::-webkit-details-marker,
+details.earlier-weeks > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A quiet sign that the line opens: a chevron that turns when it's open. */
+details.week-line > summary::after,
+details.bar-evidence > summary .bar-value::after,
+details.earlier-weeks > summary::after {
+  content: ' ›';
+  color: var(--accent);
+}
+
+details[open].week-line > summary::after,
+details[open].bar-evidence > summary .bar-value::after,
+details[open].earlier-weeks > summary::after {
+  content: ' ⌄';
+}
+
+details.week-line > summary {
+  min-height: 32px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 4px;
+}
+
+.evidence-list {
+  margin: 2px 0 8px 12px;
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
+}
+
+.bar-rows > li.bar-item {
+  border-bottom: 1px solid var(--border);
+}
+
+.bar-rows > li.bar-item:last-child {
+  border-bottom: 0;
+}
+
+.bar-item .bar-row {
+  border-bottom: 0;
+}
+
+.next-steps li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+}
+
+.earlier-weeks > summary {
+  font-weight: 600;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+}
+
+h2.section-title {
+  margin: 22px 0 2px;
+  font-size: 1.2rem;
+}
+
+.carry {
+  margin-top: 12px;
 }
 
 /* ---------- More ---------- */

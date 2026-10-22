@@ -57,6 +57,8 @@ export interface GroupStat {
   /** Times it gave energy, and times it took energy (for "usually", "often"…). */
   gave: number
   took: number
+  /** The entries behind it, so every pattern can show them. */
+  entryIds: string[]
 }
 
 /** Groups entries by one or more labels each (case-insensitive); the label shown is the most recent spelling. */
@@ -85,11 +87,23 @@ function group(entries: readonly Entry[], labelsOf: (e: Entry) => string[]): Gro
     flow: items.filter((e) => e.flow).length,
     gave: items.filter((e) => e.energy > 0).length,
     took: items.filter((e) => e.energy < 0).length,
+    entryIds: items.map((e) => e.id),
   }))
 }
 
 export function activityStats(entries: readonly Entry[]): GroupStat[] {
   return group(entries, (e) => [e.activity])
+}
+
+/**
+ * Alone or with others: shown only when both have 3+ entries, with others first. It describes your entries; it
+ * doesn't say company causes anything.
+ */
+export function aloneOrWithOthers(entries: readonly Entry[]): GroupStat[] | null {
+  const groups = group(entries, (e) => [e.people.length ? 'With others' : 'Alone'])
+  const together = groups.find((g) => g.label === 'With others')
+  const alone = groups.find((g) => g.label === 'Alone')
+  return together && alone && together.count >= MIN_COUNT && alone.count >= MIN_COUNT ? [together, alone] : null
 }
 
 /** Activities that reliably give energy: logged 3+ times, average energy above zero, best first. */

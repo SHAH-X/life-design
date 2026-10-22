@@ -3,7 +3,7 @@ import { restoreSeed } from './seed'
 
 test('Insights shows what gives and takes energy, when time flew, context and small joys', async ({ page }, testInfo) => {
   await restoreSeed(page, testInfo.outputPath('seed.json'))
-  await page.goto('./#/insights')
+  await page.goto('./#/insights/patterns')
   await page.getByRole('button', { name: '7 days' }).click()
 
   // Headline, in words: logged on 5 of the last 7 days, a mixed week, time flew 3 times.
@@ -20,7 +20,7 @@ test('Insights shows what gives and takes energy, when time flew, context and sm
   ])
   await expect(ranked('Takes energy').locator('.bar-row')).toHaveText([/Commute\s*almost always · 4 times/, /Team meeting\s*almost always · 4 times/])
   // Cooking dinner was logged only once, so it isn't ranked.
-  await expect(page.getByText('Cooking dinner')).toHaveCount(0)
+  await expect(page.locator('.bar-label', { hasText: 'Cooking dinner' })).toHaveCount(0)
   // Words first: what gives and takes energy sits above the summary and the chart.
   const top = async (l: ReturnType<typeof page.locator>) => (await l.boundingBox())?.y ?? Number.POSITIVE_INFINITY
   expect(await top(page.getByRole('heading', { name: 'Gives energy', exact: true }))).toBeLessThan(await top(kpis))
@@ -42,7 +42,7 @@ test('Insights shows what gives and takes energy, when time flew, context and sm
 
 test('the energy chart reads out a day when tapped, and opens as a table', async ({ page }, testInfo) => {
   await restoreSeed(page, testInfo.outputPath('seed.json'))
-  await page.goto('./#/insights')
+  await page.goto('./#/insights/patterns')
   await page.getByRole('button', { name: '7 days' }).click()
   const chart = page.locator('figure.chart', { hasText: 'Energy by day' })
   await expect(chart.locator('.chart-readout')).toContainText('Mixed')

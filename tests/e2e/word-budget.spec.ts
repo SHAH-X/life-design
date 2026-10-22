@@ -18,7 +18,8 @@ const BUDGETS = {
   'Write freely': 25,
   'Entry, read back after saving': 90, // summary, a possible insight, your words, and the next-step choices
   'Entries [the fictional five days]': 125,
-  'Insights, 30 days [236]': 150,
+  'Insights: this week, the fictional week': 80, // v0.8: the week, put together automatically; patterns moved a tap away
+  'Insights → Patterns, 30 days [236]': 155, // 150 until v0.8: + "Alone or with others" (the owner's brief)
   'More [460]': 60,
   'More → Reminders [266]': 133,
   'More → Your purpose': 95, // seven purposes, each with its one-line explanation (the brief asks for both)
@@ -115,7 +116,10 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
 
   await page.goto('./#/insights')
   await expect(page.getByRole('heading', { level: 1, name: 'Insights' })).toBeVisible()
-  await measure('Insights, 30 days [236]', main)
+  await measure('Insights: this week, the fictional week', main)
+  await page.goto('./#/insights/patterns')
+  await expect(page.getByRole('heading', { level: 1, name: 'Patterns' })).toBeVisible()
+  await measure('Insights → Patterns, 30 days [236]', main)
 
   await page.goto('./#/more')
   await expect(page.getByRole('heading', { level: 1, name: 'More' })).toBeVisible()

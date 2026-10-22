@@ -4,7 +4,7 @@ Living status of every product and technical decision. When a decision changes, 
 
 **Statuses:** ADOPT (in use) · TEST (adopted, still to be proven on a real iPhone) · WATCH (depends on something outside our control that may change) · REJECT (considered, not used)
 
-Last updated: 2026-10-21
+Last updated: 2026-10-22
 
 ## Product
 
@@ -28,7 +28,7 @@ Last updated: 2026-10-21
 
 | Area | Decision | Status | Why |
 |---|---|---|---|
-| How reviews reach an AI | Three ways, all from the phone with no server: generate in the app with your own API key; share or copy to an AI app; download a review file (.md). Replies from outside the app can be pasted back | ADOPT | Groq, OpenRouter, Gemini, Mistral, OpenAI and the Claude API all accepted direct browser calls in live checks on 2026-10-21 |
+| How a review reaches an AI (Phase 5: the weekly review and entry summaries) | Three ways, all from the phone with no server: generate in the app with your own API key; share or copy to an AI app; download a review file (.md). Replies from outside the app can be pasted back | ADOPT | Groq, OpenRouter, Gemini, Mistral, OpenAI and the Claude API all accepted direct browser calls in live checks on 2026-10-21 |
 | Recommended in-app provider | Groq free tier (no card; says it does not train on or keep request data by default) | WATCH | Free tiers and model lists change; Groq's model list changed in 2026 |
 | Other in-app providers | OpenRouter (free models), Gemini (free tier may be used to improve Google products: shown as a warning), Claude API and OpenAI (paid, opt-in), custom OpenAI-compatible URL | ADOPT | Choice stays with the owner |
 | Server-side AI (Cloudflare Workers AI) | — | REJECT | Needs an extra service; its API rejects browser calls |
@@ -80,13 +80,13 @@ The manual review was removed on 2026-10-22 (owner: "Review or insights should b
 | Drafts | A review saves as you go; it can be continued or discarded later | REJECT (removed in v0.8) | Reviews take about 10 minutes and get interrupted |
 | Best and worst moments | Pre-selected (most and least energy, then engagement), changeable; AEIOU pre-filled from the entry's where, with whom and using | REJECT (removed in v0.8) | Saves typing; you correct rather than start from blank |
 | High and low points in the review | One line per activity with how often it happened, ranked by its strongest moment | REJECT (removed in v0.8) | The same activity three times in a row told you nothing new |
-| Insights period | One filter (7 / 30 / 90 days / all, default 30) above everything; every number and chart follows it | ADOPT | Numbers always agree with each other (dataviz rule) |
+| Insights period | One filter (7 / 30 / 90 days / all, default 30) above all the patterns (on their own page since v0.8; the weekly review covers its own week); every number and chart follows it | ADOPT | Numbers always agree with each other (dataviz rule) |
 | Minimum count | Activities, places, people and so on are ranked only after 3+ entries; every result says how many times | ADOPT | One or two entries are anecdotes, not patterns |
 | Charts | Energy: columns above or below zero; how into it: its own chart, one at a time with an Energy / Into it switch (never a second scale on one chart). Since Phase 2.6 the axes, readout and table speak in words ("gives / takes", "mostly energising") | ADOPT | Dataviz rules: one axis per chart, a readout and table view, never colour alone |
 | Energy colours | Blue = gives energy, red = drains: in charts, and since v0.7 as the thin edge beside each activity (the feeling words stay in ink); engagement = aqua | ADOPT | Green/red is unreadable with red-green colour blindness; blue/red is the validated diverging pair. Aqua passed the checks with a colour-blind and contrast warning, covered by chart titles, axis labels, readout and table |
 | Orange for engagement | — | REJECT | Failed the validator next to red (ΔE 7.1; the minimum is 15) |
 | Violet for engagement | — | REJECT | Failed the validator next to blue |
-| What I'm learning | Review takeaways collected in Insights (moved forward from Phase 3; Phase 3 adds pinning and your own notes) | ADOPT | Reviews needed somewhere for their takeaway to land |
+| What I'm learning | What you keep to remember from an entry (since v0.8) and past review takeaways, collected in Insights | ADOPT | What you learn needs somewhere to land; past takeaways stay visible now the Review tab is gone |
 | Backup format | Version 2 adds reviews. Version 1 files still restore; older app versions refuse version 2 files instead of silently dropping reviews | ADOPT | Safe in both directions |
 | Database upgrade | Schema version 2 adds the reviews table; existing data carries over (tested by upgrading a real Phase 1 database) | ADOPT | No data loss on update |
 
@@ -186,10 +186,10 @@ Owner's questions (2026-10-21): starting to journal is hard, so what would help 
 | Colour with meaning | A thin edge beside each activity and review moment: blue gave energy, red took it, none for neither. The feeling words are back in ink. The evening card and small joys are pale sand (`--evening-bg`). Text, muted text and links on the sand pass WCAG AA in light and dark; the edges pass 3:1 on both card surfaces | TEST | Owner's choice: a little colour, only where it means something. Red feeling words read like an error |
 | Ink-only, or a colour per tab | — | REJECT | Owner's choice. A colour per tab carries no meaning and competes with the energy colours |
 | Today's list | One rounded list with thin lines between activities, not a box each. "+ Reflect on an activity" is the one main button, with "Write freely" beside it (v0.8); the backup nudge keeps its filled button (losing data is the bigger risk) | TEST | Owner's choice; calmer, like iPhone Settings |
-| Insights order | "Gives energy" and "Takes energy" first, then the summary tiles and the chart | TEST | Owner's choice: the words are what people look for |
+| Insights order | "Gives energy" and "Takes energy" first, then the summary tiles and the chart (on Patterns since v0.8) | TEST | Owner's choice: the words are what people look for |
 | Titles | Page titles, card titles and questions in the iPhone's serif (New York, `ui-serif`); everything else unchanged | TEST | Owner's choice: reads like a journal, not a form |
 | A tips page in More | — | REJECT | Owner's choice: the welcome, openers and empty states cover it |
-| Word budgets | Today 60 → 63 for "Need a start?", then 72 in v0.8 (the test browser now shows the install notice, and Today has two ways in); the six activity steps 25–30 each; Your purpose 95 and the welcome's purpose step 105 (seven purposes, each explained); welcome 60 / 105 / 20 | ADOPT | Set from measurements, in owner-approved plans |
+| Word budgets | Today 60 → 63 for "Need a start?"; welcome 55 / 65 / 20. Later changes: see Purpose-driven journaling | ADOPT | Set from measurements, in owner-approved plans |
 
 ## Purpose-driven journaling (Phase 4)
 
@@ -209,6 +209,10 @@ The owner's brief (2026-10-22): help beginners record experiences, understand th
 | After an entry | Saving shows it read back: what happened (your words), what you noticed (only what the entry says: the energy answer, the words you tapped, feelings found in your writing), and a possible insight only with 3+ finished entries for the same activity mostly one way, as an observation and a question, with "See the N entries". "Not quite" dismisses it; "Say it your way" keeps your take, which replaces it | TEST | Owner's brief (Stage E): distinguish what happened, what you noticed, a possible insight; never conclude from too little; your interpretation first |
 | Next step | "Anything you'd like to do with this?": Try something differently · Do it again · Make time for something important · Explore a question · Remember this · Nothing for now, then "What exactly?" (optional). Followed up with Done it / Let it go; "Remember this" lands in Insights → What I'm learning | TEST | Owner's brief (Stage F): never forced; journaling is also for understanding and remembering |
 | Entries tab | Every entry, newest first by day, unfinished ones on top, searchable by any word in it; 60 days with entries at a time, then "Show earlier". Tapping reads it back, with Edit | TEST | Owner's brief: easy access to previous entries |
+| Weekly review | Insights opens on "This week" (Monday to Sunday), put together from finished entries, with nothing to fill in: the week in brief ("8 entries on 5 days"); what stood out (up to three entries, one per activity: kept to remember, then a next step, then time flew, then the most written); what gave you energy and what used it up (activities with 2+ entries one way that week); feelings that came up most (top three); your next steps, each with "Did you?" Yes · Let it go ("Not yet is fine: it'll be here next time."); things to remember. One optional box, "Anything to carry into next week?", kept per week. Earlier weeks open the same summary | TEST | Owner, 2026-10-22: reviews happen by themselves, not as a chore; the brief's weekly review and follow-up of next steps. Not yet is the default, not a button, so nothing nags |
+| Patterns | A tap from Insights ("Patterns over time"), on their own page: gives and takes energy, the summary tiles and chart, time flew, energy by context, alone or with others, small joys, with one period filter. "In what you've written, not causes." Every row opens to the entries behind it | TEST | Owner's brief: every pattern traceable to its entries, cautious words. With the week on the same page, Insights measured 215 words against its 150 budget, so patterns moved a tap away |
+| Alone or with others | What your energy was like with people and alone, shown only with 3+ entries each way | TEST | Owner's brief; the same minimum as every other pattern |
+| Word budgets (v0.8) | New: reflect 25, energy 30, how you felt 30 (12 words), write freely 25, an entry read back 90, Entries 125, Insights (the week) 80. Raised: Today 63 → 72 (two ways in; the test browser now shows the install notice, never shown in the Home Screen app), anything else 25 → 30, Patterns 150 → 155 (Alone or with others), Your purpose 95 (was Evening question 60), welcome 55 / 65 → 60 / 105 (seven purposes, each explained) | ADOPT | Set from measurements; the raises go to the owner for an OK with v0.8 (CLAUDE.md rule) |
 | Optional AI | — (Phase 5) | TEST (later) | Owner's choice: app first, AI next, opt-in with your own key |
 
 ## To prove on a real iPhone
@@ -228,6 +232,7 @@ The owner's brief (2026-10-22): help beginners record experiences, understand th
 | Scrolling inside a sheet leaves the screen behind it still | 3a.5 | TEST |
 | A purpose on the welcome (or in More); the six steps, skipping any; free writing; an unfinished entry continued | 4 | TEST |
 | An entry read back after saving: the summary reads right, a next step kept and followed up; Entries search | 4 | TEST |
+| Insights: this week put together, each line opening its entries; "Did you?" on a next step; the weekly note; earlier weeks; Patterns | 4 | TEST |
 | The welcome (open the address in Safari: its storage is separate from the Home Screen app's, so it starts fresh); "Need a start?" under the evening question; the colours, Today's list and serif titles in light and dark | 3a.5 | TEST |
 | Share to the Claude app; attach a downloaded review file | 5 | TEST |
 

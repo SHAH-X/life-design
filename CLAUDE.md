@@ -25,6 +25,7 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 - The page behind a sheet never scrolls. A modal `<dialog>` blocks taps, not scrolling, so `Dialog` pins the page with `useScrollLock` (and puts it back on close), and `.sheet-body` has `overscroll-behavior: contain`. (v0.7 on the iPhone: scrolling in "New activity" moved the screen behind it. An e2e test guards this.)
 - Colour only where it means something: the thin energy edge (blue gave, red took: the chart colours) and the evening's pale sand. Words stay in ink; a new colour must pass WCAG AA on both card surfaces. (v0.7: red feeling words read like an error.)
 - Long words must never squeeze a label: rows put their words on a line of their own (Phase 2.6: "Home" wrapped one letter per line). The Insights e2e test checks label widths.
+- Before adding a class name, search `styles.css` for it: a shared name picks up another screen's look. (v0.8: the entry read-back borrowed the Reminders card's `.summary` panel by accident.)
 - When the app refuses something (a file, a password), say exactly why and what to do next. A vague error cost a debugging round in Phase 1.
 - Every question explains itself in plain words (e.g. "Did it give you energy, or take it?", not "Energy"), and every answer is worded, not a number. The deeper "why" sits behind ⓘ. (Phase 2.5: number buttons under one-word labels felt like a form and didn't draw out a real answer.)
 - A sheet opens on its content, or on a field marked `data-autofocus`, never on ✕ Close. (Since Phase 1 the browser's default put focus on Close: a ring on every sheet, and a stray Enter closed it. An e2e test guards this.)
@@ -37,9 +38,10 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 ## No ratings, natural responses (Phase 2.6: "I don't want any rating to be given")
 - Nothing asks for or shows a rating, score, average or scale: not as numbers, not as stars, not as ordered word scales. Answers are natural words (feeling words, your own words, notes); results are words ("usually gives you energy"). Plain counts are fine ("5 times", "on 4 days").
 - Energy, engagement and flow are worked out on the phone from the words (`src/domain/feelings.ts`, one table of weights with tests) and stored for analysis, never displayed as values.
-- `tests/e2e/no-scores.spec.ts` fails if a score pattern (`+2`, `3.0`, `7/10`, "average") appears on Today, the logging screens, Review or Insights.
+- `tests/e2e/no-scores.spec.ts` fails if a score pattern (`+2`, `3.0`, `7/10`, "average") appears on Today, the logging screens, an entry read back, Entries, Insights or Patterns.
 - New screens follow the same rule: natural questions with words, never gauges or 0–10. Worded choices are fine ("It gave me energy" · "It used up my energy" · "Little difference" · "A mix of both").
 - The standing "never" list from the market research lives in `DECISIONS.md`: check new features against it.
+- Insights come from the app, never from a chore: nothing to fill in for a weekly review. Every insight line opens to the entries behind it, and speaks of what you've written, never causes ("in 4 of your 5 entries", "often"; never "because"). A possible insight needs 3+ finished entries mostly one way, a weekly line 2+; drafts and skipped answers never count.
 
 ## Words and clutter (Phase 2.5: "the app feels wordy")
 - A screen is a title, the questions or content, and one main action. No help paragraphs: a question explains itself; anything more goes behind ⓘ or a collapsed section.

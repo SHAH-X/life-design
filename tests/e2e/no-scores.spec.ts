@@ -42,6 +42,8 @@ test('no screen asks for or shows a rating or score', async ({ page }, testInfo)
   await page.getByRole('button', { name: 'Done' }).click()
 
   await page.goto('./#/insights')
+  await expectNoScores(page, 'Insights, this week')
+  await page.goto('./#/insights/patterns')
   for (const range of ['7 days', '30 days', 'All']) {
     await page.getByRole('button', { name: range }).click()
     await page.getByText('Show as table').click()

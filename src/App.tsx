@@ -18,7 +18,7 @@ function Screen({ route }: { route: Route }) {
     case 'entries':
       return <EntriesScreen />
     case 'insights':
-      return <InsightsScreen />
+      return <InsightsScreen sub={route.sub} />
     case 'more':
       return <MoreScreen sub={route.sub} />
   }

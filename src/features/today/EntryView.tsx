@@ -53,7 +53,7 @@ export function EntryView(props: { entryId: string; fresh?: boolean; onEdit: (en
   return (
     <Dialog title={entryTitle(entry)} onClose={onClose} footer={footer}>
       {fresh ? <p className="saved-line">✓ Saved</p> : null}
-      <section className="summary" aria-label="Summary">
+      <section className="entry-summary" aria-label="Summary">
         <h3>What happened</h3>
         <p>
           <strong>{summary.happened.title}</strong>
