@@ -14,7 +14,7 @@ export default defineConfig({
     baseURL: BASE_URL,
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'iphone-webkit', use: { ...devices['iPhone 16'] } }],
+  projects: [{ name: 'iphone-webkit', use: { ...devices['iPhone 17'] } }], // the owner's phone
   webServer: LIVE_URL
     ? undefined
     : {
