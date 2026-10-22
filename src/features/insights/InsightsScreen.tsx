@@ -125,7 +125,7 @@ function InsightsHome({ data, onOpen }: { data: Data; onOpen: (entry: Entry) => 
           <ul className="plain-list compact">
             {earlierWeeks.map((w) => (
               <li key={w}>
-                <a href={hashFor('insights', `week-${w}`)}>{formatRecentPeriod(w, addDays(w, 6))}</a>
+                <a className="small-link" href={hashFor('insights', `week-${w}`)}>{formatRecentPeriod(w, addDays(w, 6))}</a>
               </li>
             ))}
           </ul>

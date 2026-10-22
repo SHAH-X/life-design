@@ -1265,6 +1265,17 @@ button.small-link {
   font-size: 0.85rem;
 }
 
+/* A small link to another page, in the app's link look (v0.11's "All next steps ›" had none: browser blue). */
+a.small-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
 /* The week (v0.9): its energy by day on top, then one card per section, each line opening to its entries. */
 .week-title {
   margin: 4px 0 0;

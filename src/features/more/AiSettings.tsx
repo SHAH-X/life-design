@@ -126,7 +126,7 @@ function AiForm({ saved }: { saved: Saved }) {
             onChange={(e) => setKey(e.target.value)}
           />
           <p className="small">
-            <a href={PROVIDERS[provider].keyUrl} target="_blank" rel="noreferrer">
+            <a className="small-link" href={PROVIDERS[provider].keyUrl} target="_blank" rel="noreferrer">
               Get a {PROVIDERS[provider].label} key ›
             </a>
           </p>

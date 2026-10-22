@@ -43,6 +43,7 @@ const PLANTED: [string, string, RegExp][] = [
     /<input> is only 1×1px to tap/,
   ],
   ['faint text', '<p style="color:#ccc">Faint words</p>', /^color-contrast:/],
+  ['a link the app never styled', '<p><a href="#steps" style="display:inline-block;padding:12px 0">All next steps ›</a></p>', /<a "All next steps ›"> has the browser's own link look/],
   [
     'text on top of text',
     '<p style="position:absolute;top:100px;margin:0">First line here</p><p style="position:absolute;top:104px;margin:0">Second line here</p>',
