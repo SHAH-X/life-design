@@ -2,9 +2,11 @@
 
 Playwright's WebKit has no on-screen keyboard and none of iPhone Safari's own behaviour, where most layout faults
 were found (DECISIONS.md, "Testing in real iPhone Safari"). This walks the sheets that broke before with the real
-keyboard up and saves screenshots to test-results/ios/ to look at (CLAUDE.md, "Look before done").
+keyboard up, in a Safari tab and in the Home Screen app (the owner's way, which behaves differently), and saves
+screenshots to test-results/ios/ to look at (CLAUDE.md, "Look before done").
 
-Run: npm run ios-check (the app's preview server must be running: npm run build && npm run preview).
+Run: npm run ios-check (both), or npm run ios-check -- home (or safari). The app's preview server must be running:
+npm run build && npm run preview. The Home Screen run needs the app added there once (it says how).
 Needs Xcode with the iOS 27.0 simulator, and idb in ~/.local/share/idb (or $IDB_HOME): see DECISIONS.md.
 """
 import json
@@ -101,7 +103,7 @@ def press(label):
     top = covering(f)
     if top:
         g = top['frame']
-        FAULTS.append(f'"{label}" (y {f["y"]:.0f}-{f["y"] + f["height"]:.0f}) is partly under iOS\'s {top.get("AXLabel")!r} '
+        FAULTS.append(f'{PREFIX}: "{label}" (y {f["y"]:.0f}-{f["y"] + f["height"]:.0f}) is partly under iOS\'s {top.get("AXLabel")!r} '
                       f'(y {g["y"]:.0f}-{g["y"] + g["height"]:.0f}) with the keyboard up')
         bar = find('Done', top=round(f['y']) - 20, bottom=round(f['y'] + f['height']) + 60, web=False, xs_list=((360, 320, 380),))
         tap(x=middle(bar)[0], y=middle(bar)[1])
@@ -119,7 +121,7 @@ def tap(label=None, x=None, y=None, field=False):
 
 
 def shot(name):
-    path = os.path.join(OUT, f'{name}.png')
+    path = os.path.join(OUT, f'{PREFIX}-{name}.png' if PREFIX else f'{name}.png')
     subprocess.run(['xcrun', 'simctl', 'io', UDID, 'screenshot', path], capture_output=True, check=True)
     small = path.replace('.png', '-small.png')
     subprocess.run(['sips', '-Z', '900', path, '--out', small], capture_output=True)
@@ -139,38 +141,98 @@ os.makedirs(OUT, exist_ok=True)
 SHOTS = []
 FAULTS = []
 
-# ---------- New activity, with the real keyboard ----------
-run('xcrun', 'simctl', 'openurl', UDID, APP + '#/today')
-time.sleep(3)
-shot('1-today')
-if at(251, 669).get('AXLabel') == 'Reload':  # "A new version is ready" from an older build
-    tap(x=251, y=669)
-    time.sleep(2)
-tap('+ Reflect on an activity')
-shot('2-new-activity')  # does the keyboard come up by itself? (iPhone Safari raises it only for a tap's own focus)
-tap('What did you do?', field=True)
-idb('ui', 'text', 'Choir rehearsal')
-time.sleep(1)
-shot('3-what-keyboard')  # the sheet and Next above the keyboard, nothing of the page behind showing
-press('Next')
-for _ in range(3):
-    tap('Skip')
-shot('4-write')
-purpose = find('Questions for')
-centre = middle(purpose)
-chosen = at(*centre).get('AXValue') or ''
-print(f'purpose drop-down: {purpose["width"]:.0f}x{purpose["height"]:.0f}pt, showing "{chosen}"')
-if purpose['height'] < 24:
-    FAULTS.append(f'the purpose drop-down is {purpose["height"]:.0f}pt tall (at least 24)')
-tap(x=centre[0], y=centre[1])
-time.sleep(1)
-shot('5-purpose-menu')  # iOS's menu, the page not zoomed
-item = find(chosen, top=round(purpose['y'] + purpose['height']), web=False)  # keep the same choice
-tap(x=middle(item)[0], y=middle(item)[1])
-tap("What's on your mind about it?", field=True)
-shot('6-write-keyboard')  # the box and "Tap the mic…" above the keyboard
-press('Save')
-shot('7-saved')
+def maybe(label, top, bottom, web=True):
+    """An element by its label in a band of the screen, or None (no refusal)."""
+    for y in range(top, bottom, 10):
+        e = at(201, y)
+        if (e.get('AXLabel') or '').strip() == label and is_web(e) == web:
+            return e['frame']
+    return None
+
+
+def settle():
+    """Past a "new version is ready" banner (an older build) and the first-open welcome."""
+    reload = maybe('Reload', 600, 800)
+    if reload:
+        tap(x=middle(reload)[0], y=middle(reload)[1])
+        time.sleep(4)
+    skip = maybe('Skip', 60, 160)
+    if skip:
+        tap(x=middle(skip)[0], y=middle(skip)[1])
+
+
+def open_in_safari():
+    run('xcrun', 'simctl', 'openurl', UDID, APP + '#/today')
+    time.sleep(4)
+    settle()
+
+
+def open_home_screen_app():
+    """The owner's way: the app from the Home Screen (it keeps its own storage; restarted to load this build)."""
+    listed = run('xcrun', 'simctl', 'spawn', UDID, 'launchctl', 'list').stdout
+    for line in listed.splitlines():
+        if 'com.apple.webapp' in line:
+            run('xcrun', 'simctl', 'spawn', UDID, 'launchctl', 'stop', line.split()[-1])
+    idb('ui', 'button', 'HOME')
+    time.sleep(1.2)
+    idb('ui', 'button', 'HOME')  # page 1
+    time.sleep(1.2)
+    for _ in range(3):
+        for e in json.loads(idb('ui', 'describe-all')):
+            f = e['frame']
+            if (e.get('AXLabel') or '').strip() == 'Life Design' and 0 <= f['x'] + f['width'] / 2 < 402:
+                idb('ui', 'tap', str(round(f['x'] + f['width'] / 2)), str(round(f['y'] + f['height'] / 2)))
+                time.sleep(12)  # the web app's process starts slowly in the simulator
+                settle()
+                return
+        idb('ui', 'swipe', '350', '550', '50', '550', '--duration', '0.3')
+        time.sleep(1.2)
+    refuse('"Life Design" is not on the simulator\'s Home Screen.',
+           'Add it once: open the app in the simulator\'s Safari, Page Menu → Share → View More → Add to Home Screen → Add.')
+
+
+def new_activity(mode):
+    """New activity with the real keyboard, to Save. Screenshots and faults are named for the mode."""
+    global PREFIX
+    PREFIX = mode
+    shot('1-today')
+    tap('+ Reflect on an activity')
+    shot('2-new-activity')  # the keyboard comes up by itself in the Home Screen app; in Safari only for a tap
+    tap('What did you do?', field=True)
+    idb('ui', 'text', 'Choir rehearsal')
+    time.sleep(1)
+    shot('3-what-keyboard')  # the sheet and Next above the keyboard, nothing of the page behind showing
+    press('Next')
+    for _ in range(3):
+        tap('Skip')
+    shot('4-write')
+    purpose = find('Questions for')
+    centre = middle(purpose)
+    chosen = at(*centre).get('AXValue') or ''
+    print(f'{mode}: purpose drop-down {purpose["width"]:.0f}x{purpose["height"]:.0f}pt, showing "{chosen}"')
+    if purpose['height'] < 24:
+        FAULTS.append(f'{mode}: the purpose drop-down is {purpose["height"]:.0f}pt tall (at least 24)')
+    tap(x=centre[0], y=centre[1])
+    time.sleep(1)
+    shot('5-purpose-menu')  # iOS's menu, the page not zoomed
+    item = find(chosen, top=round(purpose['y'] + purpose['height']), web=False)  # keep the same choice
+    tap(x=middle(item)[0], y=middle(item)[1])
+    tap("What's on your mind about it?", field=True)
+    shot('6-write-keyboard')  # the sheet in place: the box, "Tap the mic…" and Save above the keyboard
+    press('Save')
+    shot('7-saved')
+
+
+PREFIX = ''
+modes = sys.argv[1:] or ['safari', 'home']  # npm run ios-check -- home: one mode only
+for mode in modes:
+    if mode == 'safari':
+        open_in_safari()
+    elif mode == 'home':
+        open_home_screen_app()
+    else:
+        refuse(f'unknown mode "{mode}".', 'Use safari, home, or nothing for both.')
+    new_activity(mode)
 
 print('Look at each:')
 for s in SHOTS:
