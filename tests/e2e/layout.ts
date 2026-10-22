@@ -179,10 +179,27 @@ function findLayoutFaults(): { faults: string[]; small: string[] } {
   // What a finger can hit: a visible field inside a label is tapped through its label; a hidden one has to
   // cover the target itself (Phase 1: a 1px switch input). Inline links in a sentence and chart marks are
   // exempt (WCAG 2.5.8: every chart has a table view that does the same).
+  // Its box, grown by an invisible ::before or ::after placed around it (the ⓘ buttons keep a 22px circle
+  // inside a 44px tap area that way). Until v0.12.1 the check missed this and called every ⓘ too small.
+  const tapBox = (el: Element) => {
+    const r = el.getBoundingClientRect()
+    const box = { left: r.left, top: r.top, right: r.right, bottom: r.bottom }
+    if (getComputedStyle(el).position === 'static') return { width: r.width, height: r.height }
+    const at = (v: string) => (v.endsWith('px') ? parseFloat(v) : 0)
+    for (const pseudo of ['::before', '::after']) {
+      const s = getComputedStyle(el, pseudo)
+      if (s.content === 'none' || s.content === 'normal' || s.position !== 'absolute' || s.pointerEvents === 'none') continue
+      box.left = Math.min(box.left, r.left + at(s.left))
+      box.top = Math.min(box.top, r.top + at(s.top))
+      box.right = Math.max(box.right, r.right - at(s.right))
+      box.bottom = Math.max(box.bottom, r.bottom - at(s.bottom))
+    }
+    return { width: box.right - box.left, height: box.bottom - box.top }
+  }
   const target = (el: Element): { width: number; height: number } | null => {
     if (el.tagName === 'A' && getComputedStyle(el).display === 'inline') return null
     if (el.closest('svg')) return null
-    const own = el.getBoundingClientRect()
+    const own = tapBox(el)
     const label = (el as HTMLInputElement).labels?.[0]
     const shownInput = el.checkVisibility({ opacityProperty: true }) && !el.closest('.visually-hidden')
     if (!label || !shownInput) return own

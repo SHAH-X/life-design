@@ -16,6 +16,8 @@ test('a clean page has no faults', async ({ page }) => {
   await show(page, `<h1>Today</h1><p>Plain words that fit on the screen without any trouble.</p>
     <label>What did you do? <input style="min-height:44px"></label> <button>Save</button>
     <label style="display:block;padding:12px 0"><input type="radio" name="p"> A visible radio, tapped through its row</label>
+    <style>.i{position:relative;width:22px;height:22px;min-width:0;min-height:0;padding:0;margin-left:30px}.i::after{content:'';position:absolute;inset:-11px}</style>
+    <button class="i" aria-label="What does this mean?">i</button>
     <div style="display:flex;flex-direction:column;height:200px">
       <div style="overflow:auto;flex:1"><div style="height:400px"></div><button>Scrolled under the footer</button></div>
       <footer><button>Next</button></footer>
