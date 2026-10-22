@@ -129,6 +129,12 @@ for (const scheme of ['light', 'dark'] as const) {
         await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible()
         await look(page, at(route.replace('/', '-')))
       }
+      // What opens on Insights: the chart's table and the earlier weeks (their links went unstyled unseen in v0.11).
+      await page.goto('./#/insights')
+      await page.getByText('Show as table').click()
+      await page.getByText('Earlier weeks').click()
+      await look(page, at('insights-opened'))
+
       for (const sub of ['reminders', 'purpose', 'words', 'appearance', 'ai', 'backup', 'export', 'phone', 'delete']) {
         await page.goto(`./#/more/${sub}`)
         await expect(page.getByRole('link', { name: '‹ More' })).toBeVisible()

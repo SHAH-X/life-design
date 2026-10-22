@@ -1394,6 +1394,7 @@ details.week-line > summary {
   min-height: 32px;
   display: flex;
   align-items: center;
+  gap: 4px; /* a flex box drops the space in the chevron's ' ›': it sat against the words */
 }
 
 h2.section-title {
@@ -1402,7 +1403,12 @@ h2.section-title {
 }
 
 .carry {
-  margin-top: 12px;
+  margin-top: 0;
+}
+
+/* Its own card: the question starts at the card's padding like every other card's title (it had 30px more). */
+.carry > .question-text {
+  margin-top: 0;
 }
 
 /* ---------- More ---------- */
@@ -1746,12 +1752,18 @@ details.more-ways summary {
   vector-effect: non-scaling-stroke;
 }
 
+/* A 40px tap height around 16px of words; the margins keep the words where they were. */
 .chart-table summary {
-  margin-top: 6px;
+  margin: -6px 0 -12px;
+  padding: 12px 0;
   color: var(--accent);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
+}
+
+.chart-table[open] summary {
+  margin-bottom: 0;
 }
 
 .chart-table table {
