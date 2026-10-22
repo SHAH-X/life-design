@@ -906,27 +906,87 @@ input[type='search'] {
   margin-bottom: 4px;
 }
 
-/* After an entry: its summary and next step. */
+/* An entry read back (v0.9): your entry first (the words you tapped, then what you wrote), then a possible
+   insight in its own card, then a next step. */
 .saved-line {
   font-weight: 600;
   color: var(--success);
 }
 
-.entry-summary {
-  margin-top: 14px;
-  padding: 10px 12px;
-  border-radius: 10px;
+.entry-when {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.entry-chips {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+/* The energy answer's thin edge, as beside each activity on Today (blue gave, red took). */
+.entry-chips .chip[data-energy]::before {
+  content: '';
+  align-self: stretch;
+  width: 4px;
+  margin: 7px 2px 7px -4px;
+  border-radius: 2px;
+}
+
+.entry-writing .writing {
+  margin: 0 0 12px;
+  white-space: pre-wrap;
+  font-family: ui-serif, 'New York', Georgia, serif;
+  font-size: 1.06rem;
+  line-height: 1.55;
+}
+
+.entry-writing .earlier .muted {
+  margin: 0 0 2px;
+}
+
+.insight-card {
+  position: relative;
+  margin: 6px 0 10px;
+  padding: 12px 14px 6px 20px;
+  border-radius: 12px;
   background: var(--bg);
 }
 
-.entry-summary ul {
-  padding-left: 18px;
+.insight-card[data-energy]::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 14px;
+  bottom: 14px;
+  width: 4px;
+  border-radius: 2px;
 }
 
-.entry-summary h3,
+.insight-card h3 {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.insight-card p {
+  margin: 0 0 6px;
+}
+
 .next-step h3 {
   margin: 14px 0 4px;
   font-size: 0.95rem;
+}
+
+/* Two actions side by side: the sheet's body keeps more room. */
+.footer-row {
+  display: flex;
+  gap: 10px;
+}
+
+.footer-row > button {
+  flex: 1;
 }
 
 .plain-list.compact {
@@ -945,16 +1005,6 @@ details.evidence summary {
   color: var(--accent);
   font-size: 0.9rem;
   cursor: pointer;
-}
-
-.your-words {
-  margin-top: 12px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-}
-
-.your-words .answer p {
-  margin: 0 0 6px;
 }
 
 .next-step {

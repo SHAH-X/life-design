@@ -15,7 +15,7 @@ const BUDGETS = {
   'New activity: how you felt (12 answer words)': 30,
   'New activity: write (helpers and one box)': 60, // v0.9: one screen instead of reflect (25) and anything else (30); three helper questions
   'Write freely': 25,
-  'Entry, read back after saving': 90, // summary, a possible insight, your words, and the next-step choices
+  'Entry, read back after saving': 75, // 90 until v0.9, when it stopped restating the entry: your words, a possible insight, the next-step choices
   'Entries [the fictional five days]': 125,
   'Insights: this week, the fictional week': 80, // v0.8: the week, put together automatically; patterns moved a tap away
   'Insights → Patterns, 30 days [236]': 155, // 150 until v0.8: + "Alone or with others" (the owner's brief)
