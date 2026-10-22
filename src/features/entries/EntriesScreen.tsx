@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useId, useState } from 'react'
 import { db } from '../../db/db'
-import { loadSuggestions, type Suggestions } from '../../db/repo'
+import { loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import { matchesSearch } from '../../domain/search'
 import { longDate, PART_ORDER } from '../../lib/dates'
@@ -11,7 +11,6 @@ import { EntrySheet, type EntrySheetState } from '../today/EntrySheet'
 import { usePurposeSettings } from '../today/usePurpose'
 import { useOwnWords } from '../today/useOwnWords'
 
-const NO_SUGGESTIONS: Suggestions = { activities: [], where: [], people: [], objects: [] }
 /** Days with entries shown at first; "Show earlier" adds as many again. */
 const DAYS_AT_A_TIME = 60
 

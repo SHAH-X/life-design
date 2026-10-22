@@ -17,7 +17,7 @@ const BUDGETS = {
   'Write freely': 25,
   'Entry, read back after saving': 75, // 90 until v0.9, when it stopped restating the entry: your words, a possible insight, the next-step choices
   'Entries [the fictional five days]': 125,
-  'Insights: this week, the fictional week': 80, // v0.8: the week, put together automatically; patterns moved a tap away
+  'Insights: this week, the fictional week': 100, // 80 until v0.9; + the week's energy chart (title, axis, 7 days, readout, table) and card titles, the owner's chosen layout
   'Insights → Patterns, 30 days [236]': 155, // 150 until v0.8: + "Alone or with others" (the owner's brief)
   'More [460]': 60,
   'More → Reminders [266]': 133,

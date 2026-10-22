@@ -77,6 +77,9 @@ test('some evenings ask about a pattern in your own last two weeks', async ({ pa
 test('More → Your purpose: one purpose, its optional follow-up, and the goal kept for goal questions', async ({ page }) => {
   await page.goto('./#/more/purpose')
   await expect(page.getByRole('radio', { name: /^Understand myself/ })).toBeChecked()
+  // What choosing a purpose changes, a tap away.
+  await page.getByRole('button', { name: 'What does your purpose change?' }).click()
+  await expect(page.getByText('It picks the questions shown above the box when you write about an activity')).toBeVisible()
   await page.getByRole('radio', { name: /^Achieve a goal/ }).check()
   await page.getByLabel('What are you working towards?').fill('run a half marathon')
   await expect(page.getByText('Saved')).toBeVisible()

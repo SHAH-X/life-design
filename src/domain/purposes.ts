@@ -109,6 +109,10 @@ const INFO: Record<Purpose, PurposeInfo> = {
 
 export const purposeInfo = (purpose: Purpose) => INFO[purpose]
 
+/** What choosing a purpose changes (More → Your purpose, behind ⓘ). */
+export const PURPOSE_EFFECT =
+  'It picks the questions shown above the box when you write about an activity, and the evening question on Today. Your answer to its follow-up shows with those questions. Each entry can still use another purpose.'
+
 /** What the entry said so far, so the questions can fit it. `turn` moves the starting question from entry to entry. */
 export interface QuestionContext {
   energyEffect: EnergyEffect | null

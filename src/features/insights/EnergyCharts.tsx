@@ -8,6 +8,24 @@ import { type Column, ColumnChart } from '../../ui/charts/ColumnChart'
 const ENERGY_AXIS: Record<number, string> = { 2: 'gives', 0: '', [-2]: 'takes' }
 const INTO_AXIS: Record<number, string> = { 1: 'bored', 3: 'fine', 5: 'absorbed' }
 
+/** The energy chart: columns above the line gave energy, below it took energy, read in words (Patterns and the week). */
+export function EnergyColumns({ title, columns, overall }: { title: string; columns: readonly Column[]; overall: string | null }) {
+  return (
+    <ColumnChart
+      title={title}
+      columns={columns}
+      domain={[-2, 2]}
+      ticks={[-2, 0, 2]}
+      mode="diverging"
+      formatValue={energyWordFor}
+      formatTick={(t) => ENERGY_AXIS[t] ?? ''}
+      axisWidth={40}
+      valueName="energy"
+      summary={overall === null ? 'Nothing logged.' : `${overall} · tap a column`}
+    />
+  )
+}
+
 /** Energy (gives or takes) or how into things you were: one chart at a time, each on its own scale, read in words. */
 export function EnergyCharts({ entries, period }: { entries: readonly Entry[]; period: Period }) {
   const [show, setShow] = useState<'energy' | 'into'>('energy')
@@ -37,18 +55,7 @@ export function EnergyCharts({ entries, period }: { entries: readonly Entry[]; p
         </button>
       </div>
       {show === 'energy' ? (
-        <ColumnChart
-          title={`Energy by ${unit}`}
-          columns={columns((p) => p.avgEnergy)}
-          domain={[-2, 2]}
-          ticks={[-2, 0, 2]}
-          mode="diverging"
-          formatValue={energyWordFor}
-          formatTick={(t) => ENERGY_AXIS[t] ?? ''}
-          axisWidth={40}
-          valueName="energy"
-          summary={overall === null ? 'Nothing logged.' : `${overall} · tap a column`}
-        />
+        <EnergyColumns title={`Energy by ${unit}`} columns={columns((p) => p.avgEnergy)} overall={overall} />
       ) : (
         <ColumnChart
           title={`Into it by ${unit}`}

@@ -3,8 +3,8 @@ import { type ReactNode, type Ref, useId, useState } from 'react'
 interface Props {
   /** The question, in words that explain themselves. */
   children: ReactNode
-  /** A heading for a question with answer buttons; a label for one answered by typing. */
-  as?: 'h2' | 'label'
+  /** A heading for a question with answer buttons; a label for one answered by typing; a page title with an ⓘ. */
+  as?: 'h1' | 'h2' | 'label'
   id?: string
   htmlFor?: string
   /** The deeper "why", shown only when the ⓘ button is tapped. */
@@ -26,6 +26,8 @@ export function Question({ children, as = 'h2', id, htmlFor, info, infoLabel = '
           <label className="question-text" id={id} htmlFor={htmlFor}>
             {children}
           </label>
+        ) : as === 'h1' ? (
+          <h1 id={id}>{children}</h1>
         ) : (
           <h2 className="question-text" id={id} ref={headingRef} tabIndex={-1}>
             {children}

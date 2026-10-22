@@ -6,9 +6,10 @@ import { buildInfo, formatBuildInfo } from '../../lib/buildInfo'
 import { shortDate, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { isPersisted, isStandalone } from '../../lib/storage'
-import { PURPOSE_KEYS, purposeInfo } from '../../domain/purposes'
+import { PURPOSE_EFFECT, PURPOSE_KEYS, purposeInfo } from '../../domain/purposes'
 import { normalizeReminderPlan } from '../../reminders/schedule'
 import { Loading } from '../../ui/Loading'
+import { Question } from '../../ui/Question'
 import { BackupCard } from './BackupCard'
 import { DeleteAllCard } from './DeleteAllCard'
 import { ExportCard } from './ExportCard'
@@ -44,7 +45,13 @@ function MorePage({ page }: { page: Page }) {
       <a className="back-link" href={hashFor('more')}>
         ‹ More
       </a>
-      <h1>{PAGES[page]}</h1>
+      {page === 'purpose' ? (
+        <Question as="h1" info={PURPOSE_EFFECT} infoLabel="What does your purpose change?">
+          {PAGES[page]}
+        </Question>
+      ) : (
+        <h1>{PAGES[page]}</h1>
+      )}
       {page === 'reminders' ? <RemindersPage /> : null}
       {page === 'purpose' ? <PurposeSettings /> : null}
       {page === 'words' ? <OwnWords /> : null}

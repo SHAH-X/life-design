@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { addEntry } from './helpers'
 import { restoreSeed } from './seed'
 
 // The weekly review is put together automatically (Phase 4). A fixed Saturday, so the fictional five days before
@@ -19,8 +20,16 @@ test('Insights opens on this week, put together from what you wrote; each line o
   await expect(week.locator('details.week-line', { hasText: 'Commute' })).toContainText('4 times')
   // Something that happened once isn't a pattern.
   await expect(week).not.toContainText('Cooking dinner')
-  // What stood out lists each activity once.
-  await expect(week.getByText('Deep work on the report · time flew')).toHaveCount(1)
+  // The week's energy by day, read in words.
+  await expect(week.getByText('Energy by day')).toBeVisible()
+  // What stood out lists each activity once, and each opens.
+  const stood = week.getByRole('list', { name: 'What stood out' })
+  await expect(stood.getByRole('button', { name: /^Deep work on the report/ })).toHaveCount(1)
+  await stood.getByRole('button', { name: /^Deep work on the report/ }).click()
+  const opened = page.getByRole('dialog', { name: 'Deep work on the report' })
+  await expect(opened).toBeVisible()
+  await opened.getByRole('button', { name: 'Done', exact: true }).click()
+  await expect(opened).toBeHidden()
 
   // Nothing to fill in; one optional box, saved as you type.
   await week.getByLabel('Anything to carry into next week?').fill('Walk at lunch')
@@ -29,27 +38,40 @@ test('Insights opens on this week, put together from what you wrote; each line o
   await expect(page.getByRole('region', { name: 'This week' }).getByLabel('Anything to carry into next week?')).toHaveValue('Walk at lunch')
 })
 
-test("the week's next steps are followed up, and not yet is fine", async ({ page }) => {
+test("the week's next steps are followed up, not yet is fine, and its feelings open their entries", async ({ page }) => {
   await page.goto('./#/today')
   await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
   const sheet = page.getByRole('dialog', { name: 'New activity' })
   await sheet.getByLabel('What did you do?').fill('Team meeting')
   await sheet.getByRole('button', { name: 'Next' }).click()
-  for (let i = 0; i < 3; i += 1) await sheet.getByRole('button', { name: 'Skip' }).click()
+  await sheet.getByRole('button', { name: 'Skip' }).click()
+  await sheet.getByRole('button', { name: 'Skip' }).click()
+  await sheet.getByRole('button', { name: 'Frustrated', exact: true }).click()
+  await sheet.getByRole('button', { name: 'Next' }).click()
   await sheet.getByRole('button', { name: 'Save' }).click()
   const view = page.getByRole('dialog', { name: 'Team meeting' })
   await view.getByRole('button', { name: 'Try something differently' }).click()
   await view.getByLabel('What exactly?').fill('Ask for an agenda first')
   await view.getByRole('button', { name: 'Keep this' }).click()
   await view.getByRole('button', { name: 'Done', exact: true }).click()
+  // A feeling shows once it came up in two entries.
+  await addEntry(page, { activity: 'Commute', after: ['Frustrated'] })
 
   await page.goto('./#/insights')
   const week = page.getByRole('region', { name: 'This week' })
   await expect(week).toContainText('Your next steps')
   await expect(week).toContainText('Ask for an agenda first')
   await expect(week).toContainText("Not yet is fine: it'll be here next time.")
-  await week.getByRole('button', { name: 'Yes' }).click()
+  // The same words as on the entry.
+  await week.getByRole('button', { name: 'Done it' }).click()
   await expect(week).toContainText('✓ Done')
+
+  const feeling = week.getByRole('group', { name: 'Feelings' }).getByRole('button', { name: /^frustrated/ })
+  await feeling.click()
+  await expect(feeling).toHaveAttribute('aria-expanded', 'true')
+  await expect(week.locator('.evidence-list li')).toHaveCount(2)
+  await expect(week.locator('.evidence-list')).toContainText('Team meeting')
+  await expect(week.locator('.evidence-list')).toContainText('Commute')
 })
 
 test('earlier weeks open on their own page, put together the same way', async ({ page }, testInfo) => {

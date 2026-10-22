@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Notices, useExportNudge } from '../../app/Notices'
 import { isBackAfterBreak } from '../../app/welcome'
 import { db } from '../../db/db'
-import { loadSuggestions, type Suggestions } from '../../db/repo'
+import { loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import { addDays, dayHeading, dayMonthLong, PART_ORDER } from '../../lib/dates'
 import { useTonight } from '../../prompts/useTonight'
@@ -16,7 +16,6 @@ import { SmallJoy } from './SmallJoy'
 import { useOwnWords } from './useOwnWords'
 import { useToday } from './useToday'
 
-const NO_SUGGESTIONS: Suggestions = { activities: [], where: [], people: [], objects: [] }
 
 const byTimeOfDay = (a: Entry, b: Entry) => PART_ORDER[a.part] - PART_ORDER[b.part] || a.createdAt - b.createdAt
 

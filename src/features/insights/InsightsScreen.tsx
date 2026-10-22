@@ -16,7 +16,7 @@ import {
 } from '../../analysis/stats'
 import { weekStart, weeksWithEntries, weekSummary } from '../../analysis/week'
 import { db } from '../../db/db'
-import { hasEnergy, hasEngagement, isDone } from '../../db/repo'
+import { hasEnergy, hasEngagement, isDone, loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
 import type { Day, Entry, Review } from '../../db/types'
 import { overallEnergyWord, times } from '../../domain/feelings'
 import { addDays, formatPeriod, formatRecentPeriod, shortDay, toDateKey } from '../../lib/dates'
@@ -25,6 +25,9 @@ import { EnergyRows } from '../../ui/charts/EnergyRows'
 import { Loading } from '../../ui/Loading'
 import { StatTile } from '../../ui/StatTile'
 import { entryTitle } from '../today/EntryRow'
+import { EntrySheet, type EntrySheetState } from '../today/EntrySheet'
+import { usePurposeSettings } from '../today/usePurpose'
+import { useOwnWords } from '../today/useOwnWords'
 import { EnergyCharts } from './EnergyCharts'
 import { Evidence } from './Evidence'
 import { WeekReview } from './WeekReview'
@@ -47,6 +50,8 @@ interface Data {
   byId: Map<string, Entry>
   days: Day[]
   reviews: Review[]
+  /** What you wrote to carry into each week, by its Monday. */
+  carry: Map<string, string>
 }
 
 /**
@@ -55,19 +60,28 @@ interface Data {
  */
 export function InsightsScreen({ sub }: { sub: string | null }) {
   const data = useLiveQuery(async (): Promise<Data> => {
-    const [entries, days, reviews] = await Promise.all([db.entries.toArray(), db.days.toArray(), db.reviews.toArray()])
+    const [entries, days, reviews, weeks] = await Promise.all([db.entries.toArray(), db.days.toArray(), db.reviews.toArray(), db.weeks.toArray()])
     const done = entries.filter(isDone)
-    return { done, byId: new Map(done.map((e) => [e.id, e])), days, reviews }
+    return { done, byId: new Map(done.map((e) => [e.id, e])), days, reviews, carry: new Map(weeks.map((w) => [w.id, w.carry])) }
   }, [])
-  if (data === undefined) return <Loading />
+  const own = useOwnWords()
+  const purpose = usePurposeSettings()
+  const suggestions = useLiveQuery(() => loadSuggestions(), [], NO_SUGGESTIONS)
+  const [sheet, setSheet] = useState<EntrySheetState>(null)
+  // Render only once loaded, so nothing jumps under your finger.
+  if (data === undefined || own === undefined || purpose === undefined) return <Loading />
 
+  const open = (entry: Entry) => setSheet({ kind: 'open', entry })
   const week = sub?.match(/^week-(\d{4}-\d{2}-\d{2})$/)?.[1]
-  if (week) return <WeekPage data={data} start={weekStart(week)} />
-  if (sub === 'patterns') return <PatternsPage data={data} />
-  return <InsightsHome data={data} />
+  return (
+    <>
+      {week ? <WeekPage data={data} start={weekStart(week)} onOpen={open} /> : sub === 'patterns' ? <PatternsPage data={data} /> : <InsightsHome data={data} onOpen={open} />}
+      <EntrySheet state={sheet} onChange={setSheet} suggestions={suggestions} own={own} purpose={purpose} />
+    </>
+  )
 }
 
-function InsightsHome({ data }: { data: Data }) {
+function InsightsHome({ data, onOpen }: { data: Data; onOpen: (entry: Entry) => void }) {
   const thisWeek = weekStart(toDateKey(new Date()))
   const earlierWeeks = weeksWithEntries(data.done).filter((w) => w < thisWeek)
   // What you chose to remember from an entry, then takeaways from reviews before v0.8; newest first.
@@ -83,7 +97,7 @@ function InsightsHome({ data }: { data: Data }) {
   return (
     <>
       <h1>Insights</h1>
-      <WeekReview summary={weekSummary(data.done, thisWeek)} entries={data.byId} title="This week" />
+      <WeekReview summary={weekSummary(data.done, thisWeek)} entries={data.byId} title="This week" carry={data.carry.get(thisWeek) ?? ''} onOpen={onOpen} />
       {earlierWeeks.length ? (
         <details className="card earlier-weeks">
           <summary>Earlier weeks</summary>
@@ -129,14 +143,20 @@ function InsightsHome({ data }: { data: Data }) {
   )
 }
 
-function WeekPage({ data, start }: { data: Data; start: string }) {
+function WeekPage({ data, start, onOpen }: { data: Data; start: string; onOpen: (entry: Entry) => void }) {
   return (
     <>
       <a className="back-link" href={hashFor('insights')}>
         ‹ Insights
       </a>
       <h1>Your week</h1>
-      <WeekReview summary={weekSummary(data.done, start)} entries={data.byId} title={formatRecentPeriod(start, addDays(start, 6))} />
+      <WeekReview
+        summary={weekSummary(data.done, start)}
+        entries={data.byId}
+        title={formatRecentPeriod(start, addDays(start, 6))}
+        carry={data.carry.get(start) ?? ''}
+        onOpen={onOpen}
+      />
     </>
   )
 }

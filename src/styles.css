@@ -1018,10 +1018,56 @@ button.small-link {
   font-size: 0.85rem;
 }
 
-/* The weekly review and the entries behind each line. */
-.card.week h3 {
-  margin: 14px 0 4px;
-  font-size: 0.95rem;
+/* The week (v0.9): its energy by day on top, then one card per section, each line opening to its entries. */
+.week-title {
+  margin: 4px 0 0;
+  font-size: 1.35rem;
+}
+
+.week-period {
+  margin: 0 0 10px;
+}
+
+.week-count {
+  margin: 0 0 6px;
+  font-family: ui-serif, 'New York', Georgia, serif;
+  font-size: 1.2rem;
+}
+
+.week-card h3 {
+  margin: 0 0 8px;
+  font-family: ui-serif, 'New York', Georgia, serif;
+  font-size: 1.1rem;
+}
+
+.week-sub {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.week-card .entry-list {
+  margin-bottom: 0;
+}
+
+/* Things to remember sit on the evening's sand. */
+.card.remember {
+  background: var(--evening-bg);
+}
+
+/* Which way a line went, as beside each activity on Today (blue gave, red took). */
+details.week-line > summary[data-energy]::before {
+  content: '';
+  align-self: stretch;
+  width: 4px;
+  margin: 6px 4px 6px 0;
+  border-radius: 2px;
+}
+
+.chip[aria-expanded='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 details.week-line > summary,

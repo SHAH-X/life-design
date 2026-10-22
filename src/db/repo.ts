@@ -223,6 +223,9 @@ export interface Suggestions {
   objects: string[]
 }
 
+/** Until suggestions load: none. */
+export const NO_SUGGESTIONS: Suggestions = { activities: [], where: [], people: [], objects: [] }
+
 const SUGGESTION_LIMIT = 8
 
 function byFrequency(lists: string[][]): string[] {

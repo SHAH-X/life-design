@@ -61,6 +61,11 @@ export function dayMonth(key: string, locale?: string): string {
   return fromDateKey(key).toLocaleDateString(locale, { day: 'numeric', month: 'short' })
 }
 
+/** "Tue", for the week's chart axis. */
+export function shortWeekday(key: string, locale?: string): string {
+  return fromDateKey(key).toLocaleDateString(locale, { weekday: 'short' })
+}
+
 /** "Tue 20" for chart axes and readouts. */
 export function shortDay(key: string, locale?: string): string {
   return fromDateKey(key).toLocaleDateString(locale, { weekday: 'short', day: 'numeric' })
