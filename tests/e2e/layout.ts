@@ -200,6 +200,9 @@ function findLayoutFaults(): { faults: string[]; small: string[] } {
   const target = (el: Element): { width: number; height: number } | null => {
     if (el.tagName === 'A' && getComputedStyle(el).display === 'inline') return null
     if (el.closest('svg')) return null
+    // A native drop-down: desktop WebKit draws it 18-23px tall whatever its CSS, while iPhone Safari draws the same
+    // one as a 30pt pill (the purpose drop-down, measured in the iOS Simulator, v0.12.1). Its size is checked there.
+    if (el.tagName === 'SELECT') return null
     const own = tapBox(el)
     const label = (el as HTMLInputElement).labels?.[0]
     const shownInput = el.checkVisibility({ opacityProperty: true }) && !el.closest('.visually-hidden')
