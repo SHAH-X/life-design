@@ -2,10 +2,8 @@
 
 A private daily journal for iPhone, built on *Designing Your Life* (Burnett & Evans) and Ikigai.
 
-- **Good Time Journal:** each evening, log your main activities by describing them in feeling words, never ratings: what was it like, and how did it leave you? The app works out the patterns and tells you in words.
-- **An evening question:** a small joy, plus one question that changes each day (feel calmer, grow, reach a goal, learn), sometimes about a pattern in your own days.
-- **Reviews on your schedule:** which part of life feels most alive and which most neglected, your best and worst moments, and an optional AI review using the AI of your choice.
-- **Life design:** three Odyssey Plans (five-year lives you sketch, title and judge in words: how each feels, what it would take, whether it fits your views), your Workview and Lifeview, with earlier versions kept automatically. Coming next: an Ikigai map and small experiments to try.
+- **Journaling by purpose:** say what journaling is for (understand yourself, improve, learn, reach a goal, make sense of a hard time, everyday life, or just write). Reflect on an activity in a few taps, in words, never ratings: what it was like, what it did to your energy, how you felt, a question or two for your purpose, and anything else. Or write freely. Every step after the first can be skipped, and unfinished entries are kept.
+- **An evening question:** a small joy, plus one question that changes each day and follows your purpose, sometimes about a pattern in your own days.
 
 **Easy to start:** a short welcome, openers when a blank box stares back, and no streaks to keep.
 

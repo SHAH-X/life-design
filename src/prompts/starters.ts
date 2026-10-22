@@ -12,6 +12,7 @@ const EVENING: Record<Purpose | 'pattern', readonly string[]> = {
   learn: ['I learned that', 'It matters because', "Next I'll try"],
   joy: ["I'm grateful for", 'A good moment was', "I'm looking forward to"],
   pattern: ["I think it's because", 'What stands out is', 'One small thing could be'],
+  free: ['Today I', 'I keep thinking about', 'Something I want to remember is'],
 }
 
 export function eveningStarters(purpose: Purpose | 'pattern'): readonly string[] {

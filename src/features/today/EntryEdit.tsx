@@ -1,20 +1,25 @@
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useId, useRef, useState } from 'react'
-import { addOwnWord, deleteEntry, type Suggestions, saveEntry } from '../../db/repo'
-import type { Entry } from '../../db/types'
+import { db } from '../../db/db'
+import { addOwnWord, deleteEntry, isDone, saveEntry, type Suggestions } from '../../db/repo'
+import type { Duration, EnergyEffect, Entry, Measure, Purpose } from '../../db/types'
 import {
   AFTER_INFO,
   AFTER_QUESTION,
   AFTER_WORDS,
+  deriveEngagement,
+  deriveFlow,
   DURING_INFO,
   DURING_QUESTION,
   DURING_WORDS,
-  deriveEnergy,
-  deriveEngagement,
-  deriveFlow,
+  ENERGY_INFO,
+  ENERGY_OPTIONS,
+  ENERGY_QUESTION,
+  energyFrom,
   type OwnWord,
   wordsFor,
 } from '../../domain/feelings'
-import { followUpQuestion } from '../../domain/scales'
+import { questionsFor } from '../../domain/purposes'
 import type { DayPart } from '../../lib/dates'
 import { noteStarters } from '../../prompts/starters'
 import { Dialog } from '../../ui/Dialog'
@@ -22,28 +27,37 @@ import { Question } from '../../ui/Question'
 import { Starters, typeInto } from '../../ui/Starters'
 import { WordPicker } from '../../ui/WordPicker'
 import { EntryDetails } from './EntryDetails'
+import { NOTE_QUESTION } from './EntryFlow'
+import { questionsForPurpose, ReflectStep, type ShownQuestion } from './ReflectStep'
 
 interface Props {
   existing: Entry
   suggestions: Suggestions
   own: readonly OwnWord[]
+  goal: string
   onClose: () => void
 }
 
-/** Changing a logged activity: everything on one screen, in the same words it was logged with. */
-export function EntryEdit({ existing, suggestions, own, onClose }: Props) {
+/** Changing an entry: everything on one screen, in the words it was written with. Nothing else is lost. */
+export function EntryEdit({ existing, suggestions, own, goal, onClose }: Props) {
   const activityId = useId()
   const duringId = useId()
+  const energyId = useId()
   const afterId = useId()
   const noteId = useId()
+  const free = existing.kind === 'free'
   // Entries from before feeling words start with words read from their stored values.
   const initial = wordsFor(existing)
   const [activity, setActivity] = useState(existing.activity)
   const [during, setDuring] = useState<string[]>(initial.during)
+  const [energyEffect, setEnergyEffect] = useState<EnergyEffect | null>(existing.energyEffect)
   const [after, setAfter] = useState<string[]>(initial.after)
+  const [purpose, setPurpose] = useState<Purpose>(existing.purpose ?? 'know')
+  const [shown, setShown] = useState<ShownQuestion[]>(existing.reflections.map((r, i) => ({ id: `saved-${i}`, question: r.question, text: r.text })))
   const [ownWords, setOwnWords] = useState<OwnWord[]>([...own])
   const [note, setNote] = useState(existing.note)
   const [part, setPart] = useState<DayPart>(existing.part)
+  const [duration, setDuration] = useState<Duration | null>(existing.duration)
   const [where, setWhere] = useState(existing.where)
   const [people, setPeople] = useState(existing.people)
   const [objects, setObjects] = useState(existing.objects)
@@ -51,13 +65,13 @@ export function EntryEdit({ existing, suggestions, own, onClose }: Props) {
   const [busy, setBusy] = useState(false)
   const noteBox = useRef<HTMLTextAreaElement>(null)
 
+  const turn = useLiveQuery(() => db.entries.filter((e) => isDone(e) && e.purpose === purpose).count(), [purpose], 0)
+  const candidates = questionsFor(purpose, { energyEffect, during, after, turn, goal })
+
   const addOwn = (word: OwnWord) => {
     setOwnWords((current) => [...current.filter((w) => !(w.kind === word.kind && w.word === word.word)), word])
     void addOwnWord(word)
   }
-
-  const energy = deriveEnergy(after, ownWords)
-  const engagement = deriveEngagement(during, ownWords)
 
   async function run(action: () => Promise<unknown>) {
     setBusy(true)
@@ -69,26 +83,44 @@ export function EntryEdit({ existing, suggestions, own, onClose }: Props) {
     }
   }
 
+  function save() {
+    const { energy, answered } = energyFrom(energyEffect, after, ownWords)
+    const skipped: Measure[] = free ? ['engagement', 'energy'] : [...(during.length ? [] : ['engagement' as const]), ...(answered ? [] : ['energy' as const])]
+    return run(() =>
+      saveEntry(
+        {
+          date: existing.date,
+          part,
+          activity: free ? '' : activity,
+          engagement: deriveEngagement(during, ownWords),
+          energy,
+          flow: deriveFlow(during),
+          where,
+          people,
+          objects,
+          during,
+          after,
+          note,
+          purpose: free ? 'free' : purpose,
+          energyEffect,
+          duration,
+          reflections: shown.map((q) => ({ question: q.question, text: q.text })),
+          skipped,
+          status: 'done',
+        },
+        existing,
+      ),
+    )
+  }
+
   const footer = (
     <>
-      <button
-        type="button"
-        className="primary wide"
-        disabled={!activity.trim() || during.length === 0 || after.length === 0 || busy}
-        onClick={() =>
-          void run(() =>
-            saveEntry(
-              { date: existing.date, part, activity, engagement, energy, flow: deriveFlow(during), where, people, objects, during, after, note },
-              existing,
-            ),
-          )
-        }
-      >
+      <button type="button" className="primary wide" disabled={busy || (free ? !note.trim() : !activity.trim())} onClick={() => void save()}>
         Save
       </button>
       {confirmDelete ? (
         <div className="row">
-          <span className="grow">Delete this activity?</span>
+          <span className="grow">Delete this entry?</span>
           <button type="button" className="danger" disabled={busy} onClick={() => void run(() => deleteEntry(existing.id))}>
             Yes, delete
           </button>
@@ -104,6 +136,18 @@ export function EntryEdit({ existing, suggestions, own, onClose }: Props) {
     </>
   )
 
+  if (free) {
+    return (
+      <Dialog title="Edit writing" onClose={onClose} footer={footer}>
+        <label className="question-text" htmlFor={noteId}>
+          What's on your mind?
+        </label>
+        <textarea id={noteId} value={note} rows={10} maxLength={20000} onChange={(e) => setNote(e.target.value)} />
+      </Dialog>
+    )
+  }
+
+  const { energy } = energyFrom(energyEffect, after, ownWords)
   return (
     <Dialog title="Edit activity" onClose={onClose} footer={footer}>
       <label className="question-text" htmlFor={activityId}>
@@ -116,24 +160,48 @@ export function EntryEdit({ existing, suggestions, own, onClose }: Props) {
       </Question>
       <WordPicker labelledBy={duringId} kind="during" presets={DURING_WORDS} own={ownWords} value={during} onChange={setDuring} onAddOwn={addOwn} />
 
-      <Question id={afterId} info={AFTER_INFO} infoLabel="What does this ask about energy?">
+      <Question id={energyId} info={ENERGY_INFO} infoLabel="Why ask about energy?">
+        {ENERGY_QUESTION}
+      </Question>
+      <div role="group" aria-labelledby={energyId} className="chip-row energy-choices">
+        {ENERGY_OPTIONS.map((o) => (
+          <button key={o.value} type="button" className="chip" aria-pressed={energyEffect === o.value} onClick={() => setEnergyEffect(energyEffect === o.value ? null : o.value)}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+
+      <Question id={afterId} info={AFTER_INFO} infoLabel="What does this ask about feelings?">
         {AFTER_QUESTION}
       </Question>
       <WordPicker labelledBy={afterId} kind="after" presets={AFTER_WORDS} own={ownWords} value={after} onChange={setAfter} onAddOwn={addOwn} />
 
+      <ReflectStep
+        purpose={purpose}
+        onPurpose={(next) => {
+          setPurpose(next)
+          setShown((current) => questionsForPurpose(questionsFor(next, { energyEffect, during, after, turn: 0, goal }), current))
+        }}
+        candidates={candidates}
+        shown={shown}
+        onShown={setShown}
+      />
+
       <label className="question-text" htmlFor={noteId}>
-        {followUpQuestion(energy, engagement)}
+        {NOTE_QUESTION}
       </label>
       <textarea ref={noteBox} id={noteId} value={note} rows={2} maxLength={4000} placeholder="Optional" onChange={(e) => setNote(e.target.value)} />
       <div className="field-foot">
         {note.trim() === '' ? (
-          <Starters starters={noteStarters(energy, engagement)} onPick={(text) => typeInto(noteBox.current, text, setNote)} />
+          <Starters starters={noteStarters(energy, deriveEngagement(during, ownWords))} onPick={(text) => typeInto(noteBox.current, text, setNote)} />
         ) : null}
       </div>
 
       <EntryDetails
         part={part}
         onPart={setPart}
+        duration={duration}
+        onDuration={setDuration}
         where={where}
         onWhere={setWhere}
         people={people}

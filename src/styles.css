@@ -776,6 +776,102 @@ button.entry-row:focus-visible {
   color: var(--muted);
 }
 
+/* ---------- Purpose journaling (Phase 4) ---------- */
+
+/* Today's two ways in: reflect on an activity (the main one), or write freely. */
+.journal-actions {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.entry-status {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* "For: Understand myself", the purpose this entry reflects for. */
+.purpose-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 4px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.purpose-line select {
+  width: auto;
+  min-height: 36px;
+  padding: 4px 8px;
+  font-size: 0.9rem;
+}
+
+.field-help.gentle {
+  margin-top: 4px;
+}
+
+.reflection + .reflection {
+  margin-top: 4px;
+}
+
+/* The energy answers are short sentences: one per line reads best. */
+.chip-row.energy-choices {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.chip-row.energy-choices .chip {
+  justify-content: flex-start;
+  border-radius: 12px;
+  min-height: 44px;
+}
+
+/* The purposes, one per row: the native radio stays visible and the whole row is its tap target. */
+.purpose-list {
+  display: grid;
+  gap: 8px;
+}
+
+.purpose-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.purpose-option:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.purpose-option input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.purpose-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.purpose-label {
+  font-weight: 600;
+}
+
+.focus-field {
+  margin-top: 8px;
+}
+
 /* ---------- More ---------- */
 
 .status-line {

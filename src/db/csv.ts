@@ -1,3 +1,6 @@
+import { DURATION_LABELS, ENERGY_OPTIONS } from '../domain/feelings'
+import { INTENTION_OPTIONS } from '../domain/intentions'
+import { purposeInfo } from '../domain/purposes'
 import { PART_ORDER, toDateKey } from '../lib/dates'
 import type { Entry } from './types'
 
@@ -16,6 +19,12 @@ const HEADER = [
   'note',
   'source',
   'created_at',
+  'kind',
+  'purpose',
+  'energy',
+  'how_long',
+  'reflections',
+  'next_step',
 ]
 
 function cell(value: string | number, isText = false): string {
@@ -25,8 +34,17 @@ function cell(value: string | number, isText = false): string {
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
+function nextStep(entry: Entry): string {
+  const { intention } = entry
+  if (!intention) return ''
+  const label = INTENTION_OPTIONS.find((o) => o.value === intention.kind)?.label ?? intention.kind
+  return `${label}${intention.text ? `: ${intention.text}` : ''} (${intention.status})`
+}
+
+/** Finished entries, oldest first. Drafts are left out. */
 export function entriesToCsv(entries: readonly Entry[]): string {
-  const rows = [...entries]
+  const rows = entries
+    .filter((e) => e.status !== 'draft')
     .sort((a, b) => a.date.localeCompare(b.date) || PART_ORDER[a.part] - PART_ORDER[b.part] || a.createdAt - b.createdAt)
     .map((e) =>
       [
@@ -44,6 +62,12 @@ export function entriesToCsv(entries: readonly Entry[]): string {
         cell(e.note, true),
         cell(e.source),
         cell(new Date(e.createdAt).toISOString()),
+        cell(e.kind),
+        cell(e.purpose ? purposeInfo(e.purpose).label : '', true),
+        cell(ENERGY_OPTIONS.find((o) => o.value === e.energyEffect)?.label ?? '', true),
+        cell(e.duration ? DURATION_LABELS[e.duration] : '', true),
+        cell(e.reflections.map((r) => `${r.question} ${r.text}`).join(' | '), true),
+        cell(nextStep(e), true),
       ].join(','),
     )
   // The byte-order mark lets Excel read the file as UTF-8.

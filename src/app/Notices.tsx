@@ -1,10 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
-import type { Period } from '../analysis/stats'
 import { countChangesSince, firstEntryCreatedAt, getSetting, setSetting } from '../db/repo'
 import { exportNudge, type Nudge } from '../domain/nudge'
-import { DAY_MS, formatRecentPeriod } from '../lib/dates'
-import { navigate } from '../lib/route'
+import { DAY_MS } from '../lib/dates'
 import { isStandalone } from '../lib/storage'
 import { useDialogs } from './dialogs'
 
@@ -18,8 +16,8 @@ export function useExportNudge(): Nudge | undefined {
   }, [])
 }
 
-/** At most one notice at the top of Today, most important first: backup, then a due review, then installing. */
-export function Notices({ nudge, reviewDue }: { nudge: Nudge; reviewDue: Period | null }) {
+/** At most one notice at the top of Today, most important first: backup, then installing. */
+export function Notices({ nudge }: { nudge: Nudge }) {
   const { open } = useDialogs()
   const [installed] = useState(isStandalone)
 
@@ -35,19 +33,6 @@ export function Notices({ nudge, reviewDue }: { nudge: Nudge; reviewDue: Period 
             Tomorrow
           </button>
         </div>
-      </aside>
-    )
-  }
-  if (reviewDue) {
-    return (
-      <aside className="notice">
-        <p>
-          <strong>Review due</strong> · {formatRecentPeriod(reviewDue.start, reviewDue.end)}
-        </p>
-        {/* Not filled: "+ Add activity" stays the one main button on Today. */}
-        <button type="button" onClick={() => navigate('review')}>
-          Start review
-        </button>
       </aside>
     )
   }

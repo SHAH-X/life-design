@@ -182,14 +182,14 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
 
         <div className="reminder-row">
           <Switch
-            label="Review (incl. AI review)"
+            label="Look back"
             checked={plan.review.on}
             onChange={(on) => savePlan({ ...plan, review: { ...plan.review, on } })}
           />
           {plan.review.on ? (
             <div className="reminder-settings">
               <label className="inline-field full">
-                <FieldLabel context="Review" label="Repeats" />
+                <FieldLabel context="Look back" label="Repeats" />
                 <select
                   value={reviewKind}
                   onChange={(e) => {
@@ -205,7 +205,7 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
               </label>
               {review.kind === 'days' ? (
                 <label className="inline-field">
-                  <FieldLabel context="Review" label="Every (days)" />
+                  <FieldLabel context="Look back" label="Every (days)" />
                   <input
                     type="number"
                     inputMode="numeric"
@@ -229,13 +229,13 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
                 </label>
               ) : (
                 <DaySelect
-                  context="Review"
+                  context="Look back"
                   label={review.kind === 'monthly' ? 'On the first' : 'Day'}
                   value={review.day}
                   onChange={(day) => saveReview({ kind: review.kind, day })}
                 />
               )}
-              <TimeSelect context="Review" value={plan.review.time} onChange={(time) => savePlan({ ...plan, review: { ...plan.review, time } })} />
+              <TimeSelect context="Look back" value={plan.review.time} onChange={(time) => savePlan({ ...plan, review: { ...plan.review, time } })} />
             </div>
           ) : null}
         </div>

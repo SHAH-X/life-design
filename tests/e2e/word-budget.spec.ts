@@ -6,23 +6,21 @@ import { restoreSeed } from './seed'
 // collapsed sections, unselected menu options, chart tooltips and screen-reader-only text don't count.
 // Raise a budget only with the owner's OK. Baseline before Phase 2.5 (v0.3.0) in brackets.
 const BUDGETS = {
-  'Today, a logged day [96]': 63, // 60 until v0.7: +3 for "Need a start?" under the evening question (owner-approved plan)
+  // v0.8: 63 → 72. "Review due" is gone, so this test browser (not installed) now shows the install notice (10 words;
+  // never on the Home Screen app), and Today has two ways in (+4). Owner-approved plan: budgets set from measurements.
+  'Today, a logged day [96]': 72,
   'New activity: what [90 for the whole form]': 25,
   'New activity: what it was like (10 answer words)': 25,
-  'New activity: how it left you (10 answer words)': 25,
-  'New activity: anything else': 25,
-  'Review home [47]': 30,
-  'Review: at a glance [114]': 90,
-  'Review: moments [255]': 80,
+  'New activity: energy (4 answers)': 30,
+  'New activity: how you felt (12 answer words)': 30,
+  'New activity: reflect': 25,
+  'New activity: anything else': 30,
+  'Write freely': 25,
   'Insights, 30 days [236]': 150,
   'More [460]': 60,
   'More → Reminders [266]': 133,
-  'More → Evening question': 60,
+  'More → Your purpose': 95, // seven purposes, each with its one-line explanation (the brief asks for both)
   'More → Backup and restore [67]': 40,
-  'Life Design': 20,
-  'Odyssey Plans': 55,
-  'Plan, first screen': 20,
-  'Workview & Lifeview': 40,
 } as const
 
 type Screen = keyof typeof BUDGETS
@@ -65,7 +63,7 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
   await expect(page.getByRole('heading', { name: 'Yesterday' })).toBeVisible()
   await measure('Today, a logged day [96]', main)
 
-  await page.getByRole('button', { name: '+ Add activity' }).click()
+  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
   await measure('New activity: what [90 for the whole form]', sheet)
   await sheet.getByLabel('What did you do?').fill('Choir rehearsal')
   await sheet.getByRole('button', { name: 'Next' }).click()
@@ -74,24 +72,23 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
   await sheet.getByRole('button', { name: 'Absorbed', exact: true }).click()
   await sheet.getByRole('button', { name: 'Next' }).click()
   await settled(page)
-  await measure('New activity: how it left you (10 answer words)', sheet)
-  await sheet.getByRole('button', { name: 'Energised', exact: true }).click()
+  await measure('New activity: energy (4 answers)', sheet)
+  await sheet.getByRole('button', { name: 'It gave me energy' }).click()
+  await settled(page)
+  await measure('New activity: how you felt (12 answer words)', sheet)
+  await sheet.getByRole('button', { name: 'Happy', exact: true }).click()
   await sheet.getByRole('button', { name: 'Next' }).click()
+  await settled(page)
+  await measure('New activity: reflect', sheet)
+  await sheet.getByRole('button', { name: 'Skip' }).click()
   await expect(sheet.getByRole('button', { name: 'Save' })).toBeVisible()
   await settled(page)
   await measure('New activity: anything else', sheet)
   await sheet.getByRole('button', { name: 'Close' }).click()
 
-  await page.goto('./#/review')
-  await expect(page.getByRole('heading', { level: 1, name: 'Review' })).toBeVisible()
-  await measure('Review home [47]', main)
-  await page.getByRole('button', { name: /^(Start review|Review now)$/ }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'At a glance' })).toBeVisible()
-  await measure('Review: at a glance [114]', main)
-  await page.getByRole('button', { name: 'Next' }).click()
-  await page.getByRole('button', { name: 'Next' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Best and worst moments' })).toBeVisible()
-  await measure('Review: moments [255]', main)
+  await page.getByRole('button', { name: 'Write freely' }).click()
+  await measure('Write freely', sheet)
+  await sheet.getByRole('button', { name: 'Close' }).click()
 
   await page.goto('./#/insights')
   await expect(page.getByRole('heading', { level: 1, name: 'Insights' })).toBeVisible()
@@ -102,22 +99,11 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
   await measure('More [460]', main)
   for (const [path, screen] of [
     ['reminders', 'More → Reminders [266]'],
-    ['evening', 'More → Evening question'],
+    ['purpose', 'More → Your purpose'],
     ['backup', 'More → Backup and restore [67]'],
   ] as const) {
     await page.goto(`./#/more/${path}`)
     await expect(page.getByRole('link', { name: '‹ More' })).toBeVisible()
-    await measure(screen, main)
-  }
-
-  for (const [path, screen] of [
-    ['design', 'Life Design'],
-    ['design/odyssey', 'Odyssey Plans'],
-    ['design/plan-1', 'Plan, first screen'],
-    ['design/views', 'Workview & Lifeview'],
-  ] as const) {
-    await page.goto(`./#/${path}`)
-    await expect(page.locator('h1').first()).toBeVisible()
     await measure(screen, main)
   }
 
@@ -129,8 +115,8 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
 
 // The welcome on a new phone (Phase 3a.5). Set from measurements; raise only with the owner's OK.
 const WELCOME_BUDGETS = {
-  'Welcome: Life Design': 55,
-  'Welcome: what it helps with': 65, // reuses More → Evening question as it is
+  'Welcome: Life Design': 60, // the examples now say what each did to your energy
+  'Welcome: what it helps with': 105, // the purpose list, as in More → Your purpose
   'Welcome: a nudge each evening': 20,
 } as const
 

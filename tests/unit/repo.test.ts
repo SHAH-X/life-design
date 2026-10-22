@@ -10,6 +10,9 @@ import {
   entrySource,
   firstEntryCreatedAt,
   hasJournalData,
+  hasEnergy,
+  hasEngagement,
+  isDone,
   latestViews,
   saveAnswer,
   saveEntry,
@@ -207,5 +210,53 @@ describe('hasJournalData: whether anything has been written yet', () => {
   it('is true with only a plan or a Workview', async () => {
     await saveViews({ workview: 'Work is how I serve', lifeview: '', coherence: '' })
     expect(await hasJournalData()).toBe(true)
+  })
+})
+
+describe('purpose journaling entries', () => {
+  it('keep each answered reflection with its question, and drop the empty ones', () => {
+    const entry = buildEntry(
+      draft({
+        purpose: 'grow',
+        reflections: [
+          { question: 'What went well?', text: '  The demo  ' },
+          { question: 'What could you have handled differently?', text: ' ' },
+        ],
+        intention: { kind: 'differently', text: '  A shorter agenda ', status: 'open', updatedAt: 0 },
+        take: ' Long meetings drain me ',
+      }),
+      undefined,
+      new Date(2026, 9, 21, 20),
+    )
+    expect(entry).toMatchObject({
+      kind: 'activity',
+      purpose: 'grow',
+      reflections: [{ question: 'What went well?', text: 'The demo' }],
+      intention: { kind: 'differently', text: 'A shorter agenda', status: 'open' },
+      take: 'Long meetings drain me',
+      status: 'done',
+    })
+  })
+
+  it('save free writing without an activity, but never an empty page', async () => {
+    const free = await saveEntry(draft({ kind: 'free', activity: '', purpose: 'free', note: 'Kept thinking about the move' }))
+    expect(free).toMatchObject({ kind: 'free', activity: '', note: 'Kept thinking about the move' })
+    await expect(saveEntry(draft({ kind: 'free', activity: '', note: '  ' }))).rejects.toThrow()
+  })
+
+  it('keep a draft as a draft until it is saved', async () => {
+    const saved = await saveEntry(draft({ status: 'draft' }))
+    expect(saved.status).toBe('draft')
+    expect(isDone(saved)).toBe(false)
+    const done = await saveEntry(draft({ status: 'done' }), saved)
+    expect(done).toMatchObject({ id: saved.id, status: 'done' })
+    expect(isDone(done)).toBe(true)
+  })
+
+  it('leave skipped questions out of the numbers instead of guessing', () => {
+    const now = new Date(2026, 9, 21, 20)
+    expect(hasEnergy(buildEntry(draft({ skipped: ['energy'] }), undefined, now))).toBe(false)
+    expect(hasEngagement(buildEntry(draft({ skipped: ['engagement'] }), undefined, now))).toBe(false)
+    expect(hasEnergy(buildEntry(draft(), undefined, now))).toBe(true)
   })
 })

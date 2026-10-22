@@ -30,30 +30,51 @@ export async function sharedFile(page: Page): Promise<{ name: string; text: stri
   return shared
 }
 
+export type EnergyAnswer = 'It gave me energy' | 'It used up my energy' | 'Little difference' | 'A mix of both'
+
 export interface NewEntry {
   activity: string
-  /** "What was it like?" words. */
-  during: string[]
-  /** "How did it leave you?" words. */
-  after: string[]
+  /** "What was it like?" words; left out, the step is skipped. */
+  during?: string[]
+  /** "What did it do to your energy?"; left out, skipped. */
+  energy?: EnergyAnswer
+  /** "How did you feel?" words; left out, skipped. */
+  after?: string[]
+  /** Answers to the purpose questions, in order (a second one adds "+ Another question"). */
+  reflect?: string[]
   where?: string
   note?: string
 }
 
-/** Logs an activity the way it's done on the phone: one question per screen, answered with feeling words. */
+/** Reflects on an activity the way it's done on the phone: one question per screen, anything after the first skippable. */
 export async function addEntry(page: Page, entry: NewEntry) {
-  await page.getByRole('button', { name: '+ Add activity' }).click()
+  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
   const sheet = page.getByRole('dialog', { name: 'New activity' })
   await sheet.getByLabel('What did you do?').fill(entry.activity)
   await sheet.getByRole('button', { name: 'Next' }).click()
-  for (const word of entry.during) await sheet.getByRole('button', { name: word, exact: true }).click()
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  for (const word of entry.after) await sheet.getByRole('button', { name: word, exact: true }).click()
-  await sheet.getByRole('button', { name: 'Next' }).click()
+
+  await expect(sheet.getByRole('heading', { name: 'What was it like?' })).toBeVisible()
+  for (const word of entry.during ?? []) await sheet.getByRole('button', { name: word, exact: true }).click()
+  await sheet.getByRole('button', { name: entry.during?.length ? 'Next' : 'Skip' }).click()
+
+  await expect(sheet.getByRole('heading', { name: 'What did it do to your energy?' })).toBeVisible()
+  await sheet.getByRole('button', { name: entry.energy ?? 'Skip', exact: true }).click() // an answer moves straight on
+
+  await expect(sheet.getByRole('heading', { name: 'How did you feel?' })).toBeVisible()
+  for (const word of entry.after ?? []) await sheet.getByRole('button', { name: word, exact: true }).click()
+  await sheet.getByRole('button', { name: entry.after?.length ? 'Next' : 'Skip' }).click()
+
+  await expect(sheet.getByLabel('For')).toBeVisible()
+  for (const [i, text] of (entry.reflect ?? []).entries()) {
+    if (i > 0) await sheet.getByRole('button', { name: '+ Another question' }).click()
+    await sheet.locator('.reflection textarea').nth(i).fill(text)
+  }
+  await sheet.getByRole('button', { name: entry.reflect?.length ? 'Next' : 'Skip' }).click()
+
   await expect(sheet.getByRole('button', { name: 'Save' })).toBeVisible()
-  if (entry.note) await sheet.locator('textarea').fill(entry.note)
+  if (entry.note) await sheet.getByLabel('What else would you like to record?').fill(entry.note)
   if (entry.where) {
-    await sheet.getByRole('button', { name: '+ Where, who, what' }).click()
+    await sheet.getByRole('button', { name: '+ How long, where, who' }).click()
     await sheet.getByLabel('Add to where').fill(entry.where)
     await sheet.getByLabel('Add to where').press('Enter')
   }

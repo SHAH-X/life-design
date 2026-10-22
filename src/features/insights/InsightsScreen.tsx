@@ -1,7 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import {
-  balanceTally,
   CONTEXT_LABELS,
   type ContextKey,
   contextStats,
@@ -15,9 +14,8 @@ import {
   type Period,
 } from '../../analysis/stats'
 import { db } from '../../db/db'
+import { hasEnergy, hasEngagement, isDone } from '../../db/repo'
 import { addDays, formatPeriod, toDateKey } from '../../lib/dates'
-import { navigate } from '../../lib/route'
-import { BALANCE_INFO } from '../../reviews/prompts'
 import { overallEnergyWord, times } from '../../domain/feelings'
 import { EnergyRows } from '../../ui/charts/EnergyRows'
 import { StatTile } from '../../ui/StatTile'
@@ -46,23 +44,26 @@ export function InsightsScreen() {
   if (data === undefined) return <div className="loading" aria-busy="true" />
 
   const today = toDateKey(new Date())
-  const firstDate = data.entries.reduce<string | null>((min, e) => (min === null || e.date < min ? e.date : min), null)
+  // Finished entries only; each measure only from the entries that answered it.
+  const done = data.entries.filter(isDone)
+  const firstDate = done.reduce<string | null>((min, e) => (min === null || e.date < min ? e.date : min), null)
   const days = RANGES.find((r) => r.key === range)?.days ?? null
   const period: Period = days === null ? { start: firstDate ?? today, end: today } : { start: addDays(today, -(days - 1)), end: today }
 
-  const entries = inPeriod(data.entries, period)
+  const entries = inPeriod(done, period)
+  const withEnergy = entries.filter(hasEnergy)
+  const withEngagement = entries.filter(hasEngagement)
   const smallJoys = inPeriod(data.days, period).filter((d) => d.smallJoy)
   const reviews = data.reviews.filter((r) => r.periodEnd >= period.start && r.periodEnd <= period.end)
-  const totals = overview(data.entries, period)
-  const balance = balanceTally(reviews)
+  const totals = overview(done, period)
   const learnings = reviews
     .filter((r) => r.completedAt !== null && r.takeaway.trim())
     .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd))
   const words = joyWords(smallJoys)
-  const gives = energisers(entries)
-  const drains = drainers(entries)
-  const flow = flowFinder(entries)
-  const contextRows = contextStats(entries, context)
+  const gives = energisers(withEnergy)
+  const drains = drainers(withEnergy)
+  const flow = flowFinder(withEngagement)
+  const contextRows = contextStats(withEnergy, context)
 
   return (
     <>
@@ -76,7 +77,7 @@ export function InsightsScreen() {
       </div>
       <p className="muted small">{formatPeriod(period.start, period.end)}</p>
 
-      {data.entries.length === 0 ? (
+      {done.length === 0 ? (
         <section className="card">
           <p>After a few days of logging, this shows what gives you energy and what takes it.</p>
         </section>
@@ -96,12 +97,12 @@ export function InsightsScreen() {
 
           <div className="kpi-row">
             <StatTile label="Logged on" value={`${totals.daysLogged} ${totals.daysLogged === 1 ? 'day' : 'days'}`} />
-            <StatTile label="Energy" value={overallEnergyWord(entries.map((e) => e.energy)) ?? '–'} words />
+            <StatTile label="Energy" value={overallEnergyWord(withEnergy.map((e) => e.energy)) ?? '–'} words />
             <StatTile label="Time flew" value={totals.flow ? times(totals.flow) : 'not yet'} />
           </div>
 
           <section className="card">
-            <EnergyCharts entries={data.entries} period={period} />
+            <EnergyCharts entries={done} period={period} />
           </section>
 
           <section className="card">
@@ -135,39 +136,6 @@ export function InsightsScreen() {
             {contextRows.length ? <EnergyRows rows={contextRows} direction="context" /> : <p className="muted small">{NEED_MORE}</p>}
           </section>
 
-          <section className="card">
-            <h2>Balance</h2>
-            {balance.mostAlive || balance.mostNeglected ? (
-              <ul className="plain-list">
-                {balance.mostAlive ? (
-                  <li>
-                    Most alive: <strong>{BALANCE_INFO[balance.mostAlive.area].label}</strong>
-                    <span className="muted">
-                      {' '}
-                      · {balance.mostAlive.count} of {balance.reviews} {balance.reviews === 1 ? 'review' : 'reviews'}
-                    </span>
-                  </li>
-                ) : null}
-                {balance.mostNeglected ? (
-                  <li>
-                    Most neglected: <strong>{BALANCE_INFO[balance.mostNeglected.area].label}</strong>
-                    <span className="muted">
-                      {' '}
-                      · {balance.mostNeglected.count} of {balance.reviews} {balance.reviews === 1 ? 'review' : 'reviews'}
-                    </span>
-                  </li>
-                ) : null}
-              </ul>
-            ) : (
-              <p className="muted small">
-                Picked in each review.{' '}
-                <button type="button" className="link" onClick={() => navigate('review')}>
-                  Review
-                </button>
-              </p>
-            )}
-          </section>
-
           {words.length ? (
             <section className="card">
               <h2>Small joys</h2>
@@ -194,7 +162,7 @@ export function InsightsScreen() {
                 ))}
               </ul>
             ) : (
-              <p className="muted small">Takeaways from reviews land here.</p>
+              <p className="muted small">What you choose to remember lands here.</p>
             )}
           </section>
         </>

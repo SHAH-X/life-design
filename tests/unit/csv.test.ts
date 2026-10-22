@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { entriesToCsv } from '../../src/db/csv'
-import type { Entry } from '../../src/db/types'
+import { type Entry, entryDefaults } from '../../src/db/types'
 
 const entry = (over: Partial<Entry>): Entry => ({
   id: 'e',
@@ -19,6 +19,7 @@ const entry = (over: Partial<Entry>): Entry => ({
   source: 'evening',
   createdAt: Date.UTC(2026, 9, 21, 19),
   updatedAt: Date.UTC(2026, 9, 21, 19),
+  ...entryDefaults(),
   ...over,
 })
 
@@ -33,7 +34,7 @@ describe('entriesToCsv', () => {
     ])
     const lines = rows(csv)
     expect(lines[0]).toBe(
-      'date,part_of_day,activity,what_it_was_like,how_it_left_you,engagement_1_to_5,energy_minus2_to_plus2,flow,where,with_whom,using,note,source,created_at',
+      'date,part_of_day,activity,what_it_was_like,how_it_left_you,engagement_1_to_5,energy_minus2_to_plus2,flow,where,with_whom,using,note,source,created_at,kind,purpose,energy,how_long,reflections,next_step',
     )
     expect(lines.slice(1).map((l) => l.split(',')[2])).toEqual(['A', 'B', 'C'])
   })
@@ -62,5 +63,29 @@ describe('entriesToCsv', () => {
     expect(csv.startsWith('﻿')).toBe(true)
     expect(csv.endsWith('\r\n')).toBe(true)
     expect(csv.replace(/\r\n/g, '')).not.toContain('\n')
+  })
+
+  it('adds the purpose, the energy answer, how long, reflections and the next step in words', () => {
+    const [, line] = rows(
+      entriesToCsv([
+        entry({
+          purpose: 'grow',
+          energyEffect: 'used',
+          duration: 'hour',
+          reflections: [
+            { question: 'What went well?', text: 'The demo' },
+            { question: 'What would you like to try next time?', text: 'A shorter agenda' },
+          ],
+          intention: { kind: 'differently', text: 'Ask for an agenda', status: 'done', updatedAt: 1 },
+        }),
+      ]),
+    )
+    expect(line).toContain(
+      ',activity,Improve myself,It used up my energy,About an hour,What went well? The demo | What would you like to try next time? A shorter agenda,Try something differently: Ask for an agenda (done)',
+    )
+  })
+
+  it('leaves out drafts', () => {
+    expect(rows(entriesToCsv([entry({ id: 'd', status: 'draft' })]))).toHaveLength(1)
   })
 })

@@ -4,7 +4,19 @@ import { type DayPart, toDateKey } from '../lib/dates'
 import { db as defaultDb, type LifeDesignDB } from './db'
 import { guardWrite } from './saveErrors'
 import { keepsVersion } from '../domain/lifeDesign'
-import type { AeiouNote, Answer, Entry, EntrySource, OdysseyPlan, Purpose, Review, Views } from './types'
+import {
+  type AeiouNote,
+  type Answer,
+  type Entry,
+  type EntrySource,
+  entryDefaults,
+  type Intention,
+  type OdysseyPlan,
+  type Purpose,
+  type Review,
+  type Views,
+  type Week,
+} from './types'
 
 export interface EntryDraft {
   date: string
@@ -20,6 +32,16 @@ export interface EntryDraft {
   during: string[]
   after: string[]
   note: string
+  /** Purpose journaling (v0.8); left out, an entry is a finished activity with nothing skipped. */
+  kind?: Entry['kind']
+  purpose?: Entry['purpose']
+  energyEffect?: Entry['energyEffect']
+  duration?: Entry['duration']
+  reflections?: Entry['reflections']
+  intention?: Entry['intention']
+  take?: string
+  status?: Entry['status']
+  skipped?: Entry['skipped']
 }
 
 const tidy = (s: string) => s.trim().replace(/\s+/g, ' ')
@@ -46,6 +68,10 @@ export function entrySource(date: string, now: Date): EntrySource {
 
 export function buildEntry(draft: EntryDraft, existing: Entry | undefined, now: Date): Entry {
   const time = now.getTime()
+  // A field left out keeps what the entry had (an edit never loses a next step or your take); null clears it.
+  const keep = <K extends keyof ReturnType<typeof entryDefaults>>(key: K): Entry[K] =>
+    (draft[key] !== undefined ? draft[key] : (existing?.[key] ?? entryDefaults()[key])) as Entry[K]
+  const intention = keep('intention')
   return {
     id: existing?.id ?? crypto.randomUUID(),
     date: draft.date,
@@ -61,6 +87,16 @@ export function buildEntry(draft: EntryDraft, existing: Entry | undefined, now: 
     after: tidyList(draft.after),
     note: draft.note.trim(),
     source: existing?.source ?? entrySource(draft.date, now),
+    kind: keep('kind'),
+    purpose: keep('purpose'),
+    energyEffect: keep('energyEffect'),
+    duration: keep('duration'),
+    // Only answered questions are kept, each with its question.
+    reflections: keep('reflections').map((r) => ({ question: r.question, text: r.text.trim() })).filter((r) => r.text),
+    intention: intention ? { ...intention, text: intention.text.trim() } : null,
+    take: keep('take').trim(),
+    status: keep('status'),
+    skipped: keep('skipped'),
     createdAt: existing?.createdAt ?? time,
     updatedAt: time,
   }
@@ -68,9 +104,36 @@ export function buildEntry(draft: EntryDraft, existing: Entry | undefined, now: 
 
 export async function saveEntry(draft: EntryDraft, existing?: Entry, database: LifeDesignDB = defaultDb): Promise<Entry> {
   const entry = buildEntry(draft, existing, new Date())
-  if (!entry.activity) throw new Error('An entry needs an activity')
+  if (entry.kind === 'activity' && !entry.activity) throw new Error('An entry needs an activity')
+  if (entry.kind === 'free' && !entry.note && entry.reflections.length === 0) throw new Error('Free writing needs some words')
   await guardWrite(() => database.entries.put(entry))
   return entry
+}
+
+/** Finished entries only: drafts stay out of Insights, the weekly review and patterns. */
+export const isDone = (entry: Pick<Entry, 'status'>) => entry.status !== 'draft'
+/** Whether an entry says anything about energy (the question wasn't skipped). */
+export const hasEnergy = (entry: Pick<Entry, 'skipped'>) => !entry.skipped.includes('energy')
+/** Whether an entry says anything about engagement (the question wasn't skipped). */
+export const hasEngagement = (entry: Pick<Entry, 'skipped'>) => !entry.skipped.includes('engagement')
+
+/** Follows up a next step: done, let go, or back to open ("Not yet"). */
+export async function setIntentionStatus(entry: Entry, status: Intention['status'], database: LifeDesignDB = defaultDb): Promise<void> {
+  if (!entry.intention) return
+  const intention = { ...entry.intention, status, updatedAt: Date.now() }
+  await guardWrite(() => database.entries.update(entry.id, { intention, updatedAt: Date.now() }))
+}
+
+/** What you'd like to carry into the next week, kept with the week it was written for. */
+export async function saveWeek(weekStart: string, carry: string, database: LifeDesignDB = defaultDb, now: number = Date.now()): Promise<Week> {
+  return guardWrite(() =>
+    database.transaction('rw', database.weeks, async () => {
+      const existing = await database.weeks.get(weekStart)
+      const week: Week = { id: weekStart, carry: carry.trim(), createdAt: existing?.createdAt ?? now, updatedAt: now }
+      await database.weeks.put(week)
+      return week
+    }),
+  )
 }
 
 export async function deleteEntry(id: string, database: LifeDesignDB = defaultDb): Promise<void> {
@@ -133,6 +196,13 @@ export async function setSetting(key: string, value: unknown, database: LifeDesi
   await guardWrite(() => database.settings.put({ key, value, updatedAt: Date.now() }))
 }
 
+/** A purpose's follow-up answer ("What are you working towards?"…). The goal keeps its own key, as since Phase 2.5. */
+export async function setPurposeFocus(purpose: Purpose, text: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  if (purpose === 'goal') return setSetting('goal', text.trim(), database)
+  const current = await getSetting<Record<string, string>>('purposeFocus', {}, database)
+  await setSetting('purposeFocus', { ...current, [purpose]: text.trim() }, database)
+}
+
 export interface Suggestions {
   activities: string[]
   where: string[]
@@ -176,7 +246,7 @@ export async function loadSuggestions(database: LifeDesignDB = defaultDb): Promi
 
 /** Entries, days, evening answers, reviews, plans and views created or changed after `since` (everything when never backed up). */
 export async function countChangesSince(since: number | null, database: LifeDesignDB = defaultDb): Promise<number> {
-  const tables = [database.entries, database.days, database.answers, database.reviews, database.odysseyPlans, database.views] as const
+  const tables = [database.entries, database.days, database.answers, database.reviews, database.odysseyPlans, database.views, database.weeks] as const
   const counts = await Promise.all(tables.map((t) => (since === null ? t.count() : t.where('updatedAt').above(since).count())))
   return counts.reduce((sum, n) => sum + n, 0)
 }

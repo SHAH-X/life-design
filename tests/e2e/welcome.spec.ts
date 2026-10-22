@@ -24,24 +24,41 @@ test('a first open shows a short welcome; Skip goes straight to Today, and it ne
   await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()
 })
 
-test('the welcome sets what the evening question helps with, then starts on Today', async ({ page }) => {
+test('the welcome asks what journaling is for, with a follow-up, then starts on Today', async ({ page }) => {
   await page.goto('./')
   await expect(page.getByText('1 of 3')).toBeVisible()
   await page.getByRole('button', { name: 'Next' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'What would you like it to help with?' })).toBeVisible()
-  await page.getByRole('switch', { name: /^Feel calmer/ }).uncheck()
+  const purposes = page.getByRole('radiogroup', { name: 'What would you like it to help with?' })
+  await expect(purposes.getByRole('radio')).toHaveCount(7)
+  await expect(purposes.getByRole('radio', { name: /^Understand myself/ })).toBeChecked()
+  await purposes.getByRole('radio', { name: /^Improve myself/ }).check()
+  await page.getByLabel('What would you like to change or improve?').fill('Staying calm in meetings')
+  await expect(page.getByText('Saved')).toBeVisible()
   await page.getByRole('button', { name: 'Next' }).click()
 
   await expect(page.getByRole('heading', { level: 1, name: 'A nudge each evening?' })).toBeVisible()
   await page.getByRole('button', { name: 'Back' }).click()
-  await expect(page.getByRole('switch', { name: /^Feel calmer/ })).not.toBeChecked()
+  await expect(purposes.getByRole('radio', { name: /^Improve myself/ })).toBeChecked()
   await page.getByRole('button', { name: 'Next' }).click()
   await page.getByRole('button', { name: 'Start' }).click()
   await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()
 
-  await page.goto('./#/more/evening')
-  await expect(page.getByRole('switch', { name: /^Feel calmer/ })).not.toBeChecked()
-  await expect(page.getByRole('switch', { name: /^Learn/ })).toBeChecked()
+  // An entry reflects for that purpose unless changed.
+  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
+  const sheet = page.getByRole('dialog', { name: 'New activity' })
+  await sheet.getByLabel('What did you do?').fill('Team meeting')
+  await sheet.getByRole('button', { name: 'Next' }).click()
+  await sheet.getByRole('button', { name: 'Skip' }).click()
+  await sheet.getByRole('button', { name: 'Skip' }).click()
+  await sheet.getByRole('button', { name: 'Skip' }).click()
+  await expect(sheet.getByLabel('For')).toHaveValue('grow')
+  await expect(sheet.getByLabel('What went well?')).toBeVisible()
+  await sheet.getByRole('button', { name: 'Close' }).click()
+
+  await page.goto('./#/more/purpose')
+  await expect(page.getByRole('radio', { name: /^Improve myself/ })).toBeChecked()
+  await expect(page.getByLabel('What would you like to change or improve?')).toHaveValue('Staying calm in meetings')
 })
 
 test('a reminder can be set from the welcome', async ({ page }) => {

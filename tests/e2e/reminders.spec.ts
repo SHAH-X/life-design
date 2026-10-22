@@ -7,7 +7,7 @@ test('choose reminders, times and a date range, then get one calendar file with 
   const card = page.locator('section.card')
 
   // Defaults: all four reminders on, one year from today.
-  for (const name of [/^Daily log/, /^Review \(incl\. AI review\)/, /^Backup/, /^Quarterly check-in/]) {
+  for (const name of [/^Daily log/, /^Look back/, /^Backup/, /^Quarterly check-in/]) {
     await expect(card.getByRole('switch', { name })).toBeChecked()
   }
   await expect(card.getByRole('button', { name: '1 year' })).toHaveAttribute('aria-pressed', 'true')
@@ -16,13 +16,13 @@ test('choose reminders, times and a date range, then get one calendar file with 
   await card.getByLabel('From', { exact: true }).fill('2026-10-01')
   await card.getByLabel('To', { exact: true }).fill('2027-10-01')
   await card.getByLabel('Daily log time').selectOption('07:30')
-  await card.getByLabel('Review repeats').selectOption('monthly')
-  await card.getByLabel('Review on the first').selectOption('1') // Monday
+  await card.getByLabel('Look back repeats').selectOption('monthly')
+  await card.getByLabel('Look back on the first').selectOption('1') // Monday
   await card.getByRole('switch', { name: /^Backup/ }).uncheck()
 
   const summary = card.locator('.summary')
   await expect(summary).toContainText(/Daily log: Every day at 0?7:30/)
-  await expect(summary).toContainText(/Review \(incl\. AI review\): First Monday of every month/)
+  await expect(summary).toContainText(/Look back: First Monday of every month/)
   await expect(summary).toContainText(/Quarterly check-in: Every 3 months on the first Sunday/)
   await expect(summary).not.toContainText('Backup:')
   await expect(summary).toContainText(/From (1 Oct 2026|Oct 1, 2026) to (1 Oct 2027|Oct 1, 2027)/)
@@ -59,8 +59,8 @@ test('"No end date" leaves the reminders open-ended', async ({ page }) => {
 
 test('typing a multi-digit "every N days" works key by key', async ({ page }) => {
   await page.goto('./#/more/reminders')
-  await page.getByLabel('Review repeats').selectOption('days')
-  const every = page.getByLabel('Review every (days)')
+  await page.getByLabel('Look back repeats').selectOption('days')
+  const every = page.getByLabel('Look back every (days)')
   await every.fill('')
   await every.pressSequentially('21') // "2" then "21": each keystroke must stick
   await expect(every).toHaveValue('21')
@@ -82,15 +82,10 @@ test('no link in the app opens a file inside the app (on iPhone that left the ap
   await page.getByRole('button', { name: 'Start' }).click()
   for (const path of [
     'today',
-    'review',
     'insights',
-    'design',
-    'design/odyssey',
-    'design/plan-1',
-    'design/views',
     'more',
     'more/reminders',
-    'more/evening',
+    'more/purpose',
     'more/words',
     'more/backup',
     'more/export',
@@ -106,7 +101,7 @@ test('no link in the app opens a file inside the app (on iPhone that left the ap
 test('More is a short list of pages, each with a way back', async ({ page }) => {
   await page.goto('./#/more')
   const list = page.getByRole('navigation', { name: 'Settings' })
-  for (const name of ['Reminders', 'Evening question', 'Your feeling words', 'Backup and restore', 'Spreadsheet export', 'This phone', 'Delete everything']) {
+  for (const name of ['Reminders', 'Your purpose', 'Your feeling words', 'Backup and restore', 'Spreadsheet export', 'This phone', 'Delete everything']) {
     await expect(list.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
   }
   await list.getByRole('link', { name: /^Reminders/ }).click()

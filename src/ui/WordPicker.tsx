@@ -26,14 +26,6 @@ const PLACE: Partial<Record<FeelingKind, { question: string; answers: readonly {
       { label: 'Not really', weight: 2 },
     ],
   },
-  after: {
-    question: 'Did it give you energy or take it?',
-    answers: [
-      { label: 'Gave', weight: 1 },
-      { label: 'Took', weight: -1 },
-      { label: 'Neither', weight: 0 },
-    ],
-  },
 }
 
 const tidy = (s: string) => s.trim().replace(/\s+/g, ' ')

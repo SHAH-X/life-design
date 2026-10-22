@@ -10,7 +10,8 @@ test('a password-protected backup saved through the share sheet restores, emoji 
   await addEntry(page, {
     activity: 'Coffee ☕️ with “Sam” — it’s been ages',
     during: ['Absorbed'],
-    after: ['Energised', 'Proud'],
+    energy: 'It gave me energy',
+    after: ['Proud'],
     note: 'Talked for hours… felt great 🙌',
   })
   await smallJoy(page).fill('Sunset 🌅 over the river · 日本語')

@@ -25,7 +25,7 @@ describe('database upgrade', () => {
     expect(await upgraded.entries.get('kept')).toMatchObject({ activity: 'Choir rehearsal' })
     expect(await upgraded.days.get('2026-10-20')).toMatchObject({ smallJoy: 'Fresh bread' })
     expect(await upgraded.reviews.count()).toBe(0)
-    expect(upgraded.verno).toBe(5)
+    expect(upgraded.verno).toBe(6)
     await upgraded.delete()
   })
 
@@ -67,7 +67,7 @@ describe('database upgrade', () => {
     expect(review?.updatedAt).toBe(7) // an upgrade is not an edit
     expect(await upgraded.entries.get('kept')).toMatchObject({ activity: 'Choir rehearsal' })
     expect(await upgraded.answers.count()).toBe(0)
-    expect(upgraded.verno).toBe(5)
+    expect(upgraded.verno).toBe(6)
     await upgraded.delete()
   })
 
@@ -109,7 +109,7 @@ describe('database upgrade', () => {
       balance: { play: 3 },
       updatedAt: 7,
     })
-    expect(upgraded.verno).toBe(5)
+    expect(upgraded.verno).toBe(6)
     await upgraded.delete()
   })
 
@@ -155,7 +155,60 @@ describe('database upgrade', () => {
     })
     expect(await upgraded.planVersions.count()).toBe(0)
     expect(await upgraded.views.count()).toBe(0)
-    expect(upgraded.verno).toBe(5)
+    expect(upgraded.verno).toBe(6)
+    await upgraded.delete()
+  })
+
+  it('gives entries from a Phase 3a phone the purpose-journaling fields, changing nothing else', async () => {
+    const name = `upgrade-${crypto.randomUUID()}`
+    const phase3a = new Dexie(name)
+    phase3a.version(1).stores({
+      entries: 'id, date, createdAt, updatedAt',
+      days: 'date, updatedAt',
+      ikigaiItems: 'id, updatedAt',
+      odysseyPlans: 'id, slot, updatedAt',
+      settings: 'key',
+    })
+    phase3a.version(2).stores({ reviews: 'id, periodEnd, updatedAt' })
+    phase3a.version(3).stores({ answers: 'id, date, updatedAt' })
+    phase3a.version(4).stores({})
+    phase3a.version(5).stores({ planVersions: 'id, planId, savedAt, updatedAt', views: 'id, updatedAt' })
+    const old = {
+      id: 'e1',
+      date: '2026-10-20',
+      part: 'evening',
+      activity: 'Team meeting',
+      engagement: 2,
+      energy: -1,
+      flow: false,
+      where: ['Office'],
+      people: ['Alex'],
+      objects: [],
+      during: ['Distracted'],
+      after: ['Tired'],
+      note: 'Went in circles',
+      source: 'evening',
+      createdAt: 5,
+      updatedAt: 9,
+    }
+    await phase3a.table('entries').put(old)
+    phase3a.close()
+
+    const upgraded = openDb(name)
+    expect(upgraded.verno).toBe(6)
+    expect(await upgraded.entries.get('e1')).toEqual({
+      ...old,
+      kind: 'activity',
+      purpose: null,
+      energyEffect: null,
+      duration: null,
+      reflections: [],
+      intention: null,
+      take: '',
+      status: 'done',
+      skipped: [],
+    })
+    expect(await upgraded.weeks.count()).toBe(0)
     await upgraded.delete()
   })
 })

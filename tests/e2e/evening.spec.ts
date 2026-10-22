@@ -74,19 +74,16 @@ test('some evenings ask about a pattern in your own last two weeks', async ({ pa
   await expect(field.locator('.info-panel')).toContainText('A pattern from your last two weeks')
 })
 
-test('More → Evening question: choose purposes and set a goal', async ({ page }) => {
-  await page.goto('./#/more/evening')
-  for (const name of [/^Feel calmer/, /^Grow/, /^Reach a goal/, /^Learn/]) {
-    await expect(page.getByRole('switch', { name })).toBeChecked()
-  }
-  await expect(page.getByText('Goal questions start once this is set.')).toBeVisible()
-  await page.getByLabel("What's your goal?").fill('run a half marathon')
+test('More → Your purpose: one purpose, its optional follow-up, and the goal kept for goal questions', async ({ page }) => {
+  await page.goto('./#/more/purpose')
+  await expect(page.getByRole('radio', { name: /^Understand myself/ })).toBeChecked()
+  await page.getByRole('radio', { name: /^Achieve a goal/ }).check()
+  await page.getByLabel('What are you working towards?').fill('run a half marathon')
   await expect(page.getByText('Saved')).toBeVisible()
-  await page.getByRole('switch', { name: /^Feel calmer/ }).uncheck()
 
   await page.reload()
-  await expect(page.getByRole('switch', { name: /^Feel calmer/ })).not.toBeChecked()
-  await expect(page.getByLabel("What's your goal?")).toHaveValue('run a half marathon')
+  await expect(page.getByRole('radio', { name: /^Achieve a goal/ })).toBeChecked()
+  await expect(page.getByLabel('What are you working towards?')).toHaveValue('run a half marathon')
   await page.getByRole('link', { name: '‹ More' }).click()
-  await expect(page.getByRole('link', { name: /^Evening question/ })).toContainText('Grow · Reach a goal · Learn')
+  await expect(page.getByRole('link', { name: /^Your purpose/ })).toContainText('Achieve a goal')
 })

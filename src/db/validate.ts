@@ -14,6 +14,8 @@ import {
   type Setting,
   type TableName,
   type Views,
+  type Week,
+  entryDefaults,
 } from './types'
 
 type Rec = Record<string, unknown>
@@ -27,13 +29,42 @@ const isStrList = (x: unknown): x is string[] => Array.isArray(x) && x.every(isS
 const hasTimes = (r: Rec) => isNum(r.createdAt) && isNum(r.updatedAt)
 const isGauge = (x: unknown) => isNum(x) && x >= 0 && x <= 10
 
+const ENTRY_PURPOSES: readonly unknown[] = ['know', 'calm', 'grow', 'goal', 'learn', 'joy', 'free']
+const isOptional = (x: unknown, check: (y: unknown) => boolean) => x === undefined || check(x)
+const isOneOf = (values: readonly unknown[]) => (x: unknown) => values.includes(x)
+const isReflection = (x: unknown) => isObj(x) && isStr(x.question) && isStr(x.text)
+const isIntention = (x: unknown) =>
+  x === null ||
+  (isObj(x) &&
+    isOneOf(['differently', 'again', 'time', 'explore', 'remember'])(x.kind) &&
+    isStr(x.text) &&
+    isOneOf(['open', 'done', 'dropped'])(x.status) &&
+    isNum(x.updatedAt))
+
+/** Fields added in v0.8 may be missing from older files; anything present must be the right shape. */
+function hasValidJournalFields(x: Rec): boolean {
+  return (
+    isOptional(x.kind, isOneOf(['activity', 'free'])) &&
+    isOptional(x.purpose, (v) => v === null || ENTRY_PURPOSES.includes(v)) &&
+    isOptional(x.energyEffect, (v) => v === null || isOneOf(['gave', 'used', 'little', 'mixed'])(v)) &&
+    isOptional(x.duration, (v) => v === null || isOneOf(['minutes', 'hour', 'hours', 'day'])(v)) &&
+    isOptional(x.reflections, (v) => Array.isArray(v) && v.every(isReflection)) &&
+    isOptional(x.intention, isIntention) &&
+    isOptional(x.take, isStr) &&
+    isOptional(x.status, isOneOf(['draft', 'done'])) &&
+    isOptional(x.skipped, (v) => Array.isArray(v) && v.every(isOneOf(['engagement', 'energy'])))
+  )
+}
+
 export function isEntry(x: unknown): x is Entry {
   return (
     isObj(x) &&
     isNonEmptyStr(x.id) &&
     isDateKey(x.date) &&
     (x.part === 'morning' || x.part === 'afternoon' || x.part === 'evening') &&
-    isNonEmptyStr(x.activity) &&
+    // Free writing has no activity; everything else needs one.
+    (x.kind === 'free' ? isStr(x.activity) : isNonEmptyStr(x.activity)) &&
+    hasValidJournalFields(x) &&
     isEngagement(x.engagement) &&
     isEnergy(x.energy) &&
     isBool(x.flow) &&
@@ -158,6 +189,10 @@ export function isReview(x: unknown): x is Review {
   )
 }
 
+export function isWeek(x: unknown): x is Week {
+  return isObj(x) && isDateKey(x.id) && isStr(x.carry) && hasTimes(x)
+}
+
 export function isSetting(x: unknown): x is Setting {
   return isObj(x) && isNonEmptyStr(x.key) && 'value' in x && isNum(x.updatedAt)
 }
@@ -170,6 +205,7 @@ export const VALIDATORS: { [K in TableName]: (x: unknown) => x is BackupData[K][
   odysseyPlans: isOdysseyPlan,
   planVersions: isPlanVersion,
   views: isViews,
+  weeks: isWeek,
   reviews: isReview,
   settings: isSetting,
 }
@@ -194,7 +230,9 @@ export function normalizeRecord(table: TableName, record: unknown): unknown {
   }
   if (table === 'entries') {
     const entry = record as Entry
-    return { ...entry, during: entry.during ?? [], after: entry.after ?? [] }
+    const filled = { ...entryDefaults(), ...entry }
+    for (const [key, value] of Object.entries(entryDefaults())) if (filled[key as keyof Entry] === undefined) Object.assign(filled, { [key]: value })
+    return { ...filled, during: entry.during ?? [], after: entry.after ?? [] }
   }
   if (table !== 'reviews') return record
   const review = record as Review

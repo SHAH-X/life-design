@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Entry, Review } from '../../src/db/types'
+import { type Entry, type Review, entryDefaults } from '../../src/db/types'
 import { addDays, dayNumber } from '../../src/lib/dates'
 import { BANK } from '../../src/prompts/bank'
 import { findPatterns, type PatternPrompt } from '../../src/prompts/patterns'
@@ -108,6 +108,7 @@ describe('questions from your own days', () => {
       after: [],
       note: '',
       source: 'evening',
+      ...entryDefaults(),
       createdAt: n,
       updatedAt: n,
       ...over,

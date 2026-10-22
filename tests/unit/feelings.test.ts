@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   AFTER_WORDS,
   deriveEnergy,
+  ENERGY_OPTIONS,
+  energyFrom,
   deriveEngagement,
   deriveFlow,
   DURING_WORDS,
@@ -18,20 +20,39 @@ const zen: OwnWord = { word: 'Zen', kind: 'after', weight: 1 }
 const playful: OwnWord = { word: 'Playful', kind: 'during', weight: 4 }
 
 describe('the feeling words', () => {
-  it('offer nine words for what it was like and ten for how it left you, none preselected', () => {
+  it('offer nine words for what it was like and twelve for how you felt, none preselected', () => {
     expect(DURING_WORDS.map((w) => w.word)).toEqual(['Absorbed', 'Focused', 'Curious', 'Challenged', 'Time flew', 'Fine', 'Distracted', 'Restless', 'Bored'])
     expect(AFTER_WORDS.map((w) => w.word)).toEqual([
-      'Energised',
+      'Calm',
+      'Happy',
+      'Fulfilled',
+      'Connected',
       'Inspired',
       'Proud',
-      'Calm',
-      'Satisfied',
-      'Same as before',
+      'Neutral',
       'Tired',
       'Frustrated',
+      'Anxious',
       'Stressed',
-      'Drained',
+      'Sad',
     ])
+  })
+})
+
+describe('the energy question: worded choices, not a scale', () => {
+  it('offers four plain answers, and works out energy from them', () => {
+    expect(ENERGY_OPTIONS.map((o) => o.label)).toEqual(['It gave me energy', 'It used up my energy', 'Little difference', 'A mix of both'])
+    expect(energyFrom('gave', [])).toEqual({ energy: 2, answered: true })
+    expect(energyFrom('used', ['Happy'])).toEqual({ energy: -2, answered: true })
+    expect(energyFrom('little', [])).toEqual({ energy: 0, answered: true })
+    expect(energyFrom('mixed', [])).toEqual({ energy: 0, answered: true })
+  })
+
+  it('falls back on the feeling words when the question is skipped, and says so when there is nothing', () => {
+    expect(energyFrom(null, ['Calm', 'Happy'])).toEqual({ energy: 2, answered: true })
+    expect(energyFrom(null, ['Tired'])).toEqual({ energy: -1, answered: true })
+    expect(energyFrom(null, [])).toEqual({ energy: 0, answered: false })
+    expect(energyFrom(null, ['Neutral'])).toEqual({ energy: 0, answered: true })
   })
 })
 
@@ -79,7 +100,7 @@ describe('picking feeling words out of a note', () => {
     })
     expect(spotFeelings('Lost track of time; totally wiped out after', { during: [], after: [] })).toEqual({
       during: ['Time flew'],
-      after: ['Drained'],
+      after: ['Tired'],
     })
   })
 
@@ -99,6 +120,11 @@ describe('words for entries logged before feeling words existed', () => {
     expect(wordsFor({ ...old, energy: 2, engagement: 5, flow: true })).toEqual({ during: ['Absorbed', 'Time flew'], after: ['Energised'] })
     expect(wordsFor({ ...old, energy: -1, engagement: 2, flow: false })).toEqual({ during: ['Distracted'], after: ['Tired'] })
     expect(wordsFor({ ...old, energy: 0, engagement: 3, flow: false })).toEqual({ during: ['Fine'], after: ['Same as before'] })
+  })
+
+  it('but never for a question that was skipped on a newer entry', () => {
+    expect(wordsFor({ ...old, energy: 0, engagement: 3, flow: false, skipped: ['engagement', 'energy'] })).toEqual({ during: [], after: [] })
+    expect(wordsFor({ ...old, energy: 2, engagement: 3, flow: false, skipped: ['engagement'] })).toEqual({ during: [], after: ['Energised'] })
   })
 
   it('while newer entries keep the words that were chosen', () => {

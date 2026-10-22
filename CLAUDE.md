@@ -30,18 +30,20 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 - A sheet opens on its content, or on a field marked `data-autofocus`, never on ✕ Close. (Since Phase 1 the browser's default put focus on Close: a ring on every sheet, and a stray Enter closed it. An e2e test guards this.)
 - Sheets sit on top of the iPhone keyboard. iOS shrinks only the visible area (`visualViewport`) for the keyboard, never the page, so `Dialog` uses `useKeyboardInset`. Anything else pinned to the bottom with a text field must do the same. (v0.6: the keyboard covered "What did you do?". An e2e test fakes the keyboard.)
 - A question that replaces another under the finger ignores taps for 300 ms and marks its answers `aria-disabled` meanwhile, so a fast double tap can't answer it. An e2e test taps twice to prove it.
-- The two feeling-word questions ("What was it like?", "How did it leave you?") and their word lists stay the same every day so patterns stay comparable; tune weights in `feelings.ts`, not the words. Variety goes into the evening question only.
+- The activity questions ("What was it like?", "What did it do to your energy?", "How did you feel?") and their word lists stay the same every day so patterns stay comparable; tune weights in `feelings.ts`, not the words. Variety goes into the purpose questions and the evening question. (v0.8 replaced "How did it leave you?" with the energy question and a feelings list, per the owner's brief; older words still read and count.)
+- Every step after "What did you do?" can be skipped, and a skipped question is recorded in `skipped`, never guessed: Insights leave it out. (Owner's brief: "do not invent missing information".)
+- Purpose questions: one at a time, at most three per entry, every one optional. "Make sense of a hard time" never pushes for a lesson.
 
 ## No ratings, natural responses (Phase 2.6: "I don't want any rating to be given")
 - Nothing asks for or shows a rating, score, average or scale: not as numbers, not as stars, not as ordered word scales. Answers are natural words (feeling words, your own words, notes); results are words ("usually gives you energy"). Plain counts are fine ("5 times", "on 4 days").
 - Energy, engagement and flow are worked out on the phone from the words (`src/domain/feelings.ts`, one table of weights with tests) and stored for analysis, never displayed as values.
 - `tests/e2e/no-scores.spec.ts` fails if a score pattern (`+2`, `3.0`, `7/10`, "average") appears on Today, the logging screens, Review or Insights.
-- New screens (Odyssey Plans, prototypes…) follow the same rule: natural questions with words, never gauges or 0–10.
+- New screens follow the same rule: natural questions with words, never gauges or 0–10. Worded choices are fine ("It gave me energy" · "It used up my energy" · "Little difference" · "A mix of both").
 - The standing "never" list from the market research lives in `DECISIONS.md`: check new features against it.
 
 ## Words and clutter (Phase 2.5: "the app feels wordy")
 - A screen is a title, the questions or content, and one main action. No help paragraphs: a question explains itself; anything more goes behind ⓘ or a collapsed section.
-- A status is one short line. Today shows at most one notice (backup due, then review due, then install).
+- A status is one short line. Today shows at most one notice (backup due, then install).
 - Settings live on their own pages; More stays a short list.
 - Every screen speaks in words; plain counts are the only numbers (see "No ratings" above).
 - Word budgets: `tests/e2e/word-budget.spec.ts` counts the visible words on each main screen with the fictional seed and fails above its budget. It runs at a fixed date on purpose: the evening question changes daily, and a floating date let the test pass or fail by chance. Raise a budget only with the owner's OK; a new main screen gets a budget when it's added.

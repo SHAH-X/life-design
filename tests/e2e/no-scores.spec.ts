@@ -19,14 +19,20 @@ test('no screen asks for or shows a rating or score', async ({ page }, testInfo)
   await page.getByRole('button', { name: 'Previous day' }).click()
   await expectNoScores(page, 'Today')
 
-  await page.getByRole('button', { name: '+ Add activity' }).click()
+  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
   const sheet = page.getByRole('dialog', { name: 'New activity' })
   await sheet.getByLabel('What did you do?').fill('Choir rehearsal')
   await sheet.getByRole('button', { name: 'Next' }).click()
   await expectNoScores(page, 'What was it like?')
   await sheet.getByRole('button', { name: 'Focused', exact: true }).click()
   await sheet.getByRole('button', { name: 'Next' }).click()
-  await expectNoScores(page, 'How did it leave you?')
+  await expectNoScores(page, 'What did it do to your energy?')
+  await sheet.getByRole('button', { name: 'It gave me energy' }).click()
+  await expectNoScores(page, 'How did you feel?')
+  await sheet.getByRole('button', { name: 'Skip' }).click()
+  await expectNoScores(page, 'Reflect')
+  await sheet.getByRole('button', { name: 'Skip' }).click()
+  await expectNoScores(page, 'What else would you like to record?')
   await sheet.getByRole('button', { name: 'Close' }).click()
 
   await page.goto('./#/insights')
@@ -38,21 +44,6 @@ test('no screen asks for or shows a rating or score', async ({ page }, testInfo)
     await page.getByText('Show as table').click()
     await expectNoScores(page, `Insights, into it (${range})`)
     await page.getByRole('group', { name: 'Chart' }).getByRole('button', { name: 'Energy' }).click()
-  }
-
-  for (const path of ['design', 'design/odyssey', 'design/plan-1', 'design/views']) {
-    await page.goto(`./#/${path}`)
-    await expect(page.locator('h1').first()).toBeVisible()
-    await expectNoScores(page, `Life Design: ${path}`)
-  }
-
-  await page.goto('./#/review')
-  await expectNoScores(page, 'Review')
-  await page.getByRole('button', { name: /^(Start review|Review now)$/ }).click()
-  for (const step of ['At a glance', 'Balance', 'Best and worst moments', 'Your reflection', 'Finish']) {
-    await expect(page.getByRole('heading', { level: 1, name: step })).toBeVisible()
-    await expectNoScores(page, `Review: ${step}`)
-    if (step !== 'Finish') await page.getByRole('button', { name: 'Next' }).click()
   }
 })
 
@@ -67,7 +58,7 @@ test('the welcome shows no scores', async ({ page }) => {
 
 test('an entry logged in words reads back in words', async ({ page }) => {
   await page.goto('./#/today')
-  await addEntry(page, { activity: 'Choir rehearsal', during: ['Absorbed', 'Time flew'], after: ['Energised', 'Tired'] })
+  await addEntry(page, { activity: 'Choir rehearsal', during: ['Absorbed', 'Time flew'], energy: 'A mix of both', after: ['Inspired', 'Tired'] })
   await expectNoScores(page, 'Today after logging')
   await page.goto('./#/insights')
   await expectNoScores(page, 'Insights after logging')

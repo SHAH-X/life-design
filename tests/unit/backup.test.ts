@@ -5,7 +5,7 @@ import { lockText, unlockText } from '../../src/db/crypto'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { newReview } from '../../src/db/repo'
 import { emptyPlan } from '../../src/domain/lifeDesign'
-import type { Answer, Entry } from '../../src/db/types'
+import { type Answer, type Entry, entryDefaults } from '../../src/db/types'
 
 // Fictional example data.
 const entry = (id: string, updatedAt: number, over: Partial<Entry> = {}): Entry => ({
@@ -25,6 +25,7 @@ const entry = (id: string, updatedAt: number, over: Partial<Entry> = {}): Entry 
   source: 'evening',
   createdAt: 1000,
   updatedAt,
+  ...entryDefaults(),
   ...over,
 })
 
@@ -36,6 +37,7 @@ const emptyRaw = (): RawData => ({
   odysseyPlans: [],
   planVersions: [],
   views: [],
+  weeks: [],
   reviews: [],
   settings: [],
 })
@@ -204,6 +206,42 @@ describe('backup and restore', () => {
     const plan = await applyImport(detected.raw, newPhone)
     expect(plan.tables.odysseyPlans).toMatchObject({ added: 1, skipped: 0 })
     expect(await newPhone.odysseyPlans.get('plan-1')).toMatchObject({ feelings: [], needs: [], needsNote: '', fit: '', writtenAt: 1000 })
+  })
+
+  it('backs up and restores purpose journaling: reflections, next steps, free writing, drafts and weeks', async () => {
+    const reflected = entry('r1', 2000, {
+      purpose: 'grow',
+      energyEffect: 'used',
+      duration: 'hour',
+      reflections: [{ question: 'What went well?', text: 'The demo' }],
+      intention: { kind: 'differently', text: 'A shorter agenda', status: 'open', updatedAt: 2000 },
+      take: 'Long meetings drain me',
+    })
+    const free = entry('f1', 2000, { kind: 'free', activity: '', purpose: 'free', note: "Couldn't sleep, kept thinking about the move", skipped: ['engagement', 'energy'] })
+    const draft = entry('d1', 2000, { status: 'draft' })
+    await phone.entries.bulkPut([reflected, free, draft])
+    await phone.weeks.put({ id: '2026-10-19', carry: 'Walk at lunch', createdAt: 2000, updatedAt: 2000 })
+    const backup = await createBackup(phone)
+    expect(backup.schemaVersion).toBe(5)
+    const detected = detectFile(JSON.stringify(backup))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    await applyImport(detected.raw, newPhone)
+    expect(await newPhone.entries.get('r1')).toEqual(reflected)
+    expect(await newPhone.entries.get('f1')).toEqual(free)
+    expect(await newPhone.entries.get('d1')).toMatchObject({ status: 'draft' })
+    expect(await newPhone.weeks.get('2026-10-19')).toMatchObject({ carry: 'Walk at lunch' })
+  })
+
+  it('restores entries from a format 4 file with the new fields filled in, and skips an activity with no name', async () => {
+    const { kind, purpose, energyEffect, duration, reflections, intention, take, status, skipped, ...older } = entry('a', 1000)
+    void [kind, purpose, energyEffect, duration, reflections, intention, take, status, skipped]
+    const nameless = { ...older, id: 'b', activity: ' ' }
+    const file = { app: 'life-design', kind: 'backup', schemaVersion: 4, exportedAt: '2026-10-21T12:00:00Z', data: { entries: [older, nameless] } }
+    const detected = detectFile(JSON.stringify(file))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    const result = await applyImport(detected.raw, newPhone)
+    expect(result.tables.entries).toMatchObject({ added: 1, skipped: 1 })
+    expect(await newPhone.entries.get('a')).toEqual(entry('a', 1000))
   })
 
   it('still restores backups made before reviews existed (format 1)', async () => {

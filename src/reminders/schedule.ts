@@ -121,17 +121,18 @@ const DETAILS: Record<ReminderKind, { title: string; name: string; summary: stri
     name: 'Log my day',
     summary: 'Life Design: log your day',
     description:
-      'Two minutes: what you did, how engaged you were, and whether it gave or drained energy. Open Life Design from your Home Screen.',
+      'A minute or two: what you did, how it felt, and what it did to your energy. Open Life Design from your Home Screen.',
     screen: 'today',
     alarm: 'Time to log your day in Life Design',
   },
   review: {
-    title: 'Review (incl. AI review)',
-    name: 'Life Design review',
-    summary: 'Life Design: review',
-    description: 'Look back at your days: balance, best and worst moments, then the AI review. Open Life Design from your Home Screen.',
-    screen: 'review',
-    alarm: 'Time for your Life Design review',
+    title: 'Look back',
+    name: 'Life Design: look back',
+    summary: 'Life Design: your week',
+    description:
+      'Your week, put together for you in Insights: what gave you energy, what took it, and your next steps. Open Life Design from your Home Screen.',
+    screen: 'insights',
+    alarm: 'Time to look back at your week',
   },
   backup: {
     title: 'Backup',
@@ -145,8 +146,8 @@ const DETAILS: Record<ReminderKind, { title: string; name: string; summary: stri
     title: 'Quarterly check-in',
     name: 'Life Design check-in',
     summary: 'Life Design: quarterly check-in',
-    description: 'Revisit your Odyssey Plans, Ikigai map, Workview and Lifeview.',
-    screen: 'design',
+    description: 'Look back over three months in Insights: what keeps giving you energy, and what you want more of.',
+    screen: 'insights',
     alarm: 'Time for your quarterly Life Design check-in',
   },
 }

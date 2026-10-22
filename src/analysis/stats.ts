@@ -1,6 +1,6 @@
 // Patterns in the journal, computed on the phone (no AI). Small numbers mislead, so groups need at
 // least MIN_COUNT entries before they are ranked, and every average comes with its count.
-import type { BalanceArea, Day, Entry, Review } from '../db/types'
+import type { BalanceArea, Day, Entry, Measure, Review } from '../db/types'
 import { BALANCE_AREAS } from '../db/types'
 import { addDays, DAY_PARTS, fromDateKey, toDateKey, weekdayName } from '../lib/dates'
 
@@ -33,14 +33,17 @@ export interface Overview {
   flow: number
 }
 
+/** Whether an entry answered a question; a skipped one stays out of that measure instead of counting as a guess. */
+const answered = (entry: Entry, measure: Measure) => !(entry.skipped ?? []).includes(measure)
+
 export function overview(entries: readonly Entry[], period: Period): Overview {
   const within = inPeriod(entries, period)
   return {
     entries: within.length,
     daysLogged: new Set(within.map((e) => e.date)).size,
     days: daysInPeriod(period).length,
-    avgEnergy: mean(within.map((e) => e.energy)),
-    avgEngagement: mean(within.map((e) => e.engagement)),
+    avgEnergy: mean(within.filter((e) => answered(e, 'energy')).map((e) => e.energy)),
+    avgEngagement: mean(within.filter((e) => answered(e, 'engagement')).map((e) => e.engagement)),
     flow: within.filter((e) => e.flow).length,
   }
 }
@@ -208,8 +211,8 @@ export function energySeries(entries: readonly Entry[], period: Period): SeriesP
       start,
       end,
       count: items.length,
-      avgEnergy: mean(items.map((e) => e.energy)),
-      avgEngagement: mean(items.map((e) => e.engagement)),
+      avgEnergy: mean(items.filter((e) => answered(e, 'energy')).map((e) => e.energy)),
+      avgEngagement: mean(items.filter((e) => answered(e, 'engagement')).map((e) => e.engagement)),
     }
   })
 }

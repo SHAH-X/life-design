@@ -7,7 +7,8 @@ import { useOwnWords } from '../today/useOwnWords'
 function meaning(word: OwnWord): string {
   if (word.kind === 'plan') return ''
   if (word.kind === 'during') return word.weight >= 3 ? 'into it' : 'not into it'
-  return word.weight > 0 ? 'gives energy' : word.weight < 0 ? 'takes energy' : 'neither'
+  // Since v0.8 energy has its own question, so new feeling words carry no answer; older ones keep theirs.
+  return word.weight > 0 ? 'gives energy' : word.weight < 0 ? 'takes energy' : ''
 }
 
 /** The feeling words you added while logging; removing one keeps it on the entries that used it. */

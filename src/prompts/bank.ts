@@ -29,6 +29,10 @@ export const PURPOSES: Record<Purpose, { label: string; method: string }> = {
     label: 'Learn',
     method: 'What? So what? Now what?: what happened, why it matters, and what you will do with it.',
   },
+  free: {
+    label: 'Write freely',
+    method: 'No questions: a blank page for whatever is on your mind.',
+  },
   joy: {
     label: 'Joy',
     method: 'Three Good Things: noting what went well, and your part in it, lifts mood over the weeks.',

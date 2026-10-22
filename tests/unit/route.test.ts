@@ -13,7 +13,7 @@ describe('parseHash', () => {
   })
 
   it('ignores sub-paths and query strings', () => {
-    expect(parseHash('#/review/2026-10-19')).toBe('review')
+    expect(parseHash('#/insights/week-2026-10-19')).toBe('insights')
     expect(parseHash('#/more?from=notification')).toBe('more')
   })
 
@@ -24,12 +24,18 @@ describe('parseHash', () => {
 })
 
 describe('parseRoute', () => {
-  it('reads an optional second part, such as a review id', async () => {
+  it('reads an optional second part, such as a week on Insights', async () => {
     const { parseRoute, hashFor } = await import('../../src/lib/route')
-    expect(parseRoute('#/review/abc-123')).toEqual({ tab: 'review', sub: 'abc-123' })
-    expect(parseRoute('#/review')).toEqual({ tab: 'review', sub: null })
+    expect(parseRoute('#/insights/week-2026-10-19')).toEqual({ tab: 'insights', sub: 'week-2026-10-19' })
+    expect(parseRoute('#/insights')).toEqual({ tab: 'insights', sub: null })
     expect(parseRoute('#/nope/abc')).toEqual({ tab: 'today', sub: null })
-    expect(hashFor('review', 'a b')).toBe('#/review/a%20b')
-    expect(parseRoute(hashFor('review', 'a b'))).toEqual({ tab: 'review', sub: 'a b' })
+    expect(hashFor('insights', 'a b')).toBe('#/insights/a%20b')
+    expect(parseRoute(hashFor('insights', 'a b'))).toEqual({ tab: 'insights', sub: 'a b' })
+  })
+
+  it('opens Today for the removed Review and Life Design tabs, so old links and reminders still work', async () => {
+    const { parseRoute } = await import('../../src/lib/route')
+    expect(parseRoute('#/review/abc-123')).toEqual({ tab: 'today', sub: null })
+    expect(parseRoute('#/design/odyssey')).toEqual({ tab: 'today', sub: null })
   })
 })

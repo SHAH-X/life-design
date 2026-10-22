@@ -10,7 +10,7 @@ import {
   joyWords,
   overview,
 } from '../../src/analysis/stats'
-import type { Day, Entry, Review } from '../../src/db/types'
+import { type Day, type Entry, type Review, entryDefaults } from '../../src/db/types'
 
 // Fictional two weeks with known answers. 2026-10-12 is a Monday.
 let n = 0
@@ -31,6 +31,7 @@ const entry = (date: string, activity: string, energy: Entry['energy'], engageme
     after: [],
     note: '',
     source: 'evening',
+    ...entryDefaults(),
     createdAt: n,
     updatedAt: n,
     ...over,

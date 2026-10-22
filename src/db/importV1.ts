@@ -2,7 +2,7 @@
 // v1 shape: { gtj: [{ a, e (−5…5), g (0…10), f, ts, d }], iki: [{ n, f: [love, goodAt, worldNeeds, paidFor] }], ody: [{ h, d, q, r, l, c, co }] }
 import { energyFromV1, engagementFromV1 } from '../domain/scales'
 import { fromDateKey, partOfDay, toDateKey } from '../lib/dates'
-import type { BackupData, Entry, IkigaiItem, OdysseyPlan } from './types'
+import { type BackupData, type Entry, type IkigaiItem, type OdysseyPlan, entryDefaults } from './types'
 
 /** Ikigai items and plans from v1 carry this fixed timestamp, so they never overwrite anything edited since. */
 export const V1_TIMESTAMP = 1
@@ -91,6 +91,7 @@ export function convertV1(input: V1Backup, now: Date = new Date()): V1Conversion
       after: [],
       note: '',
       source: 'import',
+      ...entryDefaults(),
       createdAt: created,
       updatedAt: created,
     })
@@ -152,5 +153,5 @@ export function convertV1(input: V1Backup, now: Date = new Date()): V1Conversion
     })
   })
 
-  return { data: { entries, days: [], answers: [], ikigaiItems, odysseyPlans, planVersions: [], views: [], reviews: [], settings: [] }, skipped }
+  return { data: { entries, days: [], answers: [], ikigaiItems, odysseyPlans, planVersions: [], views: [], weeks: [], reviews: [], settings: [] }, skipped }
 }

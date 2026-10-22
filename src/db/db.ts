@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { Answer, Day, Entry, IkigaiItem, OdysseyPlan, PlanVersion, Review, Setting, Views } from './types'
+import { type Answer, type Day, type Entry, entryDefaults, type IkigaiItem, type OdysseyPlan, type PlanVersion, type Review, type Setting, type Views, type Week } from './types'
 
 export type LifeDesignDB = Dexie & {
   entries: EntityTable<Entry, 'id'>
@@ -9,6 +9,7 @@ export type LifeDesignDB = Dexie & {
   odysseyPlans: EntityTable<OdysseyPlan, 'id'>
   planVersions: EntityTable<PlanVersion, 'id'>
   views: EntityTable<Views, 'id'>
+  weeks: EntityTable<Week, 'id'>
   reviews: EntityTable<Review, 'id'>
   settings: EntityTable<Setting, 'key'>
 }
@@ -81,6 +82,21 @@ export function openDb(name = DB_NAME): LifeDesignDB {
           if (typeof plan.needsNote !== 'string') plan.needsNote = ''
           if (typeof plan.fit !== 'string') plan.fit = ''
           if (plan.writtenAt === undefined) plan.writtenAt = plan.title || plan.description ? plan.updatedAt : null
+        }),
+    )
+  // v0.8 (Phase 4, purpose journaling): entries gain a purpose, reflections, a next step, free writing and drafts;
+  // weekly notes get a table. Existing entries are activities, done, with nothing skipped. Not edits: updatedAt stays.
+  database
+    .version(6)
+    .stores({
+      weeks: 'id, updatedAt',
+    })
+    .upgrade((tx) =>
+      tx
+        .table('entries')
+        .toCollection()
+        .modify((entry: Record<string, unknown>) => {
+          for (const [key, value] of Object.entries(entryDefaults())) if (entry[key] === undefined) entry[key] = value
         }),
     )
   return database

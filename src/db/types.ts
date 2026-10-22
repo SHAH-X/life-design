@@ -3,7 +3,33 @@ import type { DayPart } from '../lib/dates'
 
 export type EntrySource = 'evening' | 'quick' | 'import'
 
-/** One Good Time Journal activity. */
+/** An activity you reflect on (Good Time Journal), or free writing with no activity. */
+export type EntryKind = 'activity' | 'free'
+/** "What did it do to your energy?": worded choices, not a scale. */
+export type EnergyEffect = 'gave' | 'used' | 'little' | 'mixed'
+/** "How long?", roughly. */
+export type Duration = 'minutes' | 'hour' | 'hours' | 'day'
+/** A question that was skipped, so its number means nothing and stays out of Insights. */
+export type Measure = 'engagement' | 'energy'
+
+/** An answer to a purpose question, kept with its question so it reads right even if the wording changes. */
+export interface Reflection {
+  question: string
+  text: string
+}
+
+/** "Anything you'd like to do with this?" */
+export type IntentionKind = 'differently' | 'again' | 'time' | 'explore' | 'remember'
+export interface Intention {
+  kind: IntentionKind
+  /** "What exactly?" (optional) */
+  text: string
+  /** Followed up in the weekly review: done, or let go. "Not yet" leaves it open. */
+  status: 'open' | 'done' | 'dropped'
+  updatedAt: number
+}
+
+/** One journal entry: an activity (Good Time Journal) or free writing. */
 export interface Entry {
   id: string
   /** Local calendar date, YYYY-MM-DD. */
@@ -19,14 +45,36 @@ export interface Entry {
   people: string[]
   /** AEIOU: Objects. */
   objects: string[]
-  /** "What was it like?": the feeling words chosen (energy, engagement and flow are worked out from them). */
+  /** "What was it like?": the engagement words chosen (engagement and flow are worked out from them). */
   during: string[]
-  /** "How did it leave you?": the feeling words chosen. */
+  /** "How did you feel?": the feeling words chosen (before v0.8, "How did it leave you?"). */
   after: string[]
+  /** "Anything else you'd like to record?", or the whole text of free writing. */
   note: string
   source: EntrySource
+  kind: EntryKind
+  /** What this entry reflects for: your primary purpose unless changed for it. */
+  purpose: Purpose | null
+  /** The answer to the energy question; energy above is worked out from it (or from the feelings if skipped). */
+  energyEffect: EnergyEffect | null
+  duration: Duration | null
+  reflections: Reflection[]
+  intention: Intention | null
+  /** Your own take on it, which replaces the app's possible insight. */
+  take: string
+  /** A draft stays out of Insights and the weekly review until it's saved. */
+  status: 'draft' | 'done'
+  skipped: Measure[]
   createdAt: number
   updatedAt: number
+}
+
+/** The new fields, as entries from before v0.8 (and files that leave them out) get them. */
+export function entryDefaults(): Pick<
+  Entry,
+  'kind' | 'purpose' | 'energyEffect' | 'duration' | 'reflections' | 'intention' | 'take' | 'status' | 'skipped'
+> {
+  return { kind: 'activity', purpose: null, energyEffect: null, duration: null, reflections: [], intention: null, take: '', status: 'done', skipped: [] }
 }
 
 export interface Day {
@@ -37,8 +85,11 @@ export interface Day {
   updatedAt: number
 }
 
-/** Why you journal. "know" and "joy" are always on; the others are chosen in More → Evening question. */
-export type Purpose = 'know' | 'calm' | 'grow' | 'goal' | 'learn' | 'joy'
+/**
+ * Why you journal (see domain/purposes.ts for the words): understand myself (know), improve myself (grow), learn
+ * something, achieve a goal, make sense of a hard time (calm), reflect on everyday life (joy), write freely.
+ */
+export type Purpose = 'know' | 'calm' | 'grow' | 'goal' | 'learn' | 'joy' | 'free'
 
 export const OPTIONAL_PURPOSES = ['calm', 'grow', 'goal', 'learn'] as const
 export type OptionalPurpose = (typeof OPTIONAL_PURPOSES)[number]
@@ -127,6 +178,14 @@ export interface Views {
   updatedAt: number
 }
 
+/** What you'd like to carry into the next week, kept with the week it was written for (the week's Monday). */
+export interface Week {
+  id: string
+  carry: string
+  createdAt: number
+  updatedAt: number
+}
+
 export interface Setting {
   key: string
   value: unknown
@@ -184,6 +243,7 @@ export interface BackupData {
   odysseyPlans: OdysseyPlan[]
   planVersions: PlanVersion[]
   views: Views[]
+  weeks: Week[]
   reviews: Review[]
   settings: Setting[]
 }
@@ -198,6 +258,7 @@ export const TABLE_NAMES: readonly TableName[] = [
   'odysseyPlans',
   'planVersions',
   'views',
+  'weeks',
   'reviews',
   'settings',
 ]
@@ -210,6 +271,7 @@ export const TABLE_LABELS: Record<TableName, string> = {
   odysseyPlans: 'Odyssey Plans',
   planVersions: 'Earlier versions of plans',
   views: 'Workview & Lifeview',
+  weeks: 'Weekly notes',
   reviews: 'Reviews',
   settings: 'Settings',
 }

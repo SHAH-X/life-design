@@ -7,10 +7,11 @@ import { loadSuggestions, type Suggestions } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import { addDays, dayHeading, dayMonthLong, PART_ORDER } from '../../lib/dates'
 import { useTonight } from '../../prompts/useTonight'
-import { useReviewStatus } from '../../reviews/useReviewStatus'
 import { EntryEdit } from './EntryEdit'
 import { EntryFlow } from './EntryFlow'
 import { EntryRow } from './EntryRow'
+import { FreeWrite } from './FreeWrite'
+import { usePurposeSettings } from './usePurpose'
 import { EveningQuestion } from './EveningQuestion'
 import { SmallJoy } from './SmallJoy'
 import { useOwnWords } from './useOwnWords'
@@ -23,7 +24,8 @@ const byTimeOfDay = (a: Entry, b: Entry) => PART_ORDER[a.part] - PART_ORDER[b.pa
 export function TodayScreen() {
   const today = useToday()
   const [date, setDate] = useState(today)
-  const [sheet, setSheet] = useState<{ existing?: Entry } | null>(null)
+  // A new activity, free writing, or an entry you tapped (an unfinished one carries on where it was left).
+  const [sheet, setSheet] = useState<{ kind: 'new' } | { kind: 'free' } | { kind: 'open'; entry: Entry } | null>(null)
 
   // After midnight, jump to the new day.
   useEffect(() => setDate(today), [today])
@@ -32,7 +34,7 @@ export function TodayScreen() {
   const day = useLiveQuery(() => db.days.get(date).then((d) => d ?? null), [date])
   const lastEntryDate = useLiveQuery(() => db.entries.where('date').below(today).last().then((e) => e?.date ?? null), [today])
   const nudge = useExportNudge()
-  const reviewStatus = useReviewStatus()
+  const purpose = usePurposeSettings()
   const tonight = useTonight(date)
   const own = useOwnWords()
   const suggestions = useLiveQuery(() => loadSuggestions(), [], NO_SUGGESTIONS)
@@ -43,7 +45,7 @@ export function TodayScreen() {
     entries === undefined ||
     day === undefined ||
     nudge === undefined ||
-    reviewStatus === undefined ||
+    purpose === undefined ||
     tonight === undefined ||
     own === undefined ||
     lastEntryDate === undefined
@@ -56,7 +58,7 @@ export function TodayScreen() {
 
   return (
     <>
-      <Notices nudge={nudge} reviewDue={reviewStatus.due ? reviewStatus.defaultPeriod : null} />
+      <Notices nudge={nudge} />
 
       <header className="day-header">
         <button type="button" className="icon-button" aria-label="Previous day" onClick={() => setDate(addDays(date, -1))}>
@@ -85,14 +87,19 @@ export function TodayScreen() {
           <ul className="entry-list">
             {sorted.map((entry) => (
               <li key={entry.id}>
-                <EntryRow entry={entry} onOpen={() => setSheet({ existing: entry })} />
+                <EntryRow entry={entry} onOpen={() => setSheet({ kind: 'open', entry })} />
               </li>
             ))}
           </ul>
         )}
-        <button type="button" className="primary wide" onClick={() => setSheet({})}>
-          + Add activity
-        </button>
+        <div className="journal-actions">
+          <button type="button" className="primary wide" onClick={() => setSheet({ kind: 'new' })}>
+            + Reflect on an activity
+          </button>
+          <button type="button" className="wide" onClick={() => setSheet({ kind: 'free' })}>
+            Write freely
+          </button>
+        </div>
       </section>
 
       <section className="card evening" aria-label="This evening">
@@ -100,10 +107,28 @@ export function TodayScreen() {
         <EveningQuestion key={`q:${date}:${tonight.prompt.id}`} date={date} tonight={tonight} />
       </section>
 
-      {sheet?.existing ? (
-        <EntryEdit existing={sheet.existing} suggestions={suggestions} own={own} onClose={() => setSheet(null)} />
-      ) : sheet ? (
-        <EntryFlow date={date} suggestions={suggestions} own={own} onClose={() => setSheet(null)} />
+      {sheet?.kind === 'new' ? (
+        <EntryFlow date={date} suggestions={suggestions} own={own} purpose={purpose.primary} goal={purpose.goal} onClose={() => setSheet(null)} />
+      ) : null}
+      {sheet?.kind === 'free' ? <FreeWrite date={date} onClose={() => setSheet(null)} /> : null}
+      {sheet?.kind === 'open' ? (
+        sheet.entry.status === 'draft' ? (
+          sheet.entry.kind === 'free' ? (
+            <FreeWrite date={sheet.entry.date} draft={sheet.entry} onClose={() => setSheet(null)} />
+          ) : (
+            <EntryFlow
+              date={sheet.entry.date}
+              suggestions={suggestions}
+              own={own}
+              purpose={purpose.primary}
+              goal={purpose.goal}
+              draft={sheet.entry}
+              onClose={() => setSheet(null)}
+            />
+          )
+        ) : (
+          <EntryEdit existing={sheet.entry} suggestions={suggestions} own={own} goal={purpose.goal} onClose={() => setSheet(null)} />
+        )
       ) : null}
     </>
   )
