@@ -269,6 +269,7 @@ The owner's brief (2026-10-22): help beginners record experiences, understand th
 | Times on rows; swipe a row left, Delete, then Undo; More → Appearance Light and Dark (status bar too) | 4 (v0.10) | TEST |
 | Next steps: keep one after an entry; it's in Insights → Next steps; write about the same activity again and it comes back ("Did it"); a look-alike asks "Same as…?"; add, change, merge, swipe to delete; next steps from before v0.11 are in the list | 4 (v0.11) | TEST |
 | Review a period: copy it into an AI chat app; share it as a file; set up a free Groq key (More → AI review), Review with AI for a week and a month, read an earlier review; the key shows only its last four characters, and Remove key works | 5 (v0.12) | TEST |
+| With the keyboard up in the Home Screen app, the writing step stays in place: Save above the keyboard, nothing of Today showing above the sheet; the light-coloured links, ⓘ circles and dark-mode Delete look right | v0.12.1–0.12.2 | TEST |
 
 ## Corrections to the earlier v1 notes
 
