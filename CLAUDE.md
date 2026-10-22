@@ -22,6 +22,7 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 - The e2e tests click straight after navigation on purpose. Keep it that way: it catches layout shifts.
 - Files leave the iPhone app only through the share menu. Never a download link, and never a link or navigation to a file (.ics, data:, blob:). In the Home Screen app, "Add to Calendar" linking to an .ics file left the app on a blank screen with no way back. An e2e test guards this.
 - Inputs show the value being edited straight away from local state; saving happens in the background. Never bind an input directly to a value that comes back from the database: it snaps back mid-typing.
+- The page behind a sheet never scrolls. A modal `<dialog>` blocks taps, not scrolling, so `Dialog` pins the page with `useScrollLock` (and puts it back on close), and `.sheet-body` has `overscroll-behavior: contain`. (v0.7 on the iPhone: scrolling in "New activity" moved the screen behind it. An e2e test guards this.)
 - Colour only where it means something: the thin energy edge (blue gave, red took: the chart colours) and the evening's pale sand. Words stay in ink; a new colour must pass WCAG AA on both card surfaces. (v0.7: red feeling words read like an error.)
 - Long words must never squeeze a label: rows put their words on a line of their own (Phase 2.6: "Home" wrapped one letter per line). The Insights e2e test checks label widths.
 - When the app refuses something (a file, a password), say exactly why and what to do next. A vague error cost a debugging round in Phase 1.

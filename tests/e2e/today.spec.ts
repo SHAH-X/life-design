@@ -147,6 +147,34 @@ test('sheets sit above the keyboard, so what you type into stays in sight', asyn
   await expect.poll(async () => Math.round(((await sheet.boundingBox())?.y ?? 0) + ((await sheet.boundingBox())?.height ?? 0))).toBe(screenHeight)
 })
 
+test('scrolling inside a sheet never moves the page behind it', async ({ page }, testInfo) => {
+  // v0.7 on the iPhone: scrolling inside "New activity" scrolled the screen behind it.
+  await restoreSeed(page, testInfo.outputPath('seed.json'), new Date(Date.now() + 86_400_000)) // fictional entries dated today
+  await page.goto('./#/today')
+  const behind = page.locator('main .entry-list').getByRole('button', { name: /^Commute/ })
+  await expect(behind).toBeVisible()
+  await page.evaluate(() => window.scrollTo(0, 200))
+  await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(200)
+  const top = async () => Math.round((await behind.boundingBox())?.y ?? Number.NaN)
+  const before = await top()
+
+  await page.getByRole('button', { name: '+ Add activity' }).click()
+  const sheet = page.getByRole('dialog', { name: 'New activity' })
+  await expect(sheet).toBeVisible()
+  // Mobile WebKit here can't swipe, so try to scroll the page the way a swipe would: it must not move.
+  await page.evaluate(() => window.scrollBy(0, 400))
+  await page.waitForTimeout(100)
+  expect(await top()).toBe(before)
+  // And a scroll that reaches the end of the sheet stays in the sheet.
+  await expect(sheet.locator('.sheet-body')).toHaveCSS('overscroll-behavior-y', 'contain')
+
+  // Closing the sheet leaves the page exactly where it was.
+  await sheet.getByRole('button', { name: 'Close' }).click()
+  await expect(sheet).toBeHidden()
+  await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(200)
+  expect(await top()).toBe(before)
+})
+
 test('a thin coloured edge shows how each activity left you; the words stay in ink', async ({ page }) => {
   await addEntry(page, { activity: 'Evening run', during: ['Focused'], after: ['Energised'] })
   await addEntry(page, { activity: 'Commute', during: ['Bored'], after: ['Drained'] })

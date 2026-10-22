@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useId, useRef } from 'react'
 import { useKeyboardInset } from './useKeyboardInset'
+import { useScrollLock } from './useScrollLock'
 
 interface Props {
   /** Names the sheet for VoiceOver; shown in the header unless `titleHidden`. */
@@ -28,6 +29,7 @@ export function Dialog({ title, titleHidden = false, toolbar, onClose, children,
     return () => dialog?.close()
   }, [])
   useKeyboardInset(ref)
+  useScrollLock()
 
   return (
     <dialog

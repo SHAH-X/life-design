@@ -567,6 +567,8 @@ dialog.sheet::backdrop {
 
 .sheet-body {
   overflow-y: auto;
+  /* A scroll that reaches the end of the sheet stays in the sheet. */
+  overscroll-behavior: contain;
   padding: 8px 16px 20px;
 }
 
