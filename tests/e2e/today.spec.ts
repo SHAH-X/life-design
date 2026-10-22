@@ -197,6 +197,8 @@ test('a field never hides behind the sheet footer, even with the keyboard up; en
   const writing = sheet.getByLabel("What's on your mind about it?")
   await writing.click()
   await expectInSheetView(sheet, writing)
+  // Its hint comes into sight with it (v0.12: the footer cut "Tap the mic…" in half, seen in the screen tour).
+  await expectInSheetView(sheet, sheet.getByText('Tap the mic on the keyboard to speak.'))
   await sheet.getByRole('button', { name: '+ How long, where, who' }).click()
   const where = sheet.getByLabel('Add to where')
   await where.click()
@@ -243,6 +245,7 @@ test('editing and writing freely keep every field in sight, on the whole screen'
   await showKeyboard(page)
   await expectSheetFillsScreen(page, free)
   await expectInSheetView(free, free.getByLabel("What's on your mind?"))
+  await expectInSheetView(free, free.getByText('Tap the mic on the keyboard to speak.'))
 })
 
 test('scrolling inside a sheet never moves the page behind it', async ({ page }, testInfo) => {

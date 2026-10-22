@@ -9,6 +9,8 @@ export const WRITE_QUESTION = "What's on your mind about it?"
 interface Props {
   /** The writing box's id. */
   id: string
+  /** The id of a hint under the box: VoiceOver reads it, and it comes into sight with the box. */
+  describedBy?: string
   purpose: Purpose
   /** Another purpose, just for this entry: its questions replace the helpers. */
   onPurpose: (purpose: Purpose) => void
@@ -31,7 +33,7 @@ interface Props {
  * One box to write about an activity (v0.9: "just one box … without thinking how much to include against which
  * question"). Your purpose's questions sit above it as helpers to think with, never as fields to fill.
  */
-export function WriteBox({ id, purpose, onPurpose, candidates, focus, text, onText, boxRef, headingRef, plans = [], didIt = [], onDidIt }: Props) {
+export function WriteBox({ id, describedBy, purpose, onPurpose, candidates, focus, text, onText, boxRef, headingRef, plans = [], didIt = [], onDidIt }: Props) {
   const questionId = useId()
   const selectId = useId()
   const [page, setPage] = useState(0)
@@ -98,6 +100,7 @@ export function WriteBox({ id, purpose, onPurpose, candidates, focus, text, onTe
         ref={boxRef}
         id={id}
         aria-labelledby={questionId}
+        aria-describedby={describedBy}
         value={text}
         rows={6}
         maxLength={20000}

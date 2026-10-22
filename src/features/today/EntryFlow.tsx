@@ -72,6 +72,7 @@ export function EntryFlow({ date, suggestions, own, purpose: primary, goal, focu
   const energyId = useId()
   const afterId = useId()
   const noteId = useId()
+  const hintId = useId()
   const [step, setStep] = useState(() => (draft ? resumeStep(draft) : 0))
   const [activity, setActivity] = useState(draft?.activity ?? '')
   const [during, setDuring] = useState<string[]>(draft?.during ?? [])
@@ -356,6 +357,7 @@ export function EntryFlow({ date, suggestions, own, purpose: primary, goal, focu
         <EarlierAnswers answers={earlier} onChange={setEarlier} />
         <WriteBox
           id={noteId}
+          describedBy={hintId}
           purpose={purpose}
           onPurpose={setPurpose}
           candidates={candidates}
@@ -367,7 +369,9 @@ export function EntryFlow({ date, suggestions, own, purpose: primary, goal, focu
           didIt={didIt}
           onDidIt={onDidIt}
         />
-        <p className="field-help">Tap the mic on the keyboard to speak.</p>
+        <p id={hintId} className="field-help">
+          Tap the mic on the keyboard to speak.
+        </p>
         {suggested.length ? (
           <div className="chip-row suggested" role="group" aria-label="Feelings in your words">
             {suggested.map((s) => (

@@ -15,6 +15,7 @@ const DRAFT_DELAY_MS = 500
  */
 export function FreeWrite({ date, draft, onClose, onSaved }: { date: string; draft?: Entry; onClose: () => void; onSaved?: (entry: Entry) => void }) {
   const id = useId()
+  const hintId = useId()
   const box = useRef<HTMLTextAreaElement>(null)
   const [text, setText] = useState(draft?.note ?? '')
   const [busy, setBusy] = useState(false)
@@ -111,11 +112,13 @@ export function FreeWrite({ date, draft, onClose, onSaved }: { date: string; dra
       <label className="question-text" htmlFor={id}>
         What's on your mind?
       </label>
-      <textarea ref={box} id={id} className="fill" data-autofocus value={text} rows={10} maxLength={20000} onChange={(e) => setText(e.target.value)} />
+      <textarea ref={box} id={id} aria-describedby={hintId} className="fill" data-autofocus value={text} rows={10} maxLength={20000} onChange={(e) => setText(e.target.value)} />
       <div className="field-foot">
         {text.trim() === '' ? <Starters starters={eveningStarters('free')} onPick={(t) => typeInto(box.current, t, setText)} /> : null}
       </div>
-      <p className="field-help">Tap the mic on the keyboard to speak.</p>
+      <p id={hintId} className="field-help">
+        Tap the mic on the keyboard to speak.
+      </p>
     </Dialog>
   )
 }
