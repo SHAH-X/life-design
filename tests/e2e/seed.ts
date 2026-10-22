@@ -69,5 +69,5 @@ export async function restoreSeed(page: Page, path: string, now: Date = new Date
   await dialog.locator('input[type="file"]').setInputFiles(path)
   await dialog.getByRole('button', { name: 'Restore', exact: true }).click()
   await expect(dialog.getByText('✓ Restored.')).toBeVisible()
-  await dialog.getByRole('button', { name: 'Done' }).click()
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
 }

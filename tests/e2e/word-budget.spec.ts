@@ -108,7 +108,7 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
   await sheet.getByRole('button', { name: 'Save' }).click()
   await expect(sheet.getByText('✓ Saved')).toBeVisible()
   await measure('Entry, read back after saving', sheet)
-  await sheet.getByRole('button', { name: 'Done' }).click()
+  await sheet.getByRole('button', { name: 'Done', exact: true }).click()
 
   await page.goto('./#/entries')
   await expect(page.getByRole('heading', { level: 1, name: 'Entries' })).toBeVisible()

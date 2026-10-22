@@ -13,6 +13,7 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 - The build runs in phases (see `DECISIONS.md`). Stop after each phase for the owner's OK.
 - Proof before "done": run `npm run typecheck`, `npm test` and `npm run test:e2e`, and quote the results. After a deploy, check the live URL. Anything that calls an outside API also gets a live check with fake data.
 - Bugs: write a failing test first, then fix.
+- e2e locators: `name` matches part of a name, so short button names use `exact: true` (`{ name: 'Done', exact: true }`). (v0.8: "Done" also matched "Done it" once a next step had saved, so a week test failed about one run in three.)
 - When a decision changes, update `DECISIONS.md` in the same change, and search README, DECISIONS and CLAUDE for the old wording (e.g. `grep -in gauge`) so no mention is left stale. (Phase 2.6 replaced the balance gauges, but two rows and the README still described them until v0.7.) Change a status in its Status column, never over the Why: `tests/unit/decisions.test.ts` checks every table keeps its columns (v0.8: an edit wrote statuses over three reasons).
 - Machine safety: never run `brew install` or `brew upgrade` without `--dry-run` first and the owner's OK.
 

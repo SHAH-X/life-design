@@ -39,7 +39,7 @@ test('no screen asks for or shows a rating or score', async ({ page }, testInfo)
   await expectNoScores(page, 'Entries')
   await page.getByRole('button', { name: /^Team meeting/ }).first().click()
   await expectNoScores(page, 'An entry read back')
-  await page.getByRole('button', { name: 'Done' }).click()
+  await page.getByRole('button', { name: 'Done', exact: true }).click()
 
   await page.goto('./#/insights')
   await expectNoScores(page, 'Insights, this week')

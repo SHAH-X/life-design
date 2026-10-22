@@ -36,7 +36,7 @@ test('a password-protected backup saved through the share sheet restores, emoji 
   expect(shared.text).not.toContain('Sam')
   const path = testInfo.outputPath(shared.name)
   await writeFile(path, shared.text, 'utf8')
-  await dialog.getByRole('button', { name: 'Done' }).click()
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
 
   await page.getByRole('button', { name: 'Restore from a backup file' }).click()
   const restore = page.getByRole('dialog', { name: 'Restore' })

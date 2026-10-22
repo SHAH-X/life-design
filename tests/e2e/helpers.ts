@@ -88,7 +88,7 @@ export async function addEntry(page: Page, entry: NewEntry) {
 export async function closeSaved(page: Page, title: string) {
   const view = page.getByRole('dialog', { name: title })
   await expect(view.getByText('✓ Saved')).toBeVisible()
-  await view.getByRole('button', { name: 'Done' }).click()
+  await view.getByRole('button', { name: 'Done', exact: true }).click()
   await expect(view).toBeHidden()
 }
 

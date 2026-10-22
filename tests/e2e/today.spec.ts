@@ -58,7 +58,7 @@ test('reflect on an activity in words, never ratings; edit it without losing any
   await edit.getByRole('button', { name: 'Anxious', exact: true }).click()
   await edit.getByRole('button', { name: 'Save' }).click()
   // After saving an edit, the entry reads back again.
-  await page.getByRole('dialog', { name: 'Answered emails' }).getByRole('button', { name: 'Done' }).click()
+  await page.getByRole('dialog', { name: 'Answered emails' }).getByRole('button', { name: 'Done', exact: true }).click()
   await expect(emails).toContainText('foggy · tired · anxious')
   await openEdit(page, 'Answered emails')
   await expect(edit.getByLabel('How did you feel, and what might have influenced that?')).toHaveValue('Too many threads at once')
@@ -119,7 +119,7 @@ test('a sheet opens on its content, not on ✕ Close', async ({ page }) => {
   await expect(edit).toBeVisible()
   await expect(edit.getByRole('button', { name: 'Close' })).not.toBeFocused()
   await edit.getByRole('button', { name: 'Close' }).click()
-  await page.getByRole('dialog', { name: 'Reading' }).getByRole('button', { name: 'Done' }).click()
+  await page.getByRole('dialog', { name: 'Reading' }).getByRole('button', { name: 'Done', exact: true }).click()
 
   await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
   await expect(page.getByRole('dialog', { name: 'New activity' }).getByLabel('What did you do?')).toBeFocused()

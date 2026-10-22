@@ -26,7 +26,7 @@ async function backUp(page: Page, testInfo: TestInfo, password?: string): Promis
   const path = testInfo.outputPath(download.suggestedFilename())
   await download.saveAs(path)
   await expect(dialog.getByText('✓ Backup saved.')).toBeVisible()
-  await dialog.getByRole('button', { name: 'Done' }).click()
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
   return path
 }
 
@@ -76,7 +76,7 @@ test('back up, delete everything, then restore it all', async ({ page }, testInf
   await expect(dialog.getByText('Evening answers: 1 new')).toBeVisible()
   await dialog.getByRole('button', { name: 'Restore', exact: true }).click()
   await expect(dialog.getByText('✓ Restored.')).toBeVisible()
-  await dialog.getByRole('button', { name: 'Done' }).click()
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
 
   await page.goto('./#/today')
   await expect(entryButton(page, 'Choir rehearsal')).toContainText('The new piece finally clicked')
@@ -119,7 +119,7 @@ test('a backup from the earlier v1 app is converted and restored', async ({ page
   await expect(dialog.getByText('Odyssey Plans: 1 new')).toBeVisible()
   await dialog.getByRole('button', { name: 'Restore', exact: true }).click()
   await expect(dialog.getByText('✓ Restored.')).toBeVisible()
-  await dialog.getByRole('button', { name: 'Done' }).click()
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
   await page.goto('./#/more/phone')
   await expect(page.getByText('2 entries, 0 small joys')).toBeVisible()
 })

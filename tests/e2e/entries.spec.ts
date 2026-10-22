@@ -44,7 +44,7 @@ test('after saving, the entry reads back in your words; a next step can be kept 
   await expect(step).toContainText('Try something differently: Ask for an agenda first')
   await step.getByRole('button', { name: 'Done it' }).click()
   await expect(step).toContainText('✓ Done')
-  await view.getByRole('button', { name: 'Done' }).click()
+  await view.getByRole('button', { name: 'Done', exact: true }).click()
 
   await entryButton(page, 'Team meeting').click()
   await expect(page.getByRole('dialog', { name: 'Team meeting' }).getByRole('region', { name: 'Next step' })).toContainText('✓ Done')
@@ -65,7 +65,7 @@ test('a possible insight needs 3+ entries, lists them, and is yours to dismiss o
   await expect(summary).toContainText('Your take')
   await expect(summary).toContainText('Mondays are the hard ones')
   await expect(summary).not.toContainText('Possible insight')
-  await view.getByRole('button', { name: 'Done' }).click()
+  await view.getByRole('button', { name: 'Done', exact: true }).click()
 
   const another = await saveAndStay(page, 'Commute', 'It used up my energy')
   await another.getByRole('button', { name: 'Not quite' }).click()
@@ -78,7 +78,7 @@ test('"Remember this" lands in Insights → What I\'m learning', async ({ page }
   await view.getByLabel('What exactly?').fill('Small steps beat big plans')
   await view.getByRole('button', { name: 'Keep this' }).click()
   await expect(view.getByRole('region', { name: 'Next step' })).toContainText('To remember')
-  await view.getByRole('button', { name: 'Done' }).click()
+  await view.getByRole('button', { name: 'Done', exact: true }).click()
   await page.goto('./#/insights')
   await expect(page.locator('section.card', { has: page.getByRole('heading', { name: "What I'm learning" }) })).toContainText('Small steps beat big plans')
 })

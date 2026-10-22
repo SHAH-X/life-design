@@ -41,7 +41,7 @@ test("the week's next steps are followed up, and not yet is fine", async ({ page
   await view.getByRole('button', { name: 'Try something differently' }).click()
   await view.getByLabel('What exactly?').fill('Ask for an agenda first')
   await view.getByRole('button', { name: 'Keep this' }).click()
-  await view.getByRole('button', { name: 'Done' }).click()
+  await view.getByRole('button', { name: 'Done', exact: true }).click()
 
   await page.goto('./#/insights')
   const week = page.getByRole('region', { name: 'This week' })
