@@ -17,7 +17,7 @@ import {
 import { weekStart, weeksWithEntries, weekSummary } from '../../analysis/week'
 import { db } from '../../db/db'
 import { hasEnergy, hasEngagement, isDone, loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
-import type { Day, Entry, Review } from '../../db/types'
+import type { Day, Entry, Review, Step } from '../../db/types'
 import { overallEnergyWord, times } from '../../domain/feelings'
 import { addDays, formatPeriod, formatRecentPeriod, shortDay, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -30,6 +30,7 @@ import { usePurposeSettings } from '../today/usePurpose'
 import { useOwnWords } from '../today/useOwnWords'
 import { EnergyCharts } from './EnergyCharts'
 import { Evidence } from './Evidence'
+import { NextStepsCard, NextStepsPage } from './NextSteps'
 import { WeekReview } from './WeekReview'
 
 const RANGES = [
@@ -52,6 +53,8 @@ interface Data {
   reviews: Review[]
   /** What you wrote to carry into each week, by its Monday. */
   carry: Map<string, string>
+  /** Next steps (v0.11), all of them. */
+  steps: Step[]
 }
 
 /**
@@ -60,9 +63,15 @@ interface Data {
  */
 export function InsightsScreen({ sub }: { sub: string | null }) {
   const data = useLiveQuery(async (): Promise<Data> => {
-    const [entries, days, reviews, weeks] = await Promise.all([db.entries.toArray(), db.days.toArray(), db.reviews.toArray(), db.weeks.toArray()])
+    const [entries, days, reviews, weeks, steps] = await Promise.all([
+      db.entries.toArray(),
+      db.days.toArray(),
+      db.reviews.toArray(),
+      db.weeks.toArray(),
+      db.steps.toArray(),
+    ])
     const done = entries.filter(isDone)
-    return { done, byId: new Map(done.map((e) => [e.id, e])), days, reviews, carry: new Map(weeks.map((w) => [w.id, w.carry])) }
+    return { done, byId: new Map(done.map((e) => [e.id, e])), days, reviews, carry: new Map(weeks.map((w) => [w.id, w.carry])), steps }
   }, [])
   const own = useOwnWords()
   const purpose = usePurposeSettings()
@@ -75,7 +84,15 @@ export function InsightsScreen({ sub }: { sub: string | null }) {
   const week = sub?.match(/^week-(\d{4}-\d{2}-\d{2})$/)?.[1]
   return (
     <>
-      {week ? <WeekPage data={data} start={weekStart(week)} onOpen={open} /> : sub === 'patterns' ? <PatternsPage data={data} /> : <InsightsHome data={data} onOpen={open} />}
+      {week ? (
+        <WeekPage data={data} start={weekStart(week)} onOpen={open} />
+      ) : sub === 'patterns' ? (
+        <PatternsPage data={data} />
+      ) : sub === 'steps' ? (
+        <NextStepsPage steps={data.steps} entries={data.byId} />
+      ) : (
+        <InsightsHome data={data} onOpen={open} />
+      )}
       <EntrySheet state={sheet} onChange={setSheet} suggestions={suggestions} own={own} purpose={purpose} />
     </>
   )
@@ -97,7 +114,8 @@ function InsightsHome({ data, onOpen }: { data: Data; onOpen: (entry: Entry) => 
   return (
     <>
       <h1>Insights</h1>
-      <WeekReview summary={weekSummary(data.done, thisWeek)} entries={data.byId} title="This week" carry={data.carry.get(thisWeek) ?? ''} onOpen={onOpen} />
+      <WeekReview summary={weekSummary(data.done, thisWeek, data.steps)} entries={data.byId} title="This week" carry={data.carry.get(thisWeek) ?? ''} onOpen={onOpen} />
+      <NextStepsCard steps={data.steps} />
       {earlierWeeks.length ? (
         <details className="card earlier-weeks">
           <summary>Earlier weeks</summary>
@@ -151,7 +169,7 @@ function WeekPage({ data, start, onOpen }: { data: Data; start: string; onOpen: 
       </a>
       <h1>Your week</h1>
       <WeekReview
-        summary={weekSummary(data.done, start)}
+        summary={weekSummary(data.done, start, data.steps)}
         entries={data.byId}
         title={formatRecentPeriod(start, addDays(start, 6))}
         carry={data.carry.get(start) ?? ''}

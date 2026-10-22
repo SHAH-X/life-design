@@ -9,9 +9,9 @@ export function CsvDialog({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     let cancelled = false
-    void db.entries.toArray().then((entries) => {
+    void Promise.all([db.entries.toArray(), db.steps.toArray()]).then(([entries, steps]) => {
       if (cancelled) return
-      const file = new File([entriesToCsv(entries)], csvFileName(new Date()), { type: 'text/csv' })
+      const file = new File([entriesToCsv(entries, steps)], csvFileName(new Date()), { type: 'text/csv' })
       setPrepared({ file, count: entries.length })
     })
     return () => {

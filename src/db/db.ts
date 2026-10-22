@@ -1,5 +1,19 @@
 import Dexie, { type EntityTable } from 'dexie'
-import { type Answer, type Day, type Entry, entryDefaults, type IkigaiItem, type OdysseyPlan, type PlanVersion, type Review, type Setting, type Views, type Week } from './types'
+import { stepsFromIntentions } from '../domain/steps'
+import {
+  type Answer,
+  type Day,
+  type Entry,
+  entryDefaults,
+  type IkigaiItem,
+  type OdysseyPlan,
+  type PlanVersion,
+  type Review,
+  type Setting,
+  type Step,
+  type Views,
+  type Week,
+} from './types'
 
 export type LifeDesignDB = Dexie & {
   entries: EntityTable<Entry, 'id'>
@@ -10,6 +24,7 @@ export type LifeDesignDB = Dexie & {
   planVersions: EntityTable<PlanVersion, 'id'>
   views: EntityTable<Views, 'id'>
   weeks: EntityTable<Week, 'id'>
+  steps: EntityTable<Step, 'id'>
   reviews: EntityTable<Review, 'id'>
   settings: EntityTable<Setting, 'key'>
 }
@@ -99,6 +114,24 @@ export function openDb(name = DB_NAME): LifeDesignDB {
           for (const [key, value] of Object.entries(entryDefaults())) if (entry[key] === undefined) entry[key] = value
         }),
     )
+  // v0.11: next steps get their own list, to manage in Insights. Those kept on entries move there (done, let go and
+  // open as they were); "Remember this" stays on the entry. Not edits: updatedAt stays.
+  database
+    .version(7)
+    .stores({
+      steps: 'id, status, updatedAt',
+    })
+    .upgrade(async (tx) => {
+      const steps = stepsFromIntentions(await tx.table('entries').toArray())
+      if (steps.length > 0) await tx.table('steps').bulkPut(steps)
+      const moved = new Set(steps.flatMap((s) => s.entryIds))
+      await tx
+        .table('entries')
+        .toCollection()
+        .modify((entry: Record<string, unknown>) => {
+          if (moved.has(entry.id as string)) entry.intention = null
+        })
+    })
   return database
 }
 

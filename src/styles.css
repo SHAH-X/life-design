@@ -944,6 +944,69 @@ button.entry-row:focus-visible {
   margin-top: 4px;
 }
 
+/* Your next steps for this activity, back where they matter (v0.11): above the helpers, a once-step with a tick. */
+.plans {
+  margin: 4px 0 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+}
+
+.plans-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.plans li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.did-it {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-size: 0.9rem;
+}
+
+.did-it input {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+}
+
+/* Next steps: "Same as …?" when you keep one that looks like one you have, look-alike pairs, steps not touched lately. */
+.same-as {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.same-as p {
+  margin: 0 0 6px;
+}
+
+.pair,
+.stale-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.finished-steps > summary {
+  min-height: 36px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 /* The writing box's helpers (v0.9): your purpose's questions to think with, quiet, right above the one box. */
 .helpers {
   margin: 4px 0 10px;

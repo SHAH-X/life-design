@@ -1,6 +1,6 @@
 // The weekly review, put together automatically from finished entries (nothing to fill in). Every line keeps the
 // entries behind it, so nothing is claimed that can't be shown. Weeks run Monday to Sunday.
-import type { Entry } from '../db/types'
+import type { Entry, Step } from '../db/types'
 import { addDays, fromDateKey } from '../lib/dates'
 import { activityStats } from './stats'
 
@@ -40,13 +40,13 @@ export interface WeekSummary {
   feelings: { word: string; count: number; entryIds: string[] }[]
   /** Entries that stood out (ids): kept to remember, with a next step, time flew, then the most written. */
   standout: string[]
-  nextSteps: string[]
   remember: string[]
 }
 
 const written = (e: Entry) => e.note.trim().length + e.reflections.reduce((sum, r) => sum + r.text.trim().length, 0)
 
-export function weekSummary(all: readonly Entry[], start: string): WeekSummary {
+/** `steps`: the next steps list (v0.11), so an entry with one stands out. */
+export function weekSummary(all: readonly Entry[], start: string, steps: readonly Step[] = []): WeekSummary {
   const end = addDays(start, 6)
   const week = all.filter((e) => isDone(e) && e.date >= start && e.date <= end)
   const groups = activityStats(week.filter((e) => !e.skipped.includes('energy')))
@@ -79,7 +79,8 @@ export function weekSummary(all: readonly Entry[], start: string): WeekSummary {
     }
   }
   pick(week.filter((e) => e.intention?.kind === 'remember'))
-  pick(week.filter((e) => e.intention && e.intention.kind !== 'remember'))
+  const withStep = new Set(steps.flatMap((s) => s.entryIds))
+  pick(week.filter((e) => withStep.has(e.id)))
   pick(week.filter((e) => e.flow))
   pick([...week].filter((e) => written(e) > 0).sort((a, b) => written(b) - written(a)))
 
@@ -96,7 +97,6 @@ export function weekSummary(all: readonly Entry[], start: string): WeekSummary {
       .sort((a, b) => b.count - a.count)
       .slice(0, FEELINGS_MAX),
     standout,
-    nextSteps: week.filter((e) => e.intention && e.intention.kind !== 'remember').map((e) => e.id),
     remember: week.filter((e) => e.intention?.kind === 'remember').map((e) => e.id),
   }
 }

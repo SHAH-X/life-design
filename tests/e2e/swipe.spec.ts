@@ -1,18 +1,7 @@
-import { expect, type Locator, type Page, test } from '@playwright/test'
-import { addEntry, entryButton } from './helpers'
+import { expect, type Page, test } from '@playwright/test'
+import { addEntry, entryButton, swipe } from './helpers'
 
 // Swipe left to delete, as in iOS Messages (v0.10), with Undo for a few seconds. Fictional example data.
-
-async function swipe(page: Page, target: Locator, dx: number, dy = 0) {
-  const box = await target.boundingBox()
-  if (!box) throw new Error('nothing to swipe')
-  const x = box.x + box.width - 30
-  const y = box.y + box.height / 2
-  await page.mouse.move(x, y)
-  await page.mouse.down()
-  await page.mouse.move(x + dx, y + dy, { steps: 10 })
-  await page.mouse.up()
-}
 
 const deleteButton = (page: Page, title: string) => page.getByRole('button', { name: `Delete ${title}` })
 

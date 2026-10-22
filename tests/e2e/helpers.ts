@@ -181,3 +181,15 @@ export async function expectSheetFillsScreen(page: Page, sheet: Locator) {
     )
     .toMatch(/^(\d+) of \1px$/)
 }
+
+/** A finger swipe across a row: right to left with a negative dx (swipe to delete). */
+export async function swipe(page: Page, target: Locator, dx: number, dy = 0) {
+  const box = await target.boundingBox()
+  if (!box) throw new Error('nothing to swipe')
+  const x = box.x + box.width - 30
+  const y = box.y + box.height / 2
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x + dx, y + dy, { steps: 10 })
+  await page.mouse.up()
+}

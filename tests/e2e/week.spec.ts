@@ -38,7 +38,7 @@ test('Insights opens on this week, put together from what you wrote; each line o
   await expect(page.getByRole('region', { name: 'This week' }).getByLabel('Anything to carry into next week?')).toHaveValue('Walk at lunch')
 })
 
-test("the week's next steps are followed up, not yet is fine, and its feelings open their entries", async ({ page }) => {
+test("the week's feelings open their entries; next steps show in their own card", async ({ page }) => {
   await page.goto('./#/today')
   await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
   const sheet = page.getByRole('dialog', { name: 'New activity' })
@@ -59,12 +59,9 @@ test("the week's next steps are followed up, not yet is fine, and its feelings o
 
   await page.goto('./#/insights')
   const week = page.getByRole('region', { name: 'This week' })
-  await expect(week).toContainText('Your next steps')
-  await expect(week).toContainText('Ask for an agenda first')
-  await expect(week).toContainText("Not yet is fine: it'll be here next time.")
-  // The same words as on the entry.
-  await week.getByRole('button', { name: 'Done it' }).click()
-  await expect(week).toContainText('✓ Done')
+  const steps = page.getByRole('region', { name: 'Next steps' })
+  await expect(steps).toContainText('Ask for an agenda first')
+  await expect(steps.getByRole('link', { name: 'All next steps ›' })).toBeVisible()
 
   const feeling = week.getByRole('group', { name: 'Feelings' }).getByRole('button', { name: /^frustrated/ })
   await feeling.click()

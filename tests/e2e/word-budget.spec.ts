@@ -18,7 +18,8 @@ const BUDGETS = {
   'Write freely': 25,
   'Entry, read back after saving': 75, // 90 until v0.9, when it stopped restating the entry: your words, a possible insight, the next-step choices
   'Entries [the fictional five days]': 180, // 125 until v0.10: + the time each of the 19 entries was logged
-  'Insights: this week, the fictional week': 105, // 80 until v0.9; + the week's energy chart and card titles (the owner's chosen layout); v0.10 + logged times on stand-out entries
+  'Insights: this week, the fictional week': 120, // 80 until v0.9; + the week's energy chart and card titles (the owner's chosen layout); v0.10 + logged times on stand-out entries; v0.11 + the Next steps card
+  'Insights → Next steps (empty)': 30,
   'Insights → Patterns, 30 days [236]': 155, // 150 until v0.8: + "Alone or with others" (the owner's brief)
   'More [460]': 60,
   'More → Reminders [266]': 133,
@@ -111,6 +112,9 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
   await page.goto('./#/insights')
   await expect(page.getByRole('heading', { level: 1, name: 'Insights' })).toBeVisible()
   await measure('Insights: this week, the fictional week', main)
+  await page.goto('./#/insights/steps')
+  await expect(page.getByRole('heading', { level: 1, name: 'Next steps' })).toBeVisible()
+  await measure('Insights → Next steps (empty)', main)
   await page.goto('./#/insights/patterns')
   await expect(page.getByRole('heading', { level: 1, name: 'Patterns' })).toBeVisible()
   await measure('Insights → Patterns, 30 days [236]', main)

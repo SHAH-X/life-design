@@ -1,4 +1,5 @@
 // Backup and restore. Import only adds or updates (newest version of a record wins); it never deletes.
+import { stepsFromIntentions } from '../domain/steps'
 import { toDateKey } from '../lib/dates'
 import { isLockedEnvelope, type LockedEnvelope } from './crypto'
 import { db as defaultDb, type LifeDesignDB } from './db'
@@ -11,9 +12,10 @@ export const APP_ID = 'life-design'
 /**
  * 1 = Phase 1; 2 adds reviews; 3 adds evening answers and each review moment's "why"; 4 adds earlier versions of
  * Odyssey Plans and Workview & Lifeview; 5 adds purpose journaling (entry purpose, reflections, next steps, free
- * writing, drafts) and weekly notes. Older files still restore; newer ones are refused by older app versions.
+ * writing, drafts) and weekly notes; 6 moves next steps into their own list (steps). Older files still restore (their
+ * next steps become steps); newer ones are refused by older app versions.
  */
-export const BACKUP_SCHEMA_VERSION = 5
+export const BACKUP_SCHEMA_VERSION = 6
 
 /** Settings that never leave the phone, not even inside a backup. */
 export const SECRET_SETTING_KEYS: ReadonlySet<string> = new Set(['aiKey'])
@@ -71,6 +73,7 @@ export async function createBackup(database: LifeDesignDB = defaultDb, now: Date
     planVersions: await database.planVersions.toArray(),
     views: await database.views.toArray(),
     weeks: await database.weeks.toArray(),
+    steps: await database.steps.toArray(),
     reviews: await database.reviews.toArray(),
     settings: (await database.settings.toArray()).filter((s) => !SECRET_SETTING_KEYS.has(s.key)),
   }))
@@ -88,7 +91,22 @@ function toRawData(data: unknown): RawData {
     const list = source[name]
     raw[name] = Array.isArray(list) ? list : []
   }
-  return raw
+  return withStepsFromIntentions(raw)
+}
+
+/**
+ * Files from before v0.11 (format 5 and older) kept next steps on entries: they become steps, as the database
+ * upgrade does, and leave their entries. Their ids come from the entry, so restoring twice adds nothing.
+ */
+function withStepsFromIntentions(raw: RawData): RawData {
+  const steps = stepsFromIntentions(raw.entries)
+  if (steps.length === 0) return raw
+  const moved = new Set(steps.flatMap((s) => s.entryIds))
+  const entries = raw.entries.map((e) => {
+    const record = e as Record<string, unknown>
+    return typeof record === 'object' && record !== null && moved.has(record.id as string) ? { ...record, intention: null } : e
+  })
+  return { ...raw, entries, steps: [...raw.steps, ...steps] }
 }
 
 function classifyUnparseable(text: string): FileProblem {

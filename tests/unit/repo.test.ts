@@ -19,6 +19,11 @@ import {
   savePlan,
   saveViews,
   setSmallJoy,
+  addStep,
+  linkStep,
+  mergeSteps,
+  setStepStatus,
+  updateStep,
 } from '../../src/db/repo'
 import { emptyPlan } from '../../src/domain/lifeDesign'
 import { onSaveError } from '../../src/db/saveErrors'
@@ -260,3 +265,51 @@ describe('purpose journaling entries', () => {
     expect(hasEnergy(buildEntry(draft(), undefined, now))).toBe(true)
   })
 })
+
+describe('next steps (v0.11)', () => {
+  it('starts a step from an entry, with its activity, so it comes back when you write about that again', async () => {
+    const step = await addStep({ text: ' Ask for an agenda first ', when: ' before meetings ', kind: 'once', entry: { id: 'e1', activity: ' Team Meeting ' } })
+    expect(await db.steps.get(step.id)).toMatchObject({
+      text: 'Ask for an agenda first',
+      when: 'before meetings',
+      kind: 'once',
+      status: 'active',
+      entryIds: ['e1'],
+      activity: 'team meeting',
+      finishedAt: null,
+    })
+    const byHand = await addStep({ text: 'Read before bed', kind: 'ongoing' })
+    expect(byHand).toMatchObject({ entryIds: [], activity: '' })
+  })
+
+  it('links the same step kept again from another entry, once', async () => {
+    const step = await addStep({ text: 'Walk after dinner', kind: 'ongoing', entry: { id: 'e1', activity: 'Evening walk' } })
+    await linkStep(step.id, 'e2')
+    await linkStep(step.id, 'e2')
+    expect((await db.steps.get(step.id))?.entryIds).toEqual(['e1', 'e2'])
+  })
+
+  it('is done or stopped with a date, and can be taken up again', async () => {
+    const step = await addStep({ text: 'Ask for an agenda first', kind: 'once' })
+    await setStepStatus(step.id, 'done')
+    expect(await db.steps.get(step.id)).toMatchObject({ status: 'done', finishedAt: expect.any(Number) })
+    await setStepStatus(step.id, 'active')
+    expect(await db.steps.get(step.id)).toMatchObject({ status: 'active', finishedAt: null })
+    await updateStep(step.id, { text: 'Ask for a short agenda', when: 'the day before', kind: 'ongoing' })
+    expect(await db.steps.get(step.id)).toMatchObject({ text: 'Ask for a short agenda', when: 'the day before', kind: 'ongoing' })
+  })
+
+  it('merges two that say the same: one stays with both sets of entries, the other goes', async () => {
+    const a = await addStep({ text: 'Walk 10 minutes every evening', kind: 'ongoing', entry: { id: 'e1', activity: 'Evening walk' } })
+    const b = await addStep({ text: 'Walk after dinner', kind: 'ongoing', entry: { id: 'e2', activity: 'Dinner' } })
+    await mergeSteps(a.id, b.id)
+    expect(await db.steps.count()).toBe(1)
+    expect((await db.steps.get(a.id))?.entryIds).toEqual(['e1', 'e2'])
+  })
+
+  it('counts towards "back up soon", like everything you write', async () => {
+    await addStep({ text: 'Walk after dinner', kind: 'ongoing' })
+    expect(await countChangesSince(null)).toBe(1)
+  })
+})
+

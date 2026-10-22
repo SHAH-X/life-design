@@ -25,7 +25,7 @@ async function saveAndStay(page: Page, activity: string, energy: string, writing
   return view
 }
 
-test('after saving, your entry reads back first: the words you tapped, then what you wrote; a next step can be kept and followed up', async ({ page }) => {
+test('after saving, your entry reads back first: the words you tapped, then what you wrote; a next step is kept, nothing to tick', async ({ page }) => {
   const view = await saveAndStay(page, 'Team meeting', 'It used up my energy', 'Long agenda, no decisions. We ran over.')
   await expect(view.getByText(/✓ Saved · Today, (morning|afternoon|evening)/)).toBeVisible()
   // The energy answer first, with its red edge, then the words.
@@ -47,13 +47,14 @@ test('after saving, your entry reads back first: the words you tapped, then what
   await view.getByLabel('What exactly?').fill('Ask for an agenda first')
   await view.getByRole('button', { name: 'Keep this' }).click()
   const step = view.getByRole('region', { name: 'Next step' })
-  await expect(step).toContainText('Try something differently: Ask for an agenda first')
-  await step.getByRole('button', { name: 'Done it' }).click()
-  await expect(step).toContainText('✓ Done')
+  await expect(step).toContainText('Next step: Ask for an agenda first')
+  // Written for the future: nothing to tick now (owner: "how can I have done it?").
+  for (const name of ['Done it', 'Let it go', 'Remove']) await expect(step.getByRole('button', { name })).toHaveCount(0)
+  await expect(step.getByRole('link', { name: 'Next steps ›' })).toBeVisible()
   await view.getByRole('button', { name: 'Done', exact: true }).click()
 
   await entryButton(page, 'Team meeting').click()
-  await expect(page.getByRole('dialog', { name: 'Team meeting' }).getByRole('region', { name: 'Next step' })).toContainText('✓ Done')
+  await expect(page.getByRole('dialog', { name: 'Team meeting' }).getByRole('region', { name: 'Next step' })).toContainText('Ask for an agenda first')
 })
 
 test('a possible insight needs 3+ entries, lists them, and is yours to dismiss or put your own way', async ({ page }) => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { entriesToCsv } from '../../src/db/csv'
-import { type Entry, entryDefaults } from '../../src/db/types'
+import { type Entry, entryDefaults, type Step } from '../../src/db/types'
 
 const entry = (over: Partial<Entry>): Entry => ({
   id: 'e',
@@ -65,23 +65,32 @@ describe('entriesToCsv', () => {
     expect(csv.replace(/\r\n/g, '')).not.toContain('\n')
   })
 
-  it('adds the purpose, the energy answer, how long, reflections and the next step in words', () => {
-    const [, line] = rows(
-      entriesToCsv([
-        entry({
-          purpose: 'grow',
-          energyEffect: 'used',
-          duration: 'hour',
-          reflections: [
-            { question: 'What went well?', text: 'The demo' },
-            { question: 'What would you like to try next time?', text: 'A shorter agenda' },
-          ],
-          intention: { kind: 'differently', text: 'Ask for an agenda', status: 'done', updatedAt: 1 },
-        }),
-      ]),
-    )
+  it('adds the purpose, the energy answer, how long, reflections, and its next steps and things to remember in words', () => {
+    const e = entry({
+      purpose: 'grow',
+      energyEffect: 'used',
+      duration: 'hour',
+      reflections: [
+        { question: 'What went well?', text: 'The demo' },
+        { question: 'What would you like to try next time?', text: 'A shorter agenda' },
+      ],
+      intention: { kind: 'remember', text: 'Small steps beat big plans', status: 'open', updatedAt: 1 },
+    })
+    const step: Step = {
+      id: 's1',
+      text: 'Ask for an agenda',
+      when: 'before meetings',
+      kind: 'once',
+      status: 'done',
+      entryIds: [e.id],
+      activity: 'team meeting',
+      createdAt: 1,
+      updatedAt: 1,
+      finishedAt: 1,
+    }
+    const [, line] = rows(entriesToCsv([e], [step]))
     expect(line).toContain(
-      ',activity,Improve myself,It used up my energy,About an hour,What went well? The demo | What would you like to try next time? A shorter agenda,Try something differently: Ask for an agenda (done)',
+      ',activity,Improve myself,It used up my energy,About an hour,What went well? The demo | What would you like to try next time? A shorter agenda,Before meetings: Ask for an agenda (done) | To remember: Small steps beat big plans',
     )
   })
 

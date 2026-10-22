@@ -10,10 +10,12 @@ import {
   type Entry,
   type EntrySource,
   entryDefaults,
-  type Intention,
   type OdysseyPlan,
   type Purpose,
   type Review,
+  type Step,
+  type StepKind,
+  type StepStatus,
   type Views,
   type Week,
 } from './types'
@@ -130,13 +132,6 @@ export async function patchEntry(
   await guardWrite(() => database.entries.update(id, { ...tidied, updatedAt: Date.now() }))
 }
 
-/** Follows up a next step: done, let go, or back to open ("Not yet"). */
-export async function setIntentionStatus(entry: Entry, status: Intention['status'], database: LifeDesignDB = defaultDb): Promise<void> {
-  if (!entry.intention) return
-  const intention = { ...entry.intention, status, updatedAt: Date.now() }
-  await guardWrite(() => database.entries.update(entry.id, { intention, updatedAt: Date.now() }))
-}
-
 /** What you'd like to carry into the next week, kept with the week it was written for. */
 export async function saveWeek(weekStart: string, carry: string, database: LifeDesignDB = defaultDb, now: number = Date.now()): Promise<Week> {
   return guardWrite(() =>
@@ -151,6 +146,68 @@ export async function saveWeek(weekStart: string, carry: string, database: LifeD
 
 export async function deleteEntry(id: string, database: LifeDesignDB = defaultDb): Promise<void> {
   await guardWrite(() => database.entries.delete(id))
+}
+
+/** A new next step: from an entry (its activity comes with it, so it comes back when you write about that again), or by hand. */
+export async function addStep(
+  input: { text: string; when?: string; kind: StepKind; entry?: Pick<Entry, 'id' | 'activity'> },
+  database: LifeDesignDB = defaultDb,
+): Promise<Step> {
+  const now = Date.now()
+  const step: Step = {
+    id: crypto.randomUUID(),
+    text: input.text.trim(),
+    when: (input.when ?? '').trim(),
+    kind: input.kind,
+    status: 'active',
+    entryIds: input.entry ? [input.entry.id] : [],
+    activity: input.entry ? input.entry.activity.trim().toLowerCase() : '',
+    createdAt: now,
+    updatedAt: now,
+    finishedAt: null,
+  }
+  await guardWrite(() => database.steps.put(step))
+  return step
+}
+
+/** The same step, kept again from another entry ("Same as …"). */
+export async function linkStep(stepId: string, entryId: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() =>
+    database.steps.update(stepId, (step) => {
+      if (!step.entryIds.includes(entryId)) step.entryIds.push(entryId)
+      step.updatedAt = Date.now()
+    }),
+  )
+}
+
+export async function updateStep(id: string, patch: Partial<Pick<Step, 'text' | 'when' | 'kind'>>, database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() => database.steps.update(id, { ...patch, updatedAt: Date.now() }))
+}
+
+/** Done (once), stopped (ongoing), or taken up again; touching it keeps it out of "Not touched lately". */
+export async function setStepStatus(id: string, status: StepStatus, database: LifeDesignDB = defaultDb): Promise<void> {
+  const now = Date.now()
+  await guardWrite(() => database.steps.update(id, { status, finishedAt: status === 'active' ? null : now, updatedAt: now }))
+}
+
+export async function deleteStep(id: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() => database.steps.delete(id))
+}
+
+export async function restoreStep(step: Step, database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() => database.steps.put(step))
+}
+
+/** Two steps that say the same: one stays, with both sets of entries; the other goes. */
+export async function mergeSteps(keepId: string, goneId: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() =>
+    database.transaction('rw', database.steps, async () => {
+      const [keep, gone] = await database.steps.bulkGet([keepId, goneId])
+      if (!keep || !gone || keepId === goneId) return
+      await database.steps.put({ ...keep, entryIds: [...new Set([...keep.entryIds, ...gone.entryIds])], activity: keep.activity || gone.activity, updatedAt: Date.now() })
+      await database.steps.delete(goneId)
+    }),
+  )
 }
 
 /** Puts a deleted entry back exactly as it was (Undo after a swipe to delete). */
@@ -267,7 +324,7 @@ export async function loadSuggestions(database: LifeDesignDB = defaultDb): Promi
 
 /** Entries, days, evening answers, reviews, plans and views created or changed after `since` (everything when never backed up). */
 export async function countChangesSince(since: number | null, database: LifeDesignDB = defaultDb): Promise<number> {
-  const tables = [database.entries, database.days, database.answers, database.reviews, database.odysseyPlans, database.views, database.weeks] as const
+  const tables = [database.entries, database.days, database.answers, database.reviews, database.odysseyPlans, database.views, database.weeks, database.steps] as const
   const counts = await Promise.all(tables.map((t) => (since === null ? t.count() : t.where('updatedAt').above(since).count())))
   return counts.reduce((sum, n) => sum + n, 0)
 }

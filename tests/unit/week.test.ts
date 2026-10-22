@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { aloneOrWithOthers, activityStats } from '../../src/analysis/stats'
 import { weekStart, weeksWithEntries, weekSummary } from '../../src/analysis/week'
-import { type Entry, entryDefaults } from '../../src/db/types'
+import { type Entry, entryDefaults, type Step } from '../../src/db/types'
 
 // Fictional week: Monday 19 to Sunday 25 October 2026.
 let n = 0
@@ -50,13 +50,26 @@ describe('weekSummary: the week, put together from finished entries, with the en
     entry('2026-10-19', 'Deep work', { ...gave, after: ['Inspired'] }),
     entry('2026-10-20', 'deep work', { ...gave, after: ['Inspired', 'Calm'], during: ['Time flew'], flow: true }),
     entry('2026-10-21', 'Team meeting', { ...used, after: ['Frustrated'] }),
-    entry('2026-10-22', 'Team meeting', { ...used, after: ['Frustrated', 'Tired'], intention: { kind: 'differently', text: 'Ask for an agenda', status: 'open', updatedAt: 1 } }),
+    entry('2026-10-22', 'Team meeting', { ...used, after: ['Frustrated', 'Tired'] }),
     entry('2026-10-22', 'Run', { ...gave, note: 'Felt strong on the hills, and the rain stopped halfway round' }),
     entry('2026-10-23', 'Reading', { intention: { kind: 'remember', text: 'Small steps beat big plans', status: 'open', updatedAt: 1 } }),
     entry('2026-10-24', 'Gym', { ...gave, status: 'draft' }),
     entry('2026-10-12', 'Old week', gave),
   ]
-  const summary = weekSummary(week, '2026-10-19')
+  // Since v0.11 next steps live in their own list; an entry with one still stands out.
+  const agenda: Step = {
+    id: 's1',
+    text: 'Ask for an agenda',
+    when: '',
+    kind: 'once',
+    status: 'active',
+    entryIds: ['w4'],
+    activity: 'team meeting',
+    createdAt: 1,
+    updatedAt: 1,
+    finishedAt: null,
+  }
+  const summary = weekSummary(week, '2026-10-19', [agenda])
 
   it('counts finished entries and days, leaving out drafts and other weeks', () => {
     expect(summary).toMatchObject({ start: '2026-10-19', end: '2026-10-25', entries: 6, days: 5 })
@@ -84,13 +97,12 @@ describe('weekSummary: the week, put together from finished entries, with the en
     expect(weekSummary([...flows, other], '2026-10-19').standout).toEqual([flows[0]?.id, other.id])
   })
 
-  it("gathers the week's next steps and things to remember", () => {
-    expect(summary.nextSteps).toEqual(['w4'])
+  it("gathers the week's things to remember", () => {
     expect(summary.remember).toEqual(['w6'])
   })
 
   it('is empty, not guessed, for a week with no entries', () => {
-    expect(weekSummary(week, '2026-11-02')).toMatchObject({ entries: 0, days: 0, gave: [], used: [], feelings: [], standout: [], nextSteps: [], remember: [] })
+    expect(weekSummary(week, '2026-11-02')).toMatchObject({ entries: 0, days: 0, gave: [], used: [], feelings: [], standout: [], remember: [] })
   })
 })
 

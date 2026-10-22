@@ -5,7 +5,7 @@ import { lockText, unlockText } from '../../src/db/crypto'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { newReview } from '../../src/db/repo'
 import { emptyPlan } from '../../src/domain/lifeDesign'
-import { type Answer, type Entry, entryDefaults } from '../../src/db/types'
+import { type Answer, type Entry, entryDefaults, type Step } from '../../src/db/types'
 
 // Fictional example data.
 const entry = (id: string, updatedAt: number, over: Partial<Entry> = {}): Entry => ({
@@ -38,6 +38,7 @@ const emptyRaw = (): RawData => ({
   planVersions: [],
   views: [],
   weeks: [],
+  steps: [],
   reviews: [],
   settings: [],
 })
@@ -208,28 +209,71 @@ describe('backup and restore', () => {
     expect(await newPhone.odysseyPlans.get('plan-1')).toMatchObject({ feelings: [], needs: [], needsNote: '', fit: '', writtenAt: 1000 })
   })
 
-  it('backs up and restores purpose journaling: reflections, next steps, free writing, drafts and weeks', async () => {
+  it('backs up and restores purpose journaling: reflections, next steps, things to remember, free writing, drafts and weeks', async () => {
     const reflected = entry('r1', 2000, {
       purpose: 'grow',
       energyEffect: 'used',
       duration: 'hour',
       reflections: [{ question: 'What went well?', text: 'The demo' }],
-      intention: { kind: 'differently', text: 'A shorter agenda', status: 'open', updatedAt: 2000 },
+      intention: { kind: 'remember', text: 'Small steps beat big plans', status: 'open', updatedAt: 2000 },
       take: 'Long meetings drain me',
     })
     const free = entry('f1', 2000, { kind: 'free', activity: '', purpose: 'free', note: "Couldn't sleep, kept thinking about the move", skipped: ['engagement', 'energy'] })
     const draft = entry('d1', 2000, { status: 'draft' })
+    const agenda: Step = {
+      id: 'st1',
+      text: 'A shorter agenda',
+      when: 'before meetings',
+      kind: 'once',
+      status: 'active',
+      entryIds: ['r1'],
+      activity: 'gardening',
+      createdAt: 2000,
+      updatedAt: 2000,
+      finishedAt: null,
+    }
     await phone.entries.bulkPut([reflected, free, draft])
+    await phone.steps.put(agenda)
     await phone.weeks.put({ id: '2026-10-19', carry: 'Walk at lunch', createdAt: 2000, updatedAt: 2000 })
     const backup = await createBackup(phone)
-    expect(backup.schemaVersion).toBe(5)
+    expect(backup.schemaVersion).toBe(6)
     const detected = detectFile(JSON.stringify(backup))
     if (detected.format !== 'backup') throw new Error('expected a backup')
     await applyImport(detected.raw, newPhone)
     expect(await newPhone.entries.get('r1')).toEqual(reflected)
     expect(await newPhone.entries.get('f1')).toEqual(free)
     expect(await newPhone.entries.get('d1')).toMatchObject({ status: 'draft' })
+    expect(await newPhone.steps.get('st1')).toEqual(agenda)
     expect(await newPhone.weeks.get('2026-10-19')).toMatchObject({ carry: 'Walk at lunch' })
+  })
+
+  it('turns next steps kept on entries in older files (format 5) into steps, only once however often it is restored', async () => {
+    const kept = entry('m', 3000, {
+      activity: 'Team meeting',
+      intention: { kind: 'differently', text: 'Ask for an agenda first', status: 'open', updatedAt: 3000 },
+    })
+    const file = { app: 'life-design', kind: 'backup', schemaVersion: 5, exportedAt: '2026-10-22T12:00:00Z', data: { entries: [kept] } }
+    for (const round of [1, 2]) {
+      const detected = detectFile(JSON.stringify(file))
+      if (detected.format !== 'backup') throw new Error('expected a backup')
+      const result = await applyImport(detected.raw, newPhone)
+      if (round === 2) expect(result.changes).toBe(0)
+    }
+    expect(await newPhone.steps.toArray()).toEqual([
+      {
+        id: 'from-m',
+        text: 'Ask for an agenda first',
+        when: '',
+        kind: 'once',
+        status: 'active',
+        entryIds: ['m'],
+        activity: 'team meeting',
+        createdAt: 3000,
+        updatedAt: 3000,
+        finishedAt: null,
+      },
+    ])
+    expect(await newPhone.entries.get('m')).toEqual({ ...kept, intention: null })
   })
 
   it('restores entries from a format 4 file with the new fields filled in, and skips an activity with no name', async () => {

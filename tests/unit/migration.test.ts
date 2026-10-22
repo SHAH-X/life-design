@@ -25,7 +25,7 @@ describe('database upgrade', () => {
     expect(await upgraded.entries.get('kept')).toMatchObject({ activity: 'Choir rehearsal' })
     expect(await upgraded.days.get('2026-10-20')).toMatchObject({ smallJoy: 'Fresh bread' })
     expect(await upgraded.reviews.count()).toBe(0)
-    expect(upgraded.verno).toBe(6)
+    expect(upgraded.verno).toBe(7)
     await upgraded.delete()
   })
 
@@ -67,7 +67,7 @@ describe('database upgrade', () => {
     expect(review?.updatedAt).toBe(7) // an upgrade is not an edit
     expect(await upgraded.entries.get('kept')).toMatchObject({ activity: 'Choir rehearsal' })
     expect(await upgraded.answers.count()).toBe(0)
-    expect(upgraded.verno).toBe(6)
+    expect(upgraded.verno).toBe(7)
     await upgraded.delete()
   })
 
@@ -109,7 +109,7 @@ describe('database upgrade', () => {
       balance: { play: 3 },
       updatedAt: 7,
     })
-    expect(upgraded.verno).toBe(6)
+    expect(upgraded.verno).toBe(7)
     await upgraded.delete()
   })
 
@@ -155,7 +155,7 @@ describe('database upgrade', () => {
     })
     expect(await upgraded.planVersions.count()).toBe(0)
     expect(await upgraded.views.count()).toBe(0)
-    expect(upgraded.verno).toBe(6)
+    expect(upgraded.verno).toBe(7)
     await upgraded.delete()
   })
 
@@ -195,7 +195,7 @@ describe('database upgrade', () => {
     phase3a.close()
 
     const upgraded = openDb(name)
-    expect(upgraded.verno).toBe(6)
+    expect(upgraded.verno).toBe(7)
     expect(await upgraded.entries.get('e1')).toEqual({
       ...old,
       kind: 'activity',
@@ -210,6 +210,74 @@ describe('database upgrade', () => {
       skipped: [],
     })
     expect(await upgraded.weeks.count()).toBe(0)
+    await upgraded.delete()
+  })
+  it('moves next steps kept on entries (v0.8–v0.10) into their own list, leaving "Remember this" and everything else as it was', async () => {
+    const name = `upgrade-${crypto.randomUUID()}`
+    const v6 = new Dexie(name)
+    v6.version(1).stores({
+      entries: 'id, date, createdAt, updatedAt',
+      days: 'date, updatedAt',
+      ikigaiItems: 'id, updatedAt',
+      odysseyPlans: 'id, slot, updatedAt',
+      settings: 'key',
+    })
+    v6.version(2).stores({ reviews: 'id, periodEnd, updatedAt' })
+    v6.version(3).stores({ answers: 'id, date, updatedAt' })
+    v6.version(4).stores({})
+    v6.version(5).stores({ planVersions: 'id, planId, savedAt, updatedAt', views: 'id, updatedAt' })
+    v6.version(6).stores({ weeks: 'id, updatedAt' })
+    const base = {
+      date: '2026-10-20',
+      part: 'afternoon',
+      engagement: 2,
+      energy: -2,
+      flow: false,
+      where: [],
+      people: [],
+      objects: [],
+      during: [],
+      after: [],
+      note: '',
+      source: 'evening',
+      createdAt: 5,
+      updatedAt: 9,
+      kind: 'activity',
+      purpose: 'know',
+      energyEffect: 'used',
+      duration: null,
+      reflections: [],
+      take: '',
+      insightHidden: false,
+      status: 'done',
+      skipped: [],
+    }
+    const meeting = { ...base, id: 'e1', activity: 'Team meeting', intention: { kind: 'differently', text: 'Ask for an agenda first', status: 'open', updatedAt: 12 } }
+    const walk = { ...base, id: 'e2', activity: 'Evening walk', intention: { kind: 'remember', text: 'Small steps beat big plans', status: 'open', updatedAt: 13 } }
+    const plain = { ...base, id: 'e3', activity: 'Commute', intention: null }
+    await v6.table('entries').bulkPut([meeting, walk, plain])
+    v6.close()
+
+    const upgraded = openDb(name)
+    expect(upgraded.verno).toBe(7)
+    expect(await upgraded.steps.toArray()).toEqual([
+      {
+        id: 'from-e1',
+        text: 'Ask for an agenda first',
+        when: '',
+        kind: 'once',
+        status: 'active',
+        entryIds: ['e1'],
+        activity: 'team meeting',
+        createdAt: 12,
+        updatedAt: 12,
+        finishedAt: null,
+      },
+    ])
+    // The step left its entry; "Remember this" stays (What I'm learning); nothing else changed, updatedAt included.
+    expect(await upgraded.entries.get('e1')).toEqual({ ...meeting, intention: null })
+    expect(await upgraded.entries.get('e2')).toEqual(walk)
+    expect(await upgraded.entries.get('e3')).toEqual(plain)
     await upgraded.delete()
   })
 })

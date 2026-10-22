@@ -85,6 +85,7 @@ test('no link in the app opens a file inside the app (on iPhone that left the ap
     'entries',
     'insights',
     'insights/patterns',
+    'insights/steps',
     'more',
     'more/reminders',
     'more/purpose',

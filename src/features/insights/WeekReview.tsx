@@ -1,10 +1,9 @@
 import { type ReactNode, useId, useState } from 'react'
 import { energySeries } from '../../analysis/stats'
 import type { WeekSummary } from '../../analysis/week'
-import { hasEnergy, saveWeek, setIntentionStatus } from '../../db/repo'
+import { hasEnergy, saveWeek } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import { overallEnergyWord, times } from '../../domain/feelings'
-import { intentionLabel } from '../../domain/intentions'
 import { formatRecentPeriod, longDate, shortWeekday } from '../../lib/dates'
 import { useAutosave } from '../../ui/useAutosave'
 import { EntryRow, entryTitle } from '../today/EntryRow'
@@ -28,7 +27,7 @@ const howMany = (count: number, of: number) => (count === of ? times(count) : `$
 /**
  * The week, put together for you from what you wrote: nothing to fill in (v0.9 layout: the week's energy by day,
  * then one card per section). Every line opens to the entries behind it; a stand-out entry opens itself. Next steps
- * can be followed up; "Not yet" is fine. One optional box for what to carry into next week.
+ * have their own list (v0.11, Insights → Next steps). One optional box for what to carry into next week.
  */
 export function WeekReview(props: {
   summary: WeekSummary
@@ -42,7 +41,6 @@ export function WeekReview(props: {
   const headingId = useId()
   const pick = (ids: readonly string[]) => ids.map((id) => entries.get(id)).filter((e): e is Entry => e !== undefined)
   const standouts = pick(summary.standout)
-  const steps = pick(summary.nextSteps).filter((e) => e.intention !== null)
   const remembered = pick(summary.remember)
   const week = [...entries.values()].filter((e) => e.date >= summary.start && e.date <= summary.end)
 
@@ -116,18 +114,6 @@ export function WeekReview(props: {
         </div>
       ) : null}
 
-      {steps.length ? (
-        <div className="card week-card">
-          <h3>Your next steps</h3>
-          <ul className="plain-list next-steps">
-            {steps.map((e) => (
-              <NextStepLine key={e.id} entry={e} />
-            ))}
-          </ul>
-          <p className="muted small">Not yet is fine: it'll be here next time.</p>
-        </div>
-      ) : null}
-
       {remembered.length ? (
         <div className="card week-card remember">
           <h3>To remember</h3>
@@ -177,30 +163,6 @@ function FeelingChips({ feelings, entries }: { feelings: WeekSummary['feelings']
       </div>
       <div id={panelId}>{shown ? <Evidence ids={shown.entryIds} entries={entries} /> : null}</div>
     </>
-  )
-}
-
-function NextStepLine({ entry }: { entry: Entry }) {
-  const intention = entry.intention
-  if (!intention) return null
-  return (
-    <li>
-      <span>
-        {intention.text || intentionLabel(intention.kind)} <span className="muted small">· {entryTitle(entry)}</span>
-      </span>
-      {intention.status === 'open' ? (
-        <span className="row">
-          <button type="button" onClick={() => void setIntentionStatus(entry, 'done')}>
-            Done it
-          </button>
-          <button type="button" className="link" onClick={() => void setIntentionStatus(entry, 'dropped')}>
-            Let it go
-          </button>
-        </span>
-      ) : (
-        <span className="muted small">{intention.status === 'done' ? ' ✓ Done' : ' Let go'}</span>
-      )}
-    </li>
   )
 }
 

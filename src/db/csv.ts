@@ -1,8 +1,8 @@
 import { DURATION_LABELS, ENERGY_OPTIONS } from '../domain/feelings'
-import { INTENTION_OPTIONS } from '../domain/intentions'
 import { purposeInfo } from '../domain/purposes'
+import { stepLine } from '../domain/steps'
 import { PART_ORDER, toDateKey } from '../lib/dates'
-import type { Entry } from './types'
+import type { Entry, Step, StepStatus } from './types'
 
 const HEADER = [
   'date',
@@ -34,15 +34,17 @@ function cell(value: string | number, isText = false): string {
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
-function nextStep(entry: Entry): string {
-  const { intention } = entry
-  if (!intention) return ''
-  const label = INTENTION_OPTIONS.find((o) => o.value === intention.kind)?.label ?? intention.kind
-  return `${label}${intention.text ? `: ${intention.text}` : ''} (${intention.status})`
+const STATUS_WORDS: Record<StepStatus, string> = { active: 'working on it', done: 'done', stopped: 'stopped' }
+
+/** The next steps that came from an entry (v0.11: their own list), then what it keeps to remember. */
+function nextSteps(entry: Entry, steps: readonly Step[]): string {
+  const parts = steps.filter((s) => s.entryIds.includes(entry.id)).map((s) => `${stepLine(s)} (${STATUS_WORDS[s.status]})`)
+  if (entry.intention?.kind === 'remember' && entry.intention.text) parts.push(`To remember: ${entry.intention.text}`)
+  return parts.join(' | ')
 }
 
-/** Finished entries, oldest first. Drafts are left out. */
-export function entriesToCsv(entries: readonly Entry[]): string {
+/** Finished entries, oldest first, with the next steps that came from them. Drafts are left out. */
+export function entriesToCsv(entries: readonly Entry[], steps: readonly Step[] = []): string {
   const rows = entries
     .filter((e) => e.status !== 'draft')
     .sort((a, b) => a.date.localeCompare(b.date) || PART_ORDER[a.part] - PART_ORDER[b.part] || a.createdAt - b.createdAt)
@@ -67,7 +69,7 @@ export function entriesToCsv(entries: readonly Entry[]): string {
         cell(ENERGY_OPTIONS.find((o) => o.value === e.energyEffect)?.label ?? '', true),
         cell(e.duration ? DURATION_LABELS[e.duration] : '', true),
         cell(e.reflections.map((r) => `${r.question} ${r.text}`).join(' | '), true),
-        cell(nextStep(e), true),
+        cell(nextSteps(e, steps), true),
       ].join(','),
     )
   // The byte-order mark lets Excel read the file as UTF-8.

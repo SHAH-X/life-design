@@ -20,13 +20,40 @@ export interface Reflection {
 
 /** "Anything you'd like to do with this?" */
 export type IntentionKind = 'differently' | 'again' | 'time' | 'explore' | 'remember'
+/**
+ * Kept on the entry: since v0.11 only "Remember this" (What I'm learning). Next steps to do or try live in their own
+ * table (Step); older ones were moved there by the database upgrade.
+ */
 export interface Intention {
   kind: IntentionKind
   /** "What exactly?" (optional) */
   text: string
-  /** Followed up in the weekly review: done, or let go. "Not yet" leaves it open. */
+  /** From before v0.11, when next steps were followed up on the entry. */
   status: 'open' | 'done' | 'dropped'
   updatedAt: number
+}
+
+/** Once (e.g. "Ask for an agenda first") or ongoing (e.g. "Walk 10 minutes every evening"). */
+export type StepKind = 'once' | 'ongoing'
+/** Working on it, done (once), or stopped. */
+export type StepStatus = 'active' | 'done' | 'stopped'
+
+/** A next step you decided to do or try (v0.11: a list you can manage, in Insights → Next steps). */
+export interface Step {
+  id: string
+  text: string
+  /** When to do it ("after dinner"): optional. A plan tied to a moment is likelier to happen. */
+  when: string
+  kind: StepKind
+  status: StepStatus
+  /** The entries it came from: more than one when kept again or merged. Empty when added by hand. */
+  entryIds: string[]
+  /** The activity it's about (lowercased), so it comes back when you write about that again; '' if none. */
+  activity: string
+  createdAt: number
+  updatedAt: number
+  /** When it was finished (done or stopped); null while you're working on it. */
+  finishedAt: number | null
 }
 
 /** One journal entry: an activity (Good Time Journal) or free writing. */
@@ -257,6 +284,7 @@ export interface BackupData {
   planVersions: PlanVersion[]
   views: Views[]
   weeks: Week[]
+  steps: Step[]
   reviews: Review[]
   settings: Setting[]
 }
@@ -272,6 +300,7 @@ export const TABLE_NAMES: readonly TableName[] = [
   'planVersions',
   'views',
   'weeks',
+  'steps',
   'reviews',
   'settings',
 ]
@@ -285,6 +314,7 @@ export const TABLE_LABELS: Record<TableName, string> = {
   planVersions: 'Earlier versions of plans',
   views: 'Workview & Lifeview',
   weeks: 'Weekly notes',
+  steps: 'Next steps',
   reviews: 'Reviews',
   settings: 'Settings',
 }

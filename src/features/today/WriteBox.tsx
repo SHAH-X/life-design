@@ -1,6 +1,7 @@
 import { type Ref, useId, useState } from 'react'
-import type { Purpose } from '../../db/types'
+import type { Purpose, Step } from '../../db/types'
 import { type EntryQuestion, HELPERS_SHOWN, helpersPage, PURPOSE_KEYS, purposeInfo } from '../../domain/purposes'
+import { stepLine } from '../../domain/steps'
 import { Question } from '../../ui/Question'
 
 export const WRITE_QUESTION = "What's on your mind about it?"
@@ -19,13 +20,18 @@ interface Props {
   onText: (text: string) => void
   boxRef?: Ref<HTMLTextAreaElement>
   headingRef?: Ref<HTMLHeadingElement>
+  /** Your next steps for this activity (v0.11): they come back here, and a once-step can be ticked. */
+  plans?: readonly Step[]
+  /** Once-steps ticked here. */
+  didIt?: readonly string[]
+  onDidIt?: (step: Step, done: boolean) => void
 }
 
 /**
  * One box to write about an activity (v0.9: "just one box … without thinking how much to include against which
  * question"). Your purpose's questions sit above it as helpers to think with, never as fields to fill.
  */
-export function WriteBox({ id, purpose, onPurpose, candidates, focus, text, onText, boxRef, headingRef }: Props) {
+export function WriteBox({ id, purpose, onPurpose, candidates, focus, text, onText, boxRef, headingRef, plans = [], didIt = [], onDidIt }: Props) {
   const questionId = useId()
   const selectId = useId()
   const [page, setPage] = useState(0)
@@ -37,6 +43,24 @@ export function WriteBox({ id, purpose, onPurpose, candidates, focus, text, onTe
       <Question id={questionId} headingRef={headingRef}>
         {WRITE_QUESTION}
       </Question>
+      {plans.length ? (
+        <div className="plans">
+          <p className="plans-title">Your plan for this</p>
+          <ul className="plain-list compact">
+            {plans.map((p) => (
+              <li key={p.id}>
+                <span>{stepLine(p)}</span>
+                {p.kind === 'once' && onDidIt ? (
+                  <label className="did-it">
+                    <input type="checkbox" checked={didIt.includes(p.id)} onChange={(e) => onDidIt(p, e.target.checked)} />
+                    Did it
+                  </label>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <div className="helpers">
         <div className="purpose-line">
           <label htmlFor={selectId}>Questions for</label>

@@ -1,8 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Fragment, type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { db } from '../../db/db'
-import { addOwnWord, isDone, saveEntry, type Suggestions } from '../../db/repo'
-import type { Duration, EnergyEffect, Entry, Measure, Purpose, Reflection } from '../../db/types'
+import { addOwnWord, isDone, saveEntry, setStepStatus, type Suggestions } from '../../db/repo'
+import type { Duration, EnergyEffect, Entry, Measure, Purpose, Reflection, Step } from '../../db/types'
 import {
   AFTER_INFO,
   AFTER_QUESTION,
@@ -98,6 +98,16 @@ export function EntryFlow({ date, suggestions, own, purpose: primary, goal, focu
   const finished = useRef(false)
   const started = useRef(Boolean(draft))
   const draftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  // Your next steps for this activity come back on the writing step (v0.11); ones ticked here stay in view.
+  const steps = useLiveQuery(() => db.steps.toArray(), [], [] as Step[])
+  const [didIt, setDidIt] = useState<string[]>([])
+  const activityKey = activity.trim().toLowerCase()
+  const plans = steps.filter((s) => activityKey !== '' && s.activity === activityKey && (s.status === 'active' || didIt.includes(s.id)))
+  const onDidIt = (step: Step, done: boolean) => {
+    setDidIt((current) => (done ? [...current, step.id] : current.filter((id) => id !== step.id)))
+    void setStepStatus(step.id, done ? 'done' : 'active')
+  }
 
   // How many entries you've written for this purpose: the helper questions take turns from it.
   const turn = useLiveQuery(() => db.entries.filter((e) => isDone(e) && e.purpose === purpose).count(), [purpose], 0)
@@ -353,6 +363,9 @@ export function EntryFlow({ date, suggestions, own, purpose: primary, goal, focu
           text={note}
           onText={setNote}
           headingRef={heading}
+          plans={plans}
+          didIt={didIt}
+          onDidIt={onDidIt}
         />
         <p className="field-help">Tap the mic on the keyboard to speak.</p>
         {suggested.length ? (

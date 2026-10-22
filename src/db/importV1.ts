@@ -153,5 +153,5 @@ export function convertV1(input: V1Backup, now: Date = new Date()): V1Conversion
     })
   })
 
-  return { data: { entries, days: [], answers: [], ikigaiItems, odysseyPlans, planVersions: [], views: [], weeks: [], reviews: [], settings: [] }, skipped }
+  return { data: { entries, days: [], answers: [], ikigaiItems, odysseyPlans, planVersions: [], views: [], weeks: [], steps: [], reviews: [], settings: [] }, skipped }
 }

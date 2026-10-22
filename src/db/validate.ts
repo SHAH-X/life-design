@@ -12,6 +12,7 @@ import {
   type PlanVersion,
   type Review,
   type Setting,
+  type Step,
   type TableName,
   type Views,
   type Week,
@@ -194,6 +195,21 @@ export function isWeek(x: unknown): x is Week {
   return isObj(x) && isDateKey(x.id) && isStr(x.carry) && hasTimes(x)
 }
 
+export function isStep(x: unknown): x is Step {
+  return (
+    isObj(x) &&
+    isNonEmptyStr(x.id) &&
+    isNonEmptyStr(x.text) &&
+    isStr(x.when) &&
+    isOneOf(['once', 'ongoing'])(x.kind) &&
+    isOneOf(['active', 'done', 'stopped'])(x.status) &&
+    isStrList(x.entryIds) &&
+    isStr(x.activity) &&
+    (x.finishedAt === null || isNum(x.finishedAt)) &&
+    hasTimes(x)
+  )
+}
+
 export function isSetting(x: unknown): x is Setting {
   return isObj(x) && isNonEmptyStr(x.key) && 'value' in x && isNum(x.updatedAt)
 }
@@ -207,6 +223,7 @@ export const VALIDATORS: { [K in TableName]: (x: unknown) => x is BackupData[K][
   planVersions: isPlanVersion,
   views: isViews,
   weeks: isWeek,
+  steps: isStep,
   reviews: isReview,
   settings: isSetting,
 }
