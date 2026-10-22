@@ -136,8 +136,8 @@ test('a sheet opens on its content, not on ✕ Close', async ({ page }) => {
 })
 
 test('sheets sit above the keyboard, so what you type into stays in sight', async ({ page }) => {
-  // v0.6 on the iPhone: the keyboard covered "What did you do?". iOS doesn't shrink the page for the keyboard,
-  // so a sheet pinned to the bottom stayed behind it.
+  // v0.6 on the iPhone: the keyboard covered "What did you do?". iOS mostly doesn't shrink the page for the
+  // keyboard, so a sheet pinned to the bottom stayed behind it.
   await fakeKeyboard(page)
   await page.reload()
   await addEntry(page, { activity: 'Reading', during: ['Curious'], after: ['Calm'] })

@@ -561,8 +561,8 @@ legend {
 /* ---------- Sheets (native <dialog>) ---------- */
 
 dialog.sheet {
-  /* Sits on top of the iPhone keyboard: iOS doesn't shrink the page for it, so useKeyboardInset sets
-     --keyboard-inset (the part it covers) and --visible-height (what's left). */
+  /* Sits on top of the iPhone keyboard: useKeyboardInset sets --keyboard-inset (the part it covers) and
+     --visible-height (what's left), and while the keyboard is up --below-sheet and --keyboard-toolbar. */
   --sheet-max: min(92dvh, calc(var(--visible-height, 100dvh) - 8px));
   width: 100%;
   max-width: 640px;
@@ -573,6 +573,9 @@ dialog.sheet {
   border-radius: 18px 18px 0 0;
   background: var(--surface);
   color: var(--text);
+  /* Down to the keyboard, the sheet's own surface, never the page behind: iOS 27 leaves a gap below the visible
+     area for Safari's address pill and the keyboard's floating toolbar (seen in the iOS Simulator, v0.12.2). */
+  box-shadow: 0 var(--below-sheet, 0px) 0 0 var(--surface);
 }
 
 dialog.sheet:focus {
@@ -663,7 +666,8 @@ dialog.sheet.full .sheet-header {
   flex-direction: column;
   gap: 8px;
   /* The home bar's space isn't needed while the keyboard covers it. */
-  padding: 12px 16px calc(12px + max(0px, env(safe-area-inset-bottom) - var(--keyboard-inset, 0px)));
+  /* In a Safari tab, iOS 27's floating keyboard toolbar can lie over the bottom of the visible area. */
+  padding: 12px 16px calc(12px + max(0px, env(safe-area-inset-bottom) - var(--keyboard-inset, 0px)) + var(--keyboard-toolbar, 0px));
   border-top: 1px solid var(--border);
 }
 

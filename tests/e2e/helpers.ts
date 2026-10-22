@@ -101,12 +101,18 @@ export function entryButton(page: Page, activity: string) {
   return page.getByRole('button', { name: new RegExp(`^${activity}`) })
 }
 
-/** An iPhone keyboard's height in portrait, with its suggestion bar. */
-export const KEYBOARD_HEIGHT = 336
+/**
+ * How much of Playwright's iPhone 17 (681 tall) the fake keyboard covers: it leaves 384 visible, the smallest
+ * visible area measured with the real keyboard up in the iOS Simulator (iPhone 17, iOS 27, a Safari tab with its
+ * address pill; the Home Screen app leaves 416). Until v0.12.2 it was 336 (an iPhone 16 keyboard from below the
+ * page), which left only 345.
+ */
+export const KEYBOARD_HEIGHT = 297
 
 /**
- * Stands in for the iPhone keyboard. iOS never shrinks the page for it: only the visible area
- * (window.visualViewport) gets shorter. Call before the page loads; then `showKeyboard` opens and closes it.
+ * Stands in for the iPhone keyboard. iOS mostly doesn't shrink the page for it: only the visible area
+ * (window.visualViewport) gets shorter. (iOS 27 sometimes shrinks the page too: a unit test covers that with the
+ * numbers measured in the iOS Simulator, and `npm run ios-check` uses the real keyboard.) Call before the page loads; then `showKeyboard` opens and closes it.
  */
 export async function fakeKeyboard(page: Page) {
   await page.addInitScript(() => {
