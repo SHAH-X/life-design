@@ -107,11 +107,11 @@ export function FreeWrite({ date, draft, onClose, onSaved }: { date: string; dra
   )
 
   return (
-    <Dialog title="Write freely" onClose={onClose} footer={footer}>
+    <Dialog title="Write freely" onClose={onClose} footer={footer} full fillBody>
       <label className="question-text" htmlFor={id}>
         What's on your mind?
       </label>
-      <textarea ref={box} id={id} data-autofocus value={text} rows={10} maxLength={20000} onChange={(e) => setText(e.target.value)} />
+      <textarea ref={box} id={id} className="fill" data-autofocus value={text} rows={10} maxLength={20000} onChange={(e) => setText(e.target.value)} />
       <div className="field-foot">
         {text.trim() === '' ? <Starters starters={eveningStarters('free')} onPick={(t) => typeInto(box.current, t, setText)} /> : null}
       </div>

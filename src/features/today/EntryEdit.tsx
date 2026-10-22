@@ -113,42 +113,41 @@ export function EntryEdit({ existing, suggestions, own, goal, focus, onClose }: 
     )
   }
 
-  const footer = (
-    <>
-      <button type="button" className="primary wide" disabled={busy || (free ? !note.trim() : !activity.trim())} onClick={() => void save()}>
+  // One row, so the sheet keeps its room for typing when the keyboard is up.
+  const footer = confirmDelete ? (
+    <div className="row">
+      <span className="grow">Delete this entry?</span>
+      <button type="button" className="danger" disabled={busy} onClick={() => void run(() => deleteEntry(existing.id))}>
+        Yes, delete
+      </button>
+      <button type="button" onClick={() => setConfirmDelete(false)}>
+        Keep
+      </button>
+    </div>
+  ) : (
+    <div className="footer-row">
+      <button type="button" className="link danger-text" onClick={() => setConfirmDelete(true)}>
+        Delete
+      </button>
+      <button type="button" className="primary" disabled={busy || (free ? !note.trim() : !activity.trim())} onClick={() => void save()}>
         Save
       </button>
-      {confirmDelete ? (
-        <div className="row">
-          <span className="grow">Delete this entry?</span>
-          <button type="button" className="danger" disabled={busy} onClick={() => void run(() => deleteEntry(existing.id))}>
-            Yes, delete
-          </button>
-          <button type="button" onClick={() => setConfirmDelete(false)}>
-            Keep
-          </button>
-        </div>
-      ) : (
-        <button type="button" className="link danger-text" onClick={() => setConfirmDelete(true)}>
-          Delete
-        </button>
-      )}
-    </>
+    </div>
   )
 
   if (free) {
     return (
-      <Dialog title="Edit writing" onClose={onClose} footer={footer}>
+      <Dialog title="Edit writing" onClose={onClose} footer={footer} full fillBody>
         <label className="question-text" htmlFor={noteId}>
           What's on your mind?
         </label>
-        <textarea id={noteId} value={note} rows={10} maxLength={20000} onChange={(e) => setNote(e.target.value)} />
+        <textarea id={noteId} className="fill" value={note} rows={10} maxLength={20000} onChange={(e) => setNote(e.target.value)} />
       </Dialog>
     )
   }
 
   return (
-    <Dialog title="Edit activity" onClose={onClose} footer={footer}>
+    <Dialog title="Edit activity" onClose={onClose} footer={footer} full>
       <label className="question-text" htmlFor={activityId}>
         What did you do?
       </label>

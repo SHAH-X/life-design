@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 import { patchEntry, setIntentionStatus } from '../../db/repo'
 import type { Entry, IntentionKind } from '../../db/types'
 import { INTENTION_OPTIONS, intentionLabel, isFollowUp, NEXT_STEP_DETAIL, NEXT_STEP_QUESTION, NOTHING_FOR_NOW } from '../../domain/intentions'
+import { revealOnMount } from '../../ui/keepInView'
 
 /**
  * "Anything you'd like to do with this?" (Stage F): an optional next step, never forced. Once chosen it shows
@@ -61,7 +62,7 @@ export function NextStep({ entry }: { entry: Entry }) {
         </button>
       </div>
       {option ? (
-        <>
+        <div ref={revealOnMount}>
           <label className="question-text" htmlFor={detailId}>
             {NEXT_STEP_DETAIL}
           </label>
@@ -73,7 +74,7 @@ export function NextStep({ entry }: { entry: Entry }) {
           >
             Keep this
           </button>
-        </>
+        </div>
       ) : null}
     </section>
   )

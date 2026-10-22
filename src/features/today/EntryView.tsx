@@ -7,6 +7,7 @@ import { ENERGY_OPTIONS, entryWords, wordsFor } from '../../domain/feelings'
 import { possibleInsight } from '../../domain/summary'
 import { addDays, longDate, shortDay, toDateKey } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
+import { revealOnMount } from '../../ui/keepInView'
 import { entryTitle } from './EntryRow'
 import { NextStep } from './NextStep'
 
@@ -69,7 +70,7 @@ export function EntryView(props: { entryId: string; fresh?: boolean; onEdit: (en
   )
 
   return (
-    <Dialog title={entryTitle(entry)} onClose={onClose} footer={footer}>
+    <Dialog title={entryTitle(entry)} onClose={onClose} footer={footer} full>
       <p className="entry-when">
         {fresh ? (
           <>
@@ -128,7 +129,7 @@ export function EntryView(props: { entryId: string; fresh?: boolean; onEdit: (en
             </ul>
           </details>
           {taking ? (
-            <>
+            <div ref={revealOnMount}>
               <label className="question-text" htmlFor={takeId}>
                 Your take
               </label>
@@ -144,7 +145,7 @@ export function EntryView(props: { entryId: string; fresh?: boolean; onEdit: (en
               >
                 Keep my take
               </button>
-            </>
+            </div>
           ) : (
             <div className="row">
               <button type="button" className="link" onClick={() => void patchEntry(entry.id, { insightHidden: true })}>

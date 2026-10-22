@@ -1,5 +1,16 @@
 import { expect, test } from '@playwright/test'
-import { addEntry, closeSaved, entryButton, expectAboveKeyboard, fakeKeyboard, openEdit, showKeyboard, smallJoy } from './helpers'
+import {
+  addEntry,
+  closeSaved,
+  entryButton,
+  expectAboveKeyboard,
+  expectInSheetView,
+  expectSheetFillsScreen,
+  fakeKeyboard,
+  openEdit,
+  showKeyboard,
+  smallJoy,
+} from './helpers'
 import { restoreSeed } from './seed'
 
 // Fictional example data.
@@ -152,6 +163,86 @@ test('sheets sit above the keyboard, so what you type into stays in sight', asyn
   await showKeyboard(page, 0)
   const screenHeight = await page.evaluate(() => window.innerHeight)
   await expect.poll(async () => Math.round(((await sheet.boundingBox())?.y ?? 0) + ((await sheet.boundingBox())?.height ?? 0))).toBe(screenHeight)
+})
+
+test('a field never hides behind the sheet footer, even with the keyboard up; entry sheets use the whole screen', async ({ page }) => {
+  // v0.9 on the iPhone: adding a word of your own to "What was it like?" put its box behind the Skip button,
+  // and the sheet didn't open to the full screen.
+  await fakeKeyboard(page)
+  await page.reload()
+  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
+  const sheet = page.getByRole('dialog', { name: 'New activity' })
+  await expectSheetFillsScreen(page, sheet)
+  await sheet.getByLabel('What did you do?').fill('Answered emails')
+  await showKeyboard(page)
+  await expectSheetFillsScreen(page, sheet)
+  await sheet.getByRole('button', { name: 'Next' }).click()
+
+  // Your own word: its box takes the focus at once, in sight above Skip and the keyboard.
+  await sheet.getByRole('button', { name: '+ your own word' }).click()
+  const own = sheet.getByLabel('Your own word')
+  await expect(own).toBeFocused()
+  await expectInSheetView(sheet, own)
+  await expectAboveKeyboard(page, own)
+  await own.fill('Foggy')
+  await sheet.getByRole('button', { name: 'Add', exact: true }).click()
+  // Its one question appears in sight too.
+  await expectInSheetView(sheet, sheet.getByRole('button', { name: 'Not really' }))
+  await sheet.getByRole('button', { name: 'Not really' }).click()
+  await sheet.getByRole('button', { name: 'Next' }).click()
+  await sheet.getByRole('button', { name: 'Skip' }).click()
+  await sheet.getByRole('button', { name: 'Skip' }).click()
+
+  // The writing box, then where and who, opened while the keyboard is up.
+  const writing = sheet.getByLabel("What's on your mind about it?")
+  await writing.click()
+  await expectInSheetView(sheet, writing)
+  await sheet.getByRole('button', { name: '+ How long, where, who' }).click()
+  const where = sheet.getByLabel('Add to where')
+  await where.click()
+  await expectInSheetView(sheet, where)
+  await expectAboveKeyboard(page, where)
+  await sheet.getByRole('button', { name: 'Save' }).click()
+
+  // Read back: a next step's "What exactly?" stays in sight.
+  const view = page.getByRole('dialog', { name: 'Answered emails' })
+  await expectSheetFillsScreen(page, view)
+  await view.getByRole('button', { name: 'Try something differently' }).click()
+  const exactly = view.getByLabel('What exactly?')
+  await exactly.click()
+  await expectInSheetView(view, exactly)
+  await expectAboveKeyboard(page, exactly)
+  await showKeyboard(page, 0)
+  await view.getByRole('button', { name: 'Done', exact: true }).click()
+})
+
+test('editing and writing freely keep every field in sight, on the whole screen', async ({ page }) => {
+  await fakeKeyboard(page)
+  await page.reload()
+  await addEntry(page, { activity: 'Reading', during: ['Curious'], after: ['Calm'] })
+
+  const edit = await openEdit(page, 'Reading')
+  await expectSheetFillsScreen(page, edit)
+  await edit.getByLabel('What did you do?').click()
+  await showKeyboard(page)
+  await expectSheetFillsScreen(page, edit)
+  await edit.getByRole('button', { name: '+ your own word' }).first().click()
+  const own = edit.getByLabel('Your own word')
+  await expect(own).toBeFocused()
+  await expectInSheetView(edit, own)
+  await expectAboveKeyboard(page, own)
+  await edit.getByLabel("What's on your mind about it?").click()
+  await expectInSheetView(edit, edit.getByLabel("What's on your mind about it?"))
+  await showKeyboard(page, 0)
+  await edit.getByRole('button', { name: 'Close' }).click()
+  await page.getByRole('dialog', { name: 'Reading' }).getByRole('button', { name: 'Done', exact: true }).click()
+
+  await page.getByRole('button', { name: 'Write freely' }).click()
+  const free = page.getByRole('dialog', { name: 'Write freely' })
+  await expectSheetFillsScreen(page, free)
+  await showKeyboard(page)
+  await expectSheetFillsScreen(page, free)
+  await expectInSheetView(free, free.getByLabel("What's on your mind?"))
 })
 
 test('scrolling inside a sheet never moves the page behind it', async ({ page }, testInfo) => {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { revealOnMount } from '../../ui/keepInView'
 import type { Suggestions } from '../../db/repo'
 import type { Duration } from '../../db/types'
 import { DURATION_OPTIONS } from '../../domain/feelings'
@@ -22,6 +23,8 @@ interface Props {
 /** When it happened (preset from the clock), and optionally how long, where, with whom and using what (AEIOU). */
 export function EntryDetails({ part, onPart, duration, onDuration, where, onWhere, people, onPeople, objects, onObjects, suggestions }: Props) {
   const [open, setOpen] = useState(duration !== null || where.length + people.length + objects.length > 0)
+  // Opened by a tap (not already open in Edit): bring what appeared into sight.
+  const [tapped, setTapped] = useState(false)
 
   return (
     <>
@@ -33,7 +36,7 @@ export function EntryDetails({ part, onPart, duration, onDuration, where, onWher
         ))}
       </div>
       {open ? (
-        <>
+        <div ref={tapped ? revealOnMount : undefined}>
           <div className="chip-row" role="group" aria-label="How long">
             {DURATION_OPTIONS.map((o) => (
               <button key={o.value} type="button" className="chip" aria-pressed={duration === o.value} onClick={() => onDuration(duration === o.value ? null : o.value)}>
@@ -44,9 +47,16 @@ export function EntryDetails({ part, onPart, duration, onDuration, where, onWher
           <ChipPicker legend="Where" values={where} suggestions={suggestions.where} onChange={onWhere} placeholder="e.g. Home, office" />
           <ChipPicker legend="With whom" values={people} suggestions={suggestions.people} onChange={onPeople} placeholder="e.g. Alex, team" />
           <ChipPicker legend="Using" values={objects} suggestions={suggestions.objects} onChange={onObjects} placeholder="e.g. Laptop, guitar" />
-        </>
+        </div>
       ) : (
-        <button type="button" className="link" onClick={() => setOpen(true)}>
+        <button
+          type="button"
+          className="link"
+          onClick={() => {
+            setTapped(true)
+            setOpen(true)
+          }}
+        >
           + How long, where, who
         </button>
       )}

@@ -576,6 +576,40 @@ dialog.sheet::backdrop {
   margin-top: 8px;
 }
 
+/* The entry sheets use the whole screen, or all of it above the keyboard (v0.9: "the screen is not opening to
+   its fullest"). The body takes the spare height, so the footer stays at the bottom. */
+dialog.sheet.full {
+  height: var(--visible-height, 100dvh);
+  max-height: var(--visible-height, 100dvh);
+  border-radius: 0;
+}
+
+dialog.sheet.full .sheet-inner {
+  height: 100%;
+  max-height: none;
+}
+
+dialog.sheet.full .sheet-body {
+  flex: 1;
+}
+
+dialog.sheet.full .sheet-header {
+  padding-top: calc(6px + env(safe-area-inset-top, 0px));
+}
+
+/* One box takes the body's spare height (Write freely), so it shrinks with the keyboard instead of running under
+   the footer. */
+.sheet-body.fill {
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet-body.fill > textarea.fill {
+  flex: 1 1 auto;
+  min-height: 96px;
+  resize: none;
+}
+
 .sheet-footer {
   display: flex;
   flex-direction: column;
@@ -987,6 +1021,17 @@ input[type='search'] {
 
 .footer-row > button {
   flex: 1;
+}
+
+.footer-row > button.link {
+  flex: 0 0 auto;
+  padding: 0 12px;
+}
+
+/* A text box in a sheet never outgrows the room left above the keyboard (its header, footer and a label take
+   about 260px): it scrolls inside itself instead of running under the footer. */
+dialog.sheet textarea:not(.fill) {
+  max-height: max(96px, calc(var(--visible-height, 100dvh) - 260px));
 }
 
 .plain-list.compact {

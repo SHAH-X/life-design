@@ -392,7 +392,7 @@ export function EntryFlow({ date, suggestions, own, purpose: primary, goal, focu
   }
 
   return (
-    <Dialog title="New activity" titleHidden toolbar={toolbar} onClose={onClose} footer={footer}>
+    <Dialog title="New activity" titleHidden toolbar={toolbar} onClose={onClose} footer={footer} full>
       {/* Each question starts fresh: an ⓘ opened on one question mustn't stay open on the next. */}
       <Fragment key={step}>{body}</Fragment>
     </Dialog>

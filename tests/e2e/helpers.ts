@@ -147,3 +147,37 @@ export async function expectAboveKeyboard(page: Page, target: Locator) {
     )
     .toBeLessThanOrEqual(visibleBottom)
 }
+
+/**
+ * Fails unless the whole element is in sight inside its sheet: within the sheet's scrolling body, so never under
+ * the footer (Skip, Next, Save) or the header. (v0.9 on the iPhone: "+ your own word" put its box behind Skip.)
+ */
+export async function expectInSheetView(sheet: Locator, target: Locator) {
+  const body = sheet.locator('.sheet-body')
+  await expect
+    .poll(
+      async () => {
+        const [view, box] = await Promise.all([body.boundingBox(), target.boundingBox()])
+        if (!view || !box) return 'not on screen'
+        if (box.y < view.y - 1) return `top hidden by ${Math.round(view.y - box.y)}px`
+        const hidden = box.y + box.height - (view.y + view.height)
+        return hidden > 1 ? `bottom hidden by ${Math.round(hidden)}px` : 'in view'
+      },
+      { message: 'wholly inside the sheet, not under its footer' },
+    )
+    .toBe('in view')
+}
+
+/** Fails unless the sheet fills the visible screen: all of it, or all above the (fake) keyboard. */
+export async function expectSheetFillsScreen(page: Page, sheet: Locator) {
+  await expect
+    .poll(
+      async () => {
+        const visible = await page.evaluate(() => window.visualViewport?.height ?? window.innerHeight)
+        const box = await sheet.boundingBox()
+        return box ? `${Math.round(box.height)} of ${Math.round(visible)}px` : 'not on screen'
+      },
+      { message: 'the sheet fills the visible screen' },
+    )
+    .toMatch(/^(\d+) of \1px$/)
+}

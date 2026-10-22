@@ -1,5 +1,6 @@
 import { type RefObject, useEffect } from 'react'
 import { keyboardInset } from '../lib/viewport'
+import { keepInView } from './keepInView'
 
 /**
  * Keeps a bottom sheet above the iPhone keyboard. Sets --keyboard-inset (how much of the page the keyboard
@@ -16,10 +17,10 @@ export function useKeyboardInset(ref: RefObject<HTMLElement | null>) {
       const inset = keyboardInset(window.innerHeight, viewport.height, viewport.offsetTop)
       element.style.setProperty('--keyboard-inset', `${inset}px`)
       element.style.setProperty('--visible-height', `${Math.round(viewport.height)}px`)
-      // The sheet just got shorter: bring the focused field back into sight within it.
+      // The sheet just got shorter: bring the focused field back into sight within it, above the footer.
       const focused = document.activeElement
       if (inset > 0 && inset !== last && focused instanceof HTMLElement && focused !== element && element.contains(focused)) {
-        focused.scrollIntoView({ block: 'nearest' })
+        keepInView(focused)
       }
       last = inset
     }

@@ -1,5 +1,7 @@
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { type FeelingKind, type FeelingWord, OWN_WORDS_MAX, type OwnWord } from '../domain/feelings'
+import { revealOnMount } from './keepInView'
 
 interface Props {
   /** Id of the visible question, which names the group for VoiceOver. */
@@ -38,6 +40,7 @@ export function WordPicker({ labelledBy, kind, presets, own, value, onChange, on
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState('')
   const [placing, setPlacing] = useState<string | null>(null)
+  const ownBox = useRef<HTMLInputElement>(null)
   const mine = own.filter((w) => w.kind === kind)
   const words = [...presets.map((w) => w.word), ...mine.map((w) => w.word)]
   const chosen = (word: string) => value.some((v) => same(v, word))
@@ -85,7 +88,15 @@ export function WordPicker({ labelledBy, kind, presets, own, value, onChange, on
           </button>
         ))}
         {!adding && mine.length < OWN_WORDS_MAX ? (
-          <button type="button" className="chip add-word" onClick={() => setAdding(true)}>
+          <button
+            type="button"
+            className="chip add-word"
+            onClick={() => {
+              // Show the box and focus it within this same tap, so the iPhone keyboard opens and it comes into sight.
+              flushSync(() => setAdding(true))
+              ownBox.current?.focus()
+            }}
+          >
             + your own word
           </button>
         ) : null}
@@ -96,6 +107,7 @@ export function WordPicker({ labelledBy, kind, presets, own, value, onChange, on
             Your own word
           </label>
           <input
+            ref={ownBox}
             id={inputId}
             value={draft}
             maxLength={24}
@@ -113,7 +125,7 @@ export function WordPicker({ labelledBy, kind, presets, own, value, onChange, on
         </div>
       ) : null}
       {placing !== null && PLACE[kind] ? (
-        <div className="follow-on">
+        <div className="follow-on" ref={revealOnMount}>
           <p className="question-text" id={placeId}>
             “{placing}”: {PLACE[kind].question}
           </p>
