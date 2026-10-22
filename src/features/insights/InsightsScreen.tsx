@@ -22,6 +22,7 @@ import { overallEnergyWord, times } from '../../domain/feelings'
 import { addDays, formatPeriod, formatRecentPeriod, shortDay, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { EnergyRows } from '../../ui/charts/EnergyRows'
+import { Loading } from '../../ui/Loading'
 import { StatTile } from '../../ui/StatTile'
 import { entryTitle } from '../today/EntryRow'
 import { EnergyCharts } from './EnergyCharts'
@@ -58,7 +59,7 @@ export function InsightsScreen({ sub }: { sub: string | null }) {
     const done = entries.filter(isDone)
     return { done, byId: new Map(done.map((e) => [e.id, e])), days, reviews }
   }, [])
-  if (data === undefined) return <div className="loading" aria-busy="true" />
+  if (data === undefined) return <Loading />
 
   const week = sub?.match(/^week-(\d{4}-\d{2}-\d{2})$/)?.[1]
   if (week) return <WeekPage data={data} start={weekStart(week)} />

@@ -1241,6 +1241,20 @@ details.more-ways summary {
   height: 24px;
 }
 
+/* Never a blank screen: a screen still waiting for its data says so, and a failure says what to do. */
+.loading .slow {
+  margin-top: 25vh;
+  text-align: center;
+}
+
+.failure {
+  padding-top: 15vh;
+}
+
+.failure-detail {
+  overflow-wrap: anywhere;
+}
+
 .banner {
   position: fixed;
   left: 12px;

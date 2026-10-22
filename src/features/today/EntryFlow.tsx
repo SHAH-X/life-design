@@ -162,6 +162,17 @@ export function EntryFlow({ date, suggestions, own, purpose: primary, goal, draf
     },
     [],
   )
+  // Switching to another app saves at once: iOS may close or reload the app before the pause is over.
+  useEffect(() => {
+    const flush = () => {
+      if (document.visibilityState !== 'hidden' || draftTimer.current === undefined || finished.current) return
+      clearTimeout(draftTimer.current)
+      draftTimer.current = undefined
+      void persistRef.current('draft').catch(() => undefined)
+    }
+    document.addEventListener('visibilitychange', flush)
+    return () => document.removeEventListener('visibilitychange', flush)
+  }, [])
 
   // Each new question takes focus, so VoiceOver reads it out (the first keeps it on the text box).
   useEffect(() => {

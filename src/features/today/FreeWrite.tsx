@@ -73,6 +73,17 @@ export function FreeWrite({ date, draft, onClose, onSaved }: { date: string; dra
     },
     [],
   )
+  // Switching to another app saves at once: iOS may close or reload the app before the pause is over.
+  useEffect(() => {
+    const flush = () => {
+      if (document.visibilityState !== 'hidden' || timer.current === undefined || finished.current) return
+      clearTimeout(timer.current)
+      timer.current = undefined
+      void persistRef.current('draft').catch(() => undefined)
+    }
+    document.addEventListener('visibilitychange', flush)
+    return () => document.removeEventListener('visibilitychange', flush)
+  }, [])
 
   async function save() {
     setBusy(true)

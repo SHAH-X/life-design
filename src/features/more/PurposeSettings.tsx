@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 import { setPurposeFocus, setSetting } from '../../db/repo'
 import type { Purpose } from '../../db/types'
 import { PURPOSE_KEYS, purposeInfo } from '../../domain/purposes'
+import { Loading } from '../../ui/Loading'
 import { useAutosave } from '../../ui/useAutosave'
 import { type PurposeSettings as Loaded, usePurposeSettings } from '../today/usePurpose'
 
@@ -9,7 +10,7 @@ import { type PurposeSettings as Loaded, usePurposeSettings } from '../today/use
 export function PurposeSettings({ labelledBy }: { labelledBy?: string }) {
   const loaded = usePurposeSettings()
   // Render only once loaded, so nothing jumps under your finger.
-  if (loaded === undefined) return <div className="loading" aria-busy="true" />
+  if (loaded === undefined) return <Loading />
   return <PurposeForm initial={loaded} labelledBy={labelledBy} />
 }
 

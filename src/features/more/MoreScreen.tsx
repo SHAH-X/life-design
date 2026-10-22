@@ -8,6 +8,7 @@ import { hashFor } from '../../lib/route'
 import { isPersisted, isStandalone } from '../../lib/storage'
 import { PURPOSE_KEYS, purposeInfo } from '../../domain/purposes'
 import { normalizeReminderPlan } from '../../reminders/schedule'
+import { Loading } from '../../ui/Loading'
 import { BackupCard } from './BackupCard'
 import { DeleteAllCard } from './DeleteAllCard'
 import { ExportCard } from './ExportCard'
@@ -58,7 +59,7 @@ function MorePage({ page }: { page: Page }) {
 function RemindersPage() {
   const reminders = useReminderSettings()
   // Render only once the settings have loaded, so nothing below jumps.
-  if (reminders === undefined) return <div className="loading" aria-busy="true" />
+  if (reminders === undefined) return <Loading />
   return <RemindersCard settings={reminders} />
 }
 
@@ -93,7 +94,7 @@ function useListStatus() {
 function MoreList() {
   const status = useListStatus()
   // Render only once every status line has loaded, so the rows never jump.
-  if (status === undefined) return <div className="loading" aria-busy="true" />
+  if (status === undefined) return <Loading />
 
   const rows: { page: Page; status?: string }[] = [
     { page: 'reminders', status: status.reminders },

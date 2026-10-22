@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { DialogsProvider } from './app/dialogs'
 import { TabBar } from './app/TabBar'
 import { UpdateBanner } from './app/UpdateBanner'
+import { useDatabaseCheck } from './app/useDatabaseCheck'
 import { useRoute } from './app/useRoute'
 import { EntriesScreen } from './features/entries/EntriesScreen'
 import { InsightsScreen } from './features/insights/InsightsScreen'
@@ -10,6 +11,7 @@ import { TodayScreen } from './features/today/TodayScreen'
 import { useWelcome, Welcome } from './features/welcome/Welcome'
 import type { Route } from './lib/route'
 import { ensurePersistentStorage } from './lib/storage'
+import { Loading } from './ui/Loading'
 
 function Screen({ route }: { route: Route }) {
   switch (route.tab) {
@@ -27,6 +29,7 @@ function Screen({ route }: { route: Route }) {
 export function App() {
   const route = useRoute()
   const welcome = useWelcome()
+  useDatabaseCheck()
 
   // Ask iOS to keep this app's data even when the phone is short of space (asked on every launch).
   useEffect(() => {
@@ -37,7 +40,7 @@ export function App() {
     <DialogsProvider>
       <main className="app">
         {welcome.show === undefined ? (
-          <div className="loading" aria-busy="true" />
+          <Loading />
         ) : welcome.show ? (
           <Welcome onDone={welcome.done} />
         ) : (

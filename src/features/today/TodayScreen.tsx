@@ -7,6 +7,7 @@ import { loadSuggestions, type Suggestions } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import { addDays, dayHeading, dayMonthLong, PART_ORDER } from '../../lib/dates'
 import { useTonight } from '../../prompts/useTonight'
+import { Loading } from '../../ui/Loading'
 import { EntryRow } from './EntryRow'
 import { EntrySheet, type EntrySheetState } from './EntrySheet'
 import { usePurposeSettings } from './usePurpose'
@@ -48,7 +49,7 @@ export function TodayScreen() {
     own === undefined ||
     lastEntryDate === undefined
   ) {
-    return <div className="loading" aria-busy="true" />
+    return <Loading />
   }
   const sorted = [...entries].sort(byTimeOfDay)
   // After a few days away: no counts or streaks, just a way back in.

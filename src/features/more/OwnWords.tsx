@@ -1,6 +1,7 @@
 import { removeOwnWord } from '../../db/repo'
 import { AFTER_QUESTION, DURING_QUESTION, type FeelingKind, type OwnWord } from '../../domain/feelings'
 import { PLAN_QUESTION } from '../../domain/lifeDesign'
+import { Loading } from '../../ui/Loading'
 import { useOwnWords } from '../today/useOwnWords'
 
 /** What you answered when you added the word, in words (words about a future carry no answer). */
@@ -14,7 +15,7 @@ function meaning(word: OwnWord): string {
 /** The feeling words you added while logging; removing one keeps it on the entries that used it. */
 export function OwnWords() {
   const own = useOwnWords()
-  if (own === undefined) return <div className="loading" aria-busy="true" />
+  if (own === undefined) return <Loading />
   if (own.length === 0) {
     return (
       <section className="card">

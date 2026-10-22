@@ -5,6 +5,7 @@ import { loadSuggestions, type Suggestions } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import { matchesSearch } from '../../domain/search'
 import { longDate, PART_ORDER } from '../../lib/dates'
+import { Loading } from '../../ui/Loading'
 import { EntryRow } from '../today/EntryRow'
 import { EntrySheet, type EntrySheetState } from '../today/EntrySheet'
 import { usePurposeSettings } from '../today/usePurpose'
@@ -27,7 +28,7 @@ export function EntriesScreen() {
   const [days, setDays] = useState(DAYS_AT_A_TIME)
   const [sheet, setSheet] = useState<EntrySheetState>(null)
   // Render only once loaded, so nothing jumps under your finger.
-  if (entries === undefined || own === undefined || purpose === undefined) return <div className="loading" aria-busy="true" />
+  if (entries === undefined || own === undefined || purpose === undefined) return <Loading />
 
   const matches = entries.filter((e) => matchesSearch(e, query))
   const drafts = matches.filter((e) => e.status === 'draft').sort((a, b) => b.updatedAt - a.updatedAt)
