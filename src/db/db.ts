@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie'
 import { stepsFromIntentions } from '../domain/steps'
 import {
+  type AiReview,
   type Answer,
   type Day,
   type Entry,
@@ -25,6 +26,7 @@ export type LifeDesignDB = Dexie & {
   views: EntityTable<Views, 'id'>
   weeks: EntityTable<Week, 'id'>
   steps: EntityTable<Step, 'id'>
+  aiReviews: EntityTable<AiReview, 'id'>
   reviews: EntityTable<Review, 'id'>
   settings: EntityTable<Setting, 'key'>
 }
@@ -132,6 +134,10 @@ export function openDb(name = DB_NAME): LifeDesignDB {
           if (moved.has(entry.id as string)) entry.intention = null
         })
     })
+  // v0.12 (Phase 5): reviews of a period by AI, kept to read again. A new, empty table: nothing else changes.
+  database.version(8).stores({
+    aiReviews: 'id, start, createdAt, updatedAt',
+  })
   return database
 }
 

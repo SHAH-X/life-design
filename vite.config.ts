@@ -11,14 +11,15 @@ const BASE = '/life-design/'
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }
 
 // Content-Security-Policy for the built app only (Vite's dev server needs inline scripts).
-// connect-src allows any https: origin so the AI provider you choose can be called directly.
+// connect-src: only this site and the AI services you can choose (Groq, OpenAI), called directly from the phone with
+// your own key. Nothing else can be reached, so not even injected code could send the key or your journal elsewhere.
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  "connect-src 'self' https:",
+  "connect-src 'self' https://api.groq.com https://api.openai.com",
   "worker-src 'self'",
   "manifest-src 'self'",
   "base-uri 'self'",

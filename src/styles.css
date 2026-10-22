@@ -744,6 +744,43 @@ button.entry-row:focus-visible {
   flex-direction: column;
 }
 
+/* Review a period (v0.12): the period, what's in it, the two ways, and the answer read safely. */
+.date-range {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 8px 0 12px;
+}
+
+.sent-preview {
+  max-height: 40vh;
+  overflow: auto;
+  margin: 6px 0 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--bg);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+
+.plain-markdown h4 {
+  margin: 14px 0 4px;
+  font-size: 1rem;
+}
+
+.plain-markdown p,
+.plain-markdown li {
+  line-height: 1.5;
+}
+
+.plain-markdown ol,
+.plain-markdown ul {
+  margin: 4px 0 10px;
+  padding-left: 22px;
+}
+
 /* Swipe left to delete, as in iOS Messages (v0.10). The row slides over a red Delete; scrolling stays vertical. */
 .swipe-row {
   position: relative;

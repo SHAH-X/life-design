@@ -31,6 +31,7 @@ import { useOwnWords } from '../today/useOwnWords'
 import { EnergyCharts } from './EnergyCharts'
 import { Evidence } from './Evidence'
 import { NextStepsCard, NextStepsPage } from './NextSteps'
+import { ReviewPeriod } from './ReviewPeriod'
 import { WeekReview } from './WeekReview'
 
 const RANGES = [
@@ -90,6 +91,8 @@ export function InsightsScreen({ sub }: { sub: string | null }) {
         <PatternsPage data={data} />
       ) : sub === 'steps' ? (
         <NextStepsPage steps={data.steps} entries={data.byId} />
+      ) : sub === 'review' ? (
+        <ReviewPeriod />
       ) : (
         <InsightsHome data={data} onOpen={open} />
       )}
@@ -130,6 +133,15 @@ function InsightsHome({ data, onOpen }: { data: Data; onOpen: (entry: Entry) => 
       ) : null}
 
       <nav className="list top-gap" aria-label="More insights">
+        <a className="list-row" href={hashFor('insights', 'review')}>
+          <span className="list-text">
+            <span className="list-title">Review a period</span>
+            <span className="list-status">Copy it for an AI chat, or review it with AI</span>
+          </span>
+          <span className="list-chevron" aria-hidden="true">
+            ›
+          </span>
+        </a>
         <a className="list-row" href={hashFor('insights', 'patterns')}>
           <span className="list-text">
             <span className="list-title">Patterns over time</span>

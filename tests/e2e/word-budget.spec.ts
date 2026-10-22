@@ -18,8 +18,10 @@ const BUDGETS = {
   'Write freely': 25,
   'Entry, read back after saving': 75, // 90 until v0.9, when it stopped restating the entry: your words, a possible insight, the next-step choices
   'Entries [the fictional five days]': 180, // 125 until v0.10: + the time each of the 19 entries was logged
-  'Insights: this week, the fictional week': 120, // 80 until v0.9; + the week's energy chart and card titles (the owner's chosen layout); v0.10 + logged times on stand-out entries; v0.11 + the Next steps card
+  'Insights: this week, the fictional week': 130, // 80 until v0.9; + the week's energy chart and card titles (the owner's chosen layout); v0.10 + logged times on stand-out entries; v0.11 + the Next steps card; v0.12 + the Review a period row
   'Insights → Next steps (empty)': 30,
+  'Insights → Review a period, this week': 60, // v0.12: the period, what's in it, the two ways
+  'More → AI review (no key yet)': 40, // v0.12: the two services, the key field
   'Insights → Patterns, 30 days [236]': 155, // 150 until v0.8: + "Alone or with others" (the owner's brief)
   'More [460]': 60,
   'More → Reminders [266]': 133,
@@ -115,6 +117,9 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
   await page.goto('./#/insights/steps')
   await expect(page.getByRole('heading', { level: 1, name: 'Next steps' })).toBeVisible()
   await measure('Insights → Next steps (empty)', main)
+  await page.goto('./#/insights/review')
+  await expect(page.getByRole('heading', { level: 1, name: 'Review a period' })).toBeVisible()
+  await measure('Insights → Review a period, this week', main)
   await page.goto('./#/insights/patterns')
   await expect(page.getByRole('heading', { level: 1, name: 'Patterns' })).toBeVisible()
   await measure('Insights → Patterns, 30 days [236]', main)
@@ -125,6 +130,7 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
   for (const [path, screen] of [
     ['reminders', 'More → Reminders [266]'],
     ['purpose', 'More → Your purpose'],
+    ['ai', 'More → AI review (no key yet)'],
     ['backup', 'More → Backup and restore [67]'],
   ] as const) {
     await page.goto(`./#/more/${path}`)

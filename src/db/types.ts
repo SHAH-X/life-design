@@ -33,6 +33,24 @@ export interface Intention {
   updatedAt: number
 }
 
+/** The AI services you can choose for Review with AI (v0.12), each with your own key. */
+export type AiProvider = 'groq' | 'openai'
+
+/** A period reviewed by AI (v0.12): which period and focus, which service and model, and its answer, kept to read again. */
+export interface AiReview {
+  id: string
+  /** The period reviewed, as date keys (inclusive). */
+  start: string
+  end: string
+  /** "Anything to focus on?" (optional). */
+  focus: string
+  provider: AiProvider
+  model: string
+  text: string
+  createdAt: number
+  updatedAt: number
+}
+
 /** Once (e.g. "Ask for an agenda first") or ongoing (e.g. "Walk 10 minutes every evening"). */
 export type StepKind = 'once' | 'ongoing'
 /** Working on it, done (once), or stopped. */
@@ -285,6 +303,7 @@ export interface BackupData {
   views: Views[]
   weeks: Week[]
   steps: Step[]
+  aiReviews: AiReview[]
   reviews: Review[]
   settings: Setting[]
 }
@@ -301,6 +320,7 @@ export const TABLE_NAMES: readonly TableName[] = [
   'views',
   'weeks',
   'steps',
+  'aiReviews',
   'reviews',
   'settings',
 ]
@@ -315,6 +335,7 @@ export const TABLE_LABELS: Record<TableName, string> = {
   views: 'Workview & Lifeview',
   weeks: 'Weekly notes',
   steps: 'Next steps',
+  aiReviews: 'AI reviews',
   reviews: 'Reviews',
   settings: 'Settings',
 }

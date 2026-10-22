@@ -2,6 +2,7 @@
 import { isEnergy, isEngagement } from '../domain/scales'
 import { isDateKey } from '../lib/dates'
 import {
+  type AiReview,
   type Answer,
   BALANCE_AREAS,
   type BackupData,
@@ -210,6 +211,20 @@ export function isStep(x: unknown): x is Step {
   )
 }
 
+export function isAiReview(x: unknown): x is AiReview {
+  return (
+    isObj(x) &&
+    isNonEmptyStr(x.id) &&
+    isDateKey(x.start) &&
+    isDateKey(x.end) &&
+    isStr(x.focus) &&
+    isOneOf(['groq', 'openai'])(x.provider) &&
+    isNonEmptyStr(x.model) &&
+    isNonEmptyStr(x.text) &&
+    hasTimes(x)
+  )
+}
+
 export function isSetting(x: unknown): x is Setting {
   return isObj(x) && isNonEmptyStr(x.key) && 'value' in x && isNum(x.updatedAt)
 }
@@ -224,6 +239,7 @@ export const VALIDATORS: { [K in TableName]: (x: unknown) => x is BackupData[K][
   views: isViews,
   weeks: isWeek,
   steps: isStep,
+  aiReviews: isAiReview,
   reviews: isReview,
   settings: isSetting,
 }

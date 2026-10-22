@@ -5,7 +5,7 @@ import { lockText, unlockText } from '../../src/db/crypto'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { newReview } from '../../src/db/repo'
 import { emptyPlan } from '../../src/domain/lifeDesign'
-import { type Answer, type Entry, entryDefaults, type Step } from '../../src/db/types'
+import { type AiReview, type Answer, type Entry, entryDefaults, type Step } from '../../src/db/types'
 
 // Fictional example data.
 const entry = (id: string, updatedAt: number, over: Partial<Entry> = {}): Entry => ({
@@ -39,6 +39,7 @@ const emptyRaw = (): RawData => ({
   views: [],
   weeks: [],
   steps: [],
+  aiReviews: [],
   reviews: [],
   settings: [],
 })
@@ -236,7 +237,7 @@ describe('backup and restore', () => {
     await phone.steps.put(agenda)
     await phone.weeks.put({ id: '2026-10-19', carry: 'Walk at lunch', createdAt: 2000, updatedAt: 2000 })
     const backup = await createBackup(phone)
-    expect(backup.schemaVersion).toBe(6)
+    expect(backup.schemaVersion).toBe(7)
     const detected = detectFile(JSON.stringify(backup))
     if (detected.format !== 'backup') throw new Error('expected a backup')
     await applyImport(detected.raw, newPhone)
@@ -245,6 +246,34 @@ describe('backup and restore', () => {
     expect(await newPhone.entries.get('d1')).toMatchObject({ status: 'draft' })
     expect(await newPhone.steps.get('st1')).toEqual(agenda)
     expect(await newPhone.weeks.get('2026-10-19')).toMatchObject({ carry: 'Walk at lunch' })
+  })
+
+  it('backs up and restores reviews by AI, and never the AI key', async () => {
+    const review: AiReview = {
+      id: 'ai1',
+      start: '2026-10-19',
+      end: '2026-10-25',
+      focus: 'Why am I tired on Mondays?',
+      provider: 'groq',
+      model: 'openai/gpt-oss-120b',
+      text: 'Meetings without an agenda came up three times.',
+      createdAt: 4000,
+      updatedAt: 4000,
+    }
+    await phone.aiReviews.put(review)
+    await phone.settings.bulkPut([
+      { key: 'aiKey', value: 'gsk_test_never_leaves', updatedAt: 4000 },
+      { key: 'aiProvider', value: 'groq', updatedAt: 4000 },
+    ])
+    const backup = await createBackup(phone)
+    const text = JSON.stringify(backup)
+    expect(text).not.toContain('gsk_test_never_leaves')
+    const detected = detectFile(text)
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    await applyImport(detected.raw, newPhone)
+    expect(await newPhone.aiReviews.get('ai1')).toEqual(review)
+    expect(await newPhone.settings.get('aiProvider')).toMatchObject({ value: 'groq' })
+    expect(await newPhone.settings.get('aiKey')).toBeUndefined()
   })
 
   it('turns next steps kept on entries in older files (format 5) into steps, only once however often it is restored', async () => {

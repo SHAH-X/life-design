@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { getOwnWords, getSetting } from '../../db/repo'
 import type { Purpose } from '../../db/types'
+import { PROVIDERS } from '../../lib/ai'
 import { APPEARANCE_LABELS, getAppearance } from '../../lib/appearance'
 import { buildInfo, formatBuildInfo } from '../../lib/buildInfo'
 import { shortDate, toDateKey } from '../../lib/dates'
@@ -11,6 +12,7 @@ import { PURPOSE_EFFECT, PURPOSE_KEYS, purposeInfo } from '../../domain/purposes
 import { normalizeReminderPlan } from '../../reminders/schedule'
 import { Loading } from '../../ui/Loading'
 import { Question } from '../../ui/Question'
+import { AiSettings, KEY_SAFETY } from './AiSettings'
 import { AppearanceSettings } from './AppearanceSettings'
 import { BackupCard } from './BackupCard'
 import { DeleteAllCard } from './DeleteAllCard'
@@ -27,6 +29,7 @@ const PAGES = {
   purpose: 'Your purpose',
   words: 'Your feeling words',
   appearance: 'Appearance',
+  ai: 'AI review',
   backup: 'Backup and restore',
   export: 'Spreadsheet export',
   phone: 'This phone',
@@ -52,6 +55,10 @@ function MorePage({ page }: { page: Page }) {
         <Question as="h1" info={PURPOSE_EFFECT} infoLabel="What does your purpose change?">
           {PAGES[page]}
         </Question>
+      ) : page === 'ai' ? (
+        <Question as="h1" info={KEY_SAFETY} infoLabel="How is my key kept safe?">
+          {PAGES[page]}
+        </Question>
       ) : (
         <h1>{PAGES[page]}</h1>
       )}
@@ -59,6 +66,7 @@ function MorePage({ page }: { page: Page }) {
       {page === 'purpose' ? <PurposeSettings /> : null}
       {page === 'words' ? <OwnWords /> : null}
       {page === 'appearance' ? <AppearanceSettings /> : null}
+      {page === 'ai' ? <AiSettings /> : null}
       {page === 'backup' ? <BackupCard /> : null}
       {page === 'export' ? <ExportCard /> : null}
       {page === 'phone' ? <StorageCard /> : null}
@@ -82,11 +90,13 @@ function useListStatus() {
     void isPersisted().then(setPersisted)
   }, [])
   const stored = useLiveQuery(async () => {
-    const [reminders, primary, lastExportAt, own] = await Promise.all([
+    const [reminders, primary, lastExportAt, own, aiKey, aiProvider] = await Promise.all([
       getSetting<unknown>('reminders', null),
       getSetting<unknown>('primaryPurpose', DEFAULT_PURPOSE),
       getSetting<number | null>('lastExportAt', null),
       getOwnWords(),
+      getSetting<unknown>('aiKey', null),
+      getSetting<unknown>('aiProvider', 'groq'),
     ])
     const plan = normalizeReminderPlan(reminders, toDateKey(new Date()))
     const on = (Object.keys(REMINDER_NAMES) as (keyof typeof REMINDER_NAMES)[]).filter((k) => plan[k].on).map((k) => REMINDER_NAMES[k])
@@ -95,6 +105,7 @@ function useListStatus() {
       purpose: purposeInfo(PURPOSE_KEYS.includes(primary as Purpose) ? (primary as Purpose) : DEFAULT_PURPOSE).label,
       backup: lastExportAt ? `Last: ${shortDate(lastExportAt)}` : 'No backup yet',
       words: own.length ? own.map((w) => w.word).join(' · ') : 'None yet',
+      ai: typeof aiKey === 'string' && aiKey ? `On · ${PROVIDERS[aiProvider === 'openai' ? 'openai' : 'groq'].label}` : 'Off',
     }
   }, [])
   if (stored === undefined || persisted === undefined) return undefined
@@ -112,6 +123,7 @@ function MoreList() {
     { page: 'purpose', status: status.purpose },
     { page: 'words', status: status.words },
     { page: 'appearance', status: APPEARANCE_LABELS[getAppearance()] },
+    { page: 'ai', status: status.ai },
     { page: 'backup', status: status.backup },
     { page: 'export' },
     { page: 'phone', status: status.phone },

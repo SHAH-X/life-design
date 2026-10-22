@@ -6,6 +6,7 @@ import { guardWrite } from './saveErrors'
 import { keepsVersion } from '../domain/lifeDesign'
 import {
   type AeiouNote,
+  type AiReview,
   type Answer,
   type Entry,
   type EntrySource,
@@ -210,6 +211,22 @@ export async function mergeSteps(keepId: string, goneId: string, database: LifeD
   )
 }
 
+/** Keeps a review of a period by AI, to read again later. */
+export async function saveAiReview(input: Omit<AiReview, 'id' | 'createdAt' | 'updatedAt'>, database: LifeDesignDB = defaultDb): Promise<AiReview> {
+  const now = Date.now()
+  const review: AiReview = { ...input, focus: input.focus.trim(), id: crypto.randomUUID(), createdAt: now, updatedAt: now }
+  await guardWrite(() => database.aiReviews.put(review))
+  return review
+}
+
+export async function deleteAiReview(id: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() => database.aiReviews.delete(id))
+}
+
+export async function restoreAiReview(review: AiReview, database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() => database.aiReviews.put(review))
+}
+
 /** Puts a deleted entry back exactly as it was (Undo after a swipe to delete). */
 export async function restoreEntry(entry: Entry, database: LifeDesignDB = defaultDb): Promise<void> {
   await guardWrite(() => database.entries.put(entry))
@@ -271,6 +288,11 @@ export async function setSetting(key: string, value: unknown, database: LifeDesi
   await guardWrite(() => database.settings.put({ key, value, updatedAt: Date.now() }))
 }
 
+/** Removes a setting outright (e.g. the AI key: "Remove key" leaves nothing behind). */
+export async function deleteSetting(key: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() => database.settings.delete(key))
+}
+
 /** A purpose's follow-up answer ("What are you working towards?"…). The goal keeps its own key, as since Phase 2.5. */
 export async function setPurposeFocus(purpose: Purpose, text: string, database: LifeDesignDB = defaultDb): Promise<void> {
   if (purpose === 'goal') return setSetting('goal', text.trim(), database)
@@ -324,7 +346,17 @@ export async function loadSuggestions(database: LifeDesignDB = defaultDb): Promi
 
 /** Entries, days, evening answers, reviews, plans and views created or changed after `since` (everything when never backed up). */
 export async function countChangesSince(since: number | null, database: LifeDesignDB = defaultDb): Promise<number> {
-  const tables = [database.entries, database.days, database.answers, database.reviews, database.odysseyPlans, database.views, database.weeks, database.steps] as const
+  const tables = [
+    database.entries,
+    database.days,
+    database.answers,
+    database.reviews,
+    database.odysseyPlans,
+    database.views,
+    database.weeks,
+    database.steps,
+    database.aiReviews,
+  ] as const
   const counts = await Promise.all(tables.map((t) => (since === null ? t.count() : t.where('updatedAt').above(since).count())))
   return counts.reduce((sum, n) => sum + n, 0)
 }
