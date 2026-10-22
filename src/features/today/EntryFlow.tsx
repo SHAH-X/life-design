@@ -47,6 +47,8 @@ interface Props {
   /** An unfinished entry to carry on with. */
   draft?: Entry
   onClose: () => void
+  /** After saving: show the entry (its summary and next step). Without it, saving just closes. */
+  onSaved?: (entry: Entry) => void
 }
 
 /** Where to pick up an unfinished entry: the step after the last one answered. */
@@ -63,7 +65,7 @@ function resumeStep(draft: Entry): number {
  * optional: what you did, what it was like, what it did to your energy, how you felt, a question or two for
  * your purpose, and anything else. Saved as a draft from the first step on, so nothing is lost if you stop.
  */
-export function EntryFlow({ date, suggestions, own, purpose: primary, goal, draft, onClose }: Props) {
+export function EntryFlow({ date, suggestions, own, purpose: primary, goal, draft, onClose, onSaved }: Props) {
   const activityId = useId()
   const duringId = useId()
   const energyId = useId()
@@ -187,7 +189,8 @@ export function EntryFlow({ date, suggestions, own, purpose: primary, goal, draf
     finished.current = true
     try {
       await persist('done')
-      onClose()
+      if (onSaved && saved.current) onSaved(saved.current)
+      else onClose()
     } catch {
       finished.current = false
       setBusy(false) // the save-error prompt explains what happened

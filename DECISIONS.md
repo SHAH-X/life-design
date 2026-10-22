@@ -197,7 +197,7 @@ The owner's brief (2026-10-22): help beginners record experiences, understand th
 
 | Area | Decision | Status | Why |
 |---|---|---|---|
-| Tabs | Today · Insights · More (Entries comes in step 2). Review and Life Design are gone; their old links open Today | ADOPT | Owner, 2026-10-22 |
+| Tabs | Today · Entries · Insights · More. Review and Life Design are gone; their old links open Today | ADOPT | Owner, 2026-10-22 |
 | Purpose | Seven purposes in plain words, one primary (default Understand myself), each with a one-line explanation and, where it helps, an optional follow-up ("What are you working towards?"). Each entry can choose another ("For: …") | TEST | Owner's brief; not everyone wants self-improvement, so Reflect on everyday life and Write freely are equal choices |
 | Purpose questions | One question at a time, up to three per entry, each optional and swappable. They take turns between entries, and the entry nudges them: "used up my energy" or a hard feeling brings "what made it harder" forward; "Time flew" asks what made it absorbing; goal questions name your goal | TEST | Owner's brief: two or three questions, never all at once, not the same every day |
 | A hard time | "Make sense of a hard time" says "Write only what feels okay. There doesn't have to be a lesson." and asks what happened, what you noticed, what was in your control, what might help | TEST | Pennebaker: what happened, how you felt, why; never force meaning; not for acute crisis |
@@ -206,6 +206,9 @@ The owner's brief (2026-10-22): help beginners record experiences, understand th
 | Skipped questions | Recorded as skipped (`skipped`), left out of every measure, never filled in | ADOPT | "Do not invent missing information" |
 | Data | Entries gain kind, purpose, energy answer, how long, reflections (each kept with its question), next step, your take, status and skipped; a `weeks` table for weekly notes. Database version 6, backup format 5; older files restore with the new fields filled in; nothing deleted | ADOPT | Backward compatible; v0.7 refuses format 5 instead of dropping fields |
 | Privacy | Unchanged: everything stays on the phone. An e2e test fails if a journey requests anything from another site | ADOPT | The brief's privacy section; the project's non-negotiables |
+| After an entry | Saving shows it read back: what happened (your words), what you noticed (only what the entry says: the energy answer, the words you tapped, feelings found in your writing), and a possible insight only with 3+ finished entries for the same activity mostly one way, as an observation and a question, with "See the N entries". "Not quite" dismisses it; "Say it your way" keeps your take, which replaces it | TEST | Owner's brief (Stage E): distinguish what happened, what you noticed, a possible insight; never conclude from too little; your interpretation first |
+| Next step | "Anything you'd like to do with this?": Try something differently · Do it again · Make time for something important · Explore a question · Remember this · Nothing for now, then "What exactly?" (optional). Followed up with Done it / Let it go; "Remember this" lands in Insights → What I'm learning | TEST | Owner's brief (Stage F): never forced; journaling is also for understanding and remembering |
+| Entries tab | Every entry, newest first by day, unfinished ones on top, searchable by any word in it; 60 days with entries at a time, then "Show earlier". Tapping reads it back, with Edit | TEST | Owner's brief: easy access to previous entries |
 | Optional AI | — (Phase 5) | TEST (later) | Owner's choice: app first, AI next, opt-in with your own key |
 
 ## To prove on a real iPhone
@@ -224,6 +227,7 @@ The owner's brief (2026-10-22): help beginners record experiences, understand th
 | Add activity: the question, field, recent activities and Next sit above the keyboard; the same for "+ your own word" and the note | 3a.5 | TEST |
 | Scrolling inside a sheet leaves the screen behind it still | 3a.5 | TEST |
 | A purpose on the welcome (or in More); the six steps, skipping any; free writing; an unfinished entry continued | 4 | TEST |
+| An entry read back after saving: the summary reads right, a next step kept and followed up; Entries search | 4 | TEST |
 | The welcome (open the address in Safari: its storage is separate from the Home Screen app's, so it starts fresh); "Need a start?" under the evening question; the colours, Today's list and serif titles in light and dark | 3a.5 | TEST |
 | Share to the Claude app; attach a downloaded review file | 5 | TEST |
 

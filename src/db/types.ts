@@ -62,6 +62,8 @@ export interface Entry {
   intention: Intention | null
   /** Your own take on it, which replaces the app's possible insight. */
   take: string
+  /** "Not quite": the app's possible insight was dismissed for this entry. */
+  insightHidden: boolean
   /** A draft stays out of Insights and the weekly review until it's saved. */
   status: 'draft' | 'done'
   skipped: Measure[]
@@ -72,9 +74,20 @@ export interface Entry {
 /** The new fields, as entries from before v0.8 (and files that leave them out) get them. */
 export function entryDefaults(): Pick<
   Entry,
-  'kind' | 'purpose' | 'energyEffect' | 'duration' | 'reflections' | 'intention' | 'take' | 'status' | 'skipped'
+  'kind' | 'purpose' | 'energyEffect' | 'duration' | 'reflections' | 'intention' | 'take' | 'insightHidden' | 'status' | 'skipped'
 > {
-  return { kind: 'activity', purpose: null, energyEffect: null, duration: null, reflections: [], intention: null, take: '', status: 'done', skipped: [] }
+  return {
+    kind: 'activity',
+    purpose: null,
+    energyEffect: null,
+    duration: null,
+    reflections: [],
+    intention: null,
+    take: '',
+    insightHidden: false,
+    status: 'done',
+    skipped: [],
+  }
 }
 
 export interface Day {

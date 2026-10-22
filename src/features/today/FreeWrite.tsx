@@ -13,7 +13,7 @@ const DRAFT_DELAY_MS = 500
  * Write freely: one blank page, no questions. Openers are there if wanted, never in the way. Saved as a draft
  * as you write, so closing never loses anything.
  */
-export function FreeWrite({ date, draft, onClose }: { date: string; draft?: Entry; onClose: () => void }) {
+export function FreeWrite({ date, draft, onClose, onSaved }: { date: string; draft?: Entry; onClose: () => void; onSaved?: (entry: Entry) => void }) {
   const id = useId()
   const box = useRef<HTMLTextAreaElement>(null)
   const [text, setText] = useState(draft?.note ?? '')
@@ -81,7 +81,8 @@ export function FreeWrite({ date, draft, onClose }: { date: string; draft?: Entr
     finished.current = true
     try {
       await persist('done')
-      onClose()
+      if (onSaved && saved.current) onSaved(saved.current)
+      else onClose()
     } catch {
       finished.current = false
       setBusy(false) // the save-error prompt explains what happened

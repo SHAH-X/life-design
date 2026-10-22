@@ -16,6 +16,8 @@ const BUDGETS = {
   'New activity: reflect': 25,
   'New activity: anything else': 30,
   'Write freely': 25,
+  'Entry, read back after saving': 90, // summary, a possible insight, your words, and the next-step choices
+  'Entries [the fictional five days]': 125,
   'Insights, 30 days [236]': 150,
   'More [460]': 60,
   'More → Reminders [266]': 133,
@@ -89,6 +91,27 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
   await page.getByRole('button', { name: 'Write freely' }).click()
   await measure('Write freely', sheet)
   await sheet.getByRole('button', { name: 'Close' }).click()
+
+  // What an entry reads back just after saving (Team meeting has 4 fictional entries: a possible insight shows).
+  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
+  await sheet.getByRole('button', { name: 'Team meeting' }).click()
+  await settled(page)
+  await sheet.getByRole('button', { name: 'Distracted', exact: true }).click()
+  await sheet.getByRole('button', { name: 'Next' }).click()
+  await settled(page)
+  await sheet.getByRole('button', { name: 'It used up my energy' }).click()
+  await settled(page)
+  await sheet.getByRole('button', { name: 'Skip' }).click()
+  await settled(page)
+  await sheet.getByRole('button', { name: 'Skip' }).click()
+  await sheet.getByRole('button', { name: 'Save' }).click()
+  await expect(sheet.getByText('✓ Saved')).toBeVisible()
+  await measure('Entry, read back after saving', sheet)
+  await sheet.getByRole('button', { name: 'Done' }).click()
+
+  await page.goto('./#/entries')
+  await expect(page.getByRole('heading', { level: 1, name: 'Entries' })).toBeVisible()
+  await measure('Entries [the fictional five days]', main)
 
   await page.goto('./#/insights')
   await expect(page.getByRole('heading', { level: 1, name: 'Insights' })).toBeVisible()

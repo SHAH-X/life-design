@@ -51,6 +51,7 @@ function hasValidJournalFields(x: Rec): boolean {
     isOptional(x.reflections, (v) => Array.isArray(v) && v.every(isReflection)) &&
     isOptional(x.intention, isIntention) &&
     isOptional(x.take, isStr) &&
+    isOptional(x.insightHidden, isBool) &&
     isOptional(x.status, isOneOf(['draft', 'done'])) &&
     isOptional(x.skipped, (v) => Array.isArray(v) && v.every(isOneOf(['engagement', 'energy'])))
   )

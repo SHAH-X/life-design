@@ -3,6 +3,7 @@
 A private daily journal for iPhone, built on *Designing Your Life* (Burnett & Evans) and Ikigai.
 
 - **Journaling by purpose:** say what journaling is for (understand yourself, improve, learn, reach a goal, make sense of a hard time, everyday life, or just write). Reflect on an activity in a few taps, in words, never ratings: what it was like, what it did to your energy, how you felt, a question or two for your purpose, and anything else. Or write freely. Every step after the first can be skipped, and unfinished entries are kept.
+- **Learn from it:** after each entry, a short read-back in your words (what happened, what you noticed) and, only when several entries agree, a possible insight with the entries behind it. Keep a next step if you like, and find any entry again in Entries.
 - **An evening question:** a small joy, plus one question that changes each day and follows your purpose, sometimes about a pattern in your own days.
 
 **Easy to start:** a short welcome, openers when a blank box stares back, and no streaks to keep.

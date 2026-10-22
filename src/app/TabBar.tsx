@@ -23,6 +23,18 @@ const ITEMS: { tab: Tab; label: string; icon: ReactNode }[] = [
     ),
   },
   {
+    tab: 'entries',
+    label: 'Entries',
+    icon: (
+      <svg {...ICON_PROPS}>
+        <path d="M8 6h12M8 12h12M8 18h12" />
+        <circle cx="4" cy="6" r="1" />
+        <circle cx="4" cy="12" r="1" />
+        <circle cx="4" cy="18" r="1" />
+      </svg>
+    ),
+  },
+  {
     tab: 'insights',
     label: 'Insights',
     icon: (

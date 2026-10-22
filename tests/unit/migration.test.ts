@@ -205,6 +205,7 @@ describe('database upgrade', () => {
       reflections: [],
       intention: null,
       take: '',
+      insightHidden: false,
       status: 'done',
       skipped: [],
     })

@@ -80,6 +80,23 @@ export async function addEntry(page: Page, entry: NewEntry) {
   }
   await sheet.getByRole('button', { name: 'Save' }).click()
   await expect(sheet).toBeHidden()
+  // Saving shows the entry read back (its summary and a next step); Done closes it.
+  await closeSaved(page, entry.activity)
+}
+
+/** The entry just saved, read back: check it says so, then close it. */
+export async function closeSaved(page: Page, title: string) {
+  const view = page.getByRole('dialog', { name: title })
+  await expect(view.getByText('✓ Saved')).toBeVisible()
+  await view.getByRole('button', { name: 'Done' }).click()
+  await expect(view).toBeHidden()
+}
+
+/** Opens an entry from the list: first it reads back, then Edit shows everything on one screen. */
+export async function openEdit(page: Page, title: string, dialogName = 'Edit activity') {
+  await entryButton(page, title).click()
+  await page.getByRole('dialog', { name: title }).getByRole('button', { name: 'Edit' }).click()
+  return page.getByRole('dialog', { name: dialogName })
 }
 
 /** The small joy box on Today. */

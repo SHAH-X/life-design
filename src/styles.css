@@ -872,6 +872,70 @@ button.entry-row:focus-visible {
   margin-top: 8px;
 }
 
+/* A titled list on a page: a heading, then the rounded list (as on Today). */
+.list-section {
+  margin: 18px 0 12px;
+}
+
+.list-section h2 {
+  margin: 0 0 8px;
+}
+
+input[type='search'] {
+  margin-bottom: 4px;
+}
+
+/* After an entry: its summary and next step. */
+.saved-line {
+  font-weight: 600;
+  color: var(--success);
+}
+
+.summary h3,
+.next-step h3 {
+  margin: 14px 0 4px;
+  font-size: 0.95rem;
+}
+
+.plain-list.compact {
+  margin: 0 0 6px;
+}
+
+.plain-list.compact li {
+  padding: 3px 0;
+  border-bottom: 0;
+}
+
+details.evidence summary {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.your-words {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.your-words .answer p {
+  margin: 0 0 6px;
+}
+
+.next-step {
+  margin-top: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+button.small-link {
+  min-height: 36px;
+  font-size: 0.85rem;
+}
+
 /* ---------- More ---------- */
 
 .status-line {

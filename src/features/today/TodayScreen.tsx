@@ -7,10 +7,8 @@ import { loadSuggestions, type Suggestions } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import { addDays, dayHeading, dayMonthLong, PART_ORDER } from '../../lib/dates'
 import { useTonight } from '../../prompts/useTonight'
-import { EntryEdit } from './EntryEdit'
-import { EntryFlow } from './EntryFlow'
 import { EntryRow } from './EntryRow'
-import { FreeWrite } from './FreeWrite'
+import { EntrySheet, type EntrySheetState } from './EntrySheet'
 import { usePurposeSettings } from './usePurpose'
 import { EveningQuestion } from './EveningQuestion'
 import { SmallJoy } from './SmallJoy'
@@ -25,7 +23,7 @@ export function TodayScreen() {
   const today = useToday()
   const [date, setDate] = useState(today)
   // A new activity, free writing, or an entry you tapped (an unfinished one carries on where it was left).
-  const [sheet, setSheet] = useState<{ kind: 'new' } | { kind: 'free' } | { kind: 'open'; entry: Entry } | null>(null)
+  const [sheet, setSheet] = useState<EntrySheetState>(null)
 
   // After midnight, jump to the new day.
   useEffect(() => setDate(today), [today])
@@ -93,10 +91,10 @@ export function TodayScreen() {
           </ul>
         )}
         <div className="journal-actions">
-          <button type="button" className="primary wide" onClick={() => setSheet({ kind: 'new' })}>
+          <button type="button" className="primary wide" onClick={() => setSheet({ kind: 'new', date })}>
             + Reflect on an activity
           </button>
-          <button type="button" className="wide" onClick={() => setSheet({ kind: 'free' })}>
+          <button type="button" className="wide" onClick={() => setSheet({ kind: 'free', date })}>
             Write freely
           </button>
         </div>
@@ -107,29 +105,7 @@ export function TodayScreen() {
         <EveningQuestion key={`q:${date}:${tonight.prompt.id}`} date={date} tonight={tonight} />
       </section>
 
-      {sheet?.kind === 'new' ? (
-        <EntryFlow date={date} suggestions={suggestions} own={own} purpose={purpose.primary} goal={purpose.goal} onClose={() => setSheet(null)} />
-      ) : null}
-      {sheet?.kind === 'free' ? <FreeWrite date={date} onClose={() => setSheet(null)} /> : null}
-      {sheet?.kind === 'open' ? (
-        sheet.entry.status === 'draft' ? (
-          sheet.entry.kind === 'free' ? (
-            <FreeWrite date={sheet.entry.date} draft={sheet.entry} onClose={() => setSheet(null)} />
-          ) : (
-            <EntryFlow
-              date={sheet.entry.date}
-              suggestions={suggestions}
-              own={own}
-              purpose={purpose.primary}
-              goal={purpose.goal}
-              draft={sheet.entry}
-              onClose={() => setSheet(null)}
-            />
-          )
-        ) : (
-          <EntryEdit existing={sheet.entry} suggestions={suggestions} own={own} goal={purpose.goal} onClose={() => setSheet(null)} />
-        )
-      ) : null}
+      <EntrySheet state={sheet} onChange={setSheet} suggestions={suggestions} own={own} purpose={purpose} />
     </>
   )
 }

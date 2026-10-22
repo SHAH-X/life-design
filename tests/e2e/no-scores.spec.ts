@@ -35,6 +35,12 @@ test('no screen asks for or shows a rating or score', async ({ page }, testInfo)
   await expectNoScores(page, 'What else would you like to record?')
   await sheet.getByRole('button', { name: 'Close' }).click()
 
+  await page.goto('./#/entries')
+  await expectNoScores(page, 'Entries')
+  await page.getByRole('button', { name: /^Team meeting/ }).first().click()
+  await expectNoScores(page, 'An entry read back')
+  await page.getByRole('button', { name: 'Done' }).click()
+
   await page.goto('./#/insights')
   for (const range of ['7 days', '30 days', 'All']) {
     await page.getByRole('button', { name: range }).click()

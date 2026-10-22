@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addEntry, entryButton, expectAboveKeyboard, fakeKeyboard, showKeyboard, smallJoy } from './helpers'
+import { addEntry, closeSaved, entryButton, expectAboveKeyboard, fakeKeyboard, openEdit, showKeyboard, smallJoy } from './helpers'
 import { restoreSeed } from './seed'
 
 // Fictional example data.
@@ -45,20 +45,22 @@ test('reflect on an activity in words, never ratings; edit it without losing any
   await sheet.getByLabel('What else would you like to record?').fill('I was so tired by the end')
   await sheet.getByRole('button', { name: '+ tired' }).click()
   await sheet.getByRole('button', { name: 'Save' }).click()
+  await closeSaved(page, 'Answered emails')
   const emails = entryButton(page, 'Answered emails')
   await expect(emails).toContainText('distracted · used up energy · foggy · tired')
   await expect(emails).toContainText('I was so tired by the end')
 
   // Editing shows everything on one screen, and keeps what isn't changed.
-  await emails.click()
-  const edit = page.getByRole('dialog', { name: 'Edit activity' })
+  const edit = await openEdit(page, 'Answered emails')
   await expect(edit.getByRole('button', { name: 'Tired', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(edit.getByRole('button', { name: 'It used up my energy' })).toHaveAttribute('aria-pressed', 'true')
   await expect(edit.getByLabel('How did you feel, and what might have influenced that?')).toHaveValue('Too many threads at once')
   await edit.getByRole('button', { name: 'Anxious', exact: true }).click()
   await edit.getByRole('button', { name: 'Save' }).click()
+  // After saving an edit, the entry reads back again.
+  await page.getByRole('dialog', { name: 'Answered emails' }).getByRole('button', { name: 'Done' }).click()
   await expect(emails).toContainText('foggy · tired · anxious')
-  await emails.click()
+  await openEdit(page, 'Answered emails')
   await expect(edit.getByLabel('How did you feel, and what might have influenced that?')).toHaveValue('Too many threads at once')
   await expect(edit.getByLabel('What else would you like to record?')).toHaveValue('I was so tired by the end')
 
@@ -109,10 +111,15 @@ test('a sheet opens on its content, not on ✕ Close', async ({ page }) => {
   // Focus on Close showed a ring on every sheet, and Enter or Space straight away would have closed it.
   await addEntry(page, { activity: 'Reading', during: ['Curious'], after: ['Calm'] })
   await entryButton(page, 'Reading').click()
+  const view = page.getByRole('dialog', { name: 'Reading' })
+  await expect(view).toBeVisible()
+  await expect(view.getByRole('button', { name: 'Close' })).not.toBeFocused()
+  await view.getByRole('button', { name: 'Edit' }).click()
   const edit = page.getByRole('dialog', { name: 'Edit activity' })
   await expect(edit).toBeVisible()
   await expect(edit.getByRole('button', { name: 'Close' })).not.toBeFocused()
   await edit.getByRole('button', { name: 'Close' }).click()
+  await page.getByRole('dialog', { name: 'Reading' }).getByRole('button', { name: 'Done' }).click()
 
   await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
   await expect(page.getByRole('dialog', { name: 'New activity' }).getByLabel('What did you do?')).toBeFocused()
@@ -223,6 +230,7 @@ test('"Need a start?" offers openers that fit the note question, and types one i
   await note.press('End')
   await note.pressSequentially('it ran long')
   await sheet.getByRole('button', { name: 'Save' }).click()
+  await closeSaved(page, 'Team meeting')
   await expect(entryButton(page, 'Team meeting')).toContainText('It took energy because it ran long')
 })
 

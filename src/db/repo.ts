@@ -40,6 +40,7 @@ export interface EntryDraft {
   reflections?: Entry['reflections']
   intention?: Entry['intention']
   take?: string
+  insightHidden?: boolean
   status?: Entry['status']
   skipped?: Entry['skipped']
 }
@@ -95,6 +96,7 @@ export function buildEntry(draft: EntryDraft, existing: Entry | undefined, now: 
     reflections: keep('reflections').map((r) => ({ question: r.question, text: r.text.trim() })).filter((r) => r.text),
     intention: intention ? { ...intention, text: intention.text.trim() } : null,
     take: keep('take').trim(),
+    insightHidden: keep('insightHidden'),
     status: keep('status'),
     skipped: keep('skipped'),
     createdAt: existing?.createdAt ?? time,
@@ -116,6 +118,17 @@ export const isDone = (entry: Pick<Entry, 'status'>) => entry.status !== 'draft'
 export const hasEnergy = (entry: Pick<Entry, 'skipped'>) => !entry.skipped.includes('energy')
 /** Whether an entry says anything about engagement (the question wasn't skipped). */
 export const hasEngagement = (entry: Pick<Entry, 'skipped'>) => !entry.skipped.includes('engagement')
+
+/** Changes only what's said after an entry (its next step, your take, a dismissed insight), keeping everything else. */
+export async function patchEntry(
+  id: string,
+  changes: Partial<Pick<Entry, 'intention' | 'take' | 'insightHidden'>>,
+  database: LifeDesignDB = defaultDb,
+): Promise<void> {
+  const tidied = { ...changes, ...(changes.take !== undefined ? { take: changes.take.trim() } : {}) }
+  if (tidied.intention) tidied.intention = { ...tidied.intention, text: tidied.intention.text.trim() }
+  await guardWrite(() => database.entries.update(id, { ...tidied, updatedAt: Date.now() }))
+}
 
 /** Follows up a next step: done, let go, or back to open ("Not yet"). */
 export async function setIntentionStatus(entry: Entry, status: Intention['status'], database: LifeDesignDB = defaultDb): Promise<void> {

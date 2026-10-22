@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
-import { addEntry, entryButton } from './helpers'
+import { addEntry, closeSaved, entryButton, openEdit } from './helpers'
 
 // Purpose journaling (Phase 4): the owner's brief, journey by journey. Fictional example data.
 
@@ -36,9 +36,9 @@ test('the questions follow the purpose: one at a time, up to three, and another 
   await expect(third.locator('label')).not.toHaveText(before ?? '')
   await sheet.getByRole('button', { name: 'Next' }).click()
   await sheet.getByRole('button', { name: 'Save' }).click()
+  await closeSaved(page, 'Spanish lesson')
 
-  await entryButton(page, 'Spanish lesson').click()
-  const edit = page.getByRole('dialog', { name: 'Edit activity' })
+  const edit = await openEdit(page, 'Spanish lesson')
   await expect(edit.getByLabel('For')).toHaveValue('learn')
   await expect(edit.getByLabel('What did you learn or understand?')).toHaveValue('The past tense finally made sense')
 })
@@ -70,13 +70,14 @@ test('write freely: a blank page, saved, and still there after a reload', async 
   await sheet.getByLabel("What's on your mind?").fill("Couldn't sleep\nKept thinking about the move, and what I'd miss")
   await sheet.getByRole('button', { name: 'Save' }).click()
   await expect(sheet).toBeHidden()
+  await closeSaved(page, "Couldn't sleep")
 
   const entry = entryButton(page, "Couldn't sleep")
   await expect(entry).toContainText("Kept thinking about the move, and what I'd miss")
   await page.reload()
   await expect(entryButton(page, "Couldn't sleep")).toBeVisible()
-  await entryButton(page, "Couldn't sleep").click()
-  await expect(page.getByRole('dialog', { name: 'Edit writing' }).getByLabel("What's on your mind?")).toHaveValue(
+  const edit = await openEdit(page, "Couldn't sleep", 'Edit writing')
+  await expect(edit.getByLabel("What's on your mind?")).toHaveValue(
     "Couldn't sleep\nKept thinking about the move, and what I'd miss",
   )
 })
@@ -100,6 +101,7 @@ test('an unfinished entry is kept, and carries on where it was left', async ({ p
   await sheet.getByRole('button', { name: 'Skip' }).click()
   await sheet.getByRole('button', { name: 'Skip' }).click()
   await sheet.getByRole('button', { name: 'Save' }).click()
+  await closeSaved(page, 'Gym')
   await expect(entryButton(page, 'Gym')).not.toContainText('Unfinished')
   await expect(entryButton(page, 'Gym')).toContainText('focused · gave energy')
   await expect(page.locator('main .entry-list').getByRole('listitem')).toHaveCount(1)
@@ -115,6 +117,8 @@ test('nothing leaves the phone: every request stays on this site', async ({ page
   await page.getByRole('button', { name: 'Write freely' }).click()
   await page.getByRole('dialog', { name: 'Write freely' }).getByLabel("What's on your mind?").fill('A good day')
   await page.getByRole('dialog', { name: 'Write freely' }).getByRole('button', { name: 'Save' }).click()
+  await closeSaved(page, 'A good day')
+  await page.goto('./#/entries')
   await page.goto('./#/insights')
   await page.goto('./#/more')
   expect(elsewhere).toEqual([])

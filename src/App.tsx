@@ -3,6 +3,7 @@ import { DialogsProvider } from './app/dialogs'
 import { TabBar } from './app/TabBar'
 import { UpdateBanner } from './app/UpdateBanner'
 import { useRoute } from './app/useRoute'
+import { EntriesScreen } from './features/entries/EntriesScreen'
 import { InsightsScreen } from './features/insights/InsightsScreen'
 import { MoreScreen } from './features/more/MoreScreen'
 import { TodayScreen } from './features/today/TodayScreen'
@@ -14,6 +15,8 @@ function Screen({ route }: { route: Route }) {
   switch (route.tab) {
     case 'today':
       return <TodayScreen />
+    case 'entries':
+      return <EntriesScreen />
     case 'insights':
       return <InsightsScreen />
     case 'more':

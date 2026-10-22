@@ -82,6 +82,7 @@ test('no link in the app opens a file inside the app (on iPhone that left the ap
   await page.getByRole('button', { name: 'Start' }).click()
   for (const path of [
     'today',
+    'entries',
     'insights',
     'more',
     'more/reminders',

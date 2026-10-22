@@ -15,7 +15,8 @@ import {
 } from '../../analysis/stats'
 import { db } from '../../db/db'
 import { hasEnergy, hasEngagement, isDone } from '../../db/repo'
-import { addDays, formatPeriod, toDateKey } from '../../lib/dates'
+import { addDays, formatPeriod, shortDay, toDateKey } from '../../lib/dates'
+import { entryTitle } from '../today/EntryRow'
 import { overallEnergyWord, times } from '../../domain/feelings'
 import { EnergyRows } from '../../ui/charts/EnergyRows'
 import { StatTile } from '../../ui/StatTile'
@@ -56,9 +57,15 @@ export function InsightsScreen() {
   const smallJoys = inPeriod(data.days, period).filter((d) => d.smallJoy)
   const reviews = data.reviews.filter((r) => r.periodEnd >= period.start && r.periodEnd <= period.end)
   const totals = overview(done, period)
-  const learnings = reviews
-    .filter((r) => r.completedAt !== null && r.takeaway.trim())
-    .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd))
+  // What you chose to remember from an entry, then takeaways from reviews before v0.8; newest first.
+  const learnings = [
+    ...entries
+      .filter((e) => e.intention?.kind === 'remember')
+      .map((e) => ({ id: e.id, when: e.date, label: shortDay(e.date), text: e.intention?.text || entryTitle(e) })),
+    ...reviews
+      .filter((r) => r.completedAt !== null && r.takeaway.trim())
+      .map((r) => ({ id: r.id, when: r.periodEnd, label: formatPeriod(r.periodStart, r.periodEnd), text: r.takeaway })),
+  ].sort((a, b) => b.when.localeCompare(a.when))
   const words = joyWords(smallJoys)
   const gives = energisers(withEnergy)
   const drains = drainers(withEnergy)
@@ -153,11 +160,11 @@ export function InsightsScreen() {
             <h2>What I'm learning</h2>
             {learnings.length ? (
               <ul className="plain-list">
-                {learnings.map((r) => (
-                  <li key={r.id}>
-                    <span className="muted small">{formatPeriod(r.periodStart, r.periodEnd)}</span>
+                {learnings.map((l) => (
+                  <li key={l.id}>
+                    <span className="muted small">{l.label}</span>
                     <br />
-                    {r.takeaway}
+                    {l.text}
                   </li>
                 ))}
               </ul>
