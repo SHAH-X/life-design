@@ -352,6 +352,7 @@ button:focus-visible,
 
 .info-button {
   position: relative;
+  flex: none; /* beside a long question it was squeezed into an oval (13px wide, since Phase 2.5) */
   min-height: 0;
   width: 22px;
   height: 22px;
