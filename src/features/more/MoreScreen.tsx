@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { getOwnWords, getSetting } from '../../db/repo'
 import type { Purpose } from '../../db/types'
+import { APPEARANCE_LABELS, getAppearance } from '../../lib/appearance'
 import { buildInfo, formatBuildInfo } from '../../lib/buildInfo'
 import { shortDate, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -10,6 +11,7 @@ import { PURPOSE_EFFECT, PURPOSE_KEYS, purposeInfo } from '../../domain/purposes
 import { normalizeReminderPlan } from '../../reminders/schedule'
 import { Loading } from '../../ui/Loading'
 import { Question } from '../../ui/Question'
+import { AppearanceSettings } from './AppearanceSettings'
 import { BackupCard } from './BackupCard'
 import { DeleteAllCard } from './DeleteAllCard'
 import { ExportCard } from './ExportCard'
@@ -24,6 +26,7 @@ const PAGES = {
   reminders: 'Reminders',
   purpose: 'Your purpose',
   words: 'Your feeling words',
+  appearance: 'Appearance',
   backup: 'Backup and restore',
   export: 'Spreadsheet export',
   phone: 'This phone',
@@ -55,6 +58,7 @@ function MorePage({ page }: { page: Page }) {
       {page === 'reminders' ? <RemindersPage /> : null}
       {page === 'purpose' ? <PurposeSettings /> : null}
       {page === 'words' ? <OwnWords /> : null}
+      {page === 'appearance' ? <AppearanceSettings /> : null}
       {page === 'backup' ? <BackupCard /> : null}
       {page === 'export' ? <ExportCard /> : null}
       {page === 'phone' ? <StorageCard /> : null}
@@ -107,6 +111,7 @@ function MoreList() {
     { page: 'reminders', status: status.reminders },
     { page: 'purpose', status: status.purpose },
     { page: 'words', status: status.words },
+    { page: 'appearance', status: APPEARANCE_LABELS[getAppearance()] },
     { page: 'backup', status: status.backup },
     { page: 'export' },
     { page: 'phone', status: status.phone },

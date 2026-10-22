@@ -61,6 +61,13 @@ export function dayMonth(key: string, locale?: string): string {
   return fromDateKey(key).toLocaleDateString(locale, { day: 'numeric', month: 'short' })
 }
 
+/** When an entry was written: "21:14" in the phone's own format, with the day ("Fri 09:02") if that was another day. */
+export function loggedAt(createdAt: number, date: string, locale?: string): string {
+  const at = new Date(createdAt)
+  const time = at.toLocaleTimeString(locale, { timeStyle: 'short' })
+  return toDateKey(at) === date ? time : `${at.toLocaleDateString(locale, { weekday: 'short' })} ${time}`
+}
+
 /** "Tue", for the week's chart axis. */
 export function shortWeekday(key: string, locale?: string): string {
   return fromDateKey(key).toLocaleDateString(locale, { weekday: 'short' })

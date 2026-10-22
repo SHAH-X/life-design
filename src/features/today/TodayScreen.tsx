@@ -8,11 +8,13 @@ import type { Entry } from '../../db/types'
 import { addDays, dayHeading, dayMonthLong, PART_ORDER } from '../../lib/dates'
 import { useTonight } from '../../prompts/useTonight'
 import { Loading } from '../../ui/Loading'
-import { EntryRow } from './EntryRow'
+import { SwipeRow } from '../../ui/SwipeRow'
+import { EntryRow, entryTitle } from './EntryRow'
 import { EntrySheet, type EntrySheetState } from './EntrySheet'
 import { usePurposeSettings } from './usePurpose'
 import { EveningQuestion } from './EveningQuestion'
 import { SmallJoy } from './SmallJoy'
+import { useDeleteEntry } from './useDeleteEntry'
 import { useOwnWords } from './useOwnWords'
 import { useToday } from './useToday'
 
@@ -24,6 +26,7 @@ export function TodayScreen() {
   const [date, setDate] = useState(today)
   // A new activity, free writing, or an entry you tapped (an unfinished one carries on where it was left).
   const [sheet, setSheet] = useState<EntrySheetState>(null)
+  const remove = useDeleteEntry()
 
   // After midnight, jump to the new day.
   useEffect(() => setDate(today), [today])
@@ -85,7 +88,9 @@ export function TodayScreen() {
           <ul className="entry-list">
             {sorted.map((entry) => (
               <li key={entry.id}>
-                <EntryRow entry={entry} onOpen={() => setSheet({ kind: 'open', entry })} />
+                <SwipeRow deleteLabel={`Delete ${entryTitle(entry)}`} onDelete={() => void remove(entry)}>
+                  <EntryRow entry={entry} onOpen={() => setSheet({ kind: 'open', entry })} />
+                </SwipeRow>
               </li>
             ))}
           </ul>

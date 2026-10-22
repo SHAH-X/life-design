@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { addDays, DAY_MS, dayHeading, dayMonthLong, dayNumber, formatRecentPeriod, isDateKey, partOfDay, toDateKey, wholeDaysBetween } from '../../src/lib/dates'
+import { addDays, DAY_MS, dayHeading, dayMonthLong, dayNumber, formatRecentPeriod, isDateKey, loggedAt, partOfDay, toDateKey, wholeDaysBetween } from '../../src/lib/dates'
 
 describe('dates', () => {
   it('keys days by the local calendar date', () => {
@@ -73,5 +73,19 @@ describe('short date wording', () => {
     expect(dayMonthLong('2026-10-22', 'en-GB')).toBe('22 October')
     expect(formatRecentPeriod('2026-10-18', '2026-10-22', 'en-GB')).toMatch(/^18\s*–\s*22 Oct$/)
     expect(formatRecentPeriod('2026-10-22', '2026-10-22', 'en-GB')).toBe('22 Oct')
+  })
+})
+
+describe('loggedAt: when an entry was written', () => {
+  it('gives the time it was logged, in the phone’s own format', () => {
+    const at = new Date(2026, 9, 22, 21, 14).getTime()
+    expect(loggedAt(at, '2026-10-22', 'en-GB')).toBe('21:14')
+    // Newer systems put a narrow no-break space before PM.
+    expect(loggedAt(at, '2026-10-22', 'en-US').replace(/\s/g, ' ')).toBe('9:14 PM')
+  })
+
+  it('adds the day when it was logged on another day than the one it is about', () => {
+    const nextMorning = new Date(2026, 9, 23, 9, 2).getTime()
+    expect(loggedAt(nextMorning, '2026-10-22', 'en-GB')).toBe('Fri 09:02')
   })
 })

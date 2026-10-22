@@ -8,7 +8,8 @@ import { restoreSeed } from './seed'
 const BUDGETS = {
   // v0.8: 63 → 72. "Review due" is gone, so this test browser (not installed) now shows the install notice (10 words;
   // never on the Home Screen app), and Today has two ways in (+4). Owner-approved plan: budgets set from measurements.
-  'Today, a logged day [96]': 72,
+  // v0.10: 72 → 85, the time each entry was logged (the owner's request; "8:00 PM" counts as three words here).
+  'Today, a logged day [96]': 85,
   'New activity: what [90 for the whole form]': 25,
   'New activity: what it was like (10 answer words)': 25,
   'New activity: energy (4 answers)': 30,
@@ -16,8 +17,8 @@ const BUDGETS = {
   'New activity: write (helpers and one box)': 60, // v0.9: one screen instead of reflect (25) and anything else (30); three helper questions
   'Write freely': 25,
   'Entry, read back after saving': 75, // 90 until v0.9, when it stopped restating the entry: your words, a possible insight, the next-step choices
-  'Entries [the fictional five days]': 125,
-  'Insights: this week, the fictional week': 100, // 80 until v0.9; + the week's energy chart (title, axis, 7 days, readout, table) and card titles, the owner's chosen layout
+  'Entries [the fictional five days]': 180, // 125 until v0.10: + the time each of the 19 entries was logged
+  'Insights: this week, the fictional week': 105, // 80 until v0.9; + the week's energy chart and card titles (the owner's chosen layout); v0.10 + logged times on stand-out entries
   'Insights → Patterns, 30 days [236]': 155, // 150 until v0.8: + "Alone or with others" (the owner's brief)
   'More [460]': 60,
   'More → Reminders [266]': 133,

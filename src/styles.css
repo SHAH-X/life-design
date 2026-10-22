@@ -1,56 +1,100 @@
 :root {
   color-scheme: light dark;
-  --bg: #f6f4ef;
-  --surface: #ffffff;
-  --text: #1f1e1c;
-  --muted: #6b6a65;
-  --border: #e4e1d8;
-  --accent: #2f5fb3;
-  --accent-text: #ffffff;
-  --accent-soft: #e6eefb;
-  --danger: #b3261e;
-  --success: #1f7a33;
-  --warn-bg: #fff3d6;
-  --warn-text: #7a4b00;
-  /* Chart and energy colours (documented palette, validated with the dataviz checks):
-     blue = gives energy, red = drains, aqua = engagement. Blue/red stays distinguishable with colour blindness. */
-  --viz-pos: #2a78d6;
-  --viz-neg: #e34948;
-  --viz-seq: #1baf7a;
-  --viz-grid: #e1e0d9;
-  --viz-axis: #c3c2b7;
-  --viz-muted: #898781;
-  --viz-hover: rgb(11 11 11 / 0.05);
-  /* The evening's pale sand (evening card, small joys). Text, muted text and links on it pass WCAG AA. */
-  --evening-bg: #f8eedb;
-  --evening-border: #e8d9b8;
   --radius: 14px;
   --tabbar-height: 60px;
 }
 
-@media (prefers-color-scheme: dark) {
+/* More → Appearance: Automatic follows the iPhone; Light or Dark is set here. public/appearance.js applies the
+   choice before the first paint, so the app never flashes the other look. */
+:root[data-appearance='light'] {
+  color-scheme: light;
+}
+
+:root[data-appearance='dark'] {
+  color-scheme: dark;
+}
+
+/* Colours, light then dark: light-dark() follows color-scheme, so the choice above needs no second copy.
+   Chart and energy colours (documented palette, validated with the dataviz checks): blue = gives energy, red =
+   drains, aqua = engagement; blue/red stays distinguishable with colour blindness. The evening's pale sand
+   (evening card, small joys): text, muted text and links on it pass WCAG AA. */
+@supports (color: light-dark(#000, #fff)) {
   :root {
-    --bg: #151514;
-    --surface: #21201e;
-    --text: #eceae4;
-    --muted: #a3a19a;
-    --border: #3a3835;
-    --accent: #8fb3f5;
-    --accent-text: #0e1a2e;
-    --accent-soft: #1d2a40;
-    --danger: #ff8a80;
-    --success: #8fd19b;
-    --warn-bg: #3a2f14;
-    --warn-text: #f2c66d;
-    --viz-pos: #3987e5;
-    --viz-neg: #e66767;
-    --viz-seq: #199e70;
-    --viz-grid: #3a3835;
-    --viz-axis: #4a4844;
+    --bg: light-dark(#f6f4ef, #151514);
+    --surface: light-dark(#ffffff, #21201e);
+    --text: light-dark(#1f1e1c, #eceae4);
+    --muted: light-dark(#6b6a65, #a3a19a);
+    --border: light-dark(#e4e1d8, #3a3835);
+    --accent: light-dark(#2f5fb3, #8fb3f5);
+    --accent-text: light-dark(#ffffff, #0e1a2e);
+    --accent-soft: light-dark(#e6eefb, #1d2a40);
+    --danger: light-dark(#b3261e, #ff8a80);
+    --success: light-dark(#1f7a33, #8fd19b);
+    --warn-bg: light-dark(#fff3d6, #3a2f14);
+    --warn-text: light-dark(#7a4b00, #f2c66d);
+    --viz-pos: light-dark(#2a78d6, #3987e5);
+    --viz-neg: light-dark(#e34948, #e66767);
+    --viz-seq: light-dark(#1baf7a, #199e70);
+    --viz-grid: light-dark(#e1e0d9, #3a3835);
+    --viz-axis: light-dark(#c3c2b7, #4a4844);
+    --viz-muted: light-dark(#898781, #898781);
+    --viz-hover: light-dark(rgb(11 11 11 / 0.05), rgb(255 255 255 / 0.06));
+    --evening-bg: light-dark(#f8eedb, #2c261c);
+    --evening-border: light-dark(#e8d9b8, #4a3f2c);
+  }
+}
+
+/* Before iOS 17.5 (no light-dark()): the same colours, following the iPhone's setting only.
+   tests/unit/palette.test.ts keeps them in step with the lines above. */
+@supports not (color: light-dark(#000, #fff)) {
+  :root {
+    --bg: #f6f4ef;
+    --surface: #ffffff;
+    --text: #1f1e1c;
+    --muted: #6b6a65;
+    --border: #e4e1d8;
+    --accent: #2f5fb3;
+    --accent-text: #ffffff;
+    --accent-soft: #e6eefb;
+    --danger: #b3261e;
+    --success: #1f7a33;
+    --warn-bg: #fff3d6;
+    --warn-text: #7a4b00;
+    --viz-pos: #2a78d6;
+    --viz-neg: #e34948;
+    --viz-seq: #1baf7a;
+    --viz-grid: #e1e0d9;
+    --viz-axis: #c3c2b7;
     --viz-muted: #898781;
-    --viz-hover: rgb(255 255 255 / 0.06);
-    --evening-bg: #2c261c;
-    --evening-border: #4a3f2c;
+    --viz-hover: rgb(11 11 11 / 0.05);
+    --evening-bg: #f8eedb;
+    --evening-border: #e8d9b8;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151514;
+      --surface: #21201e;
+      --text: #eceae4;
+      --muted: #a3a19a;
+      --border: #3a3835;
+      --accent: #8fb3f5;
+      --accent-text: #0e1a2e;
+      --accent-soft: #1d2a40;
+      --danger: #ff8a80;
+      --success: #8fd19b;
+      --warn-bg: #3a2f14;
+      --warn-text: #f2c66d;
+      --viz-pos: #3987e5;
+      --viz-neg: #e66767;
+      --viz-seq: #199e70;
+      --viz-grid: #3a3835;
+      --viz-axis: #4a4844;
+      --viz-muted: #898781;
+      --viz-hover: rgb(255 255 255 / 0.06);
+      --evening-bg: #2c261c;
+      --evening-border: #4a3f2c;
+    }
   }
 }
 
@@ -698,6 +742,60 @@ button.entry-row:focus-visible {
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Swipe left to delete, as in iOS Messages (v0.10). The row slides over a red Delete; scrolling stays vertical. */
+.swipe-row {
+  position: relative;
+  overflow: hidden;
+}
+
+.swipe-content {
+  position: relative;
+  background: var(--surface);
+  touch-action: pan-y;
+  transition: transform 0.2s ease;
+}
+
+.swipe-content[data-dragging] {
+  transition: none;
+}
+
+/* Not there at all until the row moves: no stray "Delete" for VoiceOver or a word count. */
+.swipe-row:not([data-open]) .swipe-delete {
+  display: none;
+}
+
+.swipe-delete {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 88px;
+  border: 0;
+  border-radius: 0;
+  background: var(--danger);
+  color: var(--surface);
+  font-weight: 600;
+}
+
+/* What you did, and at the right the time you wrote it (v0.10: "so I know which one is most recent"). */
+.entry-first {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.entry-first .entry-activity {
+  flex: 1;
+  min-width: 0;
+}
+
+.entry-time {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .entry-activity {

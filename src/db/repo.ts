@@ -153,6 +153,11 @@ export async function deleteEntry(id: string, database: LifeDesignDB = defaultDb
   await guardWrite(() => database.entries.delete(id))
 }
 
+/** Puts a deleted entry back exactly as it was (Undo after a swipe to delete). */
+export async function restoreEntry(entry: Entry, database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() => database.entries.put(entry))
+}
+
 export async function setSmallJoy(date: string, text: string, database: LifeDesignDB = defaultDb): Promise<void> {
   const now = Date.now()
   const smallJoy = text.trim()

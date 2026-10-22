@@ -5,7 +5,7 @@ import { patchEntry } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import { ENERGY_OPTIONS, entryWords, wordsFor } from '../../domain/feelings'
 import { possibleInsight } from '../../domain/summary'
-import { addDays, longDate, shortDay, toDateKey } from '../../lib/dates'
+import { addDays, loggedAt, longDate, shortDay, toDateKey } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
 import { revealOnMount } from '../../ui/keepInView'
 import { entryTitle } from './EntryRow'
@@ -78,6 +78,7 @@ export function EntryView(props: { entryId: string; fresh?: boolean; onEdit: (en
           </>
         ) : null}
         {when(entry)}
+        {fresh ? null : ` · logged ${loggedAt(entry.createdAt, entry.date)}`}
       </p>
 
       {chips.energy || chips.words.length ? (

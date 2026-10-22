@@ -26,6 +26,7 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 - The page behind a sheet never scrolls. A modal `<dialog>` blocks taps, not scrolling, so `Dialog` pins the page with `useScrollLock` (and puts it back on close), and `.sheet-body` has `overscroll-behavior: contain`. (v0.7 on the iPhone: scrolling in "New activity" moved the screen behind it. An e2e test guards this.)
 - Never a blank screen. `ErrorBoundary` wraps the app: a lost database connection reloads it once (`reloadOnce`, at most once in 30 s), anything else shows "Something went wrong" with Reload. The app checks its database when it comes back from the background (`useDatabaseCheck`). Waiting screens use `<Loading />`, which offers a reload after 4 s, never a bare empty `div`. Unfinished entries save the moment the app is hidden. (v0.8 on the iPhone: blank after switching back to the app, once iOS had dropped the database connection. `tests/e2e/resume.spec.ts` breaks the database the way Safari reports it.)
 - Colour only where it means something: the thin energy edge (blue gave, red took: the chart colours) and the evening's pale sand. Words stay in ink; a new colour must pass WCAG AA on both card surfaces. (v0.7: red feeling words read like an error.)
+- Deleting from a list is a swipe left, and always offers Undo for a few seconds (`useDeleteEntry`, `UndoProvider`); Delete stays in Edit too, for VoiceOver. Swipe Delete isn't rendered until the row moves, so it never counts as a word or a button.
 - Long words must never squeeze a label: rows put their words on a line of their own (Phase 2.6: "Home" wrapped one letter per line). The Insights e2e test checks label widths.
 - Before adding a class name, search `styles.css` for it: a shared name picks up another screen's look. (v0.8: the entry read-back borrowed the Reminders card's `.summary` panel by accident.)
 - When the app refuses something (a file, a password), say exactly why and what to do next. A vague error cost a debugging round in Phase 1.
@@ -39,7 +40,7 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 - Purpose questions are helpers above one writing box, never fields to fill: three at a time, "↻ Other questions" for more. "Make sense of a hard time" never pushes for a lesson. (v0.9, owner: "just one box … without thinking how much to include against which question".)
 
 ## No ratings, natural responses (Phase 2.6: "I don't want any rating to be given")
-- Nothing asks for or shows a rating, score, average or scale: not as numbers, not as stars, not as ordered word scales. Answers are natural words (feeling words, your own words, notes); results are words ("usually gives you energy"). Plain counts are fine ("5 times", "on 4 days").
+- Nothing asks for or shows a rating, score, average or scale: not as numbers, not as stars, not as ordered word scales. Answers are natural words (feeling words, your own words, notes); results are words ("usually gives you energy"). Plain counts are fine ("5 times", "on 4 days"), and so are dates and the time an entry was logged.
 - Energy, engagement and flow are worked out on the phone from the words (`src/domain/feelings.ts`, one table of weights with tests) and stored for analysis, never displayed as values.
 - `tests/e2e/no-scores.spec.ts` fails if a score pattern (`+2`, `3.0`, `7/10`, "average") appears on Today, the logging screens, an entry read back, Entries, Insights or Patterns.
 - New screens follow the same rule: natural questions with words, never gauges or 0–10. Worded choices are fine ("It gave me energy" · "It used up my energy" · "Little difference" · "A mix of both").
@@ -50,10 +51,11 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 - A screen is a title, the questions or content, and one main action. No help paragraphs: a question explains itself; anything more goes behind ⓘ or a collapsed section.
 - A status is one short line. Today shows at most one notice (backup due, then install).
 - Settings live on their own pages; More stays a short list.
-- Every screen speaks in words; plain counts are the only numbers (see "No ratings" above).
+- Every screen speaks in words; plain counts, dates and times are the only numbers (see "No ratings" above).
 - Word budgets: `tests/e2e/word-budget.spec.ts` counts the visible words on each main screen with the fictional seed and fails above its budget. It runs at a fixed date on purpose: the evening question changes daily, and a floating date let the test pass or fail by chance. Raise a budget only with the owner's OK; a new main screen gets a budget when it's added.
 
 ## Charts (dataviz skill rules)
+- Every colour token is written once as `light-dark(light, dark)`, so More → Appearance can force either look; `tests/unit/palette.test.ts` keeps the copy for iOS before 17.5 in step. Appearance itself lives in `localStorage` and `public/appearance.js` applies it before the first paint.
 - Colours come only from the `--viz-*` tokens in `styles.css`. Before adding a colour, run the dataviz validator against both card surfaces (`#ffffff`, `#21201e`). Orange failed next to red; violet failed next to blue.
 - One scale per chart (energy and engagement are separate charts). Thin marks: columns ≤24px with a 4px rounded data end and a 2px gap. Gridlines are solid hairlines.
 - Every chart has a tap/focus readout and a table view; values never live only in colour or a tooltip. Text never wears the data colour.

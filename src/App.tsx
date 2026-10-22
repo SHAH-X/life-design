@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { DialogsProvider } from './app/dialogs'
 import { TabBar } from './app/TabBar'
+import { UndoProvider } from './app/undo'
 import { UpdateBanner } from './app/UpdateBanner'
 import { useDatabaseCheck } from './app/useDatabaseCheck'
 import { useRoute } from './app/useRoute'
@@ -38,17 +39,19 @@ export function App() {
 
   return (
     <DialogsProvider>
-      <main className="app">
-        {welcome.show === undefined ? (
-          <Loading />
-        ) : welcome.show ? (
-          <Welcome onDone={welcome.done} />
-        ) : (
-          <Screen route={route} />
-        )}
-      </main>
-      <UpdateBanner />
-      {welcome.show === false ? <TabBar current={route.tab} /> : null}
+      <UndoProvider>
+        <main className="app">
+          {welcome.show === undefined ? (
+            <Loading />
+          ) : welcome.show ? (
+            <Welcome onDone={welcome.done} />
+          ) : (
+            <Screen route={route} />
+          )}
+        </main>
+        <UpdateBanner />
+        {welcome.show === false ? <TabBar current={route.tab} /> : null}
+      </UndoProvider>
     </DialogsProvider>
   )
 }

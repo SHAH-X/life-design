@@ -6,9 +6,11 @@ import type { Entry } from '../../db/types'
 import { matchesSearch } from '../../domain/search'
 import { longDate, PART_ORDER } from '../../lib/dates'
 import { Loading } from '../../ui/Loading'
-import { EntryRow } from '../today/EntryRow'
+import { SwipeRow } from '../../ui/SwipeRow'
+import { EntryRow, entryTitle } from '../today/EntryRow'
 import { EntrySheet, type EntrySheetState } from '../today/EntrySheet'
 import { usePurposeSettings } from '../today/usePurpose'
+import { useDeleteEntry } from '../today/useDeleteEntry'
 import { useOwnWords } from '../today/useOwnWords'
 
 /** Days with entries shown at first; "Show earlier" adds as many again. */
@@ -26,6 +28,7 @@ export function EntriesScreen() {
   const [query, setQuery] = useState('')
   const [days, setDays] = useState(DAYS_AT_A_TIME)
   const [sheet, setSheet] = useState<EntrySheetState>(null)
+  const remove = useDeleteEntry()
   // Render only once loaded, so nothing jumps under your finger.
   if (entries === undefined || own === undefined || purpose === undefined) return <Loading />
 
@@ -36,7 +39,9 @@ export function EntriesScreen() {
   const shown = dates.slice(0, days)
   const row = (entry: Entry) => (
     <li key={entry.id}>
-      <EntryRow entry={entry} onOpen={() => setSheet({ kind: 'open', entry })} />
+      <SwipeRow deleteLabel={`Delete ${entryTitle(entry)}`} onDelete={() => void remove(entry)}>
+        <EntryRow entry={entry} onOpen={() => setSheet({ kind: 'open', entry })} />
+      </SwipeRow>
     </li>
   )
 
