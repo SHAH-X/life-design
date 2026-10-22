@@ -9,6 +9,9 @@ export default defineConfig({
   testDir: 'tests/e2e',
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
+  // A missing reference screenshot fails; it's never written quietly (v0.12.2: a run with an old setting wrote two
+  // stale ones that nearly got committed). Make new ones on purpose: npm run screens -- --update-snapshots=missing
+  updateSnapshots: 'none',
   reporter: 'list',
   use: {
     baseURL: BASE_URL,
