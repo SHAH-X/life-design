@@ -225,14 +225,20 @@ def new_activity(mode):
 
 PREFIX = ''
 modes = sys.argv[1:] or ['safari', 'home']  # npm run ios-check -- home: one mode only
-for mode in modes:
-    if mode == 'safari':
-        open_in_safari()
-    elif mode == 'home':
-        open_home_screen_app()
-    else:
-        refuse(f'unknown mode "{mode}".', 'Use safari, home, or nothing for both.')
-    new_activity(mode)
+try:
+    for mode in modes:
+        if mode == 'safari':
+            open_in_safari()
+        elif mode == 'home':
+            open_home_screen_app()
+        else:
+            refuse(f'unknown mode "{mode}".', 'Use safari, home, or nothing for both.')
+        new_activity(mode)
+finally:
+    # Never left running: a simulator left booted for hours kept the Mac's load near 300, and every e2e test then
+    # timed out starting its browser (2026-10-23: 51 of 90 "failed" against a live site that was fine).
+    run('xcrun', 'simctl', 'shutdown', UDID, timeout=120)
+    run('pkill', '-f', 'idb_companion')
 
 print('Look at each:')
 for s in SHOTS:
