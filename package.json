@@ -1,7 +1,7 @@
 {
   "name": "life-design",
   "private": true,
-  "version": "0.12.2",
+  "version": "0.12.3",
   "description": "A private, phone-only daily journal built on Designing Your Life and Ikigai.",
   "type": "module",
   "engines": {
