@@ -23,7 +23,9 @@ export default defineConfig({
     : {
         command: 'npm run build && npm run preview',
         url: BASE_URL,
-        reuseExistingServer: !process.env.CI,
+        // Never a server already running: a preview left from an older build was tested instead of the code (v0.12.4).
+        // With one on the port the run refuses (stop it first: the iOS Simulator check uses its own).
+        reuseExistingServer: false,
         timeout: 180_000,
       },
 })
