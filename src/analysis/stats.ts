@@ -24,29 +24,8 @@ export function daysInPeriod(period: Period): string[] {
 
 const mean = (values: readonly number[]) => (values.length ? values.reduce((s, v) => s + v, 0) / values.length : null)
 
-export interface Overview {
-  entries: number
-  daysLogged: number
-  days: number
-  avgEnergy: number | null
-  avgEngagement: number | null
-  flow: number
-}
-
 /** Whether an entry answered a question; a skipped one stays out of that measure instead of counting as a guess. */
 const answered = (entry: Entry, measure: Measure) => !(entry.skipped ?? []).includes(measure)
-
-export function overview(entries: readonly Entry[], period: Period): Overview {
-  const within = inPeriod(entries, period)
-  return {
-    entries: within.length,
-    daysLogged: new Set(within.map((e) => e.date)).size,
-    days: daysInPeriod(period).length,
-    avgEnergy: mean(within.filter((e) => answered(e, 'energy')).map((e) => e.energy)),
-    avgEngagement: mean(within.filter((e) => answered(e, 'engagement')).map((e) => e.engagement)),
-    flow: within.filter((e) => e.flow).length,
-  }
-}
 
 export interface GroupStat {
   label: string
@@ -161,38 +140,65 @@ export function contextStats(entries: readonly Entry[], key: ContextKey, locale?
     .sort((a, b) => b.avgEnergy - a.avgEnergy || b.count - a.count)
 }
 
-export interface SeriesPoint {
-  start: string
-  end: string
-  count: number
-  avgEnergy: number | null
-  avgEngagement: number | null
+/** A context's label as a line reads it: "With Alex", "In the morning", "On Mondays"; places as written. */
+const CONTEXT_LINE: Record<ContextKey, (label: string) => string> = {
+  where: (label) => label,
+  people: (label) => `With ${label}`,
+  objects: (label) => `Using ${label}`,
+  part: (label) => `In the ${label.toLowerCase()}`,
+  weekday: (label) => `On ${label}s`,
 }
 
-/** One point per day, or per week (Monday start) when the period is longer than 45 days. */
-export function energySeries(entries: readonly Entry[], period: Period): SeriesPoint[] {
-  const within = inPeriod(entries, period)
-  const days = daysInPeriod(period)
-  const weekly = days.length > 45
-  const buckets: { start: string; end: string }[] = []
-  if (!weekly) for (const d of days) buckets.push({ start: d, end: d })
-  else {
-    let start = period.start
-    while (start <= period.end) {
-      const dow = fromDateKey(start).getDay() // 0 = Sunday
-      const end = addDays(start, (7 - dow) % 7) // up to Sunday
-      buckets.push({ start, end: end > period.end ? period.end : end })
-      start = addDays(end, 1)
-    }
+/** How one-sided a group was: the larger of its shares that gave and took energy. */
+const lean = (g: GroupStat) => Math.max(g.gave, g.took) / g.count
+
+/**
+ * Places, people and times (v0.13), picked for you instead of five switches: contexts with 3+ entries that usually
+ * went one way ("usually" or stronger), most one-sided first, then the most entries. A line whose entries are all
+ * behind a line already shown says nothing new, so it's left out: `shown` are the entries behind the activity lines
+ * above it, and each line picked joins them. It describes your entries; it never says a place causes anything.
+ */
+export function contextHighlights(entries: readonly Entry[], shown: readonly (readonly string[])[] = [], locale?: string, limit = 4): GroupStat[] {
+  const keys: readonly ContextKey[] = ['where', 'people', 'objects', 'part', 'weekday']
+  const candidates = [
+    ...keys.flatMap((key) => contextStats(entries, key, locale).map((g) => ({ ...g, label: CONTEXT_LINE[key](g.label) }))),
+    ...(aloneOrWithOthers(entries) ?? []),
+  ]
+    .filter((g) => g.count >= MIN_COUNT && lean(g) >= 0.6)
+    .sort((a, b) => lean(b) - lean(a) || b.count - a.count)
+  const behind: (readonly string[])[] = [...shown]
+  const picked: GroupStat[] = []
+  for (const g of candidates) {
+    if (picked.length >= limit) break
+    if (behind.some((ids) => g.entryIds.every((id) => ids.includes(id)))) continue
+    picked.push(g)
+    behind.push(g.entryIds)
   }
-  return buckets.map(({ start, end }) => {
-    const items = within.filter((e) => e.date >= start && e.date <= end)
+  return picked
+}
+
+export interface DayCount {
+  date: string
+  /** Activities that gave energy, used it up, or made little difference (or a mix); a skipped answer counts in none. */
+  gave: number
+  used: number
+  little: number
+  /** Every entry of the day, for the list under the chart. */
+  entryIds: string[]
+}
+
+/** The week's chart (v0.13): what happened each day, counted, never averaged (two good and two draining things aren't "flat"). */
+export function energyByDay(entries: readonly Entry[], period: Period): DayCount[] {
+  const within = inPeriod(entries, period)
+  return daysInPeriod(period).map((date) => {
+    const day = within.filter((e) => e.date === date)
+    const measured = day.filter((e) => answered(e, 'energy'))
     return {
-      start,
-      end,
-      count: items.length,
-      avgEnergy: mean(items.filter((e) => answered(e, 'energy')).map((e) => e.energy)),
-      avgEngagement: mean(items.filter((e) => answered(e, 'engagement')).map((e) => e.engagement)),
+      date,
+      gave: measured.filter((e) => e.energy > 0).length,
+      used: measured.filter((e) => e.energy < 0).length,
+      little: measured.filter((e) => e.energy === 0).length,
+      entryIds: day.map((e) => e.id),
     }
   })
 }

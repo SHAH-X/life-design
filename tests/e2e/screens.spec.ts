@@ -142,17 +142,21 @@ for (const scheme of ['light', 'dark'] as const) {
         ['insights', 'Insights'],
         ['insights/steps', 'Next steps'],
         ['insights/review', 'Review a period'],
-        ['insights/patterns', 'Patterns'],
+        ['insights/learning', "What you're learning"],
+        ['insights/weeks', 'Earlier weeks'],
+        ['insights/week-2026-10-12', 'Your week'],
         ['more', 'More'],
       ] as const) {
         await page.goto(`./#/${route}`)
         await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible()
         await look(page, at(route.replace('/', '-')))
       }
-      // What opens on Insights: the chart's table and the earlier weeks (their links went unstyled unseen in v0.11).
+      // What opens on Insights (v0.13): a day of the chart with its entries, the chart's table, and a line with the
+      // entries behind it (links in opened parts went unstyled unseen in v0.11).
       await page.goto('./#/insights')
+      await page.getByRole('button', { name: /^Tuesday, October 20/ }).click()
       await page.getByText('Show as table').click()
-      await page.getByText('Earlier weeks').click()
+      await page.locator('details.week-line > summary', { hasText: 'Commute' }).click()
       await look(page, at('insights-opened'))
 
       for (const sub of ['reminders', 'purpose', 'words', 'appearance', 'ai', 'backup', 'export', 'phone', 'delete']) {

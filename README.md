@@ -6,7 +6,7 @@ A private daily journal for iPhone, built on *Designing Your Life* (Burnett & Ev
 - **Learn from it:** after each entry, your entry read back and, only when several entries agree, a possible insight with the entries behind it. Find any entry again in Logs.
 - **Review a period:** a week, a month or any range, copied for an AI chat of your choice, or reviewed in the app with your own free Groq key. Nothing is sent until you tap.
 - **Next steps:** what you decide to do or try gathers in one list you can manage, once or ongoing, with an optional "when". A step comes back when you write about the same activity again.
-- **Insights, put together for you:** each week is summed up from your entries (its energy day by day, what stood out, what gave and used up your energy, the feelings that came up, your next steps), with patterns over time. Nothing to fill in, and every line opens to the entries behind it.
+- **Insights, put together for you:** one page. Your week (what each day held for your energy, what stood out, the feelings that came up), then the last 30 days in words (what gives and uses up your energy, when time flew, the places, people and times that usually went one way), then what you're learning and your next steps. Nothing to choose or fill in, and every line opens to the entries behind it.
 - **An evening question:** a small joy, plus one question that changes each day and follows your purpose, sometimes about a pattern in your own days.
 
 **Easy to start:** a short welcome, openers when a blank box stares back, and no streaks to keep.

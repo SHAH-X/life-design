@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   activityStats,
   balanceTally,
+  contextHighlights,
   contextStats,
   drainers,
   energisers,
-  energySeries,
+  energyByDay,
   flowFinder,
   joyWords,
-  overview,
 } from '../../src/analysis/stats'
 import { type Day, type Entry, type Review, entryDefaults } from '../../src/db/types'
 
@@ -56,24 +56,6 @@ const entries: Entry[] = [
   entry('2026-10-19', 'Cooking dinner', 2, 4),
 ]
 
-const week = { start: '2026-10-12', end: '2026-10-18' }
-
-describe('overview', () => {
-  it('counts activities, logged days, averages and flow within the period only', () => {
-    const o = overview(entries, week)
-    expect(o.entries).toBe(14)
-    expect(o.daysLogged).toBe(7)
-    expect(o.days).toBe(7)
-    expect(o.flow).toBe(3)
-    expect(o.avgEnergy).toBeCloseTo(0, 5) // +5 (deep work) −4 (meetings) −7 (commutes) +4 (runs) +2 (cooking) = 0
-    expect(o.avgEngagement).toBeCloseTo(40 / 14, 5)
-  })
-
-  it('handles an empty period', () => {
-    expect(overview(entries, { start: '2026-11-01', end: '2026-11-07' })).toMatchObject({ entries: 0, avgEnergy: null, daysLogged: 0 })
-  })
-})
-
 describe('what gives and drains energy', () => {
   it('groups activities ignoring case, keeping the latest spelling', () => {
     const deep = activityStats(entries).find((g) => g.label.toLowerCase() === 'deep work on the report')
@@ -114,22 +96,58 @@ describe('context', () => {
   })
 })
 
-describe('energySeries', () => {
-  it('gives one point per day, with null on days with nothing logged', () => {
-    const series = energySeries(entries, { start: '2026-10-11', end: '2026-10-13' })
-    expect(series.map((p) => [p.start, p.count])).toEqual([
-      ['2026-10-11', 0],
-      ['2026-10-12', 3],
-      ['2026-10-13', 3],
+describe('places, people and times', () => {
+  it('picks contexts with 3+ entries that usually went one way, strongest first, in words', () => {
+    // Mornings (deep work ×3, cooking ×2) always gave energy; the office (the meetings) always took it; alone and
+    // Tuesdays went one way 2 times in 3 (the bigger count first). Evenings (commutes and runs) and Mondays went
+    // both ways, so they say nothing.
+    const lines = contextHighlights(entries, [], 'en-GB')
+    expect(lines.map((g) => [g.label, g.count, g.gave, g.took])).toEqual([
+      ['In the morning', 5, 5, 0],
+      ['Office', 3, 0, 3],
+      ['Alone', 12, 8, 4],
+      ['On Tuesdays', 3, 1, 2],
     ])
-    expect(series[0]?.avgEnergy).toBeNull()
-    expect(series[1]?.avgEnergy).toBeCloseTo(-1 / 3, 5)
+    expect(lines.some((g) => g.label === 'In the evening' || g.label === 'On Mondays')).toBe(false)
   })
 
-  it('switches to weeks (Monday to Sunday) for long periods', () => {
-    const series = energySeries(entries, { start: '2026-08-01', end: '2026-10-19' })
-    expect(series.at(-2)).toMatchObject({ start: '2026-10-12', end: '2026-10-18', count: 14 })
-    expect(series.at(-1)).toMatchObject({ start: '2026-10-19', end: '2026-10-19', count: 1 })
+  it('never says the same thing twice: a line whose entries are all behind a line already shown is left out', () => {
+    // Home is the three deep-work mornings; With Alex, the afternoon and With others are the three meetings.
+    const labels = contextHighlights(entries, [], 'en-GB').map((g) => g.label)
+    expect(labels).not.toContain('Home')
+    expect(labels).not.toContain('With Alex')
+    expect(labels).not.toContain('In the afternoon')
+    expect(labels).not.toContain('With others')
+    // With the activities already listed, Office (only ever the team meetings) adds nothing either.
+    const meetings = drainers(entries).find((g) => g.label === 'Team meeting')?.entryIds ?? []
+    expect(contextHighlights(entries, [meetings], 'en-GB').map((g) => g.label)).not.toContain('Office')
+  })
+
+  it('shows at most four, and nothing under three entries', () => {
+    expect(contextHighlights(entries, [], 'en-GB', 2)).toHaveLength(2)
+    expect(contextHighlights(entries.slice(0, 2), [], 'en-GB')).toEqual([])
+  })
+})
+
+describe('energy by day', () => {
+  it('counts, for each day, what gave energy and what used it up, with every entry of the day', () => {
+    const days = energyByDay(entries, { start: '2026-10-11', end: '2026-10-13' })
+    expect(days.map((d) => [d.date, d.gave, d.used, d.little, d.entryIds.length])).toEqual([
+      ['2026-10-11', 0, 0, 0, 0],
+      ['2026-10-12', 1, 2, 0, 3],
+      ['2026-10-13', 1, 2, 0, 3],
+    ])
+  })
+
+  it('counts little difference on its own, and leaves a skipped energy question out of every count', () => {
+    const day = [
+      entry('2026-10-20', 'Walk', 0, 3),
+      entry('2026-10-20', 'Reading', 2, 4, { skipped: ['energy'] }),
+      entry('2026-10-20', 'Call', -2, 2),
+    ]
+    expect(energyByDay(day, { start: '2026-10-20', end: '2026-10-20' })).toEqual([
+      { date: '2026-10-20', gave: 0, used: 1, little: 1, entryIds: day.map((e) => e.id) },
+    ])
   })
 })
 

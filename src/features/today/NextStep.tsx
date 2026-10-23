@@ -13,7 +13,7 @@ import { entryTitle } from './EntryRow'
 /**
  * "Anything you'd like to do with this?" (Stage F): optional, never forced. A step to do or try joins your list of
  * next steps (Insights → Next steps, v0.11), where you manage it; one that says the same as a step you have joins
- * that instead. "Remember this" stays with the entry (What I'm learning). Once kept, the entry just shows it: there
+ * that instead. "Remember this" stays with the entry (What you're learning). Once kept, the entry just shows it: there
  * is nothing to tick at the moment of writing (owner: "I am writing it for future, how can I have done it?").
  * What you keep to remember opens with a tap to change or remove (v0.12.3); a next step opens your list.
  */

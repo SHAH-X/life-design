@@ -40,20 +40,16 @@ test('no screen asks for or shows a rating or score', async ({ page }, testInfo)
   await page.getByRole('button', { name: 'Done', exact: true }).click()
 
   await page.goto('./#/insights')
-  await expectNoScores(page, 'Insights, this week')
-  await page.goto('./#/insights/steps')
-  await expectNoScores(page, 'Next steps')
-  await page.goto('./#/insights/review')
-  await expectNoScores(page, 'Review a period')
-  await page.goto('./#/insights/patterns')
-  for (const range of ['7 days', '30 days', 'All']) {
-    await page.getByRole('button', { name: range }).click()
-    await page.getByText('Show as table').click()
-    await expectNoScores(page, `Insights (${range})`)
-    await page.getByRole('group', { name: 'Chart' }).getByRole('button', { name: 'Into it' }).click()
-    await page.getByText('Show as table').click()
-    await expectNoScores(page, `Insights, into it (${range})`)
-    await page.getByRole('group', { name: 'Chart' }).getByRole('button', { name: 'Energy' }).click()
+  await expectNoScores(page, 'Insights')
+  // Everything that opens on it (v0.13): a day of the chart, its table, a line's entries.
+  const chart = page.locator('figure.chart', { hasText: 'Energy, day by day' })
+  await chart.locator('.chart-hit').nth(1).click()
+  await chart.getByText('Show as table').click()
+  for (const line of await page.locator('details.week-line > summary').all()) await line.click()
+  await expectNoScores(page, 'Insights, opened')
+  for (const sub of ['steps', 'review', 'learning', 'weeks']) {
+    await page.goto(`./#/insights/${sub}`)
+    await expectNoScores(page, `Insights → ${sub}`)
   }
 })
 

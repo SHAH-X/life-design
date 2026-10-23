@@ -75,11 +75,6 @@ describe('weekSummary: the week, put together from finished entries, with the en
     expect(summary).toMatchObject({ start: '2026-10-19', end: '2026-10-25', entries: 6, days: 5 })
   })
 
-  it('names activities that went one way 2+ times this week, with their entries', () => {
-    expect(summary.gave).toEqual([{ label: 'deep work', count: 2, of: 2, entryIds: ['w1', 'w2'] }])
-    expect(summary.used).toEqual([{ label: 'Team meeting', count: 2, of: 2, entryIds: ['w3', 'w4'] }])
-  })
-
   it('lists the feelings that came up 2+ times, most first', () => {
     expect(summary.feelings).toEqual([
       { word: 'Inspired', count: 2, entryIds: ['w1', 'w2'] },
@@ -97,12 +92,8 @@ describe('weekSummary: the week, put together from finished entries, with the en
     expect(weekSummary([...flows, other], '2026-10-19').standout).toEqual([flows[0]?.id, other.id])
   })
 
-  it("gathers the week's things to remember", () => {
-    expect(summary.remember).toEqual(['w6'])
-  })
-
   it('is empty, not guessed, for a week with no entries', () => {
-    expect(weekSummary(week, '2026-11-02')).toMatchObject({ entries: 0, days: 0, gave: [], used: [], feelings: [], standout: [], remember: [] })
+    expect(weekSummary(week, '2026-11-02')).toEqual({ start: '2026-11-02', end: '2026-11-08', entries: 0, days: 0, feelings: [], standout: [] })
   })
 })
 

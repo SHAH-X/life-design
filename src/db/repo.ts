@@ -18,7 +18,6 @@ import {
   type StepKind,
   type StepStatus,
   type Views,
-  type Week,
 } from './types'
 
 export interface EntryDraft {
@@ -131,18 +130,6 @@ export async function patchEntry(
   const tidied = { ...changes, ...(changes.take !== undefined ? { take: changes.take.trim() } : {}) }
   if (tidied.intention) tidied.intention = { ...tidied.intention, text: tidied.intention.text.trim() }
   await guardWrite(() => database.entries.update(id, { ...tidied, updatedAt: Date.now() }))
-}
-
-/** What you'd like to carry into the next week, kept with the week it was written for. */
-export async function saveWeek(weekStart: string, carry: string, database: LifeDesignDB = defaultDb, now: number = Date.now()): Promise<Week> {
-  return guardWrite(() =>
-    database.transaction('rw', database.weeks, async () => {
-      const existing = await database.weeks.get(weekStart)
-      const week: Week = { id: weekStart, carry: carry.trim(), createdAt: existing?.createdAt ?? now, updatedAt: now }
-      await database.weeks.put(week)
-      return week
-    }),
-  )
 }
 
 export async function deleteEntry(id: string, database: LifeDesignDB = defaultDb): Promise<void> {

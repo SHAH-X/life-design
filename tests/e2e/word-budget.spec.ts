@@ -18,11 +18,16 @@ const BUDGETS = {
   'Write freely': 25,
   'Entry, read back after saving': 105, // 90 until v0.9 (stopped restating the entry), 75 until v0.12.3: its parts as rows with small labels, each opening its question (owner's OK)
   'Logs [the fictional five days]': 180, // 125 until v0.10: + the time each of the 19 entries was logged (called Entries until 2026-10-23)
-  'Insights: this week, the fictional week': 130, // 80 until v0.9; + the week's energy chart and card titles (the owner's chosen layout); v0.10 + logged times on stand-out entries; v0.11 + the Next steps card; v0.12 + the Review a period row
+  // v0.13: one page, the week and the last 30 days (Patterns, 155, is gone). Its history: 80 until v0.9; + the week's
+  // energy chart and card titles (the owner's chosen layout); v0.10 + logged times on stand-out entries; v0.11 + the
+  // Next steps card; v0.12 + the Review a period row; v0.13 130 → 195 (194 measured), the owner's OK: one page in
+  // place of two (Insights 130 + Patterns 155).
+  'Insights, the fictional week and 30 days': 195,
   'Insights → Next steps (empty)': 30,
   'Insights → Review a period, this week': 60, // v0.12: the period, what's in it, the two ways
+  "Insights → What you're learning": 30, // v0.13
+  'Insights → Earlier weeks': 30, // v0.13
   'More → AI review (no key yet)': 40, // v0.12: the two services, the key field
-  'Insights → Patterns, 30 days [236]': 155, // 150 until v0.8: + "Alone or with others" (the owner's brief)
   'More [460]': 60,
   'More → Reminders [266]': 133,
   'More → Your purpose': 95, // seven purposes, each with its one-line explanation (the brief asks for both)
@@ -113,16 +118,19 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
 
   await page.goto('./#/insights')
   await expect(page.getByRole('heading', { level: 1, name: 'Insights' })).toBeVisible()
-  await measure('Insights: this week, the fictional week', main)
+  await measure('Insights, the fictional week and 30 days', main)
   await page.goto('./#/insights/steps')
   await expect(page.getByRole('heading', { level: 1, name: 'Next steps' })).toBeVisible()
   await measure('Insights → Next steps (empty)', main)
   await page.goto('./#/insights/review')
   await expect(page.getByRole('heading', { level: 1, name: 'Review a period' })).toBeVisible()
   await measure('Insights → Review a period, this week', main)
-  await page.goto('./#/insights/patterns')
-  await expect(page.getByRole('heading', { level: 1, name: 'Patterns' })).toBeVisible()
-  await measure('Insights → Patterns, 30 days [236]', main)
+  await page.goto('./#/insights/learning')
+  await expect(page.getByRole('heading', { level: 1, name: "What you're learning" })).toBeVisible()
+  await measure("Insights → What you're learning", main)
+  await page.goto('./#/insights/weeks')
+  await expect(page.getByRole('heading', { level: 1, name: 'Earlier weeks' })).toBeVisible()
+  await measure('Insights → Earlier weeks', main)
 
   await page.goto('./#/more')
   await expect(page.getByRole('heading', { level: 1, name: 'More' })).toBeVisible()

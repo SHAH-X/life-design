@@ -274,7 +274,7 @@ describe('database upgrade', () => {
         finishedAt: null,
       },
     ])
-    // The step left its entry; "Remember this" stays (What I'm learning); nothing else changed, updatedAt included.
+    // The step left its entry; "Remember this" stays (What you're learning); nothing else changed, updatedAt included.
     expect(await upgraded.entries.get('e1')).toEqual({ ...meeting, intention: null })
     expect(await upgraded.entries.get('e2')).toEqual(walk)
     expect(await upgraded.entries.get('e3')).toEqual(plain)

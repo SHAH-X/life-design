@@ -82,7 +82,7 @@ test('a possible insight needs 3+ entries, lists them, and is yours to dismiss o
   await expect(another.getByRole('region', { name: 'Possible insight' })).toHaveCount(0)
 })
 
-test('"Remember this" lands in Insights → What I\'m learning', async ({ page }) => {
+test('"Remember this" lands in Insights → What you\'re learning', async ({ page }) => {
   const view = await saveAndStay(page, 'Piano practice', 'It gave me energy')
   await view.getByRole('button', { name: 'Remember this' }).click()
   await view.getByLabel('What exactly?').fill('Small steps beat big plans')
@@ -90,7 +90,7 @@ test('"Remember this" lands in Insights → What I\'m learning', async ({ page }
   await expect(view.getByRole('region', { name: 'Next step' }).getByRole('button', { name: /^To remember/ })).toContainText('Small steps beat big plans')
   await view.getByRole('button', { name: 'Done', exact: true }).click()
   await page.goto('./#/insights')
-  await expect(page.locator('section.card', { has: page.getByRole('heading', { name: "What I'm learning" }) })).toContainText('Small steps beat big plans')
+  await expect(page.locator('section.card', { has: page.getByRole('heading', { name: "What you're learning" }) })).toContainText('Small steps beat big plans')
 })
 
 test('Logs: everything, newest first, unfinished on top, found by any word', async ({ page }) => {

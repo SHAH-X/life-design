@@ -1,63 +1,96 @@
 import { expect, test } from '@playwright/test'
 import { restoreSeed } from './seed'
 
-test('Insights shows what gives and takes energy, when time flew, context and small joys', async ({ page }, testInfo) => {
-  await restoreSeed(page, testInfo.outputPath('seed.json'))
-  await page.goto('./#/insights/patterns')
-  await page.getByRole('button', { name: '7 days' }).click()
+// Insights is one page (v0.13, owner: "two graphs showing the same thing", "suboptions which I don't know is a better
+// option"). A fixed Saturday, so the fictional five days (Monday 19 to Friday 23 October 2026) fall in one week and
+// their weekdays are known.
+const SATURDAY = new Date(2026, 9, 24, 20, 0)
 
-  // Headline, in words: logged on 5 of the last 7 days, a mixed week, time flew 3 times.
-  const kpis = page.locator('.kpi-row')
-  await expect(kpis.locator('.stat-tile', { hasText: 'Logged on' })).toContainText('5 days')
-  await expect(kpis.locator('.stat-tile', { hasText: 'Energy' })).toContainText('Mixed')
-  await expect(kpis.locator('.stat-tile', { hasText: 'Time flew' })).toContainText('3 times')
+test('Insights is one page: the week, then the last 30 days in words, with nothing to choose or fill in', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(SATURDAY)
+  await restoreSeed(page, testInfo.outputPath('seed.json'), SATURDAY)
+  await page.goto('./#/insights')
+  const days = page.getByRole('region', { name: 'Last 30 days' })
+  const card = (title: string) => days.locator('.card', { has: page.getByRole('heading', { name: title, exact: true }) })
+  await expect(days).toContainText("In what you've written, not causes.")
 
-  const section = (title: string) => page.locator('section.card', { has: page.getByRole('heading', { name: title, exact: true }) })
-  const ranked = (title: string) => page.locator('.rank-group', { has: page.getByRole('heading', { name: title, exact: true }) })
-  await expect(ranked('Gives energy').locator('.bar-row')).toHaveText([
-    /Deep work on the report\s*almost always · 5 times/,
-    /Evening run\s*almost always · 3 times/,
+  await expect(card('Gives you energy').locator('summary')).toHaveText([/^Deep work on the report · almost always · 5 times/, /^Evening run · almost always · 3 times/])
+  await expect(card('Uses up your energy').locator('summary')).toHaveText([/^Commute · almost always · 4 times/, /^Team meeting · almost always · 4 times/])
+  // Cooking dinner was logged once: not a pattern (it's only among the entries behind "In the morning").
+  await expect(days.locator('summary', { hasText: 'Cooking dinner' })).toHaveCount(0)
+  await expect(card('When time flew').locator('summary')).toHaveText([/^Deep work on the report · 3 of 5 times/])
+
+  // Places, people and times, picked for you: only what usually went one way, never what's already said. Home,
+  // Office, Alex and the laptop are only ever the deep work and the meetings listed above, so they're left out.
+  await expect(card('Places, people and times').locator('summary')).toHaveText([
+    /^In the morning · almost always gives energy · 6 times/,
+    /^Alone · usually gives energy · 13 times/,
+    /^On Tuesdays · usually takes energy · 3 times/,
+    /^On Thursdays · usually gives energy · 5 times/,
   ])
-  await expect(ranked('Takes energy').locator('.bar-row')).toHaveText([/Commute\s*almost always · 4 times/, /Team meeting\s*almost always · 4 times/])
-  // Cooking dinner was logged only once, so it isn't ranked.
-  await expect(page.locator('.bar-label', { hasText: 'Cooking dinner' })).toHaveCount(0)
-  // Words first: what gives and takes energy sits above the summary and the chart.
-  const top = async (l: ReturnType<typeof page.locator>) => (await l.boundingBox())?.y ?? Number.POSITIVE_INFINITY
-  expect(await top(page.getByRole('heading', { name: 'Gives energy', exact: true }))).toBeLessThan(await top(kpis))
-  expect(await top(kpis)).toBeLessThan(await top(page.getByRole('group', { name: 'Chart' })))
-  await expect(section('Time flew')).toContainText('Deep work on the report · 3 of 5 times')
+  for (const said of ['Home', 'Office', 'Alex', 'Laptop']) await expect(card('Places, people and times')).not.toContainText(said)
+  await expect(card('Small joys that came back')).toContainText('coffee · twice')
+  await expect(card('Small joys that came back')).toContainText('sun · twice')
 
-  // Context shows one list at a time: Where first, then With whom.
-  const context = section('Energy by context')
-  await expect(context.locator('.bar-row')).toHaveText([/Home\s*almost always gives energy · 5 times/, /Office\s*almost always takes energy · 4 times/])
-  await context.getByRole('button', { name: 'With whom' }).click()
-  await expect(context.locator('.bar-row')).toHaveText([/Alex\s*almost always takes energy · 4 times/])
-  // Long words must never squeeze a name into one letter per line (seen once while building Phase 2.6).
-  for (const label of await page.locator('.bar-label').all()) {
-    expect((await label.boundingBox())?.width ?? 0).toBeGreaterThan(80)
+  // Nothing to choose (the period, the chart, the context) and nothing to fill in.
+  for (const name of ['7 days', '30 days', '90 days', 'All', 'Energy', 'Into it', 'Where', 'With whom', 'Time of day']) {
+    await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0)
   }
-  await expect(section('Small joys')).toContainText('coffee · twice')
-  await expect(section('Small joys')).toContainText('sun · twice')
+  await expect(page.locator('main textarea, main input')).toHaveCount(0)
+  // Long words must never squeeze a name into one letter per line (seen once while building Phase 2.6).
+  for (const label of await days.locator('summary > span:first-child').all()) {
+    expect((await label.boundingBox())?.height ?? 99).toBeLessThan(48)
+  }
 })
 
-test('the energy chart reads out a day when tapped, and opens as a table', async ({ page }, testInfo) => {
-  await restoreSeed(page, testInfo.outputPath('seed.json'))
-  await page.goto('./#/insights/patterns')
-  await page.getByRole('button', { name: '7 days' }).click()
-  const chart = page.locator('figure.chart', { hasText: 'Energy by day' })
-  await expect(chart.locator('.chart-readout')).toContainText('Mixed')
-  await expect(chart.locator('path.chart-col')).not.toHaveCount(0)
+test('a line opens to the entries behind it, and each of those opens the entry', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(SATURDAY)
+  await restoreSeed(page, testInfo.outputPath('seed.json'), SATURDAY)
+  await page.goto('./#/insights')
+  const deepWork = page.getByRole('region', { name: 'Last 30 days' }).locator('details.week-line', { hasText: 'Deep work on the report' }).first()
+  await deepWork.locator('summary').click()
+  const behind = deepWork.locator('.evidence-list').getByRole('button')
+  await expect(behind).toHaveCount(5)
+  await expect(behind.first()).toContainText('Fri 23')
+  await behind.first().click()
+  const opened = page.getByRole('dialog', { name: 'Deep work on the report' })
+  await expect(opened).toBeVisible()
+  await opened.getByRole('button', { name: 'Done', exact: true }).click()
+  await expect(opened).toBeHidden()
+})
 
-  // Yesterday: deep work and the run gave energy, the meeting and the commute took it: mixed, over 4 activities.
-  await chart.getByRole('button', { name: /: mixed · 4 activities$/ }).last().click()
-  await expect(chart.locator('.chart-readout')).toContainText('mixed · 4 activities')
+test("the week's chart counts what each day held, lists a tapped day's entries, and opens as a table", async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(SATURDAY)
+  await restoreSeed(page, testInfo.outputPath('seed.json'), SATURDAY)
+  await page.goto('./#/insights')
+  const chart = page.locator('figure.chart', { hasText: 'Energy, day by day' })
+  // Deep work ×5, the run ×3 and cooking gave energy; the meetings ×4 and commutes ×4 used it up: one segment each.
+  await expect(chart.locator('.chart-readout')).toHaveText('9 gave you energy, 8 used it up · tap a day')
+  await expect(chart.locator('.chart-col.pos')).toHaveCount(9)
+  await expect(chart.locator('.chart-col.neg')).toHaveCount(8)
+
+  // Wednesday held two of each: counted, not averaged into a flat line.
+  await chart.getByRole('button', { name: /^Wednesday, October 21/ }).click()
+  await expect(chart.locator('.chart-readout')).toHaveText('Wednesday, October 21: 2 gave you energy, 2 used it up')
+  const list = chart.locator('.evidence-list').getByRole('button')
+  await expect(list).toHaveCount(4)
+  await expect(list.first()).toContainText('Deep work on the report') // the day in order: the morning first
+  await expect(chart.locator('.evidence-list')).not.toContainText('Wed 21') // one day: its date isn't repeated
+  await list.filter({ hasText: 'Team meeting' }).click()
+  await expect(page.getByRole('dialog', { name: 'Team meeting' })).toBeVisible()
+  await page.getByRole('dialog', { name: 'Team meeting' }).getByRole('button', { name: 'Done', exact: true }).click()
+
+  // Saturday and Sunday: nothing logged.
+  await chart.getByRole('button', { name: /^Sunday, October 25/ }).click()
+  await expect(chart.locator('.chart-readout')).toHaveText('Sunday, October 25: nothing logged')
 
   await chart.getByText('Show as table').click()
   await expect(chart.locator('table tbody tr')).toHaveCount(7)
-  await expect(chart.locator('table')).toContainText('mostly energising')
+  await expect(chart.locator('table tbody tr').nth(2)).toHaveText(/^Wed 21\s*2\s*2\s*0$/)
+})
 
-  // How into it you were has its own chart and scale, one tap away.
-  await page.getByRole('group', { name: 'Chart' }).getByRole('button', { name: 'Into it' }).click()
-  await expect(page.locator('figure.chart', { hasText: 'Into it by day' })).toBeVisible()
-  await expect(page.locator('figure.chart', { hasText: 'Energy by day' })).toHaveCount(0)
+test('old links to Patterns open Insights', async ({ page }, testInfo) => {
+  await restoreSeed(page, testInfo.outputPath('seed.json'))
+  await page.goto('./#/insights/patterns')
+  await expect(page.getByRole('heading', { level: 1, name: 'Insights' })).toBeVisible()
 })

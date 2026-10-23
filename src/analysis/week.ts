@@ -2,7 +2,6 @@
 // entries behind it, so nothing is claimed that can't be shown. Weeks run Monday to Sunday.
 import type { Entry, Step } from '../db/types'
 import { addDays, fromDateKey } from '../lib/dates'
-import { activityStats } from './stats'
 
 /** How often something must happen in a week before the review mentions it. */
 export const WEEK_MIN = 2
@@ -22,25 +21,18 @@ export function weeksWithEntries(entries: readonly Entry[]): string[] {
   return [...new Set(entries.filter(isDone).map((e) => weekStart(e.date)))].sort().reverse()
 }
 
-/** An activity that went one way this week: `count` of its `of` entries. */
-export interface WeekLine {
-  label: string
-  count: number
-  of: number
-  entryIds: string[]
-}
-
+/**
+ * The week's recap (v0.13: what gave and used up energy moved to Insights' last 30 days, and the week's chart shows
+ * it day by day; what you keep to remember is in What you're learning).
+ */
 export interface WeekSummary {
   start: string
   end: string
   entries: number
   days: number
-  gave: WeekLine[]
-  used: WeekLine[]
   feelings: { word: string; count: number; entryIds: string[] }[]
   /** Entries that stood out (ids): kept to remember, with a next step, time flew, then the most written. */
   standout: string[]
-  remember: string[]
 }
 
 const written = (e: Entry) => e.note.trim().length + e.reflections.reduce((sum, r) => sum + r.text.trim().length, 0)
@@ -49,13 +41,6 @@ const written = (e: Entry) => e.note.trim().length + e.reflections.reduce((sum, 
 export function weekSummary(all: readonly Entry[], start: string, steps: readonly Step[] = []): WeekSummary {
   const end = addDays(start, 6)
   const week = all.filter((e) => isDone(e) && e.date >= start && e.date <= end)
-  const groups = activityStats(week.filter((e) => !e.skipped.includes('energy')))
-  const line = (count: (g: (typeof groups)[number]) => number) =>
-    groups
-      .filter((g) => count(g) >= WEEK_MIN)
-      .map((g) => ({ label: g.label, count: count(g), of: g.count, entryIds: g.entryIds }))
-      .sort((a, b) => b.count - a.count)
-
   const feelings = new Map<string, { word: string; entryIds: string[] }>()
   for (const e of week) {
     for (const word of e.after) {
@@ -89,14 +74,11 @@ export function weekSummary(all: readonly Entry[], start: string, steps: readonl
     end,
     entries: week.length,
     days: new Set(week.map((e) => e.date)).size,
-    gave: line((g) => g.gave),
-    used: line((g) => g.took),
     feelings: [...feelings.values()]
       .map((f) => ({ word: f.word, count: f.entryIds.length, entryIds: f.entryIds }))
       .filter((f) => f.count >= WEEK_MIN)
       .sort((a, b) => b.count - a.count)
       .slice(0, FEELINGS_MAX),
     standout,
-    remember: week.filter((e) => e.intention?.kind === 'remember').map((e) => e.id),
   }
 }

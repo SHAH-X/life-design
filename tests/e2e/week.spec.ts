@@ -6,22 +6,15 @@ import { restoreSeed } from './seed'
 // it (Monday 19 to Friday 23 October 2026) all fall in one week.
 const SATURDAY = new Date(2026, 9, 24, 20, 0)
 
-test('Insights opens on this week, put together from what you wrote; each line opens to its entries', async ({ page }, testInfo) => {
+test('Insights opens on this week, put together from what you wrote, with nothing to fill in', async ({ page }, testInfo) => {
   await page.clock.setFixedTime(SATURDAY)
   await restoreSeed(page, testInfo.outputPath('seed.json'), SATURDAY)
   await page.goto('./#/insights')
   const week = page.getByRole('region', { name: 'This week' })
   await expect(week).toContainText('17 entries on 5 days')
-
-  const deepWork = week.locator('details.week-line', { hasText: 'Deep work on the report' })
-  await expect(deepWork).toContainText('5 times')
-  await deepWork.locator('summary').click()
-  await expect(deepWork.locator('.evidence-list li')).toHaveCount(5)
-  await expect(week.locator('details.week-line', { hasText: 'Commute' })).toContainText('4 times')
-  // Something that happened once isn't a pattern.
-  await expect(week).not.toContainText('Cooking dinner')
-  // The week's energy by day, read in words.
-  await expect(week.getByText('Energy by day')).toBeVisible()
+  // The week's energy, day by day (what gives and uses it up is in the last 30 days, said once).
+  await expect(week.getByText('Energy, day by day')).toBeVisible()
+  await expect(week.locator('details.week-line', { hasText: 'Deep work on the report' })).toHaveCount(0)
   // What stood out lists each activity once, and each opens.
   const stood = week.getByRole('list', { name: 'What stood out' })
   await expect(stood.getByRole('button', { name: /^Deep work on the report/ })).toHaveCount(1)
@@ -31,11 +24,8 @@ test('Insights opens on this week, put together from what you wrote; each line o
   await opened.getByRole('button', { name: 'Done', exact: true }).click()
   await expect(opened).toBeHidden()
 
-  // Nothing to fill in; one optional box, saved as you type.
-  await week.getByLabel('Anything to carry into next week?').fill('Walk at lunch')
-  await expect(week.getByText('Saved')).toBeVisible()
-  await page.reload()
-  await expect(page.getByRole('region', { name: 'This week' }).getByLabel('Anything to carry into next week?')).toHaveValue('Walk at lunch')
+  // Nothing to fill in: the box to carry into next week is gone (v0.13); next steps do that job.
+  await expect(page.locator('main textarea, main input')).toHaveCount(0)
 })
 
 test("the week's feelings open their entries; next steps show in their own card", async ({ page }) => {
@@ -63,39 +53,53 @@ test("the week's feelings open their entries; next steps show in their own card"
   await expect(steps).toContainText('Ask for an agenda first')
   await expect(steps.getByRole('link', { name: 'All next steps ›' })).toBeVisible()
 
-  const feeling = week.getByRole('group', { name: 'Feelings' }).getByRole('button', { name: /^frustrated/ })
-  await feeling.click()
-  await expect(feeling).toHaveAttribute('aria-expanded', 'true')
-  await expect(week.locator('.evidence-list li')).toHaveCount(2)
-  await expect(week.locator('.evidence-list')).toContainText('Team meeting')
-  await expect(week.locator('.evidence-list')).toContainText('Commute')
+  // A feeling is a line like every other: it opens to its entries, and each of those opens.
+  const feeling = week.locator('details.week-line', { hasText: 'frustrated' })
+  await expect(feeling.locator('summary')).toHaveText(/^frustrated · twice/)
+  await feeling.locator('summary').click()
+  const behind = feeling.locator('.evidence-list').getByRole('button')
+  await expect(behind).toHaveCount(2)
+  await expect(feeling.locator('.evidence-list')).toContainText('Team meeting')
+  await expect(feeling.locator('.evidence-list')).toContainText('Commute')
+  await behind.filter({ hasText: 'Commute' }).click()
+  await expect(page.getByRole('dialog', { name: 'Commute' })).toBeVisible()
 })
 
-test('earlier weeks open on their own page, put together the same way', async ({ page }, testInfo) => {
+test('earlier weeks are a page of their own, each put together the same way, with a note kept to carry on', async ({ page }, testInfo) => {
   await page.clock.setFixedTime(new Date(2026, 9, 28, 20, 0)) // the Wednesday after
   await restoreSeed(page, testInfo.outputPath('seed.json'), SATURDAY)
+  // A note written in the box before v0.13, to carry into the next week.
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const request = indexedDB.open('life-design')
+        request.onerror = () => reject(request.error)
+        request.onsuccess = () => {
+          const tx = request.result.transaction('weeks', 'readwrite')
+          tx.objectStore('weeks').put({ id: '2026-10-19', carry: 'Walk at lunch', createdAt: 1, updatedAt: 1 })
+          tx.oncomplete = () => {
+            request.result.close()
+            resolve()
+          }
+          tx.onerror = () => reject(tx.error)
+        }
+      }),
+  )
   await page.goto('./#/insights')
   await expect(page.getByRole('region', { name: 'This week' })).toContainText('Nothing written this week yet')
-  await page.getByText('Earlier weeks').click()
-  await page.locator('details.earlier-weeks a').first().click()
+  await page.getByRole('link', { name: 'Earlier weeks' }).click()
+  await expect(page).toHaveURL(/#\/insights\/weeks$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Earlier weeks' })).toBeVisible()
+  const first = page.getByRole('navigation', { name: 'Earlier weeks' }).getByRole('link').first()
+  await expect(first).toContainText('17 entries on 5 days')
+  await first.click()
   await expect(page).toHaveURL(/#\/insights\/week-2026-10-19$/)
   await expect(page.getByRole('heading', { level: 1, name: 'Your week' })).toBeVisible()
   await expect(page.locator('main')).toContainText('17 entries on 5 days')
-  await page.getByRole('link', { name: '‹ Insights' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Insights' })).toBeVisible()
-})
-
-test('every pattern opens to the entries behind it; alone or with others shows with enough of each', async ({ page }, testInfo) => {
-  await restoreSeed(page, testInfo.outputPath('seed.json'))
-  await page.goto('./#/insights')
-  await page.getByRole('link', { name: /^Patterns over time/ }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Patterns' })).toBeVisible()
-  await expect(page.getByText("In what you've written, not causes.")).toBeVisible()
-  const gives = page.locator('.rank-group', { has: page.getByRole('heading', { name: 'Gives energy', exact: true }) })
-  const deepWork = gives.locator('details.bar-evidence', { hasText: 'Deep work on the report' })
-  await deepWork.locator('summary').click()
-  await expect(deepWork.locator('.evidence-list li')).toHaveCount(5)
-
-  const company = page.locator('section.card', { has: page.getByRole('heading', { name: 'Alone or with others' }) })
-  await expect(company.locator('.bar-row')).toHaveText([/With others\s*almost always takes energy · 4 times/, /Alone\s*.*13 times/])
+  // The note shows as written, read-only.
+  const carried = page.locator('.card', { has: page.getByRole('heading', { name: 'To carry into the next week' }) })
+  await expect(carried).toContainText('Walk at lunch')
+  await expect(page.locator('main textarea, main input')).toHaveCount(0)
+  await page.getByRole('link', { name: '‹ Earlier weeks' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Earlier weeks' })).toBeVisible()
 })

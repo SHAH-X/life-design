@@ -21,7 +21,7 @@ export interface Reflection {
 /** "Anything you'd like to do with this?" */
 export type IntentionKind = 'differently' | 'again' | 'time' | 'explore' | 'remember'
 /**
- * Kept on the entry: since v0.11 only "Remember this" (What I'm learning). Next steps to do or try live in their own
+ * Kept on the entry: since v0.11 only "Remember this" (What you're learning). Next steps to do or try live in their own
  * table (Step); older ones were moved there by the database upgrade.
  */
 export interface Intention {
@@ -285,7 +285,7 @@ export interface Review {
   best: AeiouNote
   worst: AeiouNote
   reflection: string
-  /** One thing to carry forward; collected in Insights → What I'm learning. */
+  /** One thing to carry forward; collected in Insights → What you're learning. */
   takeaway: string
   /** Null while the review is still a draft. */
   completedAt: number | null

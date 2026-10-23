@@ -1,55 +1,52 @@
 import { type ReactNode, useId, useState } from 'react'
-import { energySeries } from '../../analysis/stats'
+import { energyByDay } from '../../analysis/stats'
 import type { WeekSummary } from '../../analysis/week'
-import { hasEnergy, saveWeek } from '../../db/repo'
 import type { Entry } from '../../db/types'
-import { overallEnergyWord, times } from '../../domain/feelings'
-import { formatRecentPeriod, longDate, shortWeekday } from '../../lib/dates'
-import { useAutosave } from '../../ui/useAutosave'
-import { EntryRow, entryTitle } from '../today/EntryRow'
-import { EnergyColumns } from './EnergyCharts'
+import { times } from '../../domain/feelings'
+import { formatRecentPeriod, longDate, shortDay, shortWeekday } from '../../lib/dates'
+import { countWords, DayCountChart } from '../../ui/charts/DayCountChart'
+import { EntryRow } from '../today/EntryRow'
 import { Evidence } from './Evidence'
 
-/** One line of the week that opens to show the entries behind it; the thin edge says which way it went. */
-function Line({ children, ids, entries, edge }: { children: ReactNode; ids: readonly string[]; entries: ReadonlyMap<string, Entry>; edge?: 'gives' | 'takes' }) {
+/** One line of the week that opens to show the entries behind it, each of which opens itself. */
+function Line({ children, ids, entries, onOpen }: { children: ReactNode; ids: readonly string[]; entries: ReadonlyMap<string, Entry>; onOpen: (entry: Entry) => void }) {
   return (
     <li>
       <details className="week-line">
-        <summary data-energy={edge}>{children}</summary>
-        <Evidence ids={ids} entries={entries} />
+        <summary>{children}</summary>
+        <Evidence ids={ids} entries={entries} onOpen={onOpen} />
       </details>
     </li>
   )
 }
 
-const howMany = (count: number, of: number) => (count === of ? times(count) : `${count} of ${of} times`)
-
 /**
- * The week, put together for you from what you wrote: nothing to fill in (v0.9 layout: the week's energy by day,
- * then one card per section). Every line opens to the entries behind it; a stand-out entry opens itself. Next steps
- * have their own list (v0.11, Insights → Next steps). One optional box for what to carry into next week.
+ * The week, put together for you from what you wrote, with nothing to fill in. v0.13: a recap only (how much you
+ * wrote, the energy of each day, what stood out, the feelings that came up most); what gives and uses up your energy
+ * is in Insights' last 30 days, and what you keep to remember in What you're learning. A note written to carry into
+ * the next week (the box until v0.13) still shows, read-only.
  */
 export function WeekReview(props: {
   summary: WeekSummary
   entries: ReadonlyMap<string, Entry>
   title: string
-  /** What you wrote to carry into next week (loaded with the rest, so nothing shifts). */
+  /** What you wrote, before v0.13, to carry into the next week. */
   carry: string
   onOpen: (entry: Entry) => void
 }) {
   const { summary, entries, title, carry, onOpen } = props
   const headingId = useId()
-  const pick = (ids: readonly string[]) => ids.map((id) => entries.get(id)).filter((e): e is Entry => e !== undefined)
-  const standouts = pick(summary.standout)
-  const remembered = pick(summary.remember)
+  const standouts = summary.standout.map((id) => entries.get(id)).filter((e): e is Entry => e !== undefined)
   const week = [...entries.values()].filter((e) => e.date >= summary.start && e.date <= summary.end)
+  const period = formatRecentPeriod(summary.start, summary.end)
 
   return (
     <section className="week" aria-labelledby={headingId}>
       <h2 id={headingId} className="week-title">
         {title}
       </h2>
-      <p className="muted small week-period">{formatRecentPeriod(summary.start, summary.end)}</p>
+      {/* An earlier week's title is its dates already: said once. */}
+      {title === period ? null : <p className="muted small week-period">{period}</p>}
 
       <div className="card week-top">
         {summary.entries === 0 ? (
@@ -59,7 +56,7 @@ export function WeekReview(props: {
             <p className="week-count">
               {summary.entries} {summary.entries === 1 ? 'entry' : 'entries'} on {summary.days} {summary.days === 1 ? 'day' : 'days'}
             </p>
-            <WeekEnergy week={week} start={summary.start} end={summary.end} />
+            <WeekEnergy week={week} start={summary.start} end={summary.end} entries={entries} onOpen={onOpen} />
           </>
         )}
       </div>
@@ -77,108 +74,55 @@ export function WeekReview(props: {
         </div>
       ) : null}
 
-      {summary.gave.length || summary.used.length ? (
-        <div className="card week-card">
-          <h3>Your energy</h3>
-          {summary.gave.length ? (
-            <>
-              <p className="week-sub">Gave you energy</p>
-              <ul className="plain-list compact">
-                {summary.gave.map((l) => (
-                  <Line key={l.label} ids={l.entryIds} entries={entries} edge="gives">
-                    {l.label} <span className="muted small">· {howMany(l.count, l.of)}</span>
-                  </Line>
-                ))}
-              </ul>
-            </>
-          ) : null}
-          {summary.used.length ? (
-            <>
-              <p className="week-sub">Used up your energy</p>
-              <ul className="plain-list compact">
-                {summary.used.map((l) => (
-                  <Line key={l.label} ids={l.entryIds} entries={entries} edge="takes">
-                    {l.label} <span className="muted small">· {howMany(l.count, l.of)}</span>
-                  </Line>
-                ))}
-              </ul>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-
       {summary.feelings.length ? (
         <div className="card week-card">
           <h3>Feelings that came up most</h3>
-          <FeelingChips feelings={summary.feelings} entries={entries} />
-        </div>
-      ) : null}
-
-      {remembered.length ? (
-        <div className="card week-card remember">
-          <h3>To remember</h3>
           <ul className="plain-list compact">
-            {remembered.map((e) => (
-              <li key={e.id}>{e.intention?.text || entryTitle(e)}</li>
+            {summary.feelings.map((f) => (
+              <Line key={f.word} ids={f.entryIds} entries={entries} onOpen={onOpen}>
+                {f.word.toLowerCase()} <span className="muted small">· {times(f.count)}</span>
+              </Line>
             ))}
           </ul>
         </div>
       ) : null}
 
-      <div className="card week-card">
-        <CarryField key={summary.start} weekStart={summary.start} initial={carry} />
-      </div>
+      {carry.trim() ? (
+        <div className="card week-card">
+          <h3>To carry into the next week</h3>
+          <p className="carry-note">{carry}</p>
+        </div>
+      ) : null}
     </section>
   )
 }
 
-/** The week's energy by day, in words on tap (blue above the line gave energy, red below took it). */
-function WeekEnergy({ week, start, end }: { week: readonly Entry[]; start: string; end: string }) {
-  const series = energySeries(week, { start, end })
-  if (!series.some((p) => p.avgEnergy !== null)) return null
-  const columns = series.map((p) => ({ key: p.start, axisLabel: shortWeekday(p.start), title: longDate(p.start), value: p.avgEnergy, count: p.count }))
-  return <EnergyColumns title="Energy by day" columns={columns} overall={overallEnergyWord(week.filter(hasEnergy).map((e) => e.energy))} />
-}
-
-/** The feelings that came up most, as chips; one tapped shows the entries behind it. */
-function FeelingChips({ feelings, entries }: { feelings: WeekSummary['feelings']; entries: ReadonlyMap<string, Entry> }) {
-  const panelId = useId()
-  const [open, setOpen] = useState<string | null>(null)
-  const shown = feelings.find((f) => f.word === open)
+/** The week's energy, day by day, counted; a tapped day lists its entries under the chart. */
+function WeekEnergy(props: { week: readonly Entry[]; start: string; end: string; entries: ReadonlyMap<string, Entry>; onOpen: (entry: Entry) => void }) {
+  const { week, start, end, entries, onOpen } = props
+  const [active, setActive] = useState<number | null>(null)
+  const counts = energyByDay(week, { start, end })
+  const days = counts.map((c) => ({
+    key: c.date,
+    axisLabel: shortWeekday(c.date),
+    title: longDate(c.date),
+    rowLabel: shortDay(c.date),
+    gave: c.gave,
+    used: c.used,
+    little: c.little,
+    logged: c.entryIds.length,
+  }))
+  const total = (pick: (c: (typeof counts)[number]) => number) => counts.reduce((sum, c) => sum + pick(c), 0)
+  const inWords = countWords({ gave: total((c) => c.gave), used: total((c) => c.used), little: total((c) => c.little) })
+  const shown = active === null ? undefined : counts[active]
   return (
-    <>
-      <div className="chip-row" role="group" aria-label="Feelings">
-        {feelings.map((f) => (
-          <button
-            key={f.word}
-            type="button"
-            className="chip"
-            aria-expanded={open === f.word}
-            aria-controls={panelId}
-            onClick={() => setOpen(open === f.word ? null : f.word)}
-          >
-            {f.word.toLowerCase()} <span className="muted">· {times(f.count)}</span>
-          </button>
-        ))}
-      </div>
-      <div id={panelId}>{shown ? <Evidence ids={shown.entryIds} entries={entries} /> : null}</div>
-    </>
-  )
-}
-
-/** "Anything to carry into next week?": optional, saved as you type, kept with the week. */
-function CarryField({ weekStart, initial }: { weekStart: string; initial: string }) {
-  const id = useId()
-  const field = useAutosave(initial, (value) => saveWeek(weekStart, value))
-  return (
-    <div className="carry">
-      <label className="question-text" htmlFor={id}>
-        Anything to carry into next week?
-      </label>
-      <textarea id={id} rows={2} maxLength={1000} placeholder="Optional" value={field.text} onChange={(e) => field.onChange(e.target.value)} onBlur={field.onBlur} />
-      <p className="save-status" aria-live="polite">
-        {field.status === 'saving' ? 'Saving…' : field.status === 'saved' ? 'Saved' : ''}
-      </p>
-    </div>
+    <DayCountChart
+      title="Energy, day by day"
+      days={days}
+      summary={inWords ? `${inWords} · tap a day` : 'Tap a day'}
+      active={active}
+      onActive={setActive}
+      detail={shown?.entryIds.length ? <Evidence ids={shown.entryIds} entries={entries} onOpen={onOpen} oneDay /> : null}
+    />
   )
 }

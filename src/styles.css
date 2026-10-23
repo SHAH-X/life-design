@@ -1343,19 +1343,8 @@ a.small-link {
   font-size: 1.1rem;
 }
 
-.week-sub {
-  margin: 10px 0 0;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
 .week-card .entry-list {
   margin-bottom: 0;
-}
-
-/* Things to remember sit on the evening's sand. */
-.card.remember {
-  background: var(--evening-bg);
 }
 
 /* Which way a line went, as beside each activity on Today (blue gave, red took). */
@@ -1367,36 +1356,22 @@ details.week-line > summary[data-energy]::before {
   border-radius: 2px;
 }
 
-.chip[aria-expanded='true'] {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-details.week-line > summary,
-details.bar-evidence > summary,
-details.earlier-weeks > summary {
+details.week-line > summary {
   list-style: none;
   cursor: pointer;
 }
 
-details.week-line > summary::-webkit-details-marker,
-details.bar-evidence > summary::-webkit-details-marker,
-details.earlier-weeks > summary::-webkit-details-marker {
+details.week-line > summary::-webkit-details-marker {
   display: none;
 }
 
 /* A quiet sign that the line opens: a chevron that turns when it's open. */
-details.week-line > summary::after,
-details.bar-evidence > summary .bar-value::after,
-details.earlier-weeks > summary::after {
+details.week-line > summary::after {
   content: ' ›';
   color: var(--accent);
 }
 
-details[open].week-line > summary::after,
-details[open].bar-evidence > summary .bar-value::after,
-details[open].earlier-weeks > summary::after {
+details[open].week-line > summary::after {
   content: ' ⌄';
 }
 
@@ -1414,32 +1389,21 @@ details.week-line > summary {
   border-left: 2px solid var(--border);
 }
 
-.bar-rows > li.bar-item {
-  border-bottom: 1px solid var(--border);
-}
-
-.bar-rows > li.bar-item:last-child {
-  border-bottom: 0;
-}
-
-.bar-item .bar-row {
-  border-bottom: 0;
-}
-
-.next-steps li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px 8px;
-}
-
-.earlier-weeks > summary {
-  font-weight: 600;
+/* A line that opens one entry (v0.13): the entries behind an insight, what you're learning. Words, not a button's look. */
+button.line-button {
+  display: block;
+  width: 100%;
   min-height: 32px;
-  display: flex;
-  align-items: center;
-  gap: 4px; /* a flex box drops the space in the chevron's ' ›': it sat against the words */
+  padding: 4px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  font-weight: 400;
+}
+
+button.line-button:active {
+  background: var(--viz-hover);
 }
 
 h2.section-title {
@@ -1447,13 +1411,10 @@ h2.section-title {
   font-size: 1.2rem;
 }
 
-.carry {
-  margin-top: 0;
-}
-
-/* Its own card: the question starts at the card's padding like every other card's title (it had 30px more). */
-.carry > .question-text {
-  margin-top: 0;
+/* A note written to carry into the next week (the box until v0.13), shown as written. */
+.carry-note {
+  margin: 0;
+  white-space: pre-wrap;
 }
 
 /* ---------- More ---------- */
@@ -1743,12 +1704,6 @@ details.more-ways summary {
   -webkit-tap-highlight-color: transparent;
 }
 
-.chart-grid {
-  stroke: var(--viz-grid);
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-}
-
 .chart-baseline {
   stroke: var(--viz-axis);
   stroke-width: 1;
@@ -1767,10 +1722,6 @@ details.more-ways summary {
 
 .chart-col.neg {
   fill: var(--viz-neg);
-}
-
-.chart-col.seq {
-  fill: var(--viz-seq);
 }
 
 .chart-col.mid {
@@ -1830,116 +1781,6 @@ details.more-ways summary {
 .chart-table th:first-child {
   text-align: left;
   font-weight: 400;
-}
-
-/* Rows: the name and its bar either side of zero, with the words underneath (words can be long; a name never gets squeezed). */
-
-.bar-rows {
-  list-style: none;
-  margin: 6px 0 0;
-  padding: 0;
-}
-
-.bar-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 88px;
-  grid-template-areas:
-    'label bar'
-    'value value';
-  align-items: center;
-  column-gap: 10px;
-  row-gap: 2px;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.bar-row:last-child {
-  border-bottom: 0;
-}
-
-.bar-label {
-  grid-area: label;
-  overflow-wrap: anywhere;
-}
-
-.bar-track {
-  grid-area: bar;
-  display: flex;
-  height: 10px;
-}
-
-.bar-half {
-  flex: 1;
-  display: flex;
-}
-
-.bar-half.neg {
-  justify-content: flex-end;
-  border-right: 1px solid var(--viz-axis); /* the zero line */
-}
-
-.bar-half.neg .bar-fill {
-  background: var(--viz-neg);
-  border-radius: 4px 0 0 4px;
-}
-
-.bar-half.pos .bar-fill {
-  background: var(--viz-pos);
-  border-radius: 0 4px 4px 0;
-}
-
-.bar-value {
-  grid-area: value;
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-/* Headline numbers */
-
-.kpi-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.stat-tile {
-  display: flex;
-  flex-direction: column;
-  padding: 10px 12px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.stat-label {
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-.stat-value {
-  font-size: 1.4rem;
-  font-weight: 650;
-  line-height: 1.2;
-}
-
-.stat-value.words {
-  font-size: 1rem;
-  line-height: 1.25;
-}
-
-.stat-sub {
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-/* Review */
-
-.filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 4px;
 }
 
 .chip.static {
@@ -2125,10 +1966,6 @@ details.more-ways summary {
   color: var(--accent);
   font-weight: 600;
   text-decoration: none;
-}
-
-.chart-switch {
-  margin-bottom: 8px;
 }
 
 /* ---------- Feeling words ---------- */
