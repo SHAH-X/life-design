@@ -7,6 +7,7 @@ import {
   expectInSheetView,
   expectSheetFillsScreen,
   fakeKeyboard,
+  LONG_WRITING,
   openEdit,
   showKeyboard,
   smallJoy,
@@ -259,8 +260,10 @@ test('scrolling inside a sheet never moves the page behind it', async ({ page },
   const top = async () => Math.round((await behind.boundingBox())?.y ?? Number.NaN)
   const before = await top()
 
-  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
-  const sheet = page.getByRole('dialog', { name: 'New activity' })
+  // A sheet opened while the page is scrolled down: an entry from the list (the buttons sit at the top since
+  // v0.12.2, out of reach at this scroll). Every sheet is the same Dialog with the same scroll lock.
+  await page.locator('main .entry-list').getByRole('button', { name: /^Evening run/ }).click()
+  const sheet = page.getByRole('dialog', { name: 'Evening run' })
   await expect(sheet).toBeVisible()
   // Mobile WebKit here can't swipe, so try to scroll the page the way a swipe would: it must not move.
   await page.evaluate(() => window.scrollBy(0, 400))
@@ -314,8 +317,8 @@ test('"Need a start?" on Write freely types in an opener, and the rest is yours'
   await box.press('End')
   await box.pressSequentially('the move')
   await sheet.getByRole('button', { name: 'Save' }).click()
-  await closeSaved(page, 'I keep thinking about the move')
-  await expect(entryButton(page, 'I keep thinking about the move')).toBeVisible()
+  await closeSaved(page, 'Free writing')
+  await expect(entryButton(page, 'Free writing')).toContainText('I keep thinking about the move')
 })
 
 test('back after a few days away, Today says missed days don\'t matter: no counts, no streaks', async ({ page }, testInfo) => {
@@ -341,4 +344,27 @@ test('log an activity for yesterday', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Next day' })).toBeDisabled()
   await expect(entryButton(page, 'Evening walk')).toHaveCount(0)
+})
+
+test('a long entry never pushes the buttons off the first screen; rows show two lines of it', async ({ page }) => {
+  // v0.12.2 on the owner's iPhone: free writing was shown whole, in bold, and pushed "+ Reflect on an activity" and
+  // everything after it out of sight. The buttons now come first, and a row shows at most two lines of your words.
+  await page.getByRole('button', { name: 'Write freely' }).click()
+  const free = page.getByRole('dialog', { name: 'Write freely' })
+  await free.getByLabel("What's on your mind?").fill(LONG_WRITING)
+  await free.getByRole('button', { name: 'Save' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Done', exact: true }).click()
+  await addEntry(page, { activity: 'An unusually long walk along the river after work', during: ['Focused'], writing: LONG_WRITING })
+  await page.reload()
+
+  const tabBar = await page.getByRole('navigation', { name: 'Main' }).boundingBox()
+  for (const name of ['+ Reflect on an activity', 'Write freely']) {
+    const box = await page.getByRole('button', { name, exact: true }).boundingBox()
+    expect(box && box.y + box.height <= (tabBar?.y ?? 0), `"${name}" on the first screen, above the tab bar`).toBe(true)
+  }
+  const row = page.locator('.entry-row', { hasText: 'Free writing' })
+  await expect(row).toBeVisible()
+  const note = row.locator('.entry-note')
+  const lines = await note.evaluate((el) => Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)))
+  expect(lines, 'two lines of the writing at most').toBeLessThanOrEqual(2)
 })

@@ -96,7 +96,7 @@ test('Entries: everything, newest first, unfinished on top, found by any word', 
   await page.getByRole('button', { name: 'Write freely' }).click()
   await page.getByRole('dialog', { name: 'Write freely' }).getByLabel("What's on your mind?").fill('Thinking about the move')
   await page.getByRole('dialog', { name: 'Write freely' }).getByRole('button', { name: 'Save' }).click()
-  await closeSaved(page, 'Thinking about the move')
+  await closeSaved(page, 'Free writing') // free writing is called that; its words show in the row
   await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
   await page.getByRole('dialog', { name: 'New activity' }).getByLabel('What did you do?').fill('Gym')
   await page.getByRole('dialog', { name: 'New activity' }).getByRole('button', { name: 'Next' }).click()

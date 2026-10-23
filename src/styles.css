@@ -831,9 +831,13 @@ button.entry-row:focus-visible {
   gap: 8px;
 }
 
+/* One line, cut with … : a row never grows with a long name (v0.12.2). */
 .entry-first .entry-activity {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .entry-time {
@@ -848,9 +852,10 @@ button.entry-row:focus-visible {
   overflow-wrap: anywhere;
 }
 
+/* At most two lines of what you wrote, in plain text: the whole of it opens with the entry (v0.12.2). */
 .entry-note {
-  font-size: 0.85rem;
-  font-style: italic;
+  margin-top: 2px;
+  font-size: 0.9rem;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;

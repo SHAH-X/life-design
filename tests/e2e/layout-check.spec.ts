@@ -18,6 +18,7 @@ test('a clean page has no faults', async ({ page }) => {
     <label style="display:block;padding:12px 0"><input type="radio" name="p"> A visible radio, tapped through its row</label>
     <style>.i{position:relative;width:22px;height:22px;min-width:0;min-height:0;padding:0;margin-left:30px}.i::after{content:'';position:absolute;inset:-11px}</style>
     <button class="i" aria-label="What does this mean?">i</button>
+    <ul><li>Walk · focused</li><li>Free writing · two lines of what you wrote, and no more than that</li></ul>
     <p style="display:flex;align-items:center;gap:8px;font-size:0.9rem"><label for="purpose">Questions for</label>
       <select id="purpose" style="font:inherit;font-size:0.9rem;width:auto;min-height:36px;padding:4px 8px;border-radius:10px;border:1px solid #ddd;background:#f5f4f0">
         <option>Understand myself</option></select></p>
@@ -46,6 +47,7 @@ const PLANTED: [string, string, RegExp][] = [
     /<input> is only 1×1px to tap/,
   ],
   ['faint text', '<p style="color:#ccc">Faint words</p>', /^color-contrast:/],
+  ['a list row taking over a third of the screen', `<ul><li>${'I realised that a long passage of free writing. '.repeat(30)}</li></ul>`, /a list row takes over a third of the screen/],
   ['a link the app never styled', '<p><a href="#steps" style="display:inline-block;padding:12px 0">All next steps ›</a></p>', /<a "All next steps ›"> has the browser's own link look/],
   [
     'text on top of text',

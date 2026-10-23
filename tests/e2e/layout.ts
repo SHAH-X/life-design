@@ -12,6 +12,7 @@ import { expect, test, type Page } from '@playwright/test'
  *   switch input), or stuck behind a bar even when scrolled as far as it goes;
  * - two tappable things overlap, or text sits on top of text;
  * - a link still in the browser's own underlined blue (the app never styled it);
+ * - a list row taller than a third of the screen (one entry crowding out the rest);
  * - axe-core's WCAG A/AA checks (contrast, names, target size).
  * `small` lists tap targets under Apple's 44px: not failed, kept for the owner to decide.
  */
@@ -240,6 +241,13 @@ function findLayoutFaults(): { faults: string[]; small: string[] } {
     }
     report(faults, `${name(el)} is covered by ${name(hit)}: a tap there reaches the wrong thing`)
   }
+  // 8. A list row taller than a third of the screen: one entry crowding out the rest (v0.12.2 on the owner's
+  // iPhone: a free-writing entry shown whole, in bold, pushed "+ Reflect on an activity" out of sight).
+  for (const li of root.querySelectorAll('li')) {
+    const h = li.getBoundingClientRect().height
+    if (seen(li) && h > window.innerHeight / 3) report(faults, `${name(li)} is ${px(h)}px tall: a list row takes over a third of the screen`)
+  }
+
   // 7. A link the app never styled: still the browser's own underlined blue (v0.11: "All next steps ›").
   const probe = document.createElement('a')
   probe.href = '#'

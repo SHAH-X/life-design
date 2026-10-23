@@ -30,6 +30,13 @@ export async function sharedFile(page: Page): Promise<{ name: string; text: stri
   return shared
 }
 
+// Fictional, and long on purpose: one paragraph, as people write.
+export const LONG_WRITING =
+  'I noticed how many ideas compete for my attention when I try to plan a good day, and how few of them I can hold at once. ' +
+  'Finishing every task I start sounds right, and so does following my curiosity wherever it goes, but doing both at the same ' +
+  'time in ordinary work is more than I can keep in mind. Maybe the point is to pick one for the morning and the other for the ' +
+  'afternoon, and to notice which one leaves me with more energy by the evening.'
+
 export type EnergyAnswer = 'It gave me energy' | 'It used up my energy' | 'Little difference' | 'A mix of both'
 
 export interface NewEntry {

@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import { expect, test, type Page } from '@playwright/test'
-import { fakeKeyboard, openEdit, showKeyboard } from './helpers'
+import { fakeKeyboard, LONG_WRITING, openEdit, showKeyboard } from './helpers'
 import { expectCleanLayout } from './layout'
 import { restoreSeed } from './seed'
 
@@ -76,6 +76,12 @@ for (const scheme of ['light', 'dark'] as const) {
 
       await page.goto('./#/today')
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      // A long free writing, one paragraph as people write, so every list is looked at with it (v0.12.2 on the
+      // owner's iPhone: shown whole, in bold, it pushed the buttons and everything after it out of sight).
+      await page.getByRole('button', { name: 'Write freely' }).click()
+      await sheet.getByLabel("What's on your mind?").fill(LONG_WRITING)
+      await sheet.getByRole('button', { name: 'Save' }).click()
+      await sheet.getByRole('button', { name: 'Done', exact: true }).click()
       await look(page, at('today'))
       await page.getByRole('button', { name: 'Previous day' }).click()
       await expect(page.getByRole('heading', { name: 'Yesterday' })).toBeVisible()

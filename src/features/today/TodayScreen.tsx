@@ -84,7 +84,17 @@ export function TodayScreen() {
       <section aria-label="Activities">
         {sorted.length === 0 ? (
           <p className="empty">{welcomeBack ? "Welcome back. Missed days don't matter: start with one thing you did." : 'Start with one thing you did.'}</p>
-        ) : (
+        ) : null}
+        {/* The two ways in come first, always in the same place: a long day never pushes them out of sight (v0.12.2). */}
+        <div className="journal-actions">
+          <button type="button" className="primary wide" onClick={() => setSheet({ kind: 'new', date })}>
+            + Reflect on an activity
+          </button>
+          <button type="button" className="wide" onClick={() => setSheet({ kind: 'free', date })}>
+            Write freely
+          </button>
+        </div>
+        {sorted.length === 0 ? null : (
           <ul className="entry-list">
             {sorted.map((entry) => (
               <li key={entry.id}>
@@ -95,14 +105,6 @@ export function TodayScreen() {
             ))}
           </ul>
         )}
-        <div className="journal-actions">
-          <button type="button" className="primary wide" onClick={() => setSheet({ kind: 'new', date })}>
-            + Reflect on an activity
-          </button>
-          <button type="button" className="wide" onClick={() => setSheet({ kind: 'free', date })}>
-            Write freely
-          </button>
-        </div>
       </section>
 
       <section className="card evening" aria-label="This evening">

@@ -2,21 +2,23 @@ import type { Entry } from '../../db/types'
 import { energyEdge, entryWords } from '../../domain/feelings'
 import { loggedAt } from '../../lib/dates'
 
-/** Free writing is listed by its first line. */
+/** What an entry is called in lists, labels and its sheet: the activity, or "Free writing" (never the writing itself:
+ * a long first line once became a whole passage in bold, v0.12.2). */
 export function entryTitle(entry: Entry): string {
-  if (entry.kind !== 'free') return entry.activity
-  return entry.note.split('\n')[0]?.trim() || 'Free writing'
+  return entry.kind === 'free' ? 'Free writing' : entry.activity
 }
 
 /**
- * One entry: what you did (or the first line of free writing), when you wrote it, its words, and your note. A thin
- * edge shows how it left you (blue gave energy, red took it); the words say it too. An unfinished one says so.
+ * One entry, the same shape for every kind: a one-line title (what you did, or "Free writing") and when you wrote it,
+ * its words, then at most two lines of what you wrote: the whole of it opens with the entry (owner, v0.12.2: "the very
+ * big passage should not be shown like this"). A thin edge shows how it left you (blue gave energy, red took it); the
+ * words say it too. An unfinished one says so.
  * Without `onOpen` it's a plain example, as on the welcome (no time: it was never written).
  */
 export function EntryRow({ entry, onOpen }: { entry: Entry; onOpen?: () => void }) {
   const free = entry.kind === 'free'
   const words = free ? '' : entryWords(entry)
-  const note = free ? entry.note.split('\n').slice(1).join(' ').trim() : entry.note
+  const note = entry.note.replace(/\s+/g, ' ').trim()
   const content = (
     <span className="entry-text">
       <span className="entry-first">

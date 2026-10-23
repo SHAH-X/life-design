@@ -127,13 +127,14 @@ test('write freely: a blank page, saved, and still there after a reload', async 
   await sheet.getByLabel("What's on your mind?").fill("Couldn't sleep\nKept thinking about the move, and what I'd miss")
   await sheet.getByRole('button', { name: 'Save' }).click()
   await expect(sheet).toBeHidden()
-  await closeSaved(page, "Couldn't sleep")
+  await closeSaved(page, 'Free writing')
 
-  const entry = entryButton(page, "Couldn't sleep")
-  await expect(entry).toContainText("Kept thinking about the move, and what I'd miss")
+  // Called "Free writing" in the list (never the writing itself, v0.12.2), with its words below: all lines, two at most.
+  const entry = entryButton(page, 'Free writing')
+  await expect(entry).toContainText("Couldn't sleep Kept thinking about the move, and what I'd miss")
   await page.reload()
-  await expect(entryButton(page, "Couldn't sleep")).toBeVisible()
-  const edit = await openEdit(page, "Couldn't sleep", 'Edit writing')
+  await expect(entryButton(page, 'Free writing')).toBeVisible()
+  const edit = await openEdit(page, 'Free writing', 'Edit writing')
   await expect(edit.getByLabel("What's on your mind?")).toHaveValue(
     "Couldn't sleep\nKept thinking about the move, and what I'd miss",
   )
@@ -173,7 +174,7 @@ test('nothing leaves the phone: every request stays on this site', async ({ page
   await page.getByRole('button', { name: 'Write freely' }).click()
   await page.getByRole('dialog', { name: 'Write freely' }).getByLabel("What's on your mind?").fill('A good day')
   await page.getByRole('dialog', { name: 'Write freely' }).getByRole('button', { name: 'Save' }).click()
-  await closeSaved(page, 'A good day')
+  await closeSaved(page, 'Free writing')
   await page.goto('./#/entries')
   await page.goto('./#/insights')
   await page.goto('./#/more')
