@@ -9,6 +9,8 @@ const STATUS = /\b(ADOPT|TEST|WATCH|REJECT)\b/
 interface Table {
   line: number
   header: string[]
+  /** Whether a separator row (|---|) follows the header: without it, it's a stray row, not a table. */
+  separated: boolean
   rows: { line: number; text: string; cells: string[] }[]
 }
 
@@ -30,9 +32,11 @@ function tables(markdown: string): Table[] {
       return
     }
     if (current === null) {
-      current = { line: i + 1, header: cellsOf(text), rows: [] }
+      current = { line: i + 1, header: cellsOf(text), separated: false, rows: [] }
       found.push(current)
-    } else if (!/^\|[\s|:-]+\|$/.test(text.trim())) {
+    } else if (/^\|[\s|:-]+\|$/.test(text.trim())) {
+      if (current.rows.length === 0) current.separated = true
+    } else {
       current.rows.push({ line: i + 1, text, cells: cellsOf(text) })
     }
   })
@@ -44,6 +48,12 @@ describe('DECISIONS.md tables', () => {
 
   it('are found', () => {
     expect(all.length).toBeGreaterThan(5)
+  })
+
+  // v0.13: a new row appended at the end of the file landed after the closing list, a one-row "table" of its own
+  // that every other check passed.
+  it('start every table with a header and a separator, so no row lands outside its table', () => {
+    expect(all.filter((t) => !t.separated).map((t) => `line ${t.line}: ${t.header.join(' | ')}`)).toEqual([])
   })
 
   it('close every row with a pipe and keep the header’s number of cells', () => {
