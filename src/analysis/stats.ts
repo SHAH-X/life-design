@@ -130,40 +130,6 @@ export function flowFinder(entries: readonly Entry[], limit = 5): GroupStat[] {
     .slice(0, limit)
 }
 
-export interface MomentGroup {
-  /** The activity's strongest moment in this direction. */
-  entry: Entry
-  count: number
-}
-
-/**
- * High or low points for a review, one line per activity: each activity is represented by its strongest
- * moment, ranked by that moment's energy, then engagement, then by how often it happened.
- */
-export function momentGroups(entries: readonly Entry[], direction: 'high' | 'low', limit = 3): MomentGroup[] {
-  const sign = direction === 'high' ? 1 : -1
-  const stronger = (a: Entry, b: Entry) =>
-    sign * (b.energy - a.energy) || sign * (b.engagement - a.engagement) || Number(b.flow) - Number(a.flow) || b.createdAt - a.createdAt
-  const groups = new Map<string, MomentGroup>()
-  for (const entry of entries) {
-    if (sign * entry.energy <= 0) continue
-    const key = entry.activity.trim().toLowerCase()
-    const group = groups.get(key)
-    if (!group) groups.set(key, { entry, count: 1 })
-    else {
-      group.count += 1
-      if (stronger(entry, group.entry) < 0) group.entry = entry
-    }
-  }
-  // Rank activities by peak energy, then peak engagement, then how often; recency only picks each group's entry.
-  return [...groups.values()]
-    .sort(
-      (a, b) =>
-        sign * (b.entry.energy - a.entry.energy) || sign * (b.entry.engagement - a.entry.engagement) || b.count - a.count || stronger(a.entry, b.entry),
-    )
-    .slice(0, limit)
-}
-
 export type ContextKey = 'where' | 'people' | 'objects' | 'part' | 'weekday'
 
 export const CONTEXT_LABELS: Record<ContextKey, string> = {

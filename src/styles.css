@@ -728,8 +728,7 @@ button.entry-row:focus-visible {
 
 /* A thin edge says how an activity left you: blue gave energy, red took it (the chart colours).
    The words say it too, in ink: red text read like an error. */
-.entry-row::before,
-.moment-line::before {
+.entry-row::before {
   content: '';
   flex: none;
   align-self: stretch;
@@ -2000,39 +1999,6 @@ details.more-ways summary {
   grid-template-columns: 1fr 2fr;
   gap: 10px;
   margin-top: 16px;
-}
-
-.moment-line {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.moment-line .entry-note {
-  display: block;
-}
-
-.review-list {
-  list-style: none;
-  margin: 6px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.review-item {
-  width: 100%;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 10px 14px;
-  text-align: left;
-  font-weight: 400;
-}
-
-.review-period {
-  font-weight: 600;
 }
 
 /* ---------- One question at a time ---------- */

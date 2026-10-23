@@ -133,25 +133,6 @@ describe('energySeries', () => {
   })
 })
 
-describe('momentGroups', () => {
-  it('lists each activity once, most extreme first, with how many times it happened', async () => {
-    const { momentGroups } = await import('../../src/analysis/stats')
-    // Ranked by each activity's strongest moment (energy, then engagement), then by how often it happened:
-    // run and cooking both peak at +2 with engagement 4, but the run happened 3 times and cooking twice.
-    const high = momentGroups(entries, 'high')
-    expect(high.map((g) => [g.entry.activity, g.count, g.entry.energy])).toEqual([
-      ['Deep work on the report', 3, 2],
-      ['Evening run', 3, 2],
-      ['Cooking dinner', 2, 2],
-    ])
-    const low = momentGroups(entries, 'low')
-    expect(low.map((g) => [g.entry.activity, g.count, g.entry.energy])).toEqual([
-      ['Commute', 4, -2],
-      ['Team meeting', 3, -2],
-    ])
-  })
-})
-
 describe('small joys', () => {
   const day = (date: string, smallJoy: string): Day => ({ date, smallJoy, createdAt: 1, updatedAt: 1 })
   it('finds words that keep coming back, ignoring common words', () => {
