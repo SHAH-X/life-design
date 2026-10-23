@@ -99,6 +99,8 @@ test('a password-protected backup opens only with the right password', async ({ 
 
   await deleteEverything(page)
   const dialog = await openRestore(page, file)
+  // The hint names the site the app runs on, where the iPhone saved the password (not always GitHub Pages).
+  await expect(dialog.getByText(`in the Passwords app under ${new URL(page.url()).hostname}.`)).toBeVisible()
   await dialog.getByLabel('Password').fill('the wrong password')
   await dialog.getByRole('button', { name: 'Unlock' }).click()
   await expect(dialog.getByText(/That password didn't open this file/)).toBeVisible()

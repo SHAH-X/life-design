@@ -24,15 +24,16 @@ test('the app shell loads, navigates, and is an installable offline-ready PWA', 
   // The built page carries a Content-Security-Policy.
   await expect(page.locator('meta[http-equiv="Content-Security-Policy"]')).toHaveCount(1)
 
-  // Manifest is served with the right scope for GitHub Pages.
+  // Manifest is served with the scope of the path it was built for (GitHub Pages, or BASE_PATH=/ for a root host).
+  const base = process.env.BASE_PATH ?? '/life-design/'
   const manifestHref = await page.locator('link[rel="manifest"]').getAttribute('href')
   expect(manifestHref).toBeTruthy()
   const manifestResponse = await request.get(new URL(manifestHref ?? '', page.url()).toString())
   expect(manifestResponse.ok()).toBe(true)
   expect(await manifestResponse.json()).toMatchObject({
     name: 'Life Design',
-    start_url: '/life-design/',
-    scope: '/life-design/',
+    start_url: base,
+    scope: base,
     display: 'standalone',
   })
 

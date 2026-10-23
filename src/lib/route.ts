@@ -1,4 +1,4 @@
-// Hash-based routes (#/today, #/review/<id>) keep GitHub Pages happy (no 404 on reload) and work offline.
+// Hash-based routes (#/today, #/review/<id>) keep any static host happy (no 404 on reload) and work offline.
 
 export const TABS = ['today', 'entries', 'insights', 'more'] as const
 export type Tab = (typeof TABS)[number]

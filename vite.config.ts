@@ -5,8 +5,9 @@ import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// GitHub Pages serves the app from https://shah-x.github.io/life-design/
-const BASE = '/life-design/'
+// GitHub Pages serves the app from https://shah-x.github.io/life-design/. For a host that serves it from the root
+// (e.g. Cloudflare Pages), build with BASE_PATH=/ (and VITE_APP_URL=<its address> for calendar links).
+const BASE = process.env.BASE_PATH ?? '/life-design/'
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }
 

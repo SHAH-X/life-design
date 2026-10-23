@@ -35,4 +35,4 @@ npm run ios-check  # sheets in real iPhone Safari (iOS Simulator), with the app'
 npm run build      # production build
 ```
 
-Pushing to `main` deploys to GitHub Pages through GitHub Actions.
+Pushing to `main` deploys to GitHub Pages through GitHub Actions. For a host that serves the app from its root (e.g. Cloudflare Pages), build with `BASE_PATH=/ VITE_APP_URL=<its address> npm run build`.

@@ -68,7 +68,7 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 
 ## Tech
 - Vite 8, React 19, TypeScript 7 (`tsc --noEmit` only), vite-plugin-pwa 2 (generateSW, asks before updating), Dexie 4 (IndexedDB).
-- Base path `/life-design/`. Routes are hashes (`#/today`), so reloads never 404 on Pages.
+- Base path `/life-design/` by default (GitHub Pages). For a host that serves the app from its root (Cloudflare Pages), build with `BASE_PATH=/`, and set `VITE_APP_URL` to its address so calendar links open that copy; `npm run test:e2e` and `npm run ios-check` follow `BASE_PATH` too. The calendar uid suffix `@shah-x.github.io`, the database name, the backup `APP_ID` and the localStorage keys stay the same on every host (a new uid would duplicate calendar events already imported). Routes are hashes (`#/today`), so reloads never 404 on any static host.
 - The Content-Security-Policy is injected at build time in `vite.config.ts`; `connect-src` names only this site, `api.groq.com` and `api.openai.com` (a unit test checks it). Adding an AI service means adding its address there, on purpose.
 - e2e tests stand in for the AI service with `page.route` and block service workers (`test.use({ serviceWorkers: 'block' })`): requests that go through the app's service worker skip `page.route` and reach the real service. The one live check, `tests/e2e/ai-live.spec.ts`, runs only with `AI_LIVE=1` and a fake key.
 - Icons: edit `public/logo.svg`, then run `npm run icons`.

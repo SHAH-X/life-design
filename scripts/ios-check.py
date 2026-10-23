@@ -18,7 +18,7 @@ import time
 IDB_HOME = os.environ.get('IDB_HOME', os.path.expanduser('~/.local/share/idb'))
 IDB = os.path.join(IDB_HOME, 'venv', 'bin', 'idb')
 COMPANION = os.path.join(IDB_HOME, 'companion', 'idb_companion')
-APP = 'http://localhost:4173/life-design/'
+APP = 'http://localhost:4173' + os.environ.get('BASE_PATH', '/life-design/')  # the path the preview was built with
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'test-results', 'ios')
 DEVICE = 'iPhone 17'
 

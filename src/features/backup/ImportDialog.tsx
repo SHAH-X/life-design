@@ -168,8 +168,8 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
             <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </label>
           <p className="field-help">
-            If your iPhone suggested a strong password when you made the backup, it's in the Passwords app under
-            shah-x.github.io.
+            If your iPhone suggested a strong password when you made the backup, it's in the Passwords app under{' '}
+            {window.location.hostname}.
           </p>
           {state.error ? <p className="error">{state.error}</p> : null}
           <button type="submit" className="primary wide" disabled={!password || state.busy}>

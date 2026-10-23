@@ -1,8 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 
 // Set E2E_BASE_URL to test a deployed site (e.g. https://shah-x.github.io/life-design/) instead of a local build.
+// BASE_PATH (as in vite.config.ts) builds and tests the app at another path, e.g. BASE_PATH=/ for a root host.
 const LIVE_URL = process.env.E2E_BASE_URL
-const BASE_URL = LIVE_URL ?? 'http://localhost:4173/life-design/'
+const BASE_URL = LIVE_URL ?? `http://localhost:4173${process.env.BASE_PATH ?? '/life-design/'}`
 
 // End-to-end tests run the production build in WebKit (Safari's engine) at iPhone size.
 export default defineConfig({
