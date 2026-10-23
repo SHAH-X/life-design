@@ -14,7 +14,9 @@ const settled = (page: Page) => page.waitForTimeout(350) // past the fade-in and
 
 // Real values that change from run to run, hidden from the screenshots only (the layout check still sees them).
 const changing = (page: Page) => [
-  page.locator('.kv', { hasText: 'Stored' }).locator('strong'), // storage in use
+  // Storage in use: the whole row, so the mask keeps one size (masking just the value, its width followed the
+  // number's length, and the screenshot differed at its edge now and then, v0.12.4).
+  page.locator('.kv', { hasText: 'Stored' }),
   page.locator('p', { hasText: /^v\d+\.\d+\.\d+ · / }), // the build's version, commit and time
 ]
 
