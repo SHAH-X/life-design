@@ -6,15 +6,18 @@ import type { Entry, IntentionKind, Step } from '../../db/types'
 import { INTENTION_OPTIONS, NEXT_STEP_DETAIL, NEXT_STEP_QUESTION, NOTHING_FOR_NOW } from '../../domain/intentions'
 import { findLookAlike, kindFor, stepLine } from '../../domain/steps'
 import { hashFor } from '../../lib/route'
+import { Dialog } from '../../ui/Dialog'
 import { revealOnMount } from '../../ui/keepInView'
+import { entryTitle } from './EntryRow'
 
 /**
  * "Anything you'd like to do with this?" (Stage F): optional, never forced. A step to do or try joins your list of
  * next steps (Insights → Next steps, v0.11), where you manage it; one that says the same as a step you have joins
  * that instead. "Remember this" stays with the entry (What I'm learning). Once kept, the entry just shows it: there
  * is nothing to tick at the moment of writing (owner: "I am writing it for future, how can I have done it?").
+ * What you keep to remember opens with a tap to change or remove (v0.12.3); a next step opens your list.
  */
-export function NextStep({ entry }: { entry: Entry }) {
+export function NextStep({ entry, onRemember }: { entry: Entry; onRemember: () => void }) {
   const groupId = useId()
   const detailId = useId()
   const whenId = useId()
@@ -30,23 +33,24 @@ export function NextStep({ entry }: { entry: Entry }) {
   const remember = entry.intention?.kind === 'remember' ? entry.intention : null
   if (linked.length || remember) {
     return (
-      <section className="next-step" aria-label="Next step">
+      <section className="entry-parts" aria-label="Next step">
         {linked.map((s) => (
-          <p key={s.id}>
-            <span className="muted">Next step: </span>
-            {stepLine(s)}
-          </p>
+          <a key={s.id} className="part-row" href={hashFor('insights', 'steps')}>
+            <span className="part-label">Next step</span>{' '}
+            <span className="part-value">{stepLine(s)}</span>
+            <span className="part-chevron" aria-hidden="true">
+              ›
+            </span>
+          </a>
         ))}
         {remember ? (
-          <p>
-            <span className="muted">To remember: </span>
-            {remember.text || 'This entry'}
-          </p>
-        ) : null}
-        {linked.length ? (
-          <a className="small-link" href={hashFor('insights', 'steps')}>
-            Next steps ›
-          </a>
+          <button type="button" className="part-row" onClick={onRemember}>
+            <span className="part-label">To remember</span>{' '}
+            <span className="part-value">{remember.text || THE_WHOLE_ENTRY}</span>
+            <span className="part-chevron" aria-hidden="true">
+              ›
+            </span>
+          </button>
         ) : null}
       </section>
     )
@@ -124,5 +128,44 @@ export function NextStep({ entry }: { entry: Entry }) {
         </div>
       ) : null}
     </section>
+  )
+}
+
+/** What "Remember this" keeps when you give it no words of its own (until v0.12.3 it read "This entry"). */
+const THE_WHOLE_ENTRY = 'The whole entry'
+
+/** "To remember", changed or removed (owner, 2026-10-23: "there is no option to edit the 'to remember' part"). */
+export function RememberEdit({ entry, onClose }: { entry: Entry; onClose: () => void }) {
+  const id = useId()
+  const remember = entry.intention?.kind === 'remember' ? entry.intention : null
+  const [text, setText] = useState(remember?.text ?? '')
+  const placeholder = INTENTION_OPTIONS.find((o) => o.value === 'remember')?.placeholder
+  const save = async () => {
+    await patchEntry(entry.id, { intention: { kind: 'remember', text, status: remember?.status ?? 'open', updatedAt: Date.now() } })
+    onClose()
+  }
+  // Removed, the entry asks its next-step question again.
+  const remove = async () => {
+    await patchEntry(entry.id, { intention: undefined })
+    onClose()
+  }
+  const footer = (
+    <div className="footer-row">
+      <button type="button" className="link" onClick={() => void remove()}>
+        Remove
+      </button>
+      <button type="button" className="primary" onClick={() => void save()}>
+        Save
+      </button>
+    </div>
+  )
+  return (
+    <Dialog title={entryTitle(entry)} onClose={onClose} footer={footer} full>
+      <label className="question-text" htmlFor={id}>
+        {NEXT_STEP_DETAIL}
+      </label>
+      <input id={id} data-autofocus value={text} maxLength={200} autoCapitalize="sentences" placeholder={placeholder} onChange={(e) => setText(e.target.value)} />
+      <p className="muted small">Left empty, the whole entry is kept to remember.</p>
+    </Dialog>
   )
 }

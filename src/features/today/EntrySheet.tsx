@@ -1,10 +1,11 @@
 import type { Suggestions } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import type { OwnWord } from '../../domain/feelings'
-import { EntryEdit } from './EntryEdit'
+import { EntryEdit, type EntryPart } from './EntryEdit'
 import { EntryFlow } from './EntryFlow'
 import { EntryView } from './EntryView'
 import { FreeWrite } from './FreeWrite'
+import { RememberEdit } from './NextStep'
 import type { PurposeSettings } from './usePurpose'
 
 /** Which entry sheet is open, on Today or in Entries. */
@@ -13,7 +14,8 @@ export type EntrySheetState =
   | { kind: 'free'; date: string }
   /** An entry you tapped: an unfinished one carries on; a finished one opens to read (fresh: just saved). */
   | { kind: 'open'; entry: Entry; fresh?: boolean }
-  | { kind: 'edit'; entry: Entry }
+  /** One part of a finished entry, changed on its own; back to the entry after. */
+  | { kind: 'part'; entry: Entry; part: EntryPart | 'remember' }
   | null
 
 interface Props {
@@ -24,7 +26,7 @@ interface Props {
   purpose: PurposeSettings
 }
 
-/** One place for the entry sheets: write, carry on, read back (with its summary and next step), and edit. */
+/** One place for the entry sheets: write, carry on, an entry (read, with its next step), and one part of it changed. */
 export function EntrySheet({ state, onChange, suggestions, own, purpose }: Props) {
   if (!state) return null
   const close = () => onChange(null)
@@ -45,15 +47,18 @@ export function EntrySheet({ state, onChange, suggestions, own, purpose }: Props
     )
   }
   if (state.kind === 'free') return <FreeWrite date={state.date} onClose={close} onSaved={show} />
-  if (state.kind === 'edit') {
+  if (state.kind === 'part') {
+    const back = () => onChange({ kind: 'open', entry: state.entry })
+    if (state.part === 'remember') return <RememberEdit entry={state.entry} onClose={back} />
     return (
       <EntryEdit
         existing={state.entry}
+        part={state.part}
         suggestions={suggestions}
         own={own}
         goal={purpose.goal}
         focus={purpose.focus}
-        onClose={() => onChange({ kind: 'open', entry: state.entry })}
+        onClose={back}
       />
     )
   }
@@ -75,5 +80,5 @@ export function EntrySheet({ state, onChange, suggestions, own, purpose }: Props
       />
     )
   }
-  return <EntryView key={entry.id} entryId={entry.id} fresh={state.fresh} onEdit={(latest) => onChange({ kind: 'edit', entry: latest })} onClose={close} />
+  return <EntryView key={entry.id} entryId={entry.id} fresh={state.fresh} onPart={(latest, part) => onChange({ kind: 'part', entry: latest, part })} onClose={close} />
 }

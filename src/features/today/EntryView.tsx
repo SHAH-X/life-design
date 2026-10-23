@@ -1,24 +1,38 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useId, useState } from 'react'
 import { db } from '../../db/db'
-import { patchEntry } from '../../db/repo'
+import { deleteEntry, patchEntry } from '../../db/repo'
 import type { Entry } from '../../db/types'
-import { ENERGY_OPTIONS, entryWords, wordsFor } from '../../domain/feelings'
+import { DURATION_OPTIONS, ENERGY_OPTIONS, entryWords, wordsFor } from '../../domain/feelings'
 import { possibleInsight } from '../../domain/summary'
-import { addDays, loggedAt, longDate, shortDay, toDateKey } from '../../lib/dates'
+import { addDays, DAY_PARTS, loggedAt, longDate, shortDay, toDateKey } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
 import { revealOnMount } from '../../ui/keepInView'
+import type { EntryPart } from './EntryEdit'
 import { entryTitle } from './EntryRow'
 import { NextStep } from './NextStep'
 
-/** The words an entry was described with, as tapped: the energy answer first (with its edge), "time flew", then the rest. */
-function chipsFor(entry: Entry): { energy: { label: string; edge: 'gives' | 'takes' | undefined } | null; words: string[] } {
-  if (entry.kind === 'free') return { energy: null, words: [] }
+const words = (list: readonly string[]) => [...new Set(list.map((w) => w.toLowerCase()))].join(' · ')
+
+/** An entry's parts, in plain words, each opening its own question: what you did, the three questions, your words,
+ * and when, how long, where and who. A skipped question says so (never guessed). Free writing is its words. */
+function partsFor(entry: Entry): { part: EntryPart; label: string; value: string; empty: boolean; edge?: 'gives' | 'takes' }[] {
+  const writing = [...entry.reflections.map((r) => `${r.question} ${r.text}`), entry.note.trim()].filter(Boolean).join('\n\n')
+  const yourWords = { part: 'writing' as const, label: 'Your words', value: writing || 'Nothing written yet', empty: !writing }
+  if (entry.kind === 'free') return [yourWords]
   const { during, after } = wordsFor(entry)
-  const option = ENERGY_OPTIONS.find((o) => o.value === entry.energyEffect)
-  const edge = entry.energyEffect === 'gave' ? 'gives' : entry.energyEffect === 'used' ? 'takes' : undefined
-  const words = [...during.filter((w) => w === 'Time flew'), ...during.filter((w) => w !== 'Time flew'), ...after]
-  return { energy: option ? { label: option.short, edge } : null, words: [...new Set(words.map((w) => w.toLowerCase()))] }
+  const energy = ENERGY_OPTIONS.find((o) => o.value === entry.energyEffect)?.label ?? ''
+  const duration = DURATION_OPTIONS.find((o) => o.value === entry.duration)?.label ?? ''
+  const part = DAY_PARTS.find((p) => p.value === entry.part)?.label ?? ''
+  const details = [part, duration, ...entry.where, ...entry.people, ...entry.objects].filter(Boolean).join(' · ')
+  return [
+    { part: 'activity', label: 'What you did', value: entry.activity, empty: false },
+    { part: 'during', label: 'What it was like', value: words(during) || 'Skipped', empty: during.length === 0 },
+    { part: 'energy', label: 'What it did to your energy', value: energy || 'Skipped', empty: !energy, edge: entry.energyEffect === 'gave' ? 'gives' : entry.energyEffect === 'used' ? 'takes' : undefined },
+    { part: 'after', label: 'How you felt', value: words(after) || 'Skipped', empty: after.length === 0 },
+    yourWords,
+    { part: 'details', label: 'When, how long, where, who', value: details, empty: false },
+  ]
 }
 
 /** "Today, afternoon", "Yesterday, evening", "Monday 19 October, morning". */
@@ -29,12 +43,13 @@ function when(entry: Entry): string {
 }
 
 /**
- * An entry, read back (Stage E): your entry first, as you gave it (the words you tapped, then what you wrote),
- * then a possible insight only when 3+ entries back it (each one listed, and yours to dismiss or put your own way),
- * then a next step. Nothing repeated (v0.9: the summary that restated the entry made it hard to read).
+ * An entry, one screen to read it and to change it (owner, 2026-10-23: "it should be simpler … whether two different
+ * screens required?"). When it was, a possible insight only when 3+ entries back it (each one listed, and yours to
+ * dismiss or put your own way), then the entry as its parts in plain words: tap one and only that question opens.
+ * Then a next step, or what you keep to remember, also changed with a tap. Delete asks first.
  */
-export function EntryView(props: { entryId: string; fresh?: boolean; onEdit: (entry: Entry) => void; onClose: () => void }) {
-  const { entryId, fresh = false, onEdit, onClose } = props
+export function EntryView(props: { entryId: string; fresh?: boolean; onPart: (entry: Entry, part: EntryPart | 'remember') => void; onClose: () => void }) {
+  const { entryId, fresh = false, onPart, onClose } = props
   const takeId = useId()
   const data = useLiveQuery(async () => {
     const entry = await db.entries.get(entryId)
@@ -45,6 +60,7 @@ export function EntryView(props: { entryId: string; fresh?: boolean; onEdit: (en
   }, [entryId])
   const [taking, setTaking] = useState(false)
   const [take, setTake] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   // Deleted elsewhere: nothing left to show.
   useEffect(() => {
@@ -55,13 +71,23 @@ export function EntryView(props: { entryId: string; fresh?: boolean; onEdit: (en
   const { entry, same } = data
   const insight = entry.take || entry.insightHidden ? null : possibleInsight(entry, same)
   const behind = insight ? same.filter((e) => insight.entryIds.includes(e.id)).sort((a, b) => b.date.localeCompare(a.date)) : []
-  const chips = chipsFor(entry)
-  const written = entry.reflections.length > 0 || entry.note.trim() !== ''
+  const parts = partsFor(entry)
 
-  const footer = (
+  // One row, as everywhere: Delete asks first.
+  const footer = confirmDelete ? (
+    <div className="row">
+      <span className="grow">Delete this entry?</span>
+      <button type="button" className="danger" onClick={() => void deleteEntry(entry.id).then(onClose)}>
+        Yes, delete
+      </button>
+      <button type="button" onClick={() => setConfirmDelete(false)}>
+        Keep
+      </button>
+    </div>
+  ) : (
     <div className="footer-row">
-      <button type="button" onClick={() => onEdit(entry)}>
-        Edit
+      <button type="button" className="link danger-text" onClick={() => setConfirmDelete(true)}>
+        Delete
       </button>
       <button type="button" className="primary" onClick={onClose}>
         Done
@@ -81,32 +107,19 @@ export function EntryView(props: { entryId: string; fresh?: boolean; onEdit: (en
         {fresh ? null : ` · logged ${loggedAt(entry.createdAt, entry.date)}`}
       </p>
 
-      {chips.energy || chips.words.length ? (
-        <ul className="chip-row entry-chips" aria-label="How it was">
-          {chips.energy ? (
-            <li className="chip static" data-energy={chips.energy.edge}>
-              {chips.energy.label}
-            </li>
-          ) : null}
-          {chips.words.map((w) => (
-            <li key={w} className="chip static">
-              {w}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {written ? (
-        <section className="entry-writing" aria-label="Your words">
-          {entry.reflections.map((r) => (
-            <div key={r.question} className="earlier">
-              <p className="muted small">{r.question}</p>
-              <p className="writing">{r.text}</p>
-            </div>
-          ))}
-          {entry.note.trim() ? <p className="writing">{entry.note}</p> : null}
-        </section>
-      ) : null}
+      <section className="entry-parts" aria-label="Your entry">
+        {parts.map((p) => (
+          <button key={p.part} type="button" className="part-row" onClick={() => onPart(entry, p.part)}>
+            <span className="part-label">{p.label}</span>{' '}
+            <span className={p.empty ? 'part-value muted' : p.part === 'writing' ? 'part-value writing' : 'part-value'} data-energy={p.edge}>
+              {p.value || 'Add'}
+            </span>
+            <span className="part-chevron" aria-hidden="true">
+              ›
+            </span>
+          </button>
+        ))}
+      </section>
 
       {entry.take ? (
         <section className="insight-card" aria-label="Your take">
@@ -160,7 +173,7 @@ export function EntryView(props: { entryId: string; fresh?: boolean; onEdit: (en
         </section>
       ) : null}
 
-      <NextStep entry={entry} />
+      <NextStep entry={entry} onRemember={() => onPart(entry, 'remember')} />
     </Dialog>
   )
 }

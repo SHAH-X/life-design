@@ -91,11 +91,14 @@ export async function closeSaved(page: Page, title: string) {
   await expect(view).toBeHidden()
 }
 
-/** Opens an entry from the list: first it reads back, then Edit shows everything on one screen. */
-export async function openEdit(page: Page, title: string, dialogName = 'Edit activity') {
+/**
+ * Opens an entry from the list, then one of its parts ("How you felt", "Your words", …): only that question opens,
+ * in a sheet with the entry's name (v0.12.3: one screen to read an entry, a part at a time to change it).
+ */
+export async function openPart(page: Page, title: string, part: string) {
   await entryButton(page, title).click()
-  await page.getByRole('dialog', { name: title }).getByRole('button', { name: 'Edit' }).click()
-  return page.getByRole('dialog', { name: dialogName })
+  await page.getByRole('dialog', { name: title }).getByRole('button', { name: new RegExp(`^${part}`) }).click()
+  return page.getByRole('dialog', { name: title })
 }
 
 /** The small joy box on Today. */

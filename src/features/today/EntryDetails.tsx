@@ -18,11 +18,13 @@ interface Props {
   objects: string[]
   onObjects: (values: string[]) => void
   suggestions: Suggestions
+  /** Open from the start (changing just these details of an entry). */
+  startOpen?: boolean
 }
 
 /** When it happened (preset from the clock), and optionally how long, where, with whom and using what (AEIOU). */
-export function EntryDetails({ part, onPart, duration, onDuration, where, onWhere, people, onPeople, objects, onObjects, suggestions }: Props) {
-  const [open, setOpen] = useState(duration !== null || where.length + people.length + objects.length > 0)
+export function EntryDetails({ part, onPart, duration, onDuration, where, onWhere, people, onPeople, objects, onObjects, suggestions, startOpen = false }: Props) {
+  const [open, setOpen] = useState(startOpen || duration !== null || where.length + people.length + objects.length > 0)
   // Opened by a tap (not already open in Edit): bring what appeared into sight.
   const [tapped, setTapped] = useState(false)
 

@@ -31,7 +31,7 @@ const stepsPage = (page: Page) => page.goto('./#/insights/steps')
 
 test('a next step joins the list, and comes back when you write about the same activity, with a tick for a one-off', async ({ page }) => {
   const view = await keepStep(page, 'Team meeting', 'Try something differently', 'Ask for an agenda first', 'before the meeting')
-  await expect(view.getByRole('region', { name: 'Next step' })).toContainText('Next step: Before the meeting: Ask for an agenda first')
+  await expect(view.getByRole('region', { name: 'Next step' }).getByRole('link', { name: /^Next step/ })).toContainText('Before the meeting: Ask for an agenda first')
   await view.getByRole('button', { name: 'Done', exact: true }).click()
 
   // In Insights: on the first page, and in the whole list.
@@ -66,7 +66,7 @@ test('keeping a step that looks like one you have joins it, instead of adding an
   const second = await keepStep(page, 'Walk', 'Do it again', 'walk 10 min each evening')
   await expect(second.getByText('Same as “Walk 10 minutes every evening”?')).toBeVisible()
   await second.getByRole('button', { name: 'Same', exact: true }).click()
-  await expect(second.getByRole('region', { name: 'Next step' })).toContainText('Next step: Walk 10 minutes every evening')
+  await expect(second.getByRole('region', { name: 'Next step' }).getByRole('link', { name: /^Next step/ })).toContainText('Walk 10 minutes every evening')
   await second.getByRole('button', { name: 'Done', exact: true }).click()
 
   await stepsPage(page)

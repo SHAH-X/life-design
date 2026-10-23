@@ -1164,31 +1164,68 @@ input[type='search'] {
   font-size: 0.9rem;
 }
 
-.entry-chips {
-  list-style: none;
-  margin: 0 0 12px;
-  padding: 0;
+.entry-parts {
+  margin: 4px 0 14px;
+  border-top: 1px solid var(--border);
 }
 
-/* The energy answer's thin edge, as beside each activity on Today (blue gave, red took). */
-.entry-chips .chip[data-energy]::before {
-  content: '';
-  align-self: stretch;
-  width: 4px;
-  margin: 7px 2px 7px -4px;
-  border-radius: 2px;
+/* An entry read as its parts (v0.12.3): what each was, in plain words; a tap opens just that question. */
+.part-row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  min-height: 52px;
+  padding: 9px 26px 9px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-weight: 400;
+  text-align: left;
+  text-decoration: none;
 }
 
-.entry-writing .writing {
-  margin: 0 0 12px;
+/* Drawn as a hidden element, not with CSS content: VoiceOver read a CSS › aloud as part of each row (v0.12.4). */
+.part-chevron {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 1.2rem;
+}
+
+.part-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.part-value {
+  overflow-wrap: anywhere;
+}
+
+/* What you wrote, at reading size. */
+.part-value.writing {
   white-space: pre-wrap;
   font-family: ui-serif, 'New York', Georgia, serif;
   font-size: 1.06rem;
   line-height: 1.55;
 }
 
-.entry-writing .earlier .muted {
-  margin: 0 0 2px;
+/* The energy answer's thin edge, as beside each activity in the lists (blue gave, red took). */
+.part-value[data-energy]::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 1em;
+  margin-right: 8px;
+  border-radius: 2px;
+  vertical-align: -2px;
 }
 
 .insight-card {

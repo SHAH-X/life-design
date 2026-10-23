@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import { expect, test, type Page } from '@playwright/test'
-import { fakeKeyboard, LONG_WRITING, openEdit, showKeyboard } from './helpers'
+import { entryButton, fakeKeyboard, LONG_WRITING, showKeyboard } from './helpers'
 import { expectCleanLayout } from './layout'
 import { restoreSeed } from './seed'
 
@@ -115,11 +115,23 @@ for (const scheme of ['light', 'dark'] as const) {
       await look(page, at('entry-saved'))
       await sheet.getByRole('button', { name: 'Done', exact: true }).click()
 
-      const edit = await openEdit(page, 'Choir rehearsal')
-      await expect(edit).toBeVisible()
-      await look(page, at('edit-activity'))
-      await edit.getByRole('button', { name: 'Close' }).click()
-      await page.getByRole('dialog', { name: 'Choir rehearsal' }).getByRole('button', { name: 'Done', exact: true }).click()
+      // An entry: read as its parts; each opens its own question; "To remember" too.
+      await entryButton(page, 'Choir rehearsal').click()
+      const entry = page.getByRole('dialog', { name: 'Choir rehearsal' })
+      await entry.getByRole('button', { name: 'Remember this' }).click()
+      await entry.getByRole('button', { name: 'Keep this' }).click()
+      await look(page, at('entry'))
+      for (const [label, name] of [
+        ['What it did to your energy', 'entry-part-energy'],
+        ['How you felt', 'entry-part-felt'],
+        ['When, how long, where, who', 'entry-part-details'],
+        ['To remember', 'entry-part-remember'],
+      ] as const) {
+        await entry.getByRole('button', { name: new RegExp(`^${label}`) }).click()
+        await look(page, at(name))
+        await sheet.getByRole('button', { name: 'Close' }).click()
+      }
+      await entry.getByRole('button', { name: 'Done', exact: true }).click()
 
       await page.getByRole('button', { name: 'Write freely' }).click()
       await look(page, at('write-freely'))

@@ -8,7 +8,7 @@ import {
   expectSheetFillsScreen,
   fakeKeyboard,
   LONG_WRITING,
-  openEdit,
+  openPart,
   showKeyboard,
   smallJoy,
 } from './helpers'
@@ -62,22 +62,23 @@ test('reflect on an activity in words, never ratings; edit it without losing any
   await expect(emails).toContainText('distracted · used up energy · foggy · tired')
   await expect(emails).toContainText('Too many threads at once. I was so tired by the end')
 
-  // Editing shows everything on one screen, and keeps what isn't changed.
-  const edit = await openEdit(page, 'Answered emails')
-  await expect(edit.getByRole('button', { name: 'Tired', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await expect(edit.getByRole('button', { name: 'It used up my energy' })).toHaveAttribute('aria-pressed', 'true')
-  await expect(edit.getByLabel("What's on your mind about it?")).toHaveValue('Too many threads at once. I was so tired by the end')
-  await edit.getByRole('button', { name: 'Anxious', exact: true }).click()
-  await edit.getByRole('button', { name: 'Save' }).click()
-  // After saving an edit, the entry reads back again.
-  await page.getByRole('dialog', { name: 'Answered emails' }).getByRole('button', { name: 'Done', exact: true }).click()
+  // A part opens on its own, with what it was given, and the rest is kept as it was.
+  const part = await openPart(page, 'Answered emails', 'How you felt')
+  await expect(part.getByRole('button', { name: 'Tired', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await part.getByRole('button', { name: 'Anxious', exact: true }).click()
+  await part.getByRole('button', { name: 'Save' }).click()
+  // Back on the entry.
+  const view = page.getByRole('dialog', { name: 'Answered emails' })
+  await expect(view.getByRole('button', { name: /^How you felt/ })).toContainText('foggy · tired · anxious')
+  await expect(view.getByRole('button', { name: /^What it did to your energy/ })).toContainText('It used up my energy')
+  await expect(view.getByRole('button', { name: /^Your words/ })).toContainText('Too many threads at once. I was so tired by the end')
+  await view.getByRole('button', { name: 'Done', exact: true }).click()
   await expect(emails).toContainText('foggy · tired · anxious')
-  await openEdit(page, 'Answered emails')
-  await expect(edit.getByLabel("What's on your mind about it?")).toHaveValue('Too many threads at once. I was so tired by the end')
 
-  // Delete (with confirmation)
-  await edit.getByRole('button', { name: 'Delete' }).click()
-  await edit.getByRole('button', { name: 'Yes, delete' }).click()
+  // Delete, from the entry (with confirmation)
+  await emails.click()
+  await view.getByRole('button', { name: 'Delete' }).click()
+  await view.getByRole('button', { name: 'Yes, delete' }).click()
   await expect(emails).toHaveCount(0)
 
   // The small joy saves by itself and survives a reload, as do the entries.
@@ -125,11 +126,11 @@ test('a sheet opens on its content, not on ✕ Close', async ({ page }) => {
   const view = page.getByRole('dialog', { name: 'Reading' })
   await expect(view).toBeVisible()
   await expect(view.getByRole('button', { name: 'Close' })).not.toBeFocused()
-  await view.getByRole('button', { name: 'Edit' }).click()
-  const edit = page.getByRole('dialog', { name: 'Edit activity' })
-  await expect(edit).toBeVisible()
-  await expect(edit.getByRole('button', { name: 'Close' })).not.toBeFocused()
-  await edit.getByRole('button', { name: 'Close' }).click()
+  await view.getByRole('button', { name: /^How you felt/ }).click()
+  const part = page.getByRole('dialog', { name: 'Reading' })
+  await expect(part.getByRole('heading', { name: 'How did you feel?' })).toBeVisible()
+  await expect(part.getByRole('button', { name: 'Close' })).not.toBeFocused()
+  await part.getByRole('button', { name: 'Close' }).click()
   await page.getByRole('dialog', { name: 'Reading' }).getByRole('button', { name: 'Done', exact: true }).click()
 
   await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
@@ -224,21 +225,34 @@ test('editing and writing freely keep every field in sight, on the whole screen'
   await page.reload()
   await addEntry(page, { activity: 'Reading', during: ['Curious'], after: ['Calm'] })
 
-  const edit = await openEdit(page, 'Reading')
-  await expectSheetFillsScreen(page, edit)
-  await edit.getByLabel('What did you do?').click()
+  // Each part of an entry opens on the whole screen; its field stays in sight with the keyboard up.
+  const view = page.getByRole('dialog', { name: 'Reading' })
+  const what = await openPart(page, 'Reading', 'What you did')
+  await expectSheetFillsScreen(page, what)
+  await what.getByLabel('What did you do?').click()
   await showKeyboard(page)
-  await expectSheetFillsScreen(page, edit)
-  await edit.getByRole('button', { name: '+ your own word' }).first().click()
-  const own = edit.getByLabel('Your own word')
-  await expect(own).toBeFocused()
-  await expectInSheetView(edit, own)
-  await expectAboveKeyboard(page, own)
-  await edit.getByLabel("What's on your mind about it?").click()
-  await expectInSheetView(edit, edit.getByLabel("What's on your mind about it?"))
+  await expectSheetFillsScreen(page, what)
+  await expectInSheetView(what, what.getByLabel('What did you do?'))
   await showKeyboard(page, 0)
-  await edit.getByRole('button', { name: 'Close' }).click()
-  await page.getByRole('dialog', { name: 'Reading' }).getByRole('button', { name: 'Done', exact: true }).click()
+  await what.getByRole('button', { name: 'Close' }).click()
+  await view.getByRole('button', { name: /^What it was like/ }).click()
+  const like = page.getByRole('dialog', { name: 'Reading' })
+  await showKeyboard(page)
+  await like.getByRole('button', { name: '+ your own word' }).click()
+  const own = like.getByLabel('Your own word')
+  await expect(own).toBeFocused()
+  await expectInSheetView(like, own)
+  await expectAboveKeyboard(page, own)
+  await showKeyboard(page, 0)
+  await like.getByRole('button', { name: 'Close' }).click()
+  await view.getByRole('button', { name: /^Your words/ }).click()
+  const words = page.getByRole('dialog', { name: 'Reading' })
+  await words.getByLabel("What's on your mind about it?").click()
+  await showKeyboard(page)
+  await expectInSheetView(words, words.getByLabel("What's on your mind about it?"))
+  await showKeyboard(page, 0)
+  await words.getByRole('button', { name: 'Close' }).click()
+  await view.getByRole('button', { name: 'Done', exact: true }).click()
 
   await page.getByRole('button', { name: 'Write freely' }).click()
   const free = page.getByRole('dialog', { name: 'Write freely' })
@@ -367,4 +381,38 @@ test('a long entry never pushes the buttons off the first screen; rows show two 
   const note = row.locator('.entry-note')
   const lines = await note.evaluate((el) => Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)))
   expect(lines, 'two lines of the writing at most').toBeLessThanOrEqual(2)
+})
+
+test('an entry is one screen: tap a part to change just that, "To remember" too', async ({ page }) => {
+  // Owner, 2026-10-23: tapping an activity showed one screen, Edit another (a long form), and "there is no option to
+  // edit the 'to remember' part". Now the entry reads as its parts; tapping one opens only that question.
+  await addEntry(page, { activity: 'Walk', during: ['Absorbed'], energy: 'It gave me energy', after: ['Happy'] })
+  await entryButton(page, 'Walk').click()
+  const view = page.getByRole('dialog', { name: 'Walk' })
+  await expect(view.getByRole('button', { name: 'Edit' })).toHaveCount(0)
+  // VoiceOver reads each part as its label and answer, never the › drawn beside it (found in the iOS Simulator).
+  await expect(view.getByRole('button', { name: /›/ })).toHaveCount(0)
+  await view.getByRole('button', { name: 'Remember this' }).click()
+  await view.getByRole('button', { name: 'Keep this' }).click()
+  const remember = view.getByRole('button', { name: /^To remember/ })
+  await expect(remember).toContainText('The whole entry')
+
+  // "To remember": change its words, then remove it (the next-step question comes back).
+  await remember.click()
+  const part = page.getByRole('dialog', { name: 'Walk' })
+  await part.getByLabel('What exactly?').fill('The view from the bridge')
+  await part.getByRole('button', { name: 'Save' }).click()
+  await expect(remember).toContainText('The view from the bridge')
+  await remember.click()
+  await part.getByRole('button', { name: 'Remove' }).click()
+  await expect(view.getByRole('heading', { name: "Anything you'd like to do with this?" })).toBeVisible()
+
+  // One part: how you felt. Only that question opens, and the rest is kept.
+  await view.getByRole('button', { name: /^How you felt/ }).click()
+  await expect(part.getByLabel('What did you do?')).toHaveCount(0)
+  await part.getByRole('button', { name: 'Calm', exact: true }).click()
+  await part.getByRole('button', { name: 'Save' }).click()
+  await expect(view.getByRole('button', { name: /^How you felt/ })).toContainText('happy · calm')
+  await expect(view.getByRole('button', { name: /^What it was like/ })).toContainText('absorbed')
+  await expect(view.getByRole('button', { name: /^What it did to your energy/ })).toContainText('It gave me energy')
 })

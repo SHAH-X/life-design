@@ -28,29 +28,32 @@ async function saveAndStay(page: Page, activity: string, energy: string, writing
 test('after saving, your entry reads back first: the words you tapped, then what you wrote; a next step is kept, nothing to tick', async ({ page }) => {
   const view = await saveAndStay(page, 'Team meeting', 'It used up my energy', 'Long agenda, no decisions. We ran over.')
   await expect(view.getByText(/✓ Saved · Today, (morning|afternoon|evening)/)).toBeVisible()
-  // The energy answer first, with its red edge, then the words.
-  const words = view.getByRole('list', { name: 'How it was' }).getByRole('listitem')
-  await expect(words).toHaveText(['used up energy', 'distracted', 'frustrated'])
-  await expect(words.first()).toHaveAttribute('data-energy', 'takes')
-  await expect(view.getByRole('region', { name: 'Your words' })).toHaveText('Long agenda, no decisions. We ran over.')
+  // The entry as its parts, in plain words (v0.12.3): the energy answer with its red edge, the words, what you wrote.
+  const entry = view.getByRole('region', { name: 'Your entry' })
+  await expect(entry.getByRole('button', { name: /^What it was like/ })).toContainText('distracted')
+  const energy = entry.getByRole('button', { name: /^What it did to your energy/ })
+  await expect(energy).toContainText('It used up my energy')
+  await expect(energy.locator('[data-energy="takes"]')).toHaveCount(1)
+  await expect(entry.getByRole('button', { name: /^How you felt/ })).toContainText('frustrated')
+  await expect(entry.getByRole('button', { name: /^Your words/ })).toContainText('Long agenda, no decisions. We ran over.')
   // Nothing restated: no summary repeating the entry.
   await expect(view).not.toContainText('What happened')
   await expect(view).not.toContainText('What you noticed')
   // One entry is not a pattern: nothing is guessed.
   await expect(view.getByRole('region', { name: 'Possible insight' })).toHaveCount(0)
-  // Edit and Done share one row, leaving the reading more room.
-  const edit = await view.getByRole('button', { name: 'Edit' }).boundingBox()
+  // Delete and Done share one row, leaving the reading more room; there's no separate Edit (v0.12.3).
+  await expect(view.getByRole('button', { name: 'Edit' })).toHaveCount(0)
+  const remove = await view.getByRole('button', { name: 'Delete' }).boundingBox()
   const done = await view.getByRole('button', { name: 'Done', exact: true }).boundingBox()
-  expect(edit?.y).toBe(done?.y)
+  expect(remove?.y).toBe(done?.y)
 
   await view.getByRole('button', { name: 'Try something differently' }).click()
   await view.getByLabel('What exactly?').fill('Ask for an agenda first')
   await view.getByRole('button', { name: 'Keep this' }).click()
   const step = view.getByRole('region', { name: 'Next step' })
-  await expect(step).toContainText('Next step: Ask for an agenda first')
-  // Written for the future: nothing to tick now (owner: "how can I have done it?").
+  // Written for the future: nothing to tick now (owner: "how can I have done it?"); it opens your list.
+  await expect(step.getByRole('link', { name: /^Next step/ })).toContainText('Ask for an agenda first')
   for (const name of ['Done it', 'Let it go', 'Remove']) await expect(step.getByRole('button', { name })).toHaveCount(0)
-  await expect(step.getByRole('link', { name: 'Next steps ›' })).toBeVisible()
   await view.getByRole('button', { name: 'Done', exact: true }).click()
 
   await entryButton(page, 'Team meeting').click()
@@ -84,7 +87,7 @@ test('"Remember this" lands in Insights → What I\'m learning', async ({ page }
   await view.getByRole('button', { name: 'Remember this' }).click()
   await view.getByLabel('What exactly?').fill('Small steps beat big plans')
   await view.getByRole('button', { name: 'Keep this' }).click()
-  await expect(view.getByRole('region', { name: 'Next step' })).toContainText('To remember')
+  await expect(view.getByRole('region', { name: 'Next step' }).getByRole('button', { name: /^To remember/ })).toContainText('Small steps beat big plans')
   await view.getByRole('button', { name: 'Done', exact: true }).click()
   await page.goto('./#/insights')
   await expect(page.locator('section.card', { has: page.getByRole('heading', { name: "What I'm learning" }) })).toContainText('Small steps beat big plans')
@@ -118,7 +121,7 @@ test('Entries: everything, newest first, unfinished on top, found by any word', 
 
   await entryButton(page, 'Evening run').click()
   const view = page.getByRole('dialog', { name: 'Evening run' })
-  await expect(view.getByRole('list', { name: 'How it was' })).toContainText('gave energy')
-  await view.getByRole('button', { name: 'Edit' }).click()
-  await expect(page.getByRole('dialog', { name: 'Edit activity' })).toBeVisible()
+  await expect(view.getByRole('button', { name: /^What it did to your energy/ })).toContainText('It gave me energy')
+  await view.getByRole('button', { name: /^What it was like/ }).click()
+  await expect(page.getByRole('dialog', { name: 'Evening run' }).getByRole('heading', { name: 'What was it like?' })).toBeVisible()
 })

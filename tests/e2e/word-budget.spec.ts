@@ -16,7 +16,7 @@ const BUDGETS = {
   'New activity: how you felt (12 answer words)': 30,
   'New activity: write (helpers and one box)': 60, // v0.9: one screen instead of reflect (25) and anything else (30); three helper questions
   'Write freely': 25,
-  'Entry, read back after saving': 75, // 90 until v0.9, when it stopped restating the entry: your words, a possible insight, the next-step choices
+  'Entry, read back after saving': 105, // 90 until v0.9 (stopped restating the entry), 75 until v0.12.3: its parts as rows with small labels, each opening its question (owner's OK)
   'Entries [the fictional five days]': 180, // 125 until v0.10: + the time each of the 19 entries was logged
   'Insights: this week, the fictional week': 130, // 80 until v0.9; + the week's energy chart and card titles (the owner's chosen layout); v0.10 + logged times on stand-out entries; v0.11 + the Next steps card; v0.12 + the Review a period row
   'Insights → Next steps (empty)': 30,

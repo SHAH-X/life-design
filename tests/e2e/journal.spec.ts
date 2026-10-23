@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
-import { addEntry, closeSaved, entryButton, openEdit } from './helpers'
+import { addEntry, closeSaved, entryButton, openPart } from './helpers'
 import { dateKey, restoreBackup } from './seed'
 
 // Purpose journaling (Phase 4): the owner's brief, journey by journey. Fictional example data.
@@ -40,7 +40,7 @@ test("one box to write in, with the purpose's questions above it as helpers; ano
   await sheet.getByRole('button', { name: 'Save' }).click()
   await closeSaved(page, 'Spanish lesson')
 
-  const edit = await openEdit(page, 'Spanish lesson')
+  const edit = await openPart(page, 'Spanish lesson', 'Your words')
   await expect(edit.getByLabel('Questions for')).toHaveValue('learn')
   await expect(edit.getByLabel("What's on your mind about it?")).toHaveValue('The past tense finally made sense. Flashcards helped.')
 })
@@ -101,8 +101,8 @@ test('an entry written with separate answers (v0.8.0) still reads back and edits
   await expect(view).toContainText('What stood out to you about it?')
   await expect(view).toContainText('Everyone had read it this time')
   await expect(view).toContainText('Stayed late')
-  await view.getByRole('button', { name: 'Edit' }).click()
-  const edit = page.getByRole('dialog', { name: 'Edit activity' })
+  await view.getByRole('button', { name: /^Your words/ }).click()
+  const edit = page.getByRole('dialog', { name: 'Book club' })
   await expect(edit.getByLabel('What stood out to you about it?')).toHaveValue('Everyone had read it this time')
   await edit.getByLabel('What stood out to you about it?').fill('Everyone had read it, for once')
   await expect(edit.getByLabel("What's on your mind about it?")).toHaveValue('Stayed late')
@@ -134,7 +134,7 @@ test('write freely: a blank page, saved, and still there after a reload', async 
   await expect(entry).toContainText("Couldn't sleep Kept thinking about the move, and what I'd miss")
   await page.reload()
   await expect(entryButton(page, 'Free writing')).toBeVisible()
-  const edit = await openEdit(page, 'Free writing', 'Edit writing')
+  const edit = await openPart(page, 'Free writing', 'Your words')
   await expect(edit.getByLabel("What's on your mind?")).toHaveValue(
     "Couldn't sleep\nKept thinking about the move, and what I'd miss",
   )
