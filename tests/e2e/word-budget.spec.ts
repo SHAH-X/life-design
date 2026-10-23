@@ -17,7 +17,7 @@ const BUDGETS = {
   'New activity: write (helpers and one box)': 60, // v0.9: one screen instead of reflect (25) and anything else (30); three helper questions
   'Write freely': 25,
   'Entry, read back after saving': 105, // 90 until v0.9 (stopped restating the entry), 75 until v0.12.3: its parts as rows with small labels, each opening its question (owner's OK)
-  'Entries [the fictional five days]': 180, // 125 until v0.10: + the time each of the 19 entries was logged
+  'Logs [the fictional five days]': 180, // 125 until v0.10: + the time each of the 19 entries was logged (called Entries until 2026-10-23)
   'Insights: this week, the fictional week': 130, // 80 until v0.9; + the week's energy chart and card titles (the owner's chosen layout); v0.10 + logged times on stand-out entries; v0.11 + the Next steps card; v0.12 + the Review a period row
   'Insights → Next steps (empty)': 30,
   'Insights → Review a period, this week': 60, // v0.12: the period, what's in it, the two ways
@@ -108,8 +108,8 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
 
   await page.goto('./#/entries')
-  await expect(page.getByRole('heading', { level: 1, name: 'Entries' })).toBeVisible()
-  await measure('Entries [the fictional five days]', main)
+  await expect(page.getByRole('heading', { level: 1, name: 'Logs' })).toBeVisible()
+  await measure('Logs [the fictional five days]', main)
 
   await page.goto('./#/insights')
   await expect(page.getByRole('heading', { level: 1, name: 'Insights' })).toBeVisible()

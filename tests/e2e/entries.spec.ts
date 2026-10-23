@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test'
 import { addEntry, closeSaved, entryButton } from './helpers'
 
-// After an entry (Stage E and F) and the Entries tab. Fictional example data.
+// After an entry (Stage E and F) and the Logs tab (Entries until 2026-10-23). Fictional example data.
 
 test.beforeEach(async ({ page }) => {
   await page.goto('./#/today')
@@ -93,7 +93,7 @@ test('"Remember this" lands in Insights → What I\'m learning', async ({ page }
   await expect(page.locator('section.card', { has: page.getByRole('heading', { name: "What I'm learning" }) })).toContainText('Small steps beat big plans')
 })
 
-test('Entries: everything, newest first, unfinished on top, found by any word', async ({ page }) => {
+test('Logs: everything, newest first, unfinished on top, found by any word', async ({ page }) => {
   await addEntry(page, { activity: 'Team meeting', energy: 'It used up my energy', writing: 'Long agenda, no decisions' })
   await addEntry(page, { activity: 'Evening run', energy: 'It gave me energy' })
   await page.getByRole('button', { name: 'Write freely' }).click()
@@ -106,18 +106,19 @@ test('Entries: everything, newest first, unfinished on top, found by any word', 
   await page.waitForTimeout(700) // the draft saves half a second after the last change
   await page.getByRole('dialog', { name: 'New activity' }).getByRole('button', { name: 'Close' }).click()
 
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Entries' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Entries' })).toBeVisible()
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Logs' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Logs' })).toBeVisible()
+  await expect(page.getByRole('searchbox', { name: 'Search your logs' })).toHaveAttribute('placeholder', 'Search your logs')
   await expect(page.getByRole('region', { name: 'Unfinished' })).toContainText('Gym')
   const list = page.locator('main .entry-list')
   await expect(list.getByRole('button')).toHaveCount(4)
 
-  await page.getByLabel('Search your entries').fill('agenda')
+  await page.getByLabel('Search your logs').fill('agenda')
   await expect(list.getByRole('button')).toHaveCount(1)
   await expect(list.getByRole('button')).toContainText('Team meeting')
-  await page.getByLabel('Search your entries').fill('nothing like this')
+  await page.getByLabel('Search your logs').fill('nothing like this')
   await expect(page.getByText('Nothing matches that yet.')).toBeVisible()
-  await page.getByLabel('Search your entries').fill('')
+  await page.getByLabel('Search your logs').fill('')
 
   await entryButton(page, 'Evening run').click()
   const view = page.getByRole('dialog', { name: 'Evening run' })

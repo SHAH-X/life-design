@@ -18,7 +18,7 @@ const DAYS_AT_A_TIME = 60
 
 const byTimeOfDay = (a: Entry, b: Entry) => PART_ORDER[a.part] - PART_ORDER[b.part] || a.createdAt - b.createdAt
 
-/** Everything you've written, newest first, unfinished ones on top, with a search. */
+/** Logs (the tab was Entries until 2026-10-23): everything you've written, newest first, unfinished ones on top, with a search. */
 export function EntriesScreen() {
   const searchId = useId()
   const entries = useLiveQuery(() => db.entries.toArray(), [])
@@ -47,11 +47,11 @@ export function EntriesScreen() {
 
   return (
     <>
-      <h1>Entries</h1>
+      <h1>Logs</h1>
       <label className="visually-hidden" htmlFor={searchId}>
-        Search your entries
+        Search your logs
       </label>
-      <input id={searchId} type="search" placeholder="Search your entries" value={query} onChange={(e) => setQuery(e.target.value)} />
+      <input id={searchId} type="search" placeholder="Search your logs" value={query} onChange={(e) => setQuery(e.target.value)} />
 
       {drafts.length ? (
         <section className="list-section" aria-label="Unfinished">

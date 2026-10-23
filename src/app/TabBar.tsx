@@ -24,7 +24,7 @@ const ITEMS: { tab: Tab; label: string; icon: ReactNode }[] = [
   },
   {
     tab: 'entries',
-    label: 'Entries',
+    label: 'Logs',
     icon: (
       <svg {...ICON_PROPS}>
         <path d="M8 6h12M8 12h12M8 18h12" />

@@ -8,7 +8,7 @@ import { FreeWrite } from './FreeWrite'
 import { RememberEdit } from './NextStep'
 import type { PurposeSettings } from './usePurpose'
 
-/** Which entry sheet is open, on Today or in Entries. */
+/** Which entry sheet is open, on Today or in Logs. */
 export type EntrySheetState =
   | { kind: 'new'; date: string }
   | { kind: 'free'; date: string }

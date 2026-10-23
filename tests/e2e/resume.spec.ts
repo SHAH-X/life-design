@@ -57,10 +57,10 @@ test('a lost database connection reloads the app instead of leaving a blank scre
   })
 
   const reloaded = page.waitForEvent('load', { timeout: 5000 })
-  await tab(page, 'Entries').click()
+  await tab(page, 'Logs').click()
   await reloaded
-  await expect(page.getByRole('heading', { level: 1, name: 'Entries' })).toBeVisible()
-  await expect(tab(page, 'Entries')).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Logs' })).toBeVisible()
+  await expect(tab(page, 'Logs')).toBeVisible()
 })
 
 test('a database that cannot open again reloads when the app comes back, instead of waiting forever', async ({ page }) => {
@@ -76,13 +76,13 @@ test('a database that cannot open again reloads when the app comes back, instead
       connection.dispatchEvent(new Event('close'))
     }
   })
-  await tab(page, 'Entries').click()
+  await tab(page, 'Logs').click()
 
   // Back in the foreground: the app checks its database, and reloads.
   const reloaded = page.waitForEvent('load', { timeout: 5000 })
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
   await reloaded
-  await expect(page.getByRole('heading', { level: 1, name: 'Entries' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Logs' })).toBeVisible()
 })
 
 test('a database that keeps failing gets a page that says so, with a reload', async ({ page }) => {

@@ -138,7 +138,7 @@ for (const scheme of ['light', 'dark'] as const) {
       await sheet.getByRole('button', { name: 'Close' }).click()
 
       for (const [route, heading] of [
-        ['entries', 'Entries'],
+        ['entries', 'Logs'],
         ['insights', 'Insights'],
         ['insights/steps', 'Next steps'],
         ['insights/review', 'Review a period'],

@@ -22,7 +22,7 @@ test('swipe left on an entry to show Delete; it goes at once, and Undo brings it
   await page.getByRole('button', { name: 'Undo' }).click()
   await expect(entryButton(page, 'Team meeting')).toContainText('used up energy')
 
-  // In Entries too; without Undo it's gone for good.
+  // In Logs too; without Undo it's gone for good.
   await page.goto('./#/entries')
   await swipe(page, entryButton(page, 'Evening run'), -150)
   await deleteButton(page, 'Evening run').click()
