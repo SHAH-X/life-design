@@ -113,6 +113,50 @@ export interface ReviewRequest {
   data: string
 }
 
+/** A message in a conversation where the AI can ask the phone things (tools), OpenAI's chat format. */
+export type ChatMessage =
+  | { role: 'system' | 'user'; content: string }
+  | { role: 'assistant'; content: string | null; tool_calls?: ToolCall[] }
+  | { role: 'tool'; tool_call_id: string; content: string }
+
+export interface ToolCall {
+  id: string
+  type: 'function'
+  function: { name: string; arguments: string }
+}
+
+export interface ToolSpec {
+  type: 'function'
+  function: { name: string; description: string; parameters: object }
+}
+
+export interface ChatRequest {
+  provider: AiProvider
+  key: string
+  model: string
+  messages: readonly ChatMessage[]
+  tools: readonly ToolSpec[]
+}
+
+/** One turn: the AI's reply, either an answer or things it asks the phone (tool calls). Ask the journal (v0.17). */
+export async function chatWithTools(request: ChatRequest, fetchImpl: Fetch = fetch, timeoutMs = AI_TIMEOUT_MS): Promise<{ content: string; toolCalls: ToolCall[] }> {
+  const body = { model: request.model, messages: request.messages, tools: request.tools, tool_choice: 'auto' }
+  const answer = (await call(
+    `${PROVIDERS[request.provider].baseUrl}/chat/completions`,
+    { method: 'POST', headers: headers(request.key), body: JSON.stringify(body) },
+    fetchImpl,
+    timeoutMs,
+  )) as { choices?: { message?: { content?: unknown; tool_calls?: unknown } }[] }
+  const message = answer.choices?.[0]?.message
+  if (!message) throw new AiError('other')
+  const toolCalls = (Array.isArray(message.tool_calls) ? message.tool_calls : []).filter(
+    (c): c is ToolCall => typeof c?.id === 'string' && typeof c?.function?.name === 'string' && typeof c?.function?.arguments === 'string',
+  )
+  const content = typeof message.content === 'string' ? message.content.trim() : ''
+  if (!content && toolCalls.length === 0) throw new AiError('other')
+  return { content, toolCalls }
+}
+
 /** One review: the instructions as the system message, your journal as the message. Returns the answer's text. */
 export async function reviewWithAi(request: ReviewRequest, fetchImpl: Fetch = fetch, timeoutMs = AI_TIMEOUT_MS): Promise<string> {
   const body = {

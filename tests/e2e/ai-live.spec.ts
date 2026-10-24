@@ -12,3 +12,24 @@ test('the real Groq refuses a fake key, and the app says so plainly', async ({ p
   await expect(page.getByText("The key wasn't accepted. Check it in More → AI review.")).toBeVisible({ timeout: 20_000 })
   await expect(page.getByLabel('API key')).toBeVisible()
 })
+
+test('Ask your journal reaches the real Groq with its tools, and a fake key is refused in plain words', async ({ page }) => {
+  // The key can't be saved through "Check key" when it's refused, so it's put on this test phone directly.
+  await page.goto('./#/entries')
+  await expect(page.getByLabel('Search your logs')).toBeVisible()
+  await page.evaluate(async () => {
+    const open = indexedDB.open('life-design')
+    await new Promise((resolve) => (open.onsuccess = resolve))
+    const tx = open.result.transaction('settings', 'readwrite')
+    const store = tx.objectStore('settings')
+    store.put({ key: 'aiKey', value: 'gsk_fake_live_check', updatedAt: 1 })
+    store.put({ key: 'aiModel', value: 'openai/gpt-oss-120b', updatedAt: 1 })
+    await new Promise((resolve) => (tx.oncomplete = resolve))
+    open.result.close()
+  })
+  await page.reload() // the app sees a change made outside it once it reads the database again
+  await page.getByLabel('Search your logs').fill('What groceries did I buy this month?')
+  const ask = page.getByRole('region', { name: 'Ask your journal' })
+  await ask.getByRole('button', { name: 'Ask', exact: true }).click()
+  await expect(ask.getByText("The key wasn't accepted. Check it in More → AI review.")).toBeVisible({ timeout: 20_000 })
+})

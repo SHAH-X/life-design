@@ -13,6 +13,8 @@ import { EntryRow } from '../today/EntryRow'
 import { EntrySheet, type EntrySheetState } from '../today/EntrySheet'
 import { usePurposeSettings } from '../today/usePurpose'
 import { useDeleteEntry } from '../today/useDeleteEntry'
+import { useAiSettings } from '../more/useAiSettings'
+import { AskJournal, looksLikeQuestion } from './AskJournal'
 import { useOwnWords } from '../today/useOwnWords'
 
 /** Days with entries shown at first; "Show earlier" adds as many again. */
@@ -39,6 +41,7 @@ export function EntriesScreen() {
   const [days, setDays] = useState(DAYS_AT_A_TIME)
   const [sheet, setSheet] = useState<EntrySheetState>(null)
   const remove = useDeleteEntry()
+  const ai = useAiSettings()
 
   const searching = query.trim() !== ''
   const all = entries ?? NO_ENTRIES
@@ -48,7 +51,7 @@ export function EntriesScreen() {
   const among = byMeaning ? all.filter((e) => e.status !== 'draft' && !matched.has(e.id)).map((e) => e.id) : NO_IDS
   const found = useMeaningResults(query, { enabled: byMeaning && entries !== undefined, among, max: BY_MEANING, pick: 'closest' })
   // Render only once loaded, so nothing jumps under your finger.
-  if (entries === undefined || own === undefined || purpose === undefined || meaning === undefined) return <Loading />
+  if (entries === undefined || own === undefined || purpose === undefined || meaning === undefined || ai === undefined) return <Loading />
 
   const drafts = matches.filter((e) => e.status === 'draft').sort((a, b) => b.updatedAt - a.updatedAt)
   const done = matches.filter((e) => e.status !== 'draft')
@@ -72,6 +75,10 @@ export function EntriesScreen() {
       </label>
       <input id={searchId} type="search" placeholder="Search your logs" value={query} onChange={(e) => setQuery(e.target.value)} />
       {searching && meaning === 'unasked' ? <MeaningOffer /> : null}
+      {/* Ask your journal (v0.17): a question in the box can be asked, on a tap. A new question starts afresh. */}
+      {looksLikeQuestion(query) ? (
+        <AskJournal key={query.trim()} question={query.trim()} ai={ai} meaningOn={meaning === 'on'} entries={byId} onOpen={(entry) => setSheet({ kind: 'open', entry })} />
+      ) : null}
 
       {drafts.length ? (
         <section className="list-section" aria-label="Unfinished">
