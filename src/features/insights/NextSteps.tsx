@@ -8,7 +8,7 @@ import { hashFor } from '../../lib/route'
 import { Dialog } from '../../ui/Dialog'
 import { revealOnMount } from '../../ui/keepInView'
 import { SwipeRow } from '../../ui/SwipeRow'
-import { entryTitle } from '../today/EntryRow'
+import { useEntryTitle } from '../areas/AreasProvider'
 import { Evidence } from './Evidence'
 
 // Next steps you can manage (v0.11, owner: "a separate section … where I can see and manage them"). See
@@ -45,6 +45,7 @@ export function NextStepsCard({ steps }: { steps: readonly Step[] }) {
 
 /** One step in a list: its words (cue first), how often, and where it came from. */
 function StepRow({ step, entries, onOpen }: { step: Step; entries: ReadonlyMap<string, Entry>; onOpen: () => void }) {
+  const entryTitle = useEntryTitle()
   const from = step.entryIds.map((id) => entries.get(id)).find((e): e is Entry => e !== undefined)
   const finished = step.status !== 'active' && step.finishedAt !== null
   const meta = finished

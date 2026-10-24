@@ -276,19 +276,22 @@ describe('backup and restore', () => {
     expect(await newPhone.settings.get('aiKey')).toBeUndefined()
   })
 
-  it("never puts search by meaning's numbers in a backup: they're worked out again on the phone it's restored to", async () => {
+  it("never puts search by meaning's numbers or life areas' centres in a backup: they're worked out again on the phone it's restored to", async () => {
     await phone.entries.put(entry('e1', 10, { note: 'Up early' }))
     await phone.vectors.put({ id: 'e1#0', entryId: 'e1', model: 'm', hash: 'h', vector: new Float32Array([0.6, 0.8]) })
+    await phone.areaCentres.put({ id: 'money', hash: 'centres-hash', vector: new Float32Array([0.8, 0.6]) })
     await phone.settings.put({ key: 'meaningSearch', value: true, updatedAt: 10 })
     const backup = await createBackup(phone)
     expect(backup.data.settings.map((s) => s.key)).not.toContain('meaningSearch') // its download is this phone's
     expect(Object.keys(backup.data).sort()).toEqual([...TABLE_NAMES].sort())
     expect(JSON.stringify(backup)).not.toContain('e1#0')
+    expect(JSON.stringify(backup)).not.toContain('centres-hash')
     const detected = detectFile(JSON.stringify(backup))
     if (detected.format !== 'backup') throw new Error('expected a backup')
     await applyImport(detected.raw, newPhone)
     expect(await newPhone.entries.get('e1')).toMatchObject({ note: 'Up early' })
     expect(await newPhone.vectors.count()).toBe(0)
+    expect(await newPhone.areaCentres.count()).toBe(0)
     expect(await newPhone.settings.get('meaningSearch')).toBeUndefined()
   })
 

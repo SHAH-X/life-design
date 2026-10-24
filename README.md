@@ -2,11 +2,11 @@
 
 A private daily journal for iPhone, built on *Designing Your Life* (Burnett & Evans) and Ikigai.
 
-- **One box for anything:** "What's on your mind?" A thought, a worry, a plan, notes from the day: no title, no category, no form. Type, dictate or paste; it saves as you go, and unfinished writing is kept. Activities reflected on in earlier versions stay, and each part can still be changed.
+- **One box for anything:** "What's on your mind?" A thought, a worry, a plan, notes from the day: no title, no category, no form. Type, dictate or paste; it saves as you go, and unfinished writing is kept. Once you turn it on, what you write sorts itself into life areas (Money, Work, Health and more) by what it's about, on the phone. Activities reflected on in earlier versions stay, and each part can still be changed.
 - **Learn from it:** after each entry, your entry read back and, only when several entries agree, a possible insight with the entries behind it. Find any entry again in Logs, by its words or, once you turn it on, by what it's about (a small model on the phone: nothing is sent).
 - **Review a period:** a week, a month, all time or any range (or only the entries about a question), copied for an AI chat of your choice, or reviewed in the app with your own free Groq key. Nothing is sent until you tap.
 - **Next steps:** what you decide to do or try gathers in one list you can manage, once or ongoing, with an optional "when".
-- **Insights, put together for you:** one page. Your week (what each day held for your energy, what stood out, the feelings that came up), then the last 30 days in words (what gives and uses up your energy, when time flew, the places, people and times that usually went one way), then what you're learning and your next steps. Nothing to choose or fill in, and every line opens to the entries behind it.
+- **Insights, put together for you:** one page. Your week (what each day held for your energy, what stood out, the feelings that came up), your life areas over the last 30 days, then the last 30 days in words (what gives and uses up your energy, when time flew, the places, people and times that usually went one way), then what you're learning and your next steps. Nothing to choose or fill in, and every line opens to the entries behind it.
 - **An evening question:** a small joy, plus one question that changes each day and follows what you journal for (understand yourself, improve, learn, reach a goal, make sense of a hard time, everyday life), sometimes about a pattern in your own days.
 
 **Easy to start:** a short welcome, openers when a blank box stares back, and no streaks to keep.

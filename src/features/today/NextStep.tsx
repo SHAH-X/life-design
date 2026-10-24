@@ -8,7 +8,7 @@ import { findLookAlike, kindFor, stepLine } from '../../domain/steps'
 import { hashFor } from '../../lib/route'
 import { Dialog } from '../../ui/Dialog'
 import { revealOnMount } from '../../ui/keepInView'
-import { entryTitle } from './EntryRow'
+import { useEntryTitle } from '../areas/AreasProvider'
 
 /**
  * "Anything you'd like to do with this?" (Stage F): optional, never forced. A step to do or try joins your list of
@@ -136,6 +136,7 @@ const THE_WHOLE_ENTRY = 'The whole entry'
 
 /** "To remember", changed or removed (owner, 2026-10-23: "there is no option to edit the 'to remember' part"). */
 export function RememberEdit({ entry, onClose }: { entry: Entry; onClose: () => void }) {
+  const entryTitle = useEntryTitle()
   const id = useId()
   const remember = entry.intention?.kind === 'remember' ? entry.intention : null
   const [text, setText] = useState(remember?.text ?? '')

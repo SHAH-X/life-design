@@ -9,7 +9,8 @@ import { addDays, dayHeading, dayMonthLong, PART_ORDER } from '../../lib/dates'
 import { useTonight } from '../../prompts/useTonight'
 import { Loading } from '../../ui/Loading'
 import { SwipeRow } from '../../ui/SwipeRow'
-import { EntryRow, entryTitle } from './EntryRow'
+import { useEntryTitle } from '../areas/AreasProvider'
+import { EntryRow } from './EntryRow'
 import { EntrySheet, type EntrySheetState } from './EntrySheet'
 import { usePurposeSettings } from './usePurpose'
 import { EveningQuestion } from './EveningQuestion'
@@ -22,6 +23,7 @@ import { useToday } from './useToday'
 const byTimeOfDay = (a: Entry, b: Entry) => PART_ORDER[a.part] - PART_ORDER[b.part] || a.createdAt - b.createdAt
 
 export function TodayScreen() {
+  const entryTitle = useEntryTitle()
   const today = useToday()
   const [date, setDate] = useState(today)
   // Writing (the box), or an entry you tapped (an unfinished one carries on where it was left).

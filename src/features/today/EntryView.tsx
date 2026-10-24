@@ -9,7 +9,7 @@ import { addDays, DAY_PARTS, loggedAt, longDate, shortDay, toDateKey } from '../
 import { Dialog } from '../../ui/Dialog'
 import { revealOnMount } from '../../ui/keepInView'
 import type { EntryPart } from './EntryEdit'
-import { entryTitle } from './EntryRow'
+import { useEntryTitle } from '../areas/AreasProvider'
 import { NextStep } from './NextStep'
 
 const words = (list: readonly string[]) => [...new Set(list.map((w) => w.toLowerCase()))].join(' · ')
@@ -50,6 +50,7 @@ function when(entry: Entry): string {
  */
 export function EntryView(props: { entryId: string; fresh?: boolean; onPart: (entry: Entry, part: EntryPart | 'remember') => void; onClose: () => void }) {
   const { entryId, fresh = false, onPart, onClose } = props
+  const entryTitle = useEntryTitle()
   const takeId = useId()
   const data = useLiveQuery(async () => {
     const entry = await db.entries.get(entryId)

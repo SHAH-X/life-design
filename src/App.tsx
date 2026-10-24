@@ -9,6 +9,7 @@ import { EntriesScreen } from './features/entries/EntriesScreen'
 import { InsightsScreen } from './features/insights/InsightsScreen'
 import { MoreScreen } from './features/more/MoreScreen'
 import { TodayScreen } from './features/today/TodayScreen'
+import { AreasProvider } from './features/areas/AreasProvider'
 import { useWelcome, Welcome } from './features/welcome/Welcome'
 import type { Route } from './lib/route'
 import { ensurePersistentStorage } from './lib/storage'
@@ -40,17 +41,19 @@ export function App() {
   return (
     <DialogsProvider>
       <UndoProvider>
-        <main className="app">
-          {welcome.show === undefined ? (
-            <Loading />
-          ) : welcome.show ? (
-            <Welcome onDone={welcome.done} />
-          ) : (
-            <Screen route={route} />
-          )}
-        </main>
-        <UpdateBanner />
-        {welcome.show === false ? <TabBar current={route.tab} /> : null}
+        <AreasProvider>
+          <main className="app">
+            {welcome.show === undefined ? (
+              <Loading />
+            ) : welcome.show ? (
+              <Welcome onDone={welcome.done} />
+            ) : (
+              <Screen route={route} />
+            )}
+          </main>
+          <UpdateBanner />
+          {welcome.show === false ? <TabBar current={route.tab} /> : null}
+        </AreasProvider>
       </UndoProvider>
     </DialogsProvider>
   )

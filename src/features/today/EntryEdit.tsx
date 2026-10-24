@@ -26,7 +26,7 @@ import { Question } from '../../ui/Question'
 import { WordPicker } from '../../ui/WordPicker'
 import { EarlierAnswers } from './EarlierAnswers'
 import { EntryDetails } from './EntryDetails'
-import { entryTitle } from './EntryRow'
+import { useEntryTitle } from '../areas/AreasProvider'
 import { WriteBox } from './WriteBox'
 
 /** The parts of an entry, each changed on its own (owner, 2026-10-23: one screen to read, a part at a time to change). */
@@ -50,6 +50,7 @@ interface Props {
  * Edit showed every question on one long screen and couldn't change "To remember" (owner: "it should be simpler").
  */
 export function EntryEdit({ existing, part: editing, suggestions, own, goal, focus, onClose }: Props) {
+  const entryTitle = useEntryTitle()
   const activityId = useId()
   const duringId = useId()
   const energyId = useId()

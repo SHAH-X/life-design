@@ -1,12 +1,7 @@
 import type { Entry } from '../../db/types'
 import { energyEdge, entryWords } from '../../domain/feelings'
 import { loggedAt, shortDayMonth } from '../../lib/dates'
-
-/** What an entry is called in lists, labels and its sheet: the activity, or "Free writing" (never the writing itself:
- * a long first line once became a whole passage in bold, v0.12.2). */
-export function entryTitle(entry: Entry): string {
-  return entry.kind === 'free' ? 'Free writing' : entry.activity
-}
+import { useEntryTitle } from '../areas/AreasProvider'
 
 /**
  * One entry, the same shape for every kind: a one-line title (what you did, or "Free writing") and when you wrote it,
@@ -17,6 +12,7 @@ export function entryTitle(entry: Entry): string {
  * the time, for a row away from its day's heading.
  */
 export function EntryRow({ entry, onOpen, dated = false }: { entry: Entry; onOpen?: () => void; dated?: boolean }) {
+  const entryTitle = useEntryTitle()
   const free = entry.kind === 'free'
   const words = free ? '' : entryWords(entry)
   const note = entry.note.replace(/\s+/g, ' ').trim()

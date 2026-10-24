@@ -4,8 +4,8 @@ import { getSetting, setSetting } from '../../db/repo'
 import { findByMeaning } from '../../db/vectors'
 import { embed, MEANING_PROBLEMS, MeaningError, meaningReady } from '../../lib/embedder'
 
-/** Search by meaning on this phone: on, off, or not asked yet (Logs offers it the first time you search). The setting
- *  stays on this phone, like its download. */
+/** Search by meaning on this phone: on, off, or not asked yet (Logs offers it the first time you search; Insights'
+ *  life areas, which read its numbers, offer it while it's off). The setting stays on this phone, like its download. */
 export type MeaningSearch = 'on' | 'off' | 'unasked'
 
 export function useMeaningSearch(): MeaningSearch | undefined {

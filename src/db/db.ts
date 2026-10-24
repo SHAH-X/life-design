@@ -3,6 +3,7 @@ import { stepsFromIntentions } from '../domain/steps'
 import {
   type AiReview,
   type Answer,
+  type AreaCentre,
   type Day,
   type Entry,
   entryDefaults,
@@ -31,6 +32,7 @@ export type LifeDesignDB = Dexie & {
   reviews: EntityTable<Review, 'id'>
   settings: EntityTable<Setting, 'key'>
   vectors: EntityTable<MeaningVector, 'id'>
+  areaCentres: EntityTable<AreaCentre, 'id'>
 }
 
 export const DB_NAME = 'life-design'
@@ -144,6 +146,11 @@ export function openDb(name = DB_NAME): LifeDesignDB {
   // backup and filled in when search is first used. A new, empty table: nothing else changes.
   database.version(9).stores({
     vectors: 'id, entryId',
+  })
+  // v0.16: life areas. Each area's centre, worked out from the app's own examples: derived, so never in a backup. A
+  // new, empty table: nothing else changes.
+  database.version(10).stores({
+    areaCentres: 'id',
   })
   return database
 }

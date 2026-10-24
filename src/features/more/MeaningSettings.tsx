@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { clearAreaCentres } from '../../db/areas'
 import { clearVectors } from '../../db/vectors'
 import { meaningFilesDownloaded, removeMeaningFiles } from '../../lib/embedder'
 import { Loading } from '../../ui/Loading'
@@ -6,7 +7,7 @@ import { Switch } from '../../ui/Switch'
 import { setMeaningSearch, useMeaningSearch } from '../meaning/useMeaning'
 
 export const MEANING_INFO =
-  'A small model on this phone reads each entry once, then finds the ones about the same thing as your search, even in other words. It downloads once (about 30 MB) the first time you search, and works offline. Nothing you write is sent anywhere.'
+  'A small model on this phone reads each entry once. It finds the ones about the same thing as your search, even in other words, and sorts what you write into life areas (Insights). It downloads once (about 30 MB) when first needed, and works offline. Nothing you write is sent anywhere.'
 
 /** More → Search by meaning: on or off, and the download removed. */
 export function MeaningSettings() {
@@ -40,6 +41,7 @@ function MeaningCard(initial: { on: boolean; downloaded: boolean }) {
     await setMeaningSearch(false)
     await removeMeaningFiles()
     await clearVectors()
+    await clearAreaCentres()
     setDownloaded(false)
     setNote('Removed. It downloads again if you turn it on.')
   }

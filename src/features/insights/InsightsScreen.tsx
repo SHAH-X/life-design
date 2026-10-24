@@ -9,11 +9,12 @@ import { times } from '../../domain/feelings'
 import { addDays, formatPeriod, formatRecentPeriod, shortDay, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { Loading } from '../../ui/Loading'
-import { entryTitle } from '../today/EntryRow'
+import { useAreas, useEntryTitle } from '../areas/AreasProvider'
 import { EntrySheet, type EntrySheetState } from '../today/EntrySheet'
 import { usePurposeSettings } from '../today/usePurpose'
 import { useOwnWords } from '../today/useOwnWords'
 import { Evidence } from './Evidence'
+import { LifeAreas } from './LifeAreas'
 import { NextStepsCard, NextStepsPage } from './NextSteps'
 import { PatternLines } from './PatternLines'
 import { ReviewPeriod } from './ReviewPeriod'
@@ -46,8 +47,8 @@ interface Learning {
 }
 
 /**
- * Insights (v0.13): one page that answers in order: how your week went, what gives and uses up your energy over the
- * last 30 days, what you're learning and doing, then a way to look back. Nothing to choose or fill in: the app shows
+ * Insights (v0.13): one page that answers in order: how your week went, your life areas (v0.16) and what gives and
+ * uses up your energy over the last 30 days, what you're learning and doing, then a way to look back. Nothing to choose or fill in: the app shows
  * what has something to say, and every line opens to the entries behind it. Earlier weeks (#/insights/weeks,
  * #/insights/week-…), all you're learning (#/insights/learning), next steps and Review a period are their own pages;
  * old links (#/insights/patterns) open Insights.
@@ -68,8 +69,9 @@ export function InsightsScreen({ sub }: { sub: string | null }) {
   const purpose = usePurposeSettings()
   const suggestions = useLiveQuery(() => loadSuggestions(), [], NO_SUGGESTIONS)
   const [sheet, setSheet] = useState<EntrySheetState>(null)
+  const areas = useAreas()
   // Render only once loaded, so nothing jumps under your finger.
-  if (data === undefined || own === undefined || purpose === undefined) return <Loading />
+  if (data === undefined || own === undefined || purpose === undefined || areas.meaning === undefined || areas.byEntry === undefined) return <Loading />
 
   const open = (entry: Entry) => setSheet({ kind: 'open', entry })
   const week = sub?.match(/^week-(\d{4}-\d{2}-\d{2})$/)?.[1]
@@ -94,7 +96,7 @@ export function InsightsScreen({ sub }: { sub: string | null }) {
 }
 
 /** What you chose to remember from an entry, then takeaways from reviews before v0.8; newest first. */
-function learningsOf(data: Data): Learning[] {
+function learningsOf(data: Data, entryTitle: (entry: Entry) => string): Learning[] {
   return [
     ...data.done
       .filter((e) => e.intention?.kind === 'remember')
@@ -108,14 +110,17 @@ function learningsOf(data: Data): Learning[] {
 function InsightsHome({ data, onOpen }: { data: Data; onOpen: (entry: Entry) => void }) {
   const today = toDateKey(new Date())
   const thisWeek = weekStart(today)
+  const entryTitle = useEntryTitle()
   const earlier = weeksWithEntries(data.done).some((w) => w < thisWeek)
-  const learnings = learningsOf(data)
+  const learnings = learningsOf(data, entryTitle)
   const doingId = useId()
+  const lastDays = inPeriod(data.done, { start: addDays(today, -(PATTERN_DAYS - 1)), end: today })
 
   return (
     <>
       <h1>Insights</h1>
       <WeekReview summary={weekSummary(data.done, thisWeek, data.steps)} entries={data.byId} title="This week" carry={data.carry.get(thisWeek) ?? ''} onOpen={onOpen} />
+      <LifeAreas entries={lastDays} byId={data.byId} onOpen={onOpen} />
       <LastDays data={data} today={today} onOpen={onOpen} />
 
       <section aria-labelledby={doingId}>
@@ -278,7 +283,8 @@ function LearningList({ learnings, onOpen }: { learnings: readonly Learning[]; o
 }
 
 function LearningPage({ data, onOpen }: { data: Data; onOpen: (entry: Entry) => void }) {
-  const learnings = learningsOf(data)
+  const entryTitle = useEntryTitle()
+  const learnings = learningsOf(data, entryTitle)
   return (
     <>
       <a className="back-link" href={hashFor('insights')}>

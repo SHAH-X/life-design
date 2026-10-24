@@ -306,6 +306,16 @@ export interface MeaningVector {
   vector: Float32Array
 }
 
+/** A life area's centre (v0.16), worked out from its examples (src/domain/areas.ts); `shared` is what all writing
+ *  shares. Derived from the app's own words, never from an entry, so never in a backup. */
+export interface AreaCentre {
+  /** An area's id, or `shared`. */
+  id: string
+  /** Fingerprint of the model and every area's examples. */
+  hash: string
+  vector: Float32Array
+}
+
 export interface BackupData {
   entries: Entry[]
   days: Day[]

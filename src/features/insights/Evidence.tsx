@@ -1,7 +1,7 @@
 import type { Entry } from '../../db/types'
 import { entryWords } from '../../domain/feelings'
 import { PART_ORDER, shortDay } from '../../lib/dates'
-import { entryTitle } from '../today/EntryRow'
+import { useEntryTitle } from '../areas/AreasProvider'
 
 /**
  * The entries behind a line, newest first: day, what it was, and its words. Nothing is claimed without them. With
@@ -10,6 +10,7 @@ import { entryTitle } from '../today/EntryRow'
  */
 export function Evidence(props: { ids: readonly string[]; entries: ReadonlyMap<string, Entry>; onOpen?: (entry: Entry) => void; oneDay?: boolean }) {
   const { ids, entries, onOpen, oneDay = false } = props
+  const entryTitle = useEntryTitle()
   const listed = ids
     .map((id) => entries.get(id))
     .filter((e): e is Entry => e !== undefined)

@@ -8,7 +8,8 @@ import { longDate, PART_ORDER } from '../../lib/dates'
 import { Loading } from '../../ui/Loading'
 import { SwipeRow } from '../../ui/SwipeRow'
 import { type MeaningResults, setMeaningSearch, useMeaningResults, useMeaningSearch, workingText } from '../meaning/useMeaning'
-import { EntryRow, entryTitle } from '../today/EntryRow'
+import { useEntryTitle } from '../areas/AreasProvider'
+import { EntryRow } from '../today/EntryRow'
 import { EntrySheet, type EntrySheetState } from '../today/EntrySheet'
 import { usePurposeSettings } from '../today/usePurpose'
 import { useDeleteEntry } from '../today/useDeleteEntry'
@@ -27,6 +28,7 @@ const byTimeOfDay = (a: Entry, b: Entry) => PART_ORDER[a.part] - PART_ORDER[b.pa
 /** Logs (the tab was Entries until 2026-10-23): everything you've written, newest first, unfinished ones on top, with a
  *  search. With search by meaning on (v0.14), entries about the same thing follow the word matches. */
 export function EntriesScreen() {
+  const entryTitle = useEntryTitle()
   const searchId = useId()
   const entries = useLiveQuery(() => db.entries.toArray(), [])
   const own = useOwnWords()
