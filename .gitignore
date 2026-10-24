@@ -3,6 +3,8 @@ Self Reflection App background.md
 private/
 
 # Dependencies and build output
+# Search by meaning's model files: fetched and checked by npm run model (about 28 MB)
+public/models/
 node_modules/
 dist/
 dev-dist/

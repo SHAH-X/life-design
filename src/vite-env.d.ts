@@ -5,3 +5,5 @@
 declare const __APP_VERSION__: string
 declare const __BUILD_TIME__: string
 declare const __COMMIT__: string
+/** onnxruntime-web's version: names search by meaning's runtime file (public/models/ort-<version>/). */
+declare const __ORT_VERSION__: string

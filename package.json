@@ -18,11 +18,14 @@
     "screens": "playwright test tests/e2e/screens.spec.ts",
     "ios-check": "python3 -I scripts/ios-check.py",
     "icons": "pwa-assets-generator",
-    "privacy-scan": "sh scripts/privacy-scan.sh"
+    "privacy-scan": "sh scripts/privacy-scan.sh",
+    "model": "node scripts/fetch-model.mjs"
   },
   "dependencies": {
+    "@huggingface/tokenizers": "^0.2.0",
     "dexie": "^4.4.6",
     "dexie-react-hooks": "^4.4.0",
+    "onnxruntime-web": "^1.30.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "workbox-window": "^7.4.1"

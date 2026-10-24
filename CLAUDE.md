@@ -70,12 +70,13 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 ## Tech
 - Vite 8, React 19, TypeScript 7 (`tsc --noEmit` only), vite-plugin-pwa 2 (generateSW, asks before updating), Dexie 4 (IndexedDB).
 - Base path `/life-design/`. Routes are hashes (`#/today`), so reloads never 404 on Pages.
-- The Content-Security-Policy is injected at build time in `vite.config.ts`; `connect-src` names only this site, `api.groq.com` and `api.openai.com` (a unit test checks it). Adding an AI service means adding its address there, on purpose.
+- The Content-Security-Policy is injected at build time in `vite.config.ts`; `connect-src` names only this site, `api.groq.com` and `api.openai.com` (a unit test checks it). Adding an AI service means adding its address there, on purpose. A worker loaded from its own file doesn't take this `<meta>` policy (Pages sends no headers), so a worker must fetch only its own fixed files: `tests/unit/meaningWorker.test.ts` reads search by meaning's worker to check it.
+- Search by meaning's model files are git-ignored in `public/models/`. `src/lib/meaning-model.json` pins the model, its revision and each file's SHA-256; `npm run model` fetches and checks them (a changed file refuses: never edit a hash to make it pass), and `npm run build` refuses without them. CI caches them. They're never precached: everyone would download about 28 MB with each update. `tests/unit/meaningModel.test.ts` runs the real model in Node, the same runtime and encoder as the phone.
 - e2e tests stand in for the AI service with `page.route` and block service workers (`test.use({ serviceWorkers: 'block' })`): requests that go through the app's service worker skip `page.route` and reach the real service. The one live check, `tests/e2e/ai-live.spec.ts`, runs only with `AI_LIVE=1` and a fake key.
 - Icons: edit `public/logo.svg`, then run `npm run icons`.
 - Node 22.12 or newer (`.nvmrc`).
 
 ## Commands
-- `npm run dev` · `npm run typecheck` · `npm test` · `npm run test:e2e` (WebKit at iPhone 17 size, the owner's phone) · `npm run screens` (every screen: layout check and screenshots; part of `test:e2e` too) · `npm run ios-check` (sheets in the iOS Simulator with the real keyboard; needs `npm run preview` running, Xcode's iOS 27.0 simulator and idb, see DECISIONS) · `npm run build`
+- `npm run dev` · `npm run typecheck` · `npm test` · `npm run test:e2e` (WebKit at iPhone 17 size, the owner's phone) · `npm run screens` (every screen: layout check and screenshots; part of `test:e2e` too) · `npm run ios-check` (sheets in the iOS Simulator with the real keyboard; needs `npm run preview` running, Xcode's iOS 27.0 simulator and idb, see DECISIONS) · `npm run build` · `npm run model` (search by meaning's model files, before tests and builds)
 - Deploy: push to `main`. GitHub Actions type-checks, tests, builds and publishes to Pages.
 - Version bump: `npm version <x.y.z> --no-git-tag-version`, so package.json and package-lock.json stay the same (a unit test checks; until v0.6.1 the lockfile still said 0.1.0).

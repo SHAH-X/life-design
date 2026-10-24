@@ -25,7 +25,7 @@ describe('database upgrade', () => {
     expect(await upgraded.entries.get('kept')).toMatchObject({ activity: 'Choir rehearsal' })
     expect(await upgraded.days.get('2026-10-20')).toMatchObject({ smallJoy: 'Fresh bread' })
     expect(await upgraded.reviews.count()).toBe(0)
-    expect(upgraded.verno).toBe(8)
+    expect(upgraded.verno).toBe(9)
     await upgraded.delete()
   })
 
@@ -67,7 +67,7 @@ describe('database upgrade', () => {
     expect(review?.updatedAt).toBe(7) // an upgrade is not an edit
     expect(await upgraded.entries.get('kept')).toMatchObject({ activity: 'Choir rehearsal' })
     expect(await upgraded.answers.count()).toBe(0)
-    expect(upgraded.verno).toBe(8)
+    expect(upgraded.verno).toBe(9)
     await upgraded.delete()
   })
 
@@ -109,7 +109,7 @@ describe('database upgrade', () => {
       balance: { play: 3 },
       updatedAt: 7,
     })
-    expect(upgraded.verno).toBe(8)
+    expect(upgraded.verno).toBe(9)
     await upgraded.delete()
   })
 
@@ -155,7 +155,7 @@ describe('database upgrade', () => {
     })
     expect(await upgraded.planVersions.count()).toBe(0)
     expect(await upgraded.views.count()).toBe(0)
-    expect(upgraded.verno).toBe(8)
+    expect(upgraded.verno).toBe(9)
     await upgraded.delete()
   })
 
@@ -195,7 +195,7 @@ describe('database upgrade', () => {
     phase3a.close()
 
     const upgraded = openDb(name)
-    expect(upgraded.verno).toBe(8)
+    expect(upgraded.verno).toBe(9)
     expect(await upgraded.entries.get('e1')).toEqual({
       ...old,
       kind: 'activity',
@@ -259,7 +259,7 @@ describe('database upgrade', () => {
     v6.close()
 
     const upgraded = openDb(name)
-    expect(upgraded.verno).toBe(8)
+    expect(upgraded.verno).toBe(9)
     expect(await upgraded.steps.toArray()).toEqual([
       {
         id: 'from-e1',
@@ -278,6 +278,36 @@ describe('database upgrade', () => {
     expect(await upgraded.entries.get('e1')).toEqual({ ...meeting, intention: null })
     expect(await upgraded.entries.get('e2')).toEqual(walk)
     expect(await upgraded.entries.get('e3')).toEqual(plain)
+    await upgraded.delete()
+  })
+
+  it('keeps everything from a v0.13 phone (version 8) and adds an empty table for search by meaning', async () => {
+    const name = `upgrade-${crypto.randomUUID()}`
+    const v8 = new Dexie(name)
+    v8.version(8).stores({
+      entries: 'id, date, createdAt, updatedAt',
+      days: 'date, updatedAt',
+      ikigaiItems: 'id, updatedAt',
+      odysseyPlans: 'id, slot, updatedAt',
+      settings: 'key',
+      reviews: 'id, periodEnd, updatedAt',
+      answers: 'id, date, updatedAt',
+      planVersions: 'id, planId, savedAt, updatedAt',
+      views: 'id, updatedAt',
+      weeks: 'id, updatedAt',
+      steps: 'id, status, updatedAt',
+      aiReviews: 'id, start, createdAt, updatedAt',
+    })
+    const review = { id: 'r1', start: '2026-10-12', end: '2026-10-18', focus: '', provider: 'groq', model: 'm', text: 'Kind words', createdAt: 3, updatedAt: 3 }
+    await v8.table('entries').put({ id: 'kept', date: '2026-10-20', activity: 'Choir rehearsal', updatedAt: 1, createdAt: 1 })
+    await v8.table('aiReviews').put(review)
+    v8.close()
+
+    const upgraded = openDb(name)
+    expect(upgraded.verno).toBe(9)
+    expect(await upgraded.entries.get('kept')).toEqual({ id: 'kept', date: '2026-10-20', activity: 'Choir rehearsal', updatedAt: 1, createdAt: 1 })
+    expect(await upgraded.aiReviews.get('r1')).toEqual(review)
+    expect(await upgraded.vectors.count()).toBe(0)
     await upgraded.delete()
   })
 })

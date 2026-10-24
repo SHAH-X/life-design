@@ -7,6 +7,7 @@ import {
   type Entry,
   entryDefaults,
   type IkigaiItem,
+  type MeaningVector,
   type OdysseyPlan,
   type PlanVersion,
   type Review,
@@ -29,6 +30,7 @@ export type LifeDesignDB = Dexie & {
   aiReviews: EntityTable<AiReview, 'id'>
   reviews: EntityTable<Review, 'id'>
   settings: EntityTable<Setting, 'key'>
+  vectors: EntityTable<MeaningVector, 'id'>
 }
 
 export const DB_NAME = 'life-design'
@@ -137,6 +139,11 @@ export function openDb(name = DB_NAME): LifeDesignDB {
   // v0.12 (Phase 5): reviews of a period by AI, kept to read again. A new, empty table: nothing else changes.
   database.version(8).stores({
     aiReviews: 'id, start, createdAt, updatedAt',
+  })
+  // v0.14: search by meaning. Each finished entry's meaning as numbers, worked out on the phone: derived, so never in a
+  // backup and filled in when search is first used. A new, empty table: nothing else changes.
+  database.version(9).stores({
+    vectors: 'id, entryId',
   })
   return database
 }

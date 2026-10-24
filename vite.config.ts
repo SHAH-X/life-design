@@ -1,6 +1,6 @@
 /// <reference types="vitest/config" />
 import { execSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -9,10 +9,17 @@ import { VitePWA } from 'vite-plugin-pwa'
 const BASE = '/life-design/'
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }
+const ort = JSON.parse(readFileSync(new URL('./node_modules/onnxruntime-web/package.json', import.meta.url), 'utf8')) as { version: string }
+const meaningModel = JSON.parse(readFileSync(new URL('./src/lib/meaning-model.json', import.meta.url), 'utf8')) as {
+  dir: string
+  files: { name: string }[]
+}
 
 // Content-Security-Policy for the built app only (Vite's dev server needs inline scripts).
 // connect-src: only this site and the AI services you can choose (Groq, OpenAI), called directly from the phone with
 // your own key. Nothing else can be reached, so not even injected code could send the key or your journal elsewhere.
+// script-src 'self' blocks WebAssembly on the page. Search by meaning's model runs WebAssembly in a worker, which
+// doesn't take this <meta> policy: it fetches only its own files (src/lib/meaning.worker.ts).
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
@@ -37,6 +44,20 @@ function contentSecurityPolicy(): Plugin {
   }
 }
 
+// Search by meaning's model files are git-ignored (npm run model fetches and checks them). A build without them would
+// publish a search that can't start, so it refuses instead.
+function meaningModelFiles(): Plugin {
+  return {
+    name: 'life-design:meaning-model',
+    apply: 'build',
+    buildStart() {
+      const needed = [...meaningModel.files.map((f) => `${meaningModel.dir}/${f.name}.gz`), `ort-${ort.version}/ort.wasm.gz`]
+      const missing = needed.filter((path) => !existsSync(new URL(`./public/models/${path}`, import.meta.url)))
+      if (missing.length) this.error(`Search by meaning's model files are missing (public/models/${missing.join(', ')}). Run npm run model first.`)
+    },
+  }
+}
+
 function commitSha(): string {
   if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 7)
   try {
@@ -52,10 +73,13 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(pkg.version),
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
     __COMMIT__: JSON.stringify(commitSha()),
+    __ORT_VERSION__: JSON.stringify(ort.version),
   },
+  worker: { format: 'es' },
   plugins: [
     react(),
     contentSecurityPolicy(),
+    meaningModelFiles(),
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,

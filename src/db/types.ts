@@ -293,6 +293,19 @@ export interface Review {
   updatedAt: number
 }
 
+/** A finished entry's meaning as numbers, worked out on the phone for search by meaning (database version 9). One
+ *  row per piece of a long entry. Derived from the entry: never in a backup, and worked out again when missing or
+ *  when the entry's words or the model change (src/db/vectors.ts). */
+export interface MeaningVector {
+  /** `<entry id>#<piece>` */
+  id: string
+  entryId: string
+  model: string
+  /** Fingerprint of the model and the text these numbers came from. */
+  hash: string
+  vector: Float32Array
+}
+
 export interface BackupData {
   entries: Entry[]
   days: Day[]

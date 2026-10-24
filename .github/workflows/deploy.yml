@@ -24,6 +24,12 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # Search by meaning's model files (git-ignored): kept between runs, and checked against their SHA-256 either way.
+      - uses: actions/cache@v6
+        with:
+          path: public/models
+          key: meaning-model-${{ hashFiles('src/lib/meaning-model.json', 'package-lock.json') }}
+      - run: npm run model
       - run: npm run typecheck
       - run: npm test
       - run: npm run build

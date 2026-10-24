@@ -5,7 +5,7 @@ import { lockText, unlockText } from '../../src/db/crypto'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { newReview } from '../../src/db/repo'
 import { emptyPlan } from '../../src/domain/lifeDesign'
-import { type AiReview, type Answer, type Entry, entryDefaults, type Step } from '../../src/db/types'
+import { type AiReview, type Answer, type Entry, entryDefaults, type Step, TABLE_NAMES } from '../../src/db/types'
 
 // Fictional example data.
 const entry = (id: string, updatedAt: number, over: Partial<Entry> = {}): Entry => ({
@@ -274,6 +274,19 @@ describe('backup and restore', () => {
     expect(await newPhone.aiReviews.get('ai1')).toEqual(review)
     expect(await newPhone.settings.get('aiProvider')).toMatchObject({ value: 'groq' })
     expect(await newPhone.settings.get('aiKey')).toBeUndefined()
+  })
+
+  it("never puts search by meaning's numbers in a backup: they're worked out again on the phone it's restored to", async () => {
+    await phone.entries.put(entry('e1', 10, { note: 'Up early' }))
+    await phone.vectors.put({ id: 'e1#0', entryId: 'e1', model: 'm', hash: 'h', vector: new Float32Array([0.6, 0.8]) })
+    const backup = await createBackup(phone)
+    expect(Object.keys(backup.data).sort()).toEqual([...TABLE_NAMES].sort())
+    expect(JSON.stringify(backup)).not.toContain('e1#0')
+    const detected = detectFile(JSON.stringify(backup))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    await applyImport(detected.raw, newPhone)
+    expect(await newPhone.entries.get('e1')).toMatchObject({ note: 'Up early' })
+    expect(await newPhone.vectors.count()).toBe(0)
   })
 
   it('turns next steps kept on entries in older files (format 5) into steps, only once however often it is restored', async () => {
