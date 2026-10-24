@@ -2,7 +2,7 @@
 // review), on a tap. The AI never sees the journal whole: it asks the phone for what the question needs (tools), and
 // the phone answers from what's on it. Every sum is the phone's (owner: the AI must not do arithmetic): the AI groups
 // items, the phone adds them. Everything sent is kept, for "What was sent".
-import type { Entry } from '../db/types'
+import type { Entry, PhotoRef } from '../db/types'
 import type { ChatMessage, ToolCall, ToolSpec } from '../lib/ai'
 import { readReceipt, type Receipt } from './receipts'
 
@@ -13,12 +13,24 @@ export interface KnownReceipt extends Omit<Receipt, 'date'> {
   date: string
 }
 
+/** A photo's receipt: as your AI read it when it did (v0.18), else as the phone read it. Whether its items add up is
+ *  the phone's to say, from the numbers. */
+function receiptOf(photo: PhotoRef): Receipt | null {
+  const ai = photo.ai?.receipt
+  if (ai) {
+    const sum = ai.items.reduce((s, item) => s + item.price, 0)
+    const phone = photo.text ? readReceipt(photo.text) : null
+    return { shop: ai.shop || phone?.shop || '', date: ai.date ?? phone?.date ?? null, items: ai.items, total: ai.total, adds: ai.total === null || sum === ai.total, currency: ai.currency }
+  }
+  return photo.text ? readReceipt(photo.text) : null
+}
+
 export function receiptsOf(entries: readonly Entry[]): KnownReceipt[] {
   return entries
     .filter((e) => e.status !== 'draft')
     .flatMap((entry) =>
       (entry.photos ?? []).flatMap((photo) => {
-        const receipt = photo.text ? readReceipt(photo.text) : null
+        const receipt = receiptOf(photo)
         return receipt ? [{ ...receipt, id: photo.id, entryId: entry.id, date: receipt.date ?? entry.date }] : []
       }),
     )

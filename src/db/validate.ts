@@ -59,7 +59,23 @@ function hasValidJournalFields(x: Rec): boolean {
     isOptional(x.status, isOneOf(['draft', 'done'])) &&
     isOptional(x.skipped, (v) => Array.isArray(v) && v.every(isOneOf(['engagement', 'energy']))) &&
     isOptional(x.replyTo, (v) => v === null || (isObj(v) && isNonEmptyStr(v.id) && isStr(v.question))) &&
-    isOptional(x.photos, (v) => Array.isArray(v) && v.every((p) => isObj(p) && isNonEmptyStr(p.id) && (p.text === null || isStr(p.text))))
+    isOptional(x.photos, (v) => Array.isArray(v) && v.every((p) => isObj(p) && isNonEmptyStr(p.id) && (p.text === null || isStr(p.text)) && isOptional(p.ai, isAiReading)))
+  )
+}
+
+/** A photo as the AI read it (v0.18): its text, and a receipt's items with prices in minor units. */
+function isAiReading(x: unknown): boolean {
+  if (!isObj(x) || !isStr(x.by) || !isNum(x.at) || !isStr(x.text) || !isStr(x.description)) return false
+  if (x.receipt === null) return true
+  const r = x.receipt
+  return (
+    isObj(r) &&
+    isStr(r.shop) &&
+    (r.date === null || isDateKey(r.date)) &&
+    isStr(r.currency) &&
+    (r.total === null || Number.isInteger(r.total)) &&
+    Array.isArray(r.items) &&
+    r.items.every((i) => isObj(i) && isStr(i.name) && Number.isInteger(i.price) && Number.isInteger(i.quantity))
   )
 }
 

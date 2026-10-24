@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
+import { RECEIPTS } from '../fixtures/receipts'
+import { backupWith, freeWriting, restoreBackup } from './seed'
 
 // A live check with fake data (CLAUDE.md: anything that calls an outside API gets one). It calls the real Groq, through
 // the real code path, with a fake key that can only be refused: the app must say so in plain words. Only runs when
@@ -33,6 +36,32 @@ test('Ask your journal reaches the real Groq with its tools, and a fake key is r
   const ask = page.getByRole('region', { name: 'Ask your journal' })
   await ask.getByRole('button', { name: 'Ask', exact: true }).click()
   await expect(ask.getByText("The key wasn't accepted. Check it in More → AI review.")).toBeVisible({ timeout: 20_000 })
+})
+
+test('a receipt photo reaches the real Gemini by itself and on a tap, and a fake key is refused in plain words', async ({ page }, testInfo) => {
+  // A fictional receipt, its text as the phone read it, so it goes to the AI by itself.
+  const data = readFileSync('tests/fixtures/photos/receipt-clean.png').toString('base64')
+  const entry = { ...freeWriting('e1', '', 2), photos: [{ id: 'p1', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text }] }
+  const photo = { id: 'p1', entryId: 'e1', type: 'image/jpeg', width: 600, height: 800, data, createdAt: 1, updatedAt: 1 }
+  await restoreBackup(page, testInfo.outputPath('receipt.json'), backupWith({ entries: [entry], photos: [photo] }))
+  await page.evaluate(async () => {
+    const open = indexedDB.open('life-design')
+    await new Promise((resolve) => (open.onsuccess = resolve))
+    const tx = open.result.transaction('settings', 'readwrite')
+    const store = tx.objectStore('settings')
+    for (const [key, value] of [['aiProvider', 'gemini'], ['aiKey', 'AIza_fake_live_check'], ['aiModel', 'gemini-2.5-flash'], ['photoText', true]] as const)
+      store.put({ key, value, updatedAt: 1 })
+    await new Promise((resolve) => (tx.oncomplete = resolve))
+    open.result.close()
+  })
+  await page.goto('./#/entries')
+  await page.reload()
+  await page.getByRole('button', { name: /^Photo/ }).click()
+  const sheet = page.getByRole('dialog', { name: 'Photo' })
+  const refused = sheet.getByText("The key wasn't accepted. Check it in More → AI review.")
+  await expect(refused).toBeVisible({ timeout: 20_000 })
+  await sheet.getByRole('button', { name: 'Read with AI' }).click()
+  await expect(sheet.getByRole('alert')).toHaveText("The key wasn't accepted. Check it in More → AI review.", { timeout: 20_000 })
 })
 
 test('the real Gemini refuses a fake key (its 400, not a 401), and the app says so plainly', async ({ page }) => {

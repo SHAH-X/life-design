@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react'
 import { ocrFilesDownloaded, removeOcrFiles } from '../../lib/reader'
 import { Loading } from '../../ui/Loading'
 import { Switch } from '../../ui/Switch'
+import { photoReaderSettings } from '../../db/aiReading'
+import { db } from '../../db/db'
+import { setSetting } from '../../db/repo'
+import { PROVIDERS } from '../../lib/ai'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { setPhotoText, usePhotoText } from '../photos/usePhotoText'
 
 export const PHOTO_TEXT_INFO =
@@ -44,6 +49,7 @@ function PhotoTextCard(initial: { on: boolean; downloaded: boolean }) {
   return (
     <section className="card">
       <Switch label="Read the text in photos" hint="About 6 MB, once. Stays on this phone." checked={on} onChange={turn} />
+      {on ? <AiReceiptsSwitch /> : null}
       {downloaded ? (
         <button type="button" className="wide" onClick={() => void remove()}>
           Remove the download
@@ -55,5 +61,26 @@ function PhotoTextCard(initial: { on: boolean; downloaded: boolean }) {
         </p>
       ) : null}
     </section>
+  )
+}
+
+/** Receipts to your AI as you add them (v0.18, owner's choice), when the AI you set up reads photos. On by default. */
+function AiReceiptsSwitch() {
+  const reader = useLiveQuery(async () => (await photoReaderSettings(db)) ?? null, [])
+  const [on, setOn] = useState<boolean | null>(null)
+  if (reader === undefined) return null
+  if (reader === null) return <p className="muted small">To read receipts with AI, set up Gemini or OpenAI in More → AI review.</p>
+  const checked = on ?? reader.auto
+  const turn = (next: boolean) => {
+    setOn(next)
+    void setSetting('aiReceipts', next)
+  }
+  return (
+    <Switch
+      label="Read receipts with AI"
+      hint={`A photo with prices goes to ${PROVIDERS[reader.provider].label} as you add it; any other photo only when you tap "Read with AI".`}
+      checked={checked}
+      onChange={turn}
+    />
   )
 }
