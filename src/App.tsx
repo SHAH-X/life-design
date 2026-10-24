@@ -5,6 +5,7 @@ import { UndoProvider } from './app/undo'
 import { UpdateBanner } from './app/UpdateBanner'
 import { useDatabaseCheck } from './app/useDatabaseCheck'
 import { useRoute } from './app/useRoute'
+import { AskScreen } from './features/ask/AskScreen'
 import { EntriesScreen } from './features/entries/EntriesScreen'
 import { InsightsScreen } from './features/insights/InsightsScreen'
 import { MoreScreen } from './features/more/MoreScreen'
@@ -21,6 +22,8 @@ function Screen({ route }: { route: Route }) {
       return <TodayScreen />
     case 'entries':
       return <EntriesScreen />
+    case 'ask':
+      return <AskScreen />
     case 'insights':
       return <InsightsScreen sub={route.sub} />
     case 'more':

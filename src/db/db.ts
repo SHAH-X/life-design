@@ -12,6 +12,7 @@ import {
   type MeaningVector,
   type OdysseyPlan,
   type Photo,
+  type Question,
   type PlanVersion,
   type Review,
   type Setting,
@@ -37,6 +38,7 @@ export type LifeDesignDB = Dexie & {
   areaCentres: EntityTable<AreaCentre, 'id'>
   loopVectors: EntityTable<LoopVector, 'id'>
   photos: EntityTable<Photo, 'id'>
+  questions: EntityTable<Question, 'id'>
 }
 
 export const DB_NAME = 'life-design'
@@ -170,6 +172,10 @@ export function openDb(name = DB_NAME): LifeDesignDB {
           if (!Array.isArray(entry.photos)) entry.photos = []
         }),
     )
+  // v0.18: questions asked of the journal (Ask), with their answers: yours, so in a backup. A new, empty table.
+  database.version(11).stores({
+    questions: 'id, createdAt',
+  })
   return database
 }
 

@@ -27,8 +27,9 @@ test('Ask your journal reaches the real Groq with its tools, and a fake key is r
     await new Promise((resolve) => (tx.oncomplete = resolve))
     open.result.close()
   })
+  await page.goto('./#/ask')
   await page.reload() // the app sees a change made outside it once it reads the database again
-  await page.getByLabel('Search your logs').fill('What groceries did I buy this month?')
+  await page.getByLabel('What would you like to know?').fill('What groceries did I buy this month?')
   const ask = page.getByRole('region', { name: 'Ask your journal' })
   await ask.getByRole('button', { name: 'Ask', exact: true }).click()
   await expect(ask.getByText("The key wasn't accepted. Check it in More → AI review.")).toBeVisible({ timeout: 20_000 })

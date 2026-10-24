@@ -44,6 +44,7 @@ const emptyRaw = (): RawData => ({
   reviews: [],
   settings: [],
   photos: [],
+  questions: [],
 })
 
 let phone: LifeDesignDB
@@ -239,7 +240,7 @@ describe('backup and restore', () => {
     await phone.steps.put(agenda)
     await phone.weeks.put({ id: '2026-10-19', carry: 'Walk at lunch', createdAt: 2000, updatedAt: 2000 })
     const backup = await createBackup(phone)
-    expect(backup.schemaVersion).toBe(8)
+    expect(backup.schemaVersion).toBe(9)
     const detected = detectFile(JSON.stringify(backup))
     if (detected.format !== 'backup') throw new Error('expected a backup')
     await applyImport(detected.raw, newPhone)
@@ -268,6 +269,25 @@ describe('backup and restore', () => {
     expect(await newPhone.entries.get('q1')).toEqual(reply)
     expect((await newPhone.settings.get('provoker'))?.value).toEqual(told)
     expect(isEntry({ ...reply, replyTo: { id: '', question: 'Where are you with it?' } })).toBe(false)
+  })
+
+  it('backs up and restores the questions asked of the journal, with what was sent for each (v0.18)', async () => {
+    const asked = {
+      id: 'q1',
+      question: 'What groceries did I buy this month?',
+      answer: 'Oat milk and eggs, 3.55.',
+      cited: { receipts: ['p1'], entries: [] },
+      sent: [{ label: 'Your question', text: 'What groceries did I buy this month?' }],
+      provider: 'gemini' as const,
+      model: 'gemini-2.5-flash',
+      createdAt: 5000,
+      updatedAt: 5000,
+    }
+    await phone.questions.put(asked)
+    const detected = detectFile(JSON.stringify(await createBackup(phone)))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    await applyImport(detected.raw, newPhone)
+    expect(await newPhone.questions.get('q1')).toEqual(asked)
   })
 
   it('backs up and restores reviews by AI, and never the AI key', async () => {

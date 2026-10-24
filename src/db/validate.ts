@@ -11,6 +11,7 @@ import {
   type IkigaiItem,
   type OdysseyPlan,
   type Photo,
+  type Question,
   type PlanVersion,
   type Review,
   type Setting,
@@ -59,6 +60,26 @@ function hasValidJournalFields(x: Rec): boolean {
     isOptional(x.skipped, (v) => Array.isArray(v) && v.every(isOneOf(['engagement', 'energy']))) &&
     isOptional(x.replyTo, (v) => v === null || (isObj(v) && isNonEmptyStr(v.id) && isStr(v.question))) &&
     isOptional(x.photos, (v) => Array.isArray(v) && v.every((p) => isObj(p) && isNonEmptyStr(p.id) && (p.text === null || isStr(p.text))))
+  )
+}
+
+/** A question asked of the journal, with its answer (v0.18). */
+export function isQuestion(x: unknown): x is Question {
+  const strings = (v: unknown) => Array.isArray(v) && v.every(isStr)
+  return (
+    isObj(x) &&
+    isNonEmptyStr(x.id) &&
+    isStr(x.question) &&
+    isStr(x.answer) &&
+    isObj(x.cited) &&
+    strings(x.cited.receipts) &&
+    strings(x.cited.entries) &&
+    Array.isArray(x.sent) &&
+    x.sent.every((s) => isObj(s) && isStr(s.label) && isStr(s.text)) &&
+    isOneOf(['groq', 'openai', 'gemini'])(x.provider) &&
+    isStr(x.model) &&
+    isNum(x.createdAt) &&
+    isNum(x.updatedAt)
   )
 }
 
@@ -262,6 +283,7 @@ export const VALIDATORS: { [K in TableName]: (x: unknown) => x is BackupData[K][
   reviews: isReview,
   settings: isSetting,
   photos: isPhoto,
+  questions: isQuestion,
 }
 
 /** Fills in fields that older files don't have yet, after validation. */
