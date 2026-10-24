@@ -128,7 +128,30 @@ def shot(name):
     SHOTS.append(small)
 
 
+def forget_dead_companions():
+    """idb keeps the companions it started in /tmp/idb/state and connects to them by their socket. This script stops
+    the companion when it ends, but the record stays, so the next run connected to a socket that was gone ("Failed
+    to connect to companion … No such file or directory", 2026-10-24). Records whose process has stopped go."""
+    path = '/tmp/idb/state'
+    try:
+        with open(path) as f:
+            records = json.load(f)
+    except (OSError, ValueError):
+        return
+    alive = []
+    for r in records:
+        try:
+            os.kill(int(r.get('pid', 0)), 0)
+            alive.append(r)
+        except (OSError, ValueError):
+            pass
+    if len(alive) != len(records):
+        with open(path, 'w') as f:
+            json.dump(alive, f)
+
+
 # ---------- Ready ----------
+forget_dead_companions()
 if not (os.path.exists(IDB) and os.path.exists(COMPANION)):
     refuse(f'idb is not in {IDB_HOME}.', 'Install it as DECISIONS.md says ("Driving the simulator": idb v1.7.6, direct download).')
 if run('curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', APP).stdout != '200':
