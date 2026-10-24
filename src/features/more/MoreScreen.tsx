@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { getOwnWords, getSetting } from '../../db/repo'
 import type { Purpose } from '../../db/types'
-import { PROVIDERS } from '../../lib/ai'
+import { asProvider, PROVIDERS } from '../../lib/ai'
 import { buildInfo, formatBuildInfo } from '../../lib/buildInfo'
 import { shortDate, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -119,7 +119,7 @@ function useListStatus() {
       words: own.length ? own.map((w) => w.word).join(' · ') : 'None yet',
       meaning: meaning === true ? 'On' : 'Off',
       photos: photoText === true ? 'On' : 'Off',
-      ai: typeof aiKey === 'string' && aiKey ? `On · ${PROVIDERS[aiProvider === 'openai' ? 'openai' : 'groq'].label}` : 'Off',
+      ai: typeof aiKey === 'string' && aiKey ? `On · ${PROVIDERS[asProvider(aiProvider)].label}` : 'Off',
     }
   }, [])
   if (stored === undefined || persisted === undefined) return undefined

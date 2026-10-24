@@ -17,7 +17,7 @@ const meaningModel = JSON.parse(readFileSync(new URL('./src/lib/meaning-model.js
 const ocrModel = JSON.parse(readFileSync(new URL('./src/lib/ocr-model.json', import.meta.url), 'utf8')) as { dir: string }
 
 // Content-Security-Policy for the built app only (Vite's dev server needs inline scripts).
-// connect-src: only this site and the AI services you can choose (Groq, OpenAI), called directly from the phone with
+// connect-src: only this site and the AI services you can choose (Groq, OpenAI, Gemini), called directly from the phone with
 // your own key. Nothing else can be reached, so not even injected code could send the key or your journal elsewhere.
 // script-src 'self' blocks WebAssembly on the page. Search by meaning's and reading photos' models run WebAssembly in
 // workers, which don't take this <meta> policy: each fetches only its own files (src/lib/meaning.worker.ts,
@@ -28,7 +28,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  "connect-src 'self' https://api.groq.com https://api.openai.com",
+  "connect-src 'self' https://api.groq.com https://api.openai.com https://generativelanguage.googleapis.com",
   "worker-src 'self'",
   "manifest-src 'self'",
   "base-uri 'self'",

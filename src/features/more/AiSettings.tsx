@@ -12,6 +12,7 @@ export const KEY_SAFETY =
 const HINTS: Record<AiProvider, string> = {
   groq: "Free. By contract it doesn't train on what you send.",
   openai: 'Paid per use. Not used for training by default.',
+  gemini: 'Free tier: Google may use what you send to improve its products, and people may read it. With billing on, it doesn\'t.',
 }
 
 /** Review with AI's setup: the service, your key (checked with the service before it's kept), and the model. */

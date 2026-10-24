@@ -34,7 +34,7 @@ export interface Intention {
 }
 
 /** The AI services you can choose for Review with AI (v0.12), each with your own key. */
-export type AiProvider = 'groq' | 'openai'
+export type AiProvider = 'groq' | 'openai' | 'gemini'
 
 /** A period reviewed by AI (v0.12): which period and focus, which service and model, and its answer, kept to read again. */
 export interface AiReview {
