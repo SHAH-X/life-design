@@ -1,4 +1,5 @@
 import { AI_READING_INSTRUCTIONS, looksLikeReceipt, parseAiReading } from '../domain/aiReading'
+import { READS_IMAGES } from '../lib/ai'
 import type { AiProvider, AiReading, Entry } from './types'
 import { db as defaultDb, type LifeDesignDB } from './db'
 
@@ -50,10 +51,21 @@ export function ensureAiReadings(reader: PhotoReader, database: LifeDesignDB = d
   return run
 }
 
-/** Whether a service set up can read photos, and whether reading receipts with it is on (More → Reading photos). */
-export async function photoReaderSettings(database: LifeDesignDB = defaultDb): Promise<{ provider: AiProvider; key: string; model: string; auto: boolean } | null> {
-  const get = async (key: string) => (await database.settings.get(key))?.value
-  const [provider, key, model, auto] = await Promise.all([get('aiProvider'), get('aiKey'), get('aiModel'), get('aiReceipts')])
-  if ((provider !== 'gemini' && provider !== 'openai') || typeof key !== 'string' || !key || typeof model !== 'string' || !model) return null
-  return { provider, key, model, auto: auto !== false }
+/**
+ * Which AI reads photos, and whether reading receipts with it is on (More → Reading photos): a key of its own for
+ * photos when one is set up there (v0.18.2: Groq for Ask and reviews, Gemini for photos), else the AI for Ask and
+ * reviews (More → AI review) when it reads photos; null when neither does. `keyAt` is when that key was saved, so a
+ * new key tries the waiting receipts again; `own` says it's the key for photos alone.
+ */
+export async function photoReaderSettings(
+  database: LifeDesignDB = defaultDb,
+): Promise<{ provider: AiProvider; key: string; model: string; auto: boolean; keyAt: number; own: boolean } | null> {
+  const names = ['photoAiProvider', 'photoAiKey', 'photoAiModel', 'aiProvider', 'aiKey', 'aiModel', 'aiReceipts']
+  const [photoProvider, photoKey, photoModel, provider, key, model, auto] = await Promise.all(names.map((name) => database.settings.get(name)))
+  const usable = (p: typeof provider, k: typeof key, m: typeof model, own: boolean) => {
+    const [service, secret, name] = [p?.value, k?.value, m?.value]
+    if (!(READS_IMAGES as readonly unknown[]).includes(service) || typeof secret !== 'string' || !secret || typeof name !== 'string' || !name) return null
+    return { provider: service as AiProvider, key: secret, model: name, auto: auto?.value !== false, keyAt: k!.updatedAt, own }
+  }
+  return usable(photoProvider, photoKey, photoModel, true) ?? usable(provider, key, model, false)
 }

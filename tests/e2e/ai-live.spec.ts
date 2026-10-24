@@ -64,6 +64,42 @@ test('a receipt photo reaches the real Gemini by itself and on a tap, and a fake
   await expect(sheet.getByRole('alert')).toHaveText("The key wasn't accepted. Check it in More → AI review.", { timeout: 20_000 })
 })
 
+test('with Groq for Ask and a key of its own for photos, a receipt reaches the real Gemini, and a fake key is refused', async ({ page }, testInfo) => {
+  const data = readFileSync('tests/fixtures/photos/receipt-clean.png').toString('base64')
+  const entry = { ...freeWriting('e1', '', 2), photos: [{ id: 'p1', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text }] }
+  const photo = { id: 'p1', entryId: 'e1', type: 'image/jpeg', width: 600, height: 800, data, createdAt: 1, updatedAt: 1 }
+  await restoreBackup(page, testInfo.outputPath('receipt.json'), backupWith({ entries: [entry], photos: [photo] }))
+  const sent: string[] = []
+  page.on('request', (request) => {
+    if (request.method() === 'POST') sent.push(new URL(request.url()).host)
+  })
+  await page.evaluate(async () => {
+    const open = indexedDB.open('life-design')
+    await new Promise((resolve) => (open.onsuccess = resolve))
+    const tx = open.result.transaction('settings', 'readwrite')
+    const store = tx.objectStore('settings')
+    const settings = [
+      ['aiProvider', 'groq'],
+      ['aiKey', 'gsk_fake_live_check'],
+      ['aiModel', 'openai/gpt-oss-120b'],
+      ['photoAiProvider', 'gemini'],
+      ['photoAiKey', 'AIza_fake_live_check'],
+      ['photoAiModel', 'gemini-2.5-flash'],
+      ['photoText', true],
+    ] as const
+    for (const [key, value] of settings) store.put({ key, value, updatedAt: 1 })
+    await new Promise((resolve) => (tx.oncomplete = resolve))
+    open.result.close()
+  })
+  await page.goto('./#/entries')
+  await page.reload()
+  await page.getByRole('button', { name: /^Photo/ }).click()
+  // The photo key is the one refused, so it says where that key is kept.
+  await expect(page.getByRole('dialog', { name: 'Photo' }).getByText("The key wasn't accepted. Check it in More → Reading photos.")).toBeVisible({ timeout: 20_000 })
+  expect(sent).toContain('generativelanguage.googleapis.com')
+  expect(sent).not.toContain('api.groq.com')
+})
+
 test('the real Gemini refuses a fake key (its 400, not a 401), and the app says so plainly', async ({ page }) => {
   await page.goto('./#/more/ai')
   await page.getByRole('radio', { name: /Gemini/ }).check()

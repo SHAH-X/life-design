@@ -69,7 +69,7 @@ test('a receipt goes to your AI by itself once it’s set up; another photo only
   await restorePhotos(page, testInfo.outputPath('photos.json'))
   await page.goto('./#/more/photos')
   await page.getByRole('switch', { name: /Read the text in photos/ }).check()
-  await expect(page.getByText('To read receipts with AI, set up Gemini or OpenAI in More → AI review.')).toBeVisible()
+  await expect(page.getByText('To read photos with AI, add a Gemini or OpenAI key.')).toBeVisible()
   await page.waitForTimeout(SETTLED) // the app has looked at the photos, with no AI to send them to
 
   // Set up after the receipts are in: the receipt goes without a reload, the other photo stays.
@@ -104,6 +104,46 @@ test('a receipt goes to your AI by itself once it’s set up; another photo only
   await page.getByLabel('Search your logs').fill('organic')
   await expect(entryButton(page, 'Photo')).toBeVisible()
   await expect(entryButton(page, 'Free writing')).toHaveCount(0)
+})
+
+test('Groq for Ask and reviews, Gemini for photos: a key of its own on Reading photos', async ({ page }, testInfo) => {
+  const { photos } = await fakeGemini(page)
+  await page.route('https://api.groq.com/**', (route) =>
+    route.request().method() === 'OPTIONS'
+      ? route.fulfill({ status: 204, headers: CORS })
+      : route.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify({ data: [{ id: 'openai/gpt-oss-120b' }] }) }),
+  )
+  await restorePhotos(page, testInfo.outputPath('photos.json'))
+  await page.goto('./#/more/ai')
+  await page.getByLabel('API key').fill('gsk_test_abcd')
+  await page.getByRole('button', { name: 'Check key' }).click()
+  await expect(page.getByText('Key saved on this phone only · ends abcd')).toBeVisible()
+
+  await page.goto('./#/more/photos')
+  await page.getByRole('switch', { name: /Read the text in photos/ }).check()
+  await expect(page.getByText('To read photos with AI, add a Gemini or OpenAI key (Groq can’t read them).')).toBeVisible()
+  await page.waitForTimeout(SETTLED)
+  expect(photos).toEqual([]) // Groq is set up, but can't read the receipt
+
+  const forPhotos = page.getByRole('radiogroup', { name: 'Service for photos' })
+  await forPhotos.getByRole('radio', { name: /Gemini/ }).check()
+  await page.getByLabel('API key').fill('AIza_test_wxyz')
+  await page.getByRole('button', { name: 'Check key' }).click()
+  await expect(page.getByText('Key saved on this phone only · ends wxyz')).toBeVisible()
+  await expect(page.getByRole('switch', { name: /Read receipts with AI/ })).toBeChecked()
+  await expect.poll(() => photos.length, { timeout: 15_000 }).toBe(1)
+  expect(photos[0]).toEqual({ auth: 'Bearer AIza_test_wxyz', image: `data:image/jpeg;base64,${RECEIPT_JPEG}` })
+
+  // Ask and reviews keep Groq.
+  await page.goto('./#/more/ai')
+  await expect(page.getByRole('radio', { name: /Groq/ })).toBeChecked()
+  await expect(page.getByText('Key saved on this phone only · ends abcd')).toBeVisible()
+
+  // Removing the photo key leaves photos with no AI that reads them.
+  await page.goto('./#/more/photos')
+  await page.getByRole('button', { name: 'Remove key' }).click()
+  await expect(page.getByText('To read photos with AI, add a Gemini or OpenAI key (Groq can’t read them).')).toBeVisible()
+  await expect(page.getByRole('switch', { name: /Read receipts with AI/ })).toHaveCount(0)
 })
 
 test('turned off, receipts stay on the phone; a refused key is said under the receipt waiting for it', async ({ page }, testInfo) => {

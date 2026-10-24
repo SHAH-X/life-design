@@ -5,9 +5,15 @@ import { Switch } from '../../ui/Switch'
 import { photoReaderSettings } from '../../db/aiReading'
 import { db } from '../../db/db'
 import { setSetting } from '../../db/repo'
-import { PROVIDERS } from '../../lib/ai'
+import { PROVIDERS, READS_IMAGES } from '../../lib/ai'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { setPhotoText, usePhotoText } from '../photos/usePhotoText'
+import { AiForm } from './AiSettings'
+import { type AiSettings, PHOTO_SLOT, REVIEW_SLOT, useAiSettings } from './useAiSettings'
+
+type Reader = Awaited<ReturnType<typeof photoReaderSettings>>
+/** Which AI reads photos, and the two keys it may come from. */
+type PhotoAi = { reader: Reader; photo: AiSettings; review: AiSettings }
 
 export const PHOTO_TEXT_INFO =
   'A small model on this phone reads the words in each photo once (a receipt, a note, a page), so you can find it by them, and it joins your life areas and reviews. The photo itself is never sent anywhere. It downloads once (about 6 MB) and works offline.'
@@ -16,18 +22,21 @@ export const PHOTO_TEXT_INFO =
 export function PhotoTextSettings() {
   const reading = usePhotoText()
   const [downloaded, setDownloaded] = useState<boolean | undefined>(undefined)
+  const reader = useLiveQuery(async () => (await photoReaderSettings(db)) ?? null, [])
+  const photo = useAiSettings(PHOTO_SLOT)
+  const review = useAiSettings(REVIEW_SLOT)
 
   useEffect(() => {
     void ocrFilesDownloaded().then(setDownloaded, () => setDownloaded(false))
   }, [])
 
-  // Render only once both are known, so the button never appears under your finger.
-  if (reading === undefined || downloaded === undefined) return <Loading />
-  return <PhotoTextCard on={reading === 'on'} downloaded={downloaded} />
+  // Render only once all are known, so nothing appears under your finger.
+  if (reading === undefined || downloaded === undefined || reader === undefined || photo === undefined || review === undefined) return <Loading />
+  return <PhotoTextCard on={reading === 'on'} downloaded={downloaded} ai={{ reader, photo, review }} />
 }
 
 /** The switch shows your change at once and saves it in the background. */
-function PhotoTextCard(initial: { on: boolean; downloaded: boolean }) {
+function PhotoTextCard({ ai, ...initial }: { on: boolean; downloaded: boolean; ai: PhotoAi }) {
   const [on, setOn] = useState(initial.on)
   const [downloaded, setDownloaded] = useState(initial.downloaded)
   const [note, setNote] = useState<string | null>(null)
@@ -49,7 +58,8 @@ function PhotoTextCard(initial: { on: boolean; downloaded: boolean }) {
   return (
     <section className="card">
       <Switch label="Read the text in photos" hint="About 6 MB, once. Stays on this phone." checked={on} onChange={turn} />
-      {on ? <AiReceiptsSwitch /> : null}
+      {on && ai.reader ? <AiReceiptsSwitch reader={ai.reader} /> : null}
+      {on ? <PhotoKey photo={ai.photo} review={ai.review} /> : null}
       {downloaded ? (
         <button type="button" className="wide" onClick={() => void remove()}>
           Remove the download
@@ -64,12 +74,9 @@ function PhotoTextCard(initial: { on: boolean; downloaded: boolean }) {
   )
 }
 
-/** Receipts to your AI as you add them (v0.18, owner's choice), when the AI you set up reads photos. On by default. */
-function AiReceiptsSwitch() {
-  const reader = useLiveQuery(async () => (await photoReaderSettings(db)) ?? null, [])
+/** Receipts to your AI as you add them (v0.18, owner's choice), when an AI set up reads photos. On by default. */
+function AiReceiptsSwitch({ reader }: { reader: NonNullable<Reader> }) {
   const [on, setOn] = useState<boolean | null>(null)
-  if (reader === undefined) return null
-  if (reader === null) return <p className="muted small">To read receipts with AI, set up Gemini or OpenAI in More → AI review.</p>
   const checked = on ?? reader.auto
   const turn = (next: boolean) => {
     setOn(next)
@@ -82,5 +89,30 @@ function AiReceiptsSwitch() {
       checked={checked}
       onChange={turn}
     />
+  )
+}
+
+/**
+ * A key for photos alone (v0.18.2): Groq for Ask and reviews can't read photos, so Gemini or OpenAI reads them with a
+ * key of its own. When the AI for Ask and reviews reads photos already, another one is offered folded away.
+ */
+function PhotoKey({ photo, review }: { photo: AiSettings; review: AiSettings }) {
+  const reviewReads = review.key !== null && READS_IMAGES.includes(review.provider)
+  if (!photo.key && reviewReads) {
+    return (
+      <details className="top-gap">
+        <summary>Another AI for photos</summary>
+        <AiForm saved={photo} slot={PHOTO_SLOT} />
+      </details>
+    )
+  }
+  return (
+    <div className="top-gap">
+      <p className="question-text">Which AI reads your photos?</p>
+      {photo.key ? null : (
+        <p className="muted small">To read photos with AI, add a Gemini or OpenAI key{review.key ? ` (${PROVIDERS[review.provider].label} can’t read them)` : ''}.</p>
+      )}
+      <AiForm saved={photo} slot={PHOTO_SLOT} />
+    </div>
   )
 }
