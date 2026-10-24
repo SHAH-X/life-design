@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { getOwnWords, getSetting } from '../../db/repo'
 import type { Purpose } from '../../db/types'
 import { PROVIDERS } from '../../lib/ai'
-import { APPEARANCE_LABELS, getAppearance } from '../../lib/appearance'
 import { buildInfo, formatBuildInfo } from '../../lib/buildInfo'
 import { shortDate, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -13,7 +12,6 @@ import { normalizeReminderPlan } from '../../reminders/schedule'
 import { Loading } from '../../ui/Loading'
 import { Question } from '../../ui/Question'
 import { AiSettings, KEY_SAFETY } from './AiSettings'
-import { AppearanceSettings } from './AppearanceSettings'
 import { BackupCard } from './BackupCard'
 import { DeleteAllCard } from './DeleteAllCard'
 import { ExportCard } from './ExportCard'
@@ -29,7 +27,6 @@ const PAGES = {
   reminders: 'Reminders',
   purpose: 'Your purpose',
   words: 'Your feeling words',
-  appearance: 'Appearance',
   meaning: 'Search by meaning',
   ai: 'AI review',
   backup: 'Backup and restore',
@@ -71,7 +68,6 @@ function MorePage({ page }: { page: Page }) {
       {page === 'reminders' ? <RemindersPage /> : null}
       {page === 'purpose' ? <PurposeSettings /> : null}
       {page === 'words' ? <OwnWords /> : null}
-      {page === 'appearance' ? <AppearanceSettings /> : null}
       {page === 'meaning' ? <MeaningSettings /> : null}
       {page === 'ai' ? <AiSettings /> : null}
       {page === 'backup' ? <BackupCard /> : null}
@@ -131,7 +127,6 @@ function MoreList() {
     { page: 'reminders', status: status.reminders },
     { page: 'purpose', status: status.purpose },
     { page: 'words', status: status.words },
-    { page: 'appearance', status: APPEARANCE_LABELS[getAppearance()] },
     { page: 'meaning', status: status.meaning },
     { page: 'ai', status: status.ai },
     { page: 'backup', status: status.backup },

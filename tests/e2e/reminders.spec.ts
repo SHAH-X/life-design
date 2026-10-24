@@ -92,7 +92,7 @@ test('no link in the app opens a file inside the app (on iPhone that left the ap
     'more/reminders',
     'more/purpose',
     'more/words',
-    'more/appearance',
+    'more/meaning',
     'more/ai',
     'more/backup',
     'more/export',
@@ -108,9 +108,10 @@ test('no link in the app opens a file inside the app (on iPhone that left the ap
 test('More is a short list of pages, each with a way back', async ({ page }) => {
   await page.goto('./#/more')
   const list = page.getByRole('navigation', { name: 'Settings' })
-  for (const name of ['Reminders', 'Your purpose', 'Your feeling words', 'Appearance', 'AI review', 'Backup and restore', 'Spreadsheet export', 'This phone', 'Delete everything']) {
+  for (const name of ['Reminders', 'Your purpose', 'Your feeling words', 'Search by meaning', 'AI review', 'Backup and restore', 'Spreadsheet export', 'This phone', 'Delete everything']) {
     await expect(list.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
   }
+  await expect(list.getByRole('link', { name: /^Appearance/ })).toHaveCount(0) // light only since v0.14.1 (owner)
   await list.getByRole('link', { name: /^Reminders/ }).click()
   await expect(page).toHaveURL(/#\/more\/reminders$/)
   await expect(page.getByRole('heading', { level: 1, name: 'Reminders' })).toBeVisible()

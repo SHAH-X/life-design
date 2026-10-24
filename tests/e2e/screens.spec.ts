@@ -4,7 +4,7 @@ import { entryButton, fakeKeyboard, LONG_WRITING, showKeyboard } from './helpers
 import { expectCleanLayout } from './layout'
 import { restoreSeed } from './seed'
 
-// Every main screen and sheet, light and dark, with the fictional seed at a fixed evening: the general layout
+// Every main screen and sheet (light only: no dark mode since v0.14.1, owner's choice), with the fictional seed at a fixed evening: the general layout
 // check on each, plus a reference screenshot. A changed screenshot fails until it's looked at and accepted with
 // `npm run screens -- --update-snapshots` (CLAUDE.md: look at every changed screen before saying done).
 
@@ -63,7 +63,7 @@ async function lookWithKeyboard(page: Page, name: string, field: ReturnType<Page
   await showKeyboard(page, 0)
 }
 
-for (const scheme of ['light', 'dark'] as const) {
+for (const scheme of ['light'] as const) {
   test.describe(`${scheme}`, () => {
     // No service worker: its "Ready to work offline" banner fades by itself after 5 s, at no fixed moment.
     test.use({ colorScheme: scheme, serviceWorkers: 'block' })
@@ -174,7 +174,7 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.locator('details.week-line > summary', { hasText: 'Commute' }).click()
       await look(page, at('insights-opened'))
 
-      for (const sub of ['reminders', 'purpose', 'words', 'appearance', 'meaning', 'ai', 'backup', 'export', 'phone', 'delete']) {
+      for (const sub of ['reminders', 'purpose', 'words', 'meaning', 'ai', 'backup', 'export', 'phone', 'delete']) {
         await page.goto(`./#/more/${sub}`)
         await expect(page.getByRole('link', { name: '‹ More' })).toBeVisible()
         await look(page, at(`more-${sub}`))
