@@ -1,11 +1,12 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { ensureAiReadings, readOnePhoto } from '../../src/db/aiReading'
+import { ensureAiReadings, photoReaderSettings, readOnePhoto } from '../../src/db/aiReading'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import type { Entry, Photo } from '../../src/db/types'
 import { AI_READING_INSTRUCTIONS, amount, looksLikeReceipt, parseAiReading } from '../../src/domain/aiReading'
 import { receiptsOf } from '../../src/domain/ask'
 import { photoTexts } from '../../src/domain/search'
+import { photoReader } from '../../src/features/photos/photoReader'
 import { AiError, readPhotoWithAi } from '../../src/lib/ai'
 import { toBase64 } from '../../src/lib/photo'
 import { areaEntry } from '../fixtures/areas'
@@ -132,6 +133,47 @@ describe('readPhotoWithAi: one photo to the AI', () => {
       { type: 'text', text: 'Read it' },
       { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,AAAA' } },
     ])
+  })
+})
+
+describe('photoReaderSettings: which AI reads photos', () => {
+  let phone: LifeDesignDB
+  beforeEach(() => {
+    phone = openDb(`phone-${crypto.randomUUID()}`)
+  })
+  afterEach(async () => {
+    await phone.delete()
+  })
+  const set = (settings: Record<string, unknown>, updatedAt = 5) => phone.settings.bulkPut(Object.entries(settings).map(([key, value]) => ({ key, value, updatedAt })))
+  const GROQ = { aiProvider: 'groq', aiKey: 'gsk_test_abcd', aiModel: 'openai/gpt-oss-120b' }
+  const GEMINI = { aiProvider: 'gemini', aiKey: 'AIza_test_abcd', aiModel: 'gemini-2.5-flash' }
+
+  it('a key of its own for photos: Groq for Ask and reviews, Gemini for photos', async () => {
+    await set(GROQ)
+    expect(await photoReaderSettings(phone)).toBeNull() // Groq's models don't read images
+    await set({ photoAiProvider: 'gemini', photoAiKey: 'AIza_test_wxyz', photoAiModel: 'gemini-2.5-flash' }, 9)
+    expect(await photoReaderSettings(phone)).toEqual({ provider: 'gemini', key: 'AIza_test_wxyz', model: 'gemini-2.5-flash', auto: true, keyAt: 9, own: true })
+  })
+
+  it('without one, the AI for Ask and reviews, when it reads photos', async () => {
+    await set({ ...GEMINI, aiReceipts: false })
+    expect(await photoReaderSettings(phone)).toEqual({ provider: 'gemini', key: 'AIza_test_abcd', model: 'gemini-2.5-flash', auto: false, keyAt: 5, own: false })
+  })
+
+  it('a refused key is said where it’s kept: Reading photos for the photo key, AI review for the other', async () => {
+    const refused = (async () => new Response(JSON.stringify({ error: { message: 'API key not valid. Please pass a valid API key.' } }), { status: 400 })) as unknown as typeof fetch
+    const settings = { provider: 'gemini' as const, key: 'AIza_test_wxyz', model: 'gemini-2.5-flash' }
+    const problem = (own: boolean) => photoReader({ ...settings, own }, refused).send('AAAA', 'Read it').catch((e: unknown) => e)
+    expect(await problem(true)).toMatchObject({ problem: 'key', message: "The key wasn't accepted. Check it in More → Reading photos." })
+    expect(await problem(false)).toMatchObject({ problem: 'key', message: "The key wasn't accepted. Check it in More → AI review." })
+    expect(await problem(true)).toBeInstanceOf(AiError)
+  })
+
+  it('never a photo key for a service that can’t read photos, nor one without its model', async () => {
+    await set({ ...GEMINI, photoAiProvider: 'groq', photoAiKey: 'gsk_test_abcd', photoAiModel: 'openai/gpt-oss-120b' })
+    expect((await photoReaderSettings(phone))?.key).toBe('AIza_test_abcd')
+    await set({ photoAiProvider: 'openai', photoAiKey: 'openai_test_efgh', photoAiModel: '' })
+    expect((await photoReaderSettings(phone))?.key).toBe('AIza_test_abcd')
   })
 })
 

@@ -3,11 +3,11 @@ import { deleteSetting, setSetting } from '../../db/repo'
 import type { AiProvider } from '../../db/types'
 import { AI_PROBLEMS, AiError, defaultModel, listModels, PROVIDERS } from '../../lib/ai'
 import { Loading } from '../../ui/Loading'
-import { type AiSettings as Saved, useAiSettings } from './useAiSettings'
+import { type KeySlot, REVIEW_SLOT, type AiSettings as Saved, useAiSettings } from './useAiSettings'
 
-/** Behind ⓘ on More → AI review: how your key is kept (owner: "make sure API key is secured"). */
+/** Behind ⓘ on More → AI review: how your keys are kept (owner: "make sure API key is secured"). */
 export const KEY_SAFETY =
-  "Your key stays on this phone. It's never in the app's code, on the website or in a backup, and it's only ever sent to the service you chose. A free Groq key can't cost money; for OpenAI, set a monthly budget on the key."
+  "Your keys stay on this phone. They're never in the app's code, on the website or in a backup, and each is only ever sent to the service it's for. A free Groq key can't cost money; for OpenAI, set a monthly budget on the key."
 
 const HINTS: Record<AiProvider, string> = {
   groq: "Free. By contract it doesn't train on what you send.",
@@ -17,12 +17,13 @@ const HINTS: Record<AiProvider, string> = {
 
 /** Review with AI's setup: the service, your key (checked with the service before it's kept), and the model. */
 export function AiSettings() {
-  const saved = useAiSettings()
+  const saved = useAiSettings(REVIEW_SLOT)
   if (saved === undefined) return <Loading />
-  return <AiForm saved={saved} />
+  return <AiForm saved={saved} slot={REVIEW_SLOT} />
 }
 
-function AiForm({ saved }: { saved: Saved }) {
+/** A key's form: for Ask and reviews here, or for photos alone (More → Reading photos). */
+export function AiForm({ saved, slot }: { saved: Saved; slot: KeySlot }) {
   const name = useId()
   const keyId = useId()
   const modelId = useId()
@@ -42,7 +43,7 @@ function AiForm({ saved }: { saved: Saved }) {
       const list = await listModels(provider, candidate.trim())
       const model = saved.model && list.includes(saved.model) ? saved.model : defaultModel(provider, list)
       if (!model) throw new AiError('other')
-      await Promise.all([setSetting('aiKey', candidate.trim()), setSetting('aiProvider', provider), setSetting('aiModel', model)])
+      await Promise.all([setSetting(slot.key, candidate.trim()), setSetting(slot.provider, provider), setSetting(slot.model, model)])
       setModels(list)
       setKey('')
       setWorks(true)
@@ -54,7 +55,7 @@ function AiForm({ saved }: { saved: Saved }) {
   }
 
   const remove = async () => {
-    await Promise.all([deleteSetting('aiKey'), deleteSetting('aiModel')])
+    await Promise.all([deleteSetting(slot.key), deleteSetting(slot.model)])
     setModels(null)
     setWorks(false)
   }
@@ -63,8 +64,8 @@ function AiForm({ saved }: { saved: Saved }) {
 
   return (
     <>
-      <div role="radiogroup" aria-label="Service" className="purpose-list">
-        {(Object.keys(PROVIDERS) as AiProvider[]).map((p) => (
+      <div role="radiogroup" aria-label={slot.label} className="purpose-list">
+        {slot.providers.map((p) => (
           <label key={p} className="purpose-option">
             <input
               type="radio"
@@ -95,7 +96,7 @@ function AiForm({ saved }: { saved: Saved }) {
           <label className="question-text" htmlFor={modelId}>
             Model
           </label>
-          <select id={modelId} value={saved.model ?? ''} onChange={(e) => void setSetting('aiModel', e.target.value)}>
+          <select id={modelId} value={saved.model ?? ''} onChange={(e) => void setSetting(slot.model, e.target.value)}>
             {choices.map((m) => (
               <option key={m} value={m}>
                 {m}

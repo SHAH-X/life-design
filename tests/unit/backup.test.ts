@@ -87,6 +87,23 @@ describe('backup and restore', () => {
     expect(await newPhone.settings.get('aiKey')).toBeUndefined()
   })
 
+  it('keeps the key for photos out of a backup too, and out of the phone when a file holds one', async () => {
+    await phone.settings.bulkPut([
+      { key: 'photoAiProvider', value: 'gemini', updatedAt: 1000 },
+      { key: 'photoAiKey', value: 'AIza_test_wxyz', updatedAt: 1000 },
+    ])
+    const text = JSON.stringify(await createBackup(phone, new Date('2026-10-25T12:00:00Z')))
+    expect(text).not.toContain('AIza_test_wxyz')
+    expect(text).not.toContain('photoAiKey')
+    expect(text).toContain('photoAiProvider')
+
+    const raw = emptyRaw()
+    raw.settings = [{ key: 'photoAiKey', value: 'AIza_test_wxyz', updatedAt: 1 }]
+    expect((await planImport(raw, newPhone)).tables.settings).toMatchObject({ incoming: 1, added: 0, skipped: 1 })
+    await applyImport(raw, newPhone)
+    expect(await newPhone.settings.get('photoAiKey')).toBeUndefined()
+  })
+
   it('keeps the newest version of each record and never deletes anything', async () => {
     await newPhone.entries.bulkPut([entry('a', 5000, { activity: 'Edited on the phone' }), entry('b', 1000), entry('c', 1000)])
     const raw = emptyRaw()

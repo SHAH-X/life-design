@@ -58,9 +58,15 @@ export const AI_PROBLEMS: Record<AiProblem, string> = {
   other: 'The service sent back something unexpected. Try again later.',
 }
 
+/** A refused key for photos alone (v0.18.2) is checked where it's kept. */
+export const PHOTO_KEY_PROBLEM = "The key wasn't accepted. Check it in More → Reading photos."
+
 export class AiError extends Error {
-  constructor(readonly problem: AiProblem) {
-    super(AI_PROBLEMS[problem])
+  constructor(
+    readonly problem: AiProblem,
+    message: string = AI_PROBLEMS[problem],
+  ) {
+    super(message)
     this.name = 'AiError'
   }
 }

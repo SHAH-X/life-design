@@ -55,8 +55,7 @@ export function AreasProvider({ children }: { children: ReactNode }) {
     // Receipts the AI hasn't read yet (v0.18), once the phone has read them, and the AI set up for them (a new key or
     // service tries again).
     const ai = reading ? await photoReaderSettings(db) : null
-    const keyAt = ai?.auto ? (await db.settings.get('aiKey'))?.updatedAt : undefined
-    const forAi = ai?.auto ? `${ai.provider}:${ai.model}:${keyAt}:${waitingForAi(entries).sort().join('|')}` : ''
+    const forAi = ai?.auto ? `${ai.provider}:${ai.model}:${ai.keyAt}:${waitingForAi(entries).sort().join('|')}` : ''
     return `${finished}#${unread}#${forAi}`
   }, [on, reading])
   const byEntry = useLiveQuery(() => (on ? lifeAreas(db) : null), [on])
