@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ensureAiReadings, readOnePhoto } from '../../src/db/aiReading'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import type { Entry, Photo } from '../../src/db/types'
-import { amount, looksLikeReceipt, parseAiReading } from '../../src/domain/aiReading'
+import { AI_READING_INSTRUCTIONS, amount, looksLikeReceipt, parseAiReading } from '../../src/domain/aiReading'
 import { receiptsOf } from '../../src/domain/ask'
 import { photoTexts } from '../../src/domain/search'
 import { AiError, readPhotoWithAi } from '../../src/lib/ai'
@@ -30,7 +30,35 @@ const receiptReply = JSON.stringify({
   text: 'GREENLEAF MARKET\nOat milk 1.45',
 })
 
+describe('AI_READING_INSTRUCTIONS: how the AI is asked to read a photo', () => {
+  it('still asks for a receipt as before', () => {
+    expect(AI_READING_INSTRUCTIONS).toContain(
+      'If it is a receipt, reply: {"receipt": true, "shop": "the shop", "date": "YYYY-MM-DD or null", "currency": "£, $, € or empty", "items": [{"name": "the item as printed, its codes left out", "price": "1.73", "quantity": 1}], "total": "the total paid, or null", "text": "all the text you can read, line by line"}.',
+    )
+  })
+
+  it('asks for anything else as Markdown, laid out as printed: headings, lists, tables, and code named by its language', () => {
+    expect(AI_READING_INSTRUCTIONS).toContain('"text": "what is printed on it, as Markdown"')
+    expect(AI_READING_INSTRUCTIONS).toMatch(/a heading as a # heading, a list as - items, a table as a Markdown table/)
+    expect(AI_READING_INSTRUCTIONS).toMatch(/code in a ``` block named by its language, its lines and indents exactly as printed/)
+  })
+
+  it('holds a chart to the values printed on it: nothing read between gridlines, guessed, worked out or foretold', () => {
+    expect(AI_READING_INSTRUCTIONS).toMatch(/"text" gives only the values printed on it/)
+    expect(AI_READING_INSTRUCTIONS).toMatch(/Never estimate a value from where a line, bar, candle or point sits, between gridlines or between labels/)
+    expect(AI_READING_INSTRUCTIONS).toMatch(/never guess, round or work anything out/)
+    expect(AI_READING_INSTRUCTIONS).toMatch(/say nothing of trends, forecasts or advice/)
+  })
+})
+
 describe('parseAiReading: what is kept of the AI’s reply', () => {
+  it('keeps a Markdown reading as written: its lines, indents, blank lines, tables and code', () => {
+    const markdown = '# Retry helper\n\n```ts\nfunction retry(n: number) {\n  return { tries: n }\n}\n```\n\n| Setting | Value |\n|---|---|\n| tries | 3 |'
+    const reply = JSON.stringify({ receipt: false, description: 'A screenshot of TypeScript code', text: `\n${markdown}\n ` })
+    expect(parseAiReading(reply, BY, 1)).toEqual({ by: BY, at: 1, text: markdown, description: 'A screenshot of TypeScript code', receipt: null })
+    expect(parseAiReading(`\`\`\`json\n${reply}\n\`\`\``, BY, 1)?.text).toBe(markdown)
+  })
+
   it('keeps a receipt’s items with a name and a price, in pence; a saving is negative', () => {
     expect(parseAiReading(receiptReply, BY, 7)).toEqual({
       by: BY,

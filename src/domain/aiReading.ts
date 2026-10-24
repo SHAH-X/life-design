@@ -1,6 +1,8 @@
 // Photos read by your AI (step 6, v0.18): a photo the phone's own reading takes for a receipt goes to the AI you set
 // up as you add it (owner's choice, 2026-10-24); any other photo only on a tap ("Read with AI"). The AI gives what it
 // reads; the phone turns its prices into pence, checks the items add up to the total, and still does every sum.
+// Any other photo comes back as Markdown, laid out as printed (code, a chart, a page), kept as written for search and
+// Ask, and shown as plain text until the layout pass. A chart gives only its printed values (owner, 2026-10-24).
 import type { AiReading } from '../db/types'
 import { readReceipt } from './receipts'
 
@@ -9,7 +11,10 @@ export const AI_READING_INSTRUCTIONS = [
   'If it is a receipt, reply: {"receipt": true, "shop": "the shop", "date": "YYYY-MM-DD or null", "currency": "£, $, € or empty", "items": [{"name": "the item as printed, its codes left out", "price": "1.73", "quantity": 1}], "total": "the total paid, or null", "text": "all the text you can read, line by line"}.',
   'The date is when it was bought: never a refund, exchange or expiry date; null if the photo shows none.',
   'Each line bought is an item at the price it shows (for "2 @ 1.50 3.00", one item: quantity 2, price "3.00"). A saving or discount is an item with a negative price. Payment, change, gift card, balance and points lines are not items.',
-  'If it is not a receipt, reply: {"receipt": false, "description": "what the photo shows, in one sentence", "text": "all the text you can read, line by line"}.',
+  'If it is not a receipt, reply: {"receipt": false, "description": "what the photo shows, in one sentence", "text": "what is printed on it, as Markdown"}.',
+  'In that Markdown, keep the words as printed and laid out as they are: a heading as a # heading, a list as - items, a table as a Markdown table, and code in a ``` block named by its language, its lines and indents exactly as printed. Leave out what you cannot read.',
+  'For a chart, the description says what it charts (its title, what is measured, the period, the kind of chart), and "text" gives only the values printed on it (axis labels, prices, dates, a legend), each as printed.',
+  'Never estimate a value from where a line, bar, candle or point sits, between gridlines or between labels; never guess, round or work anything out; say nothing of trends, forecasts or advice.',
 ].join('\n')
 
 /** "£1.73", "1,73", -0.50 or 1.73 → minor units; null if it isn't an amount. */
