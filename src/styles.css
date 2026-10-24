@@ -19,7 +19,6 @@
   --danger-text: #ffffff;
   --success: #1f7a33;
   --warn-bg: #fff3d6;
-  --warn-text: #7a4b00;
   --viz-pos: #2a78d6;
   --viz-neg: #e34948;
   --viz-seq: #1baf7a;
@@ -135,10 +134,6 @@ p:last-child {
 
 .error {
   color: var(--danger);
-}
-
-.warning {
-  color: var(--warn-text);
 }
 
 .success {
@@ -789,11 +784,6 @@ button.entry-row:focus-visible {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-}
-
-.entry-meta {
-  font-size: 0.8rem;
-  color: var(--muted);
 }
 
 .entry-feelings {
@@ -1927,69 +1917,4 @@ details.more-ways summary {
   min-width: 44px;
   min-height: 44px;
   font-size: 1.25rem;
-}
-
-/* ---------- Life Design ---------- */
-
-.plan-cards {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.plan-card {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text);
-  text-decoration: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.plan-slot {
-  font-size: 0.8rem;
-  color: var(--muted);
-}
-
-.plan-title {
-  font-size: 1.05rem;
-  font-weight: 600;
-}
-
-.plan-feelings {
-  font-size: 0.9rem;
-}
-
-.plan-needs {
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-.plan-action {
-  margin-top: 4px;
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.year-field .field {
-  margin-top: 10px;
-}
-
-.question-input {
-  margin-bottom: 8px;
-}
-
-.views-text {
-  white-space: pre-wrap;
-}
-
-.read-only p {
-  white-space: pre-wrap;
 }
