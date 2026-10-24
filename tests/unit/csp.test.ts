@@ -9,7 +9,7 @@ const directive = (name: string) => config.match(new RegExp(`"${name} ([^"]+)"`)
 
 describe('Content-Security-Policy', () => {
   it('lets the app connect only to itself and the two AI services', () => {
-    expect(directive('connect-src')).toBe("'self' https://api.groq.com https://api.openai.com")
+    expect(directive('connect-src')).toBe("'self' https://api.groq.com https://api.openai.com https://generativelanguage.googleapis.com")
   })
 
   it('runs only the app’s own scripts, and posts no forms anywhere', () => {

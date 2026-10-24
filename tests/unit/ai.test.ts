@@ -97,3 +97,29 @@ describe('reviewWithAi', () => {
     await expect(reviewWithAi({ provider: 'groq', key: KEY, model: 'm', instructions: 'i', data: 'd' }, fn, 20)).rejects.toMatchObject({ problem: 'timeout' })
   })
 })
+
+describe('Gemini (v0.18), through its OpenAI-compatible address', () => {
+  const GEMINI_KEY = 'AIza_test_abcd'
+
+  it('is free to start, at its own address', () => {
+    expect(PROVIDERS.gemini).toMatchObject({ label: 'Gemini', paid: false, baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai' })
+  })
+
+  it('lists its models by name alone, leaves out what can’t chat, and picks a fast one when none it knows is there', async () => {
+    const { fn } = fakeFetch(() => json({ data: [{ id: 'models/gemini-9-pro' }, { id: 'models/gemini-9-flash' }, { id: 'models/text-embedding-005' }, { id: 'models/imagen-4' }] }))
+    const models = await listModels('gemini', GEMINI_KEY, fn)
+    expect(models).toEqual(['gemini-9-flash', 'gemini-9-pro'])
+    expect(defaultModel('gemini', models)).toBe('gemini-9-flash')
+    expect(defaultModel('gemini', ['gemini-9-pro', 'gemini-2.5-flash'])).toBe('gemini-2.5-flash')
+  })
+
+  it('takes its 400 "pass a valid API key" as a refused key, in the app’s own words; another 400 stays unexpected', async () => {
+    const refused = fakeFetch(() => json([{ error: { code: 400, message: 'Please pass a valid API key', status: 'INVALID_ARGUMENT' } }], 400))
+    const error = await listModels('gemini', GEMINI_KEY, refused.fn).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(AiError)
+    expect((error as AiError).problem).toBe('key')
+    expect((error as Error).message).not.toContain('valid API key')
+    const other = fakeFetch(() => json({ error: { code: 400, message: 'Unknown field tools' } }, 400))
+    expect(((await listModels('gemini', GEMINI_KEY, other.fn).catch((e: unknown) => e)) as AiError).problem).toBe('other')
+  })
+})

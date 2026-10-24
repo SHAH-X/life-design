@@ -33,3 +33,11 @@ test('Ask your journal reaches the real Groq with its tools, and a fake key is r
   await ask.getByRole('button', { name: 'Ask', exact: true }).click()
   await expect(ask.getByText("The key wasn't accepted. Check it in More → AI review.")).toBeVisible({ timeout: 20_000 })
 })
+
+test('the real Gemini refuses a fake key (its 400, not a 401), and the app says so plainly', async ({ page }) => {
+  await page.goto('./#/more/ai')
+  await page.getByRole('radio', { name: /Gemini/ }).check()
+  await page.getByLabel('API key').fill('AIza_fake_live_check')
+  await page.getByRole('button', { name: 'Check key' }).click()
+  await expect(page.getByText("The key wasn't accepted. Check it in More → AI review.")).toBeVisible({ timeout: 20_000 })
+})

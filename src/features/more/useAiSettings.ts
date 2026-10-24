@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getSetting } from '../../db/repo'
 import type { AiProvider } from '../../db/types'
+import { asProvider } from '../../lib/ai'
 
 export interface AiSettings {
   provider: AiProvider
@@ -14,7 +15,7 @@ export function useAiSettings(): AiSettings | undefined {
   return useLiveQuery(async () => {
     const [provider, model, key] = await Promise.all([getSetting<unknown>('aiProvider', 'groq'), getSetting<unknown>('aiModel', null), getSetting<unknown>('aiKey', null)])
     return {
-      provider: provider === 'openai' ? 'openai' : 'groq',
+      provider: asProvider(provider),
       model: typeof model === 'string' && model ? model : null,
       key: typeof key === 'string' && key ? key : null,
     }

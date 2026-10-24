@@ -1,5 +1,5 @@
-// Review with AI (v0.12): our own small client, no dependency. Groq and OpenAI both speak the OpenAI chat format,
-// so one request shape covers both. Called straight from the phone with your own key: the key goes only into the
+// Review with AI (v0.12): our own small client, no dependency. Groq, OpenAI and Gemini (its OpenAI-compatible
+// endpoint, v0.18) all speak the OpenAI chat format, so one request shape covers them. Called straight from the phone with your own key: the key goes only into the
 // Authorization header of a request to the service you chose (the CSP allows no other address), and never into a
 // log, an error message, a backup or anything copied.
 import type { AiProvider } from '../db/types'
@@ -23,6 +23,14 @@ export const PROVIDERS: Record<AiProvider, ProviderInfo> = {
     keyUrl: 'https://console.groq.com/keys',
     preferred: ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b'],
   },
+  gemini: {
+    label: 'Gemini',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    paid: false,
+    keyUrl: 'https://aistudio.google.com/apikey',
+    // Its newest fast models first; with none of these, the first "flash" your key lists, then any.
+    preferred: ['gemini-3-flash', 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-pro'],
+  },
   openai: {
     label: 'OpenAI',
     baseUrl: 'https://api.openai.com/v1',
@@ -31,6 +39,9 @@ export const PROVIDERS: Record<AiProvider, ProviderInfo> = {
     preferred: ['gpt-5.5', 'gpt-5', 'gpt-5-mini', 'gpt-4.1', 'gpt-4o'],
   },
 }
+
+/** A stored provider as one the app knows; anything else (an old or damaged setting) is Groq, the free default. */
+export const asProvider = (value: unknown): AiProvider => (value === 'openai' || value === 'gemini' ? value : 'groq')
 
 /** How long to wait for an answer. */
 export const AI_TIMEOUT_MS = 60_000
@@ -54,8 +65,11 @@ export class AiError extends Error {
   }
 }
 
-function problemFor(status: number): AiProblem {
-  if (status === 401 || status === 403) return 'key'
+/** Gemini refuses a key with 400 and says so in its message: read only to tell which problem it is, never shown. */
+const REFUSED_KEY = /api[ _]?key/i
+
+function problemFor(status: number, body: string): AiProblem {
+  if (status === 401 || status === 403 || (status === 400 && REFUSED_KEY.test(body))) return 'key'
   if (status === 413 || status === 429) return 'limit'
   if (status === 408 || status === 504) return 'timeout'
   if (status >= 500) return 'busy'
@@ -63,14 +77,15 @@ function problemFor(status: number): AiProblem {
 }
 
 /** Speech, images, embeddings and the like can't review a journal. */
-const NOT_CHAT = /whisper|tts|transcribe|audio|realtime|embedding|dall-e|image|moderation|guard|search|computer-use|codex/i
+const NOT_CHAT = /whisper|tts|transcribe|audio|realtime|embedding|dall-e|image|moderation|guard|search|computer-use|codex|imagen|veo|aqa|live/i
 
 export function chatModels(ids: readonly string[]): string[] {
-  return ids.filter((id) => !NOT_CHAT.test(id)).sort()
+  // Gemini names its models "models/gemini-…"; requests take the name alone.
+  return ids.map((id) => id.replace(/^models\//, '')).filter((id) => !NOT_CHAT.test(id)).sort()
 }
 
 export function defaultModel(provider: AiProvider, models: readonly string[]): string | null {
-  return PROVIDERS[provider].preferred.find((id) => models.includes(id)) ?? models[0] ?? null
+  return PROVIDERS[provider].preferred.find((id) => models.includes(id)) ?? (provider === 'gemini' ? models.find((id) => /flash/.test(id)) : undefined) ?? models[0] ?? null
 }
 
 type Fetch = typeof fetch
@@ -86,7 +101,7 @@ async function call(url: string, init: RequestInit, fetchImpl: Fetch, timeoutMs:
   } finally {
     clearTimeout(timer)
   }
-  if (!response.ok) throw new AiError(problemFor(response.status))
+  if (!response.ok) throw new AiError(problemFor(response.status, await response.text().catch(() => '')))
   try {
     return await response.json()
   } catch {
