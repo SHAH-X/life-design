@@ -28,7 +28,7 @@ const BUDGETS = {
   'Insights → Review a period, this week': 60, // v0.12: the period, what's in it, the two ways
   "Insights → What you're learning": 30, // v0.13
   'Insights → Earlier weeks': 30, // v0.13
-  'More → AI review (no key yet)': 40, // v0.12: the two services, the key field
+  'More → AI review (no key yet)': 60, // v0.18: the three services (Gemini's free-tier line kept whole), the key field (57 measured; owner's OK)
   'More → Search by meaning': 20, // v0.14: the switch and its line (17 measured)
   'More → Reading photos': 20, // v0.16: the switch and its line
   'More [460]': 60,
