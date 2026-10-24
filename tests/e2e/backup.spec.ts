@@ -57,7 +57,7 @@ test('back up, delete everything, then restore it all', async ({ page }, testInf
 
   const file = await backUp(page, testInfo)
   const backup = JSON.parse(await readFile(file, 'utf8'))
-  expect(backup).toMatchObject({ app: 'life-design', kind: 'backup', schemaVersion: 8 })
+  expect(backup).toMatchObject({ app: 'life-design', kind: 'backup', schemaVersion: 9 })
   expect(backup.data.entries).toHaveLength(2)
   expect(backup.data.entries.map((e: { during: string[]; energyEffect: string }) => [e.during, e.energyEffect])).toContainEqual([['Absorbed', 'Time flew'], 'gave'])
   expect(backup.data.days).toHaveLength(1)

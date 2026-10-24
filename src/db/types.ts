@@ -120,6 +120,22 @@ export interface Entry {
   updatedAt: number
 }
 
+/** A question asked of the journal (Ask, v0.18), its answer and everything that was sent for it: yours, so in a backup. */
+export interface Question {
+  id: string
+  question: string
+  /** The answer, its [r:…] and [e:…] marks taken out. */
+  answer: string
+  /** What it named: receipts (by photo id) and entries. */
+  cited: { receipts: string[]; entries: string[] }
+  /** Every part sent, in order ("What was sent"). */
+  sent: { label: string; text: string }[]
+  provider: AiProvider
+  model: string
+  createdAt: number
+  updatedAt: number
+}
+
 /** A photo of an entry, and the text read from it on the phone: null until read (or while reading is off). */
 export interface PhotoRef {
   id: string
@@ -374,6 +390,7 @@ export interface BackupData {
   reviews: Review[]
   settings: Setting[]
   photos: Photo[]
+  questions: Question[]
 }
 
 export type TableName = keyof BackupData
@@ -392,6 +409,7 @@ export const TABLE_NAMES: readonly TableName[] = [
   'reviews',
   'settings',
   'photos',
+  'questions',
 ]
 
 export const TABLE_LABELS: Record<TableName, string> = {
@@ -408,4 +426,5 @@ export const TABLE_LABELS: Record<TableName, string> = {
   reviews: 'Reviews',
   settings: 'Settings',
   photos: 'Photos',
+  questions: 'Questions asked',
 }
