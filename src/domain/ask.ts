@@ -1,7 +1,8 @@
 // Ask your journal (step 5, 2026-10-24): a question from Logs' search box, answered by the AI you set up (More → AI
 // review), on a tap. The AI never sees the journal whole: it asks the phone for what the question needs (tools), and
-// the phone answers from what's on it. Every sum is the phone's (owner: the AI must not do arithmetic): the AI groups
-// items, the phone adds them. Everything sent is kept, for "What was sent".
+// the phone answers from what's on it. Every sum is the phone's (owner: the AI must not do arithmetic): spending by
+// shop and month is grouped and added by the phone alone; for kinds of items the AI groups, the phone adds. Everything
+// sent is kept, for "What was sent", and an amount in the answer that none of it gave is pointed out.
 import type { Entry, PhotoRef } from '../db/types'
 import type { ChatMessage, ToolCall, ToolSpec } from '../lib/ai'
 import { readReceipt, type Receipt } from './receipts'
@@ -51,7 +52,34 @@ export interface AskJournal {
   findEntries: (about: string, from?: string, to?: string) => Promise<FoundEntry[]>
 }
 
+/** Words that say which kind of branch, or that it's a company, not which shop: "Tesco Express" is Tesco. */
+const BRANCH_WORDS = new Set(['express', 'extra', 'metro', 'local', 'superstore', 'superstores', 'supermarket', 'supermarkets', 'store', 'stores', 'food', 'ltd', 'limited', 'plc', 'inc', 'llc', 'uk', 'gb'])
+
+/** A shop's name as one key: "TESCO EXPRESS", "Tesco" and "Tesco Stores Ltd" are all "tesco". The first word always
+ *  stays ("Local Butcher"), so different shops stay apart ("Pizza Express", "Pizza Hut"); '' when there's no name. */
+export function shopKey(name: string): string {
+  const all = name.toLowerCase().replace(/['’`.-]/g, '').match(/[\p{L}\p{N}&]+/gu) ?? []
+  const named = all[0] === 'the' && all.length > 1 ? all.slice(1) : all
+  return named.filter((word, i) => i === 0 || !BRANCH_WORDS.has(word)).join(' ')
+}
+
 export const ASK_TOOLS: ToolSpec[] = [
+  {
+    type: 'function',
+    function: {
+      name: 'spend_by_shop',
+      description:
+        'How much was spent, worked out on the phone: for each month, each shop (its names on different receipts joined, "TESCO EXPRESS" and "Tesco" as one) with its total and its receipt ids, the month\'s total, and the total for the whole period. Optionally only between two dates (YYYY-MM-DD, both included) and only one shop.',
+      parameters: {
+        type: 'object',
+        properties: {
+          from: { type: 'string', description: 'First date, YYYY-MM-DD' },
+          to: { type: 'string', description: 'Last date, YYYY-MM-DD' },
+          shop: { type: 'string', description: 'The shop, by any of its names' },
+        },
+      },
+    },
+  },
   {
     type: 'function',
     function: {
@@ -104,8 +132,8 @@ export const ASK_TOOLS: ToolSpec[] = [
 export function askInstructions(today: string): string {
   return [
     `You answer questions about the user's own journal, which is on their phone. Today is ${today}.`,
-    'Look things up with the tools: find_receipts for shopping, spending, items and shops; find_entries for anything written.',
-    'Never add, multiply or total numbers yourself. For every total, call sum with the item or receipt ids and use the total it gives.',
+    'Look things up with the tools: spend_by_shop for how much was spent; find_receipts for items and what was bought; find_entries for anything written.',
+    'Never add, multiply or total numbers yourself. For spending by shop or by month, call spend_by_shop and give its totals as they are. For any other total, call sum with the item or receipt ids and use the total it gives.',
     'To split items into kinds (for example dairy, fruit and veg, bakery, household), group them yourself by their names, then call sum once for each group.',
     "If a receipt has adds: false, its items don't add up to its printed total: say so, and use its printed total for what was spent.",
     'Item names are as the receipt prints them, often shortened or misread ("Cln balckberr", "Sbp cshws 15"): when you list items, give what each most likely is in plain words (blackberries, cashews), and leave one as printed if you are not sure.',
@@ -121,6 +149,84 @@ const inPeriod = (date: string, from?: string, to?: string) => (!from || date >=
 
 const words = (s: string): string[] => s.toLowerCase().match(/[\p{L}\p{N}']+/gu) ?? []
 
+/** What a receipt counts for: its printed total, the amount paid, else its items' sum. */
+const paid = (r: KnownReceipt) => r.total ?? r.items.reduce((s, item) => s + item.price, 0)
+
+/** Receipts' total, one per currency (pounds and euros are never added together). */
+function totalOf(receipts: readonly KnownReceipt[]): string | string[] {
+  const byCurrency = new Map<string, number>()
+  for (const r of receipts) byCurrency.set(r.currency, (byCurrency.get(r.currency) ?? 0) + paid(r))
+  const totals = [...byCurrency].map(([currency, minor]) => money(minor, currency))
+  return totals.length === 1 ? totals[0]! : totals
+}
+
+/** Items grouped by a key, in the order each key first comes. */
+function groupBy<T>(items: readonly T[], key: (item: T) => string): T[][] {
+  const groups = new Map<string, T[]>()
+  for (const item of items) groups.set(key(item), [...(groups.get(key(item)) ?? []), item])
+  return [...groups.values()]
+}
+
+/** A shop's receipts: named as most of them print it (the shortest, if as many), with its other names. */
+function shopSpend(receipts: readonly KnownReceipt[]) {
+  const names = groupBy(
+    receipts.map((r) => r.shop.trim()),
+    (name) => name.toLowerCase(),
+  )
+  const [shop = '', ...others] = names.sort((a, b) => b.length - a.length || a[0]!.length - b[0]!.length).map((same) => same[0]!)
+  const notAddingUp = receipts.filter((r) => !r.adds).map((r) => r.id)
+  return {
+    shop: shop || null,
+    ...(others.length ? { also_named: others } : {}),
+    total: totalOf(receipts),
+    receipt_ids: receipts.map((r) => r.id),
+    ...(notAddingUp.length ? { not_adding_up: notAddingUp } : {}),
+  }
+}
+
+/** Spending in each month, by shop: grouped and added here, so which receipts count is never the AI's choice. */
+function spendByShop(receipts: readonly KnownReceipt[]) {
+  const byDate = [...receipts].sort((a, b) => a.date.localeCompare(b.date))
+  return {
+    total: byDate.length ? totalOf(byDate) : null,
+    months: groupBy(byDate, (r) => r.date.slice(0, 7)).map((month) => ({
+      month: month[0]!.date.slice(0, 7),
+      total: totalOf(month),
+      shops: groupBy(month, (r) => shopKey(r.shop))
+        .map(shopSpend)
+        .sort((a, b) => (a.shop === null ? 1 : b.shop === null ? -1 : a.shop.localeCompare(b.shop, 'en', { sensitivity: 'base' }))),
+    })),
+  }
+}
+
+/** Amounts of money in some text, as written and in minor units: "£3.55", "-£0.50", "3,50 €", "$1,234", and a bare
+ *  "14.20" (two decimals: never a count, a date like 12.10.2026, or a size like 2.50kg). */
+const AMOUNTS = /(?<![\p{L}\p{N}.,])(?:-\s?)?[£$€]\s?-?\d(?:[\d,.]*\d)?|(?<![\p{L}\p{N}.,])\d(?:[\d,.]*\d)?\s?[£$€](?!\s?\d)|(?<![\p{L}\p{N}.,£$€-])-?\d{1,6}[.,]\d{2}(?![\p{L}\p{N}£$€]|[.,]\d)/gu
+
+function amountsIn(text: string): { written: string; minor: number }[] {
+  return [...text.matchAll(AMOUNTS)].flatMap(([written]) => {
+    // A comma or point before three digits groups thousands; before one or two, it's the pence.
+    const m = written.replace(/[^\d.,]/g, '').match(/^(\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,](\d{1,2}))?$/)
+    return m ? [{ written: written.trim(), minor: Number(m[1]!.replace(/[.,]/g, '')) * 100 + Number((m[2] ?? '0').padEnd(2, '0')) }] : []
+  })
+}
+
+/**
+ * The amounts in an answer that nothing sent for it gave (no tool's answer, nor the question): the AI's own, which may
+ * be a sum it worked out itself. Each once, as written. A saving given as -£0.50 may be written £0.50.
+ */
+export function amountsNotFromPhone(answer: string, sent: readonly Sent[]): string[] {
+  const given = new Set(sent.flatMap((s) => amountsIn(s.text).map((a) => a.minor)))
+  return [...new Set(amountsIn(answer).filter((a) => !given.has(a.minor)).map((a) => a.written))]
+}
+
+/** The line under an answer naming those amounts; null when there are none. */
+export function notFromPhoneLine(amounts: readonly string[]): string | null {
+  if (amounts.length === 0) return null
+  const named = amounts.length === 1 ? amounts[0] : `${amounts.slice(0, -1).join(', ')} and ${amounts.at(-1)}`
+  return `${named} came from the AI, not from the phone: check ${amounts.length === 1 ? 'it' : 'them'}.`
+}
+
 /** What a tool gives back, as JSON for the AI; `about` says in a few words what it was (for "What was sent"). */
 export async function runTool(call: ToolCall, journal: AskJournal): Promise<{ result: string; about: string }> {
   let args: Record<string, unknown>
@@ -131,6 +237,20 @@ export async function runTool(call: ToolCall, journal: AskJournal): Promise<{ re
   }
   const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined)
   const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
+
+  if (call.function.name === 'spend_by_shop') {
+    const [from, to, shop] = [str(args.from), str(args.to), str(args.shop)]
+    const wanted = shop ? shopKey(shop).split(' ') : []
+    const found = journal.receipts.filter((r) => {
+      const name = shopKey(r.shop).split(' ')
+      return inPeriod(r.date, from, to) && wanted.every((w) => name.some((n) => n.startsWith(w)))
+    })
+    const span = from || to ? ` from ${from ?? 'the start'} to ${to ?? 'today'}` : ''
+    return {
+      result: JSON.stringify(spendByShop(found)),
+      about: `Spending by shop and month: ${found.length} receipt${found.length === 1 ? '' : 's'}${span}${shop ? ` at "${shop}"` : ''}`,
+    }
+  }
 
   if (call.function.name === 'find_receipts') {
     const [from, to, shop] = [str(args.from), str(args.to), str(args.shop)]
@@ -168,7 +288,7 @@ export async function runTool(call: ToolCall, journal: AskJournal): Promise<{ re
       const receipt = journal.receipts.find((r) => r.id === id)
       if (!receipt) unknown.push(id)
       else {
-        add(receipt.currency, receipt.total ?? receipt.items.reduce((s, i) => s + i.price, 0))
+        add(receipt.currency, paid(receipt))
         receipts++
       }
     }

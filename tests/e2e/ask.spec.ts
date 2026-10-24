@@ -72,10 +72,11 @@ test('Ask has its own tab: a question is asked on a tap, answered with the phone
   const answer = page.getByRole('region', { name: 'Answer' })
   await expect(answer.getByText('From Greenleaf Market: oat milk and eggs came to 3.55.')).toBeVisible()
   await expect(answer.getByRole('heading', { name: QUESTION })).toBeVisible()
+  await expect(answer.getByText(/came from the AI, not from the phone/)).toHaveCount(0)
   expect(sent).toHaveLength(3)
   for (const s of sent) {
     expect(s.auth).toBe(`Bearer ${KEY}`)
-    expect(s.body.tools).toHaveLength(3)
+    expect(s.body.tools).toHaveLength(4)
   }
   await answer.getByText('What was sent').click()
   await expect(answer.getByText('2 receipts from 2026-10-01 to 2026-10-31')).toBeVisible()
@@ -88,6 +89,33 @@ test('Ask has its own tab: a question is asked on a tap, answered with the phone
   const earlier = page.getByRole('region', { name: 'Earlier questions' })
   await earlier.locator('summary', { hasText: QUESTION }).click()
   await expect(earlier.getByText('From Greenleaf Market: oat milk and eggs came to 3.55.')).toBeVisible()
+})
+
+test('spending by shop is the phone’s; an amount the AI wrote itself is pointed out under the answer', async ({ page }, testInfo) => {
+  // This stand-in asks for October by shop, then gives the phone's two totals and a sum of its own, wrong
+  // (14.20 + 14.73 is 28.93, which the phone gave as the month's total).
+  await page.route('https://generativelanguage.googleapis.com/**', async (route: Route) => {
+    const request = route.request()
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
+    const json = (body: object) => route.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify(body) })
+    if (request.url().endsWith('/models')) return json({ data: [{ id: 'models/gemini-2.5-flash' }] })
+    const last = (JSON.parse(request.postData() ?? '{}') as { messages: Message[] }).messages.at(-1)!
+    if (last.role === 'user') return json({ choices: [{ message: { content: null, tool_calls: [toolCall('a', 'spend_by_shop', { from: '2026-10-01', to: '2026-10-31' })] } }] })
+    const october = (JSON.parse(last.content ?? '{}') as { months: { shops: { shop: string; total: string }[] }[] }).months[0]!
+    const said = october.shops.map((s) => `${s.total} at ${s.shop}`).join(' and ')
+    return json({ choices: [{ message: { content: `In October: ${said} [r:p1] [r:p2], 28.39 in all.` } }] })
+  })
+  await restoreReceipts(page, testInfo.outputPath('receipts.json'))
+  await setUpGemini(page)
+  await page.goto('./#/ask')
+  await page.getByLabel('What would you like to know?').fill('What did I spend at each shop this month?')
+  await page.getByRole('button', { name: 'Ask', exact: true }).click()
+
+  const answer = page.getByRole('region', { name: 'Answer' })
+  await expect(answer.getByText('In October: 14.73 at Corner Pharmacy and 14.20 at Greenleaf Market, 28.39 in all.')).toBeVisible()
+  await expect(answer.getByText('28.39 came from the AI, not from the phone: check it.')).toBeVisible()
+  await answer.getByText('What was sent').click()
+  await expect(answer.getByText('Spending by shop and month: 2 receipts from 2026-10-01 to 2026-10-31')).toBeVisible()
 })
 
 test('Logs’ search only finds again; without an AI set up, Ask says where to set one up and sends nothing', async ({ page }, testInfo) => {
