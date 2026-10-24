@@ -1,10 +1,13 @@
 import type { Entry, Question } from '../../db/types'
+import { amountsNotFromPhone, notFromPhoneLine } from '../../domain/ask'
 import { PlainMarkdown } from '../../ui/PlainMarkdown'
 import { useEntryTitle } from '../areas/AreasProvider'
 
-/** An answer: its words, the receipts and entries it named (each opens), and every part that was sent for it. */
+/** An answer: its words, any amount in it the phone didn't give, the receipts and entries it named (each opens), and
+ *  every part that was sent for it. */
 export function Answer({ question, entries, onOpen }: { question: Question; entries: ReadonlyMap<string, Entry>; onOpen: (entry: Entry) => void }) {
   const title = useEntryTitle()
+  const notFromPhone = notFromPhoneLine(amountsNotFromPhone(question.answer, question.sent))
   const byPhoto = new Map([...entries.values()].flatMap((e) => (e.photos ?? []).map((p) => [p.id, e] as const)))
   const used = [
     ...new Set([...question.cited.receipts.map((id) => byPhoto.get(id)), ...question.cited.entries.map((id) => entries.get(id))].filter((e): e is Entry => e !== undefined)),
@@ -12,6 +15,7 @@ export function Answer({ question, entries, onOpen }: { question: Question; entr
   return (
     <>
       <PlainMarkdown text={question.answer} />
+      {notFromPhone ? <p className="notice warn">{notFromPhone}</p> : null}
       {used.length ? (
         <ul className="plain-list compact">
           {used.map((entry) => (
