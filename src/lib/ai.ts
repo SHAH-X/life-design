@@ -172,6 +172,39 @@ export async function chatWithTools(request: ChatRequest, fetchImpl: Fetch = fet
   return { content, toolCalls }
 }
 
+/** Services whose chat models read images: reading photos with AI (v0.18) needs one. */
+export const READS_IMAGES: readonly AiProvider[] = ['gemini', 'openai']
+
+/** One photo read by the AI (v0.18): how to read it and the photo (a JPEG, base64). Returns its reply's text. */
+export async function readPhotoWithAi(
+  request: { provider: AiProvider; key: string; model: string; instructions: string; jpeg: string },
+  fetchImpl: Fetch = fetch,
+  timeoutMs = AI_TIMEOUT_MS,
+): Promise<string> {
+  const body = {
+    model: request.model,
+    response_format: { type: 'json_object' },
+    messages: [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: request.instructions },
+          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${request.jpeg}` } },
+        ],
+      },
+    ],
+  }
+  const answer = (await call(
+    `${PROVIDERS[request.provider].baseUrl}/chat/completions`,
+    { method: 'POST', headers: headers(request.key), body: JSON.stringify(body) },
+    fetchImpl,
+    timeoutMs,
+  )) as { choices?: { message?: { content?: unknown } }[] }
+  const text = answer.choices?.[0]?.message?.content
+  if (typeof text !== 'string' || !text.trim()) throw new AiError('other')
+  return text.trim()
+}
+
 /** One review: the instructions as the system message, your journal as the message. Returns the answer's text. */
 export async function reviewWithAi(request: ReviewRequest, fetchImpl: Fetch = fetch, timeoutMs = AI_TIMEOUT_MS): Promise<string> {
   const body = {

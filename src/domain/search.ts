@@ -5,9 +5,10 @@ export function writtenParts(entry: Entry): string[] {
   return [entry.activity, entry.note, ...entry.reflections.map((r) => r.text), entry.take, entry.intention?.text ?? '']
 }
 
-/** The text read from an entry's photos (v0.16), those read so far. Not what you wrote: open loops never read it. */
+/** The text read from an entry's photos (v0.16), those read so far: as your AI read it when it did (with what the photo
+ *  shows, v0.18), else as the phone did. Not what you wrote: open loops never read it. */
 export function photoTexts(entry: Entry): string[] {
-  return (entry.photos ?? []).map((p) => p.text?.trim() ?? '').filter(Boolean)
+  return (entry.photos ?? []).map((p) => [p.ai?.description ?? '', (p.ai?.text || p.text || '').trim()].filter(Boolean).join('\n')).filter(Boolean)
 }
 
 /** Whether an entry mentions the search words anywhere: what you did, your words, answers, next step, its photos. */

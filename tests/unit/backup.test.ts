@@ -290,6 +290,27 @@ describe('backup and restore', () => {
     expect(await newPhone.questions.get('q1')).toEqual(asked)
   })
 
+  it('backs up and restores what the AI read in a photo, and refuses a damaged reading (v0.18)', async () => {
+    const ai = {
+      by: 'Gemini · gemini-2.5-flash',
+      at: 6000,
+      text: 'GREENLEAF MARKET\nOat milk 1.45',
+      description: '',
+      receipt: { shop: 'Greenleaf Market', date: '2026-10-12', currency: '£', items: [{ name: 'Oat milk', price: 145, quantity: 1 }], total: 145 },
+    }
+    const withReceipt = entry('r1', 6000, { photos: [{ id: 'p1', text: 'GREENLEAF MARKET', ai }] })
+    await phone.entries.put(withReceipt)
+    const detected = detectFile(JSON.stringify(await createBackup(phone)))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    await applyImport(detected.raw, newPhone)
+    expect(await newPhone.entries.get('r1')).toEqual(withReceipt)
+    const damaged = (receipt: object) => isEntry({ ...withReceipt, photos: [{ id: 'p1', text: null, ai: { ...ai, receipt: { ...ai.receipt, ...receipt } } }] })
+    expect(damaged({ total: 1.45 })).toBe(false)
+    expect(damaged({ items: [{ name: 'Oat milk', price: '1.45', quantity: 1 }] })).toBe(false)
+    expect(damaged({ date: '12th Oct' })).toBe(false)
+    expect(isEntry({ ...withReceipt, photos: [{ id: 'p1', text: null, ai: { ...ai, by: 3 } }] })).toBe(false)
+  })
+
   it('backs up and restores reviews by AI, and never the AI key', async () => {
     const review: AiReview = {
       id: 'ai1',

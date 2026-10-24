@@ -3,11 +3,14 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useS
 import { ensureAreas, lifeAreas } from '../../db/areas'
 import { db } from '../../db/db'
 import { ensureLoopVectors } from '../../db/loops'
+import { ensureAiReadings, photoReaderSettings, waitingForAi } from '../../db/aiReading'
 import { ensurePhotoText } from '../../db/photoText'
 import { isDone } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import { type AreaId, entryTitle } from '../../domain/areas'
+import { AI_PROBLEMS, AiError } from '../../lib/ai'
 import { embed, MEANING_PROBLEMS, MeaningError } from '../../lib/embedder'
+import { photoReader } from '../photos/photoReader'
 import { OCR_PROBLEMS, OcrError, readPhoto } from '../../lib/reader'
 import { type MeaningSearch, useMeaningSearch } from '../meaning/useMeaning'
 import { usePhotoText } from '../photos/usePhotoText'
@@ -28,9 +31,11 @@ export interface Areas {
   work: AreasWork
   /** Why photos couldn't be read lately, in the app's words; null when they could (or reading is off). */
   photoProblem: string | null
+  /** Why receipts couldn't go to your AI lately (v0.18); null when they could. */
+  aiProblem: string | null
 }
 
-const NOTHING: Areas = { meaning: undefined, byEntry: undefined, work: { state: 'idle' }, photoProblem: null }
+const NOTHING: Areas = { meaning: undefined, byEntry: undefined, work: { state: 'idle' }, photoProblem: null, aiProblem: null }
 const AreasContext = createContext<Areas>(NOTHING)
 
 /**
@@ -47,11 +52,17 @@ export function AreasProvider({ children }: { children: ReactNode }) {
     const entries = await db.entries.toArray()
     const finished = on ? entries.filter(isDone).map((e) => `${e.id}:${e.updatedAt}`).sort().join('|') : ''
     const unread = reading ? entries.flatMap((e) => (e.photos ?? []).filter((p) => p.text === null).map((p) => p.id)).sort().join('|') : ''
-    return `${finished}#${unread}`
+    // Receipts the AI hasn't read yet (v0.18), once the phone has read them, and the AI set up for them (a new key or
+    // service tries again).
+    const ai = reading ? await photoReaderSettings(db) : null
+    const keyAt = ai?.auto ? (await db.settings.get('aiKey'))?.updatedAt : undefined
+    const forAi = ai?.auto ? `${ai.provider}:${ai.model}:${keyAt}:${waitingForAi(entries).sort().join('|')}` : ''
+    return `${finished}#${unread}#${forAi}`
   }, [on, reading])
   const byEntry = useLiveQuery(() => (on ? lifeAreas(db) : null), [on])
   const [work, setWork] = useState<AreasWork>({ state: 'idle' })
   const [photoProblem, setPhotoProblem] = useState<string | null>(null)
+  const [aiProblem, setAiProblem] = useState<string | null>(null)
 
   useEffect(() => {
     if ((!on && !reading) || changes === undefined) return
@@ -64,6 +75,14 @@ export function AreasProvider({ children }: { children: ReactNode }) {
             if (live) setPhotoProblem(null)
           } catch (error) {
             if (live) setPhotoProblem(error instanceof OcrError ? error.message : OCR_PROBLEMS.start)
+          }
+          // Then what the phone takes for receipts, to your AI (owner's choice, v0.18), when it can read photos.
+          try {
+            const ai = await photoReaderSettings(db)
+            if (ai?.auto) await ensureAiReadings(photoReader(ai), db)
+            if (live) setAiProblem(null)
+          } catch (error) {
+            if (live) setAiProblem(error instanceof AiError ? error.message : AI_PROBLEMS.other)
           }
         }
         if (!on) return
@@ -87,7 +106,11 @@ export function AreasProvider({ children }: { children: ReactNode }) {
 
   // Turned off, titles lose their areas at once (the query's last answer may still be the areas').
   const known = on ? byEntry : meaning === undefined ? undefined : null
-  return <AreasContext.Provider value={{ meaning, byEntry: known, work, photoProblem: reading ? photoProblem : null }}>{children}</AreasContext.Provider>
+  return (
+    <AreasContext.Provider value={{ meaning, byEntry: known, work, photoProblem: reading ? photoProblem : null, aiProblem: reading ? aiProblem : null }}>
+      {children}
+    </AreasContext.Provider>
+  )
 }
 
 export const useAreas = (): Areas => useContext(AreasContext)

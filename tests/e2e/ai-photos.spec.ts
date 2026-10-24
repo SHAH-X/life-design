@@ -1,0 +1,116 @@
+import { readFileSync } from 'node:fs'
+import { expect, type Page, type Route, test } from '@playwright/test'
+import { RECEIPTS } from '../fixtures/receipts'
+import { entryButton } from './helpers'
+import { backupWith, freeWriting, restoreBackup } from './seed'
+
+// Photos read by your AI (v0.18) in WebKit: a photo the phone has read and takes for a receipt goes to your AI by
+// itself; any other photo only on "Read with AI". The AI service is a stand-in for Gemini (page.route); no real key is
+// used and nothing leaves the test. The photos are fictional (tests/fixtures/photos/), their text as the phone read it.
+
+const SATURDAY = new Date(2026, 9, 24, 20, 0)
+const KEY = 'AIza_test_abcd'
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization,content-type', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' }
+const RECEIPT_JPEG = readFileSync('tests/fixtures/photos/receipt-clean.png').toString('base64')
+const NOTE_JPEG = readFileSync('tests/fixtures/photos/sticky.png').toString('base64')
+/** Longer than the app waits after a change before it reads photos (SETTLE_MS, 1.5 s). */
+const SETTLED = 3000
+
+type Part = { type: string; image_url?: { url: string } }
+
+/** Stands in for Gemini: lists a model, then reads each photo sent, as the real one replies (JSON). */
+async function fakeGemini(page: Page) {
+  const photos: { auth: string | null; image: string }[] = []
+  await page.route('https://generativelanguage.googleapis.com/**', async (route: Route) => {
+    const request = route.request()
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
+    const json = (body: object) => route.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify(body) })
+    if (request.url().endsWith('/models')) return json({ data: [{ id: 'models/gemini-2.5-flash' }] })
+    const body = JSON.parse(request.postData() ?? '{}') as { messages: { content: Part[] }[] }
+    const image = body.messages[0]!.content.find((p) => p.type === 'image_url')!.image_url!.url
+    photos.push({ auth: request.headers().authorization ?? null, image })
+    const reply = image.endsWith(RECEIPT_JPEG)
+      ? { receipt: true, shop: 'Greenleaf Market', date: '2026-10-12', currency: '£', items: [{ name: 'Organic oat milk', price: '1.45', quantity: 1 }], total: '1.45', text: 'GREENLEAF MARKET\nORGANIC OAT MILK 1.45' }
+      : { receipt: false, description: 'A sticky note with a reminder about the dentist', text: 'Call the dentist' }
+    return json({ choices: [{ message: { content: JSON.stringify(reply) } }] })
+  })
+  return photos
+}
+
+const photo = (id: string, entryId: string, data: string) => ({ id, entryId, type: 'image/jpeg', width: 600, height: 800, data, createdAt: 1, updatedAt: 1 })
+
+async function restorePhotos(page: Page, path: string) {
+  const receipt = { ...freeWriting('e1', '', 12, SATURDAY), photos: [{ id: 'p1', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text }] }
+  const note = { ...freeWriting('e2', 'Things to do', 5, SATURDAY), photos: [{ id: 'p2', text: RECEIPTS.find((r) => r.id === 'note')!.text }] }
+  await restoreBackup(page, path, backupWith({ entries: [receipt, note], photos: [photo('p1', 'e1', RECEIPT_JPEG), photo('p2', 'e2', NOTE_JPEG)] }, SATURDAY))
+}
+
+async function setUpGemini(page: Page) {
+  await page.goto('./#/more/ai')
+  await page.getByRole('radio', { name: /Gemini/ }).check()
+  await page.getByLabel('API key').fill(KEY)
+  await page.getByRole('button', { name: 'Check key' }).click()
+  await expect(page.getByText('Key saved on this phone only · ends abcd')).toBeVisible()
+}
+
+test.use({ serviceWorkers: 'block' })
+
+test.beforeEach(async ({ page }) => {
+  await page.clock.setFixedTime(SATURDAY)
+})
+
+test('a receipt goes to your AI by itself once it’s set up; another photo only on “Read with AI”', async ({ page }, testInfo) => {
+  const photos = await fakeGemini(page)
+  await restorePhotos(page, testInfo.outputPath('photos.json'))
+  await page.goto('./#/more/photos')
+  await page.getByRole('switch', { name: /Read the text in photos/ }).check()
+  await expect(page.getByText('To read receipts with AI, set up Gemini or OpenAI in More → AI review.')).toBeVisible()
+  await page.waitForTimeout(SETTLED) // the app has looked at the photos, with no AI to send them to
+
+  // Set up after the receipts are in: the receipt goes without a reload, the other photo stays.
+  await setUpGemini(page)
+  await expect.poll(() => photos.length, { timeout: 15_000 }).toBe(1)
+  expect(photos[0]).toEqual({ auth: `Bearer ${KEY}`, image: `data:image/jpeg;base64,${RECEIPT_JPEG}` })
+
+  await page.goto('./#/entries')
+  await entryButton(page, 'Photo').click()
+  const receipt = page.getByRole('dialog', { name: 'Photo' })
+  await expect(receipt.getByText('Read by Gemini · gemini-2.5-flash')).toBeVisible()
+  await expect(receipt.getByRole('button', { name: 'Read with AI' })).toHaveCount(0)
+  await receipt.getByText('Text in this photo').click()
+  await expect(receipt.locator('.photo-text')).toContainText('ORGANIC OAT MILK')
+  await receipt.getByRole('button', { name: 'Done', exact: true }).click()
+
+  await entryButton(page, 'Free writing').click()
+  const note = page.getByRole('dialog', { name: 'Free writing' })
+  await expect(note.getByText('Sends this photo to Gemini.')).toBeVisible()
+  expect(photos).toHaveLength(1)
+  await note.getByRole('button', { name: 'Read with AI' }).click()
+  await expect(note.getByText('A sticky note with a reminder about the dentist')).toBeVisible()
+  expect(photos.at(-1)?.image).toBe(`data:image/jpeg;base64,${NOTE_JPEG}`)
+  await note.getByRole('button', { name: 'Done', exact: true }).click()
+
+  // Found by the AI's words, which the phone's reading didn't have.
+  await page.getByLabel('Search your logs').fill('organic')
+  await expect(entryButton(page, 'Photo')).toBeVisible()
+  await expect(entryButton(page, 'Free writing')).toHaveCount(0)
+})
+
+test('turned off, receipts stay on the phone; a refused key is said under the receipt waiting for it', async ({ page }, testInfo) => {
+  const photos = await fakeGemini(page)
+  await restorePhotos(page, testInfo.outputPath('photos.json'))
+  await setUpGemini(page)
+  await page.goto('./#/more/photos')
+  await page.getByRole('switch', { name: /Read the text in photos/ }).check()
+  await page.getByRole('switch', { name: /Read receipts with AI/ }).uncheck()
+  await page.waitForTimeout(SETTLED)
+  expect(photos).toEqual([])
+
+  await page.route('https://generativelanguage.googleapis.com/**/chat/completions', (route) =>
+    route.fulfill({ status: 400, headers: CORS, contentType: 'application/json', body: JSON.stringify({ error: { message: 'API key not valid. Please pass a valid API key.' } }) }),
+  )
+  await page.getByRole('switch', { name: /Read receipts with AI/ }).check()
+  await page.goto('./#/entries')
+  await entryButton(page, 'Photo').click()
+  await expect(page.getByRole('dialog', { name: 'Photo' }).getByText("The key wasn't accepted. Check it in More → AI review.")).toBeVisible({ timeout: 15_000 })
+})

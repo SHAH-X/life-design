@@ -10,6 +10,7 @@ import { Dialog } from '../../ui/Dialog'
 import { revealOnMount } from '../../ui/keepInView'
 import type { EntryPart } from './EntryEdit'
 import { useAreas, useEntryTitle } from '../areas/AreasProvider'
+import { PhotoReading } from '../photos/PhotoReading'
 import { StoredPhoto } from '../photos/PhotoView'
 import { usePhotoText } from '../photos/usePhotoText'
 import { NextStep } from './NextStep'
@@ -54,7 +55,7 @@ function when(entry: Entry): string {
 export function EntryView(props: { entryId: string; fresh?: boolean; onPart: (entry: Entry, part: EntryPart | 'remember') => void; onClose: () => void }) {
   const { entryId, fresh = false, onPart, onClose } = props
   const entryTitle = useEntryTitle()
-  const { photoProblem } = useAreas()
+  const { photoProblem, aiProblem } = useAreas()
   const reading = usePhotoText()
   const takeId = useId()
   const data = useLiveQuery(async () => {
@@ -132,14 +133,7 @@ export function EntryView(props: { entryId: string; fresh?: boolean; onPart: (en
           {entry.photos.map((photo, i) => (
             <figure key={photo.id}>
               <StoredPhoto id={photo.id} className="photo-full" alt={`Photo ${i + 1}`} />
-              {photo.text ? (
-                <details>
-                  <summary>Text in this photo</summary>
-                  <p className="photo-text">{photo.text}</p>
-                </details>
-              ) : photo.text === null ? (
-                <figcaption className="muted small">{photoProblem ?? (reading === 'on' ? 'Reading its text…' : "Its text isn't read: More → Reading photos.")}</figcaption>
-              ) : null}
+              <PhotoReading photo={photo} phoneProblem={photoProblem} phoneReading={reading === 'on'} aiProblem={aiProblem} />
             </figure>
           ))}
         </section>

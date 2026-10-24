@@ -140,6 +140,24 @@ export interface Question {
 export interface PhotoRef {
   id: string
   text: string | null
+  /** What your AI read in it (v0.18), when it was sent: a receipt's items and total, or what it shows. */
+  ai?: AiReading
+}
+
+/** A photo as your AI read it (src/domain/aiReading.ts). Prices in minor units; the phone checks they add up. */
+export interface AiReading {
+  /** The service and model, "Gemini · gemini-2.5-flash". */
+  by: string
+  at: number
+  text: string
+  description: string
+  receipt: {
+    shop: string
+    date: string | null
+    currency: string
+    items: { name: string; price: number; quantity: number }[]
+    total: number | null
+  } | null
 }
 
 /** A photo (v0.16): shrunk on the phone to a JPEG of about 300 KB, kept as base64 so it backs up like the rest. */
