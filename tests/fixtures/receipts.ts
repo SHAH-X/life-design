@@ -68,6 +68,38 @@ export const RECEIPTS: readonly ExpectedReceipt[] = [
     expect: { shop: 'Corner Pharmacy', date: '2026-10-19', items: [['Ibuprofen 200mg', 349], ['Plasters', 225], ['Sun cream SPF50', 899]], total: 1473 },
   },
   {
+    // The layout of a real receipt the owner tried (v0.17), with made-up items, prices, address and card: product
+    // codes before names, department codes ("T21"), VAT marks after prices (R read as F, * read as x), £ read as E, a
+    // "2 @ price total" line under its name (@ read as 园), three rows read as one, "Items:11 Balance to Pay", a gift
+    // card and its new balance after the total, and a refund deadline as the only date.
+    id: 'codes-and-marks',
+    text:
+      'M&S\nRiverside Retail Park\nAnytown\nAB12CD\n0100 000 0000\nVAT NO.GB000000000\nwww.example.con\n' +
+      '11110000 SEMI SKIM MILK £1.15F 11110000 SEMI SKIM MILK £1.15R 22220000 BANANAS £0.95R\n' +
+      '22220000 BANANAS £0.95R\n33330000 PORRIDGE OATS E1.60\n44440000 Seeded Loaf\n2园 £1.40 £2.80x\n' +
+      '55550000 Choc Muffin £1.75x\n66660000 BAGEL £0.90*\n77770000 T21 Hand Soap £3.50\n88880000 T34 WOOL SOCKS £8.00\n' +
+      'Items:11 Balance to Pay £22.75\nGift Card *xx x*×x xx*x *x*x 0000 £22.75\nNew Balance £O.00\n' +
+      'xx Thanks for shopping wi th Sparks! xx\nf our M&s refund policy applles last date for a refund/exohange 1e\n16/08/2026\n' +
+      'Refunds may stili be given in accordance',
+    expect: {
+      shop: 'M&S',
+      date: null,
+      items: [
+        ['Semi skim milk', 115],
+        ['Semi skim milk', 115],
+        ['Bananas', 95],
+        ['Bananas', 95],
+        ['Porridge oats', 160],
+        ['Seeded Loaf', 280],
+        ['Choc Muffin', 175],
+        ['Bagel', 90],
+        ['Hand Soap', 350],
+        ['Wool socks', 800],
+      ],
+      total: 2275,
+    },
+  },
+  {
     // After the total: payment, savings and points, never items.
     id: 'after-total',
     text: 'CO-OP FOOD\n20/10/2026\nCarrots 0.65\nHummus 1.50\nTOTAL 2.15\nYou saved 0.40\nMember reward 0.10\nPoints balance 12.50',
@@ -109,7 +141,7 @@ export const RECEIPTS_UNSEEN: readonly ExpectedReceipt[] = [
   {
     id: 'fuel',
     text: 'BP CONNECT\n18/10/2026 07:51\nUNLEADED 32.41L £48.29\nTOTAL £48.29\nVISA £48.29',
-    expect: { shop: 'Bp Connect', date: '2026-10-18', items: [['Unleaded 32.41l', 4829]], total: 4829 },
+    expect: { shop: 'BP Connect', date: '2026-10-18', items: [['Unleaded 32.41l', 4829]], total: 4829 },
   },
   {
     id: 'shopping-list',

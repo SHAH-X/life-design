@@ -96,6 +96,7 @@ export function askInstructions(today: string): string {
     'Never add, multiply or total numbers yourself. For every total, call sum with the item or receipt ids and use the total it gives.',
     'To split items into kinds (for example dairy, fruit and veg, bakery, household), group them yourself by their names, then call sum once for each group.',
     "If a receipt has adds: false, its items don't add up to its printed total: say so, and use its printed total for what was spent.",
+    'Item names are as the receipt prints them, often shortened or misread ("Cln balckberr", "Sbp cshws 15"): when you list items, give what each most likely is in plain words (blackberries, cashews), and leave one as printed if you are not sure.',
     "Say only what the journal shows; if it doesn't show something, say that. Never guess. No scores or ratings.",
     'Name the receipts and entries you used by their ids in square brackets, like [r:ID] or [e:ID], where you mention them.',
     'Answer briefly, in plain words; a short list helps for items and totals.',

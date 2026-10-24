@@ -102,6 +102,7 @@ describe('askJournal: a question answered, the phone doing the sums', () => {
   it('tells the AI never to do the sums itself, and what today is', () => {
     expect(askInstructions('2026-10-24')).toMatch(/Today is 2026-10-24/)
     expect(askInstructions('2026-10-24')).toMatch(/Never add, multiply or total numbers yourself/)
+    expect(askInstructions('2026-10-24')).toMatch(/give what each most likely is in plain words/)
   })
 
   it('takes the [r:…] and [e:…] marks out of the answer, keeping what they named once each', () => {
