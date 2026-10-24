@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { expect, test, type Page } from '@playwright/test'
 import { captureBox, entryButton, fakeKeyboard, LONG_WRITING, showKeyboard } from './helpers'
 import { expectCleanLayout } from './layout'
-import { restoreSeed } from './seed'
+import { backupWith, freeWriting, restoreBackup, restoreSeed } from './seed'
 
 // Every main screen and sheet (light only: no dark mode since v0.14.1, owner's choice), with the fictional seed at a fixed evening: the general layout
 // check on each, plus a reference screenshot. A changed screenshot fails until it's looked at and accepted with
@@ -53,6 +53,13 @@ async function look(page: Page, name: string) {
     const scroller = document.querySelector('dialog[open] .sheet-body') ?? document.scrollingElement
     if (scroller) scroller.scrollTop = 0
   })
+}
+
+/** Insights' life areas worked out (the real model, in the background): their lines shown, nothing still sorting. */
+async function areasDone(page: Page) {
+  const areas = page.getByRole('region', { name: 'Life areas' })
+  await expect(areas.locator('summary').first()).toBeVisible({ timeout: 90_000 })
+  await expect(areas.getByRole('status')).toHaveCount(0, { timeout: 90_000 })
 }
 
 /** With the (fake) iPhone keyboard up over `field`, then down again. */
@@ -144,6 +151,13 @@ for (const scheme of ['light'] as const) {
       await look(page, at('entries-meaning-offer'))
       await page.getByRole('button', { name: 'Turn on' }).click()
       await expect(page.getByRole('region', { name: 'Also about this' })).toBeVisible({ timeout: 60_000 })
+      // Turned on, life areas (v0.16) are worked out in the background and name free writing by its area: wait for
+      // them, so no screen changes while it's looked at.
+      await page.goto('./#/insights')
+      await areasDone(page)
+      await page.goto('./#/entries')
+      await page.getByLabel('Search your logs').fill('meeting')
+      await expect(page.getByRole('region', { name: 'Also about this' })).toBeVisible({ timeout: 60_000 })
       await look(page, at('entries-by-meaning'))
       await page.goto('./#/insights/review')
       await page.getByLabel(/Anything to focus on/).fill('Why am I tired?')
@@ -159,11 +173,71 @@ for (const scheme of ['light'] as const) {
       await page.locator('details.week-line > summary', { hasText: 'Commute' }).click()
       await look(page, at('insights-opened'))
 
-      for (const sub of ['reminders', 'purpose', 'words', 'meaning', 'ai', 'backup', 'export', 'phone', 'delete']) {
+      for (const sub of ['reminders', 'purpose', 'words', 'meaning', 'photos', 'ai', 'backup', 'export', 'phone', 'delete']) {
         await page.goto(`./#/more/${sub}`)
         await expect(page.getByRole('link', { name: '‹ More' })).toBeVisible()
         await look(page, at(`more-${sub}`))
       }
+    })
+
+    // v0.16: life areas, the provoker's question and photos, on fictional writing of their own (the seed is activities).
+    test(`life areas, the provoker and photos, ${scheme}`, async ({ page }, testInfo) => {
+      test.setTimeout(240_000)
+      await fakeKeyboard(page)
+      await page.clock.setFixedTime(EVENING)
+      const at = (s: string) => `${scheme}-${s}`
+      const sheet = page.locator('dialog[open]')
+      const stale = EVENING.getTime() - 35 * 86_400_000
+      const writing = [
+        'Trading review for the week: 7 trades, 3 winners. Two losses were revenge trades after the Tuesday stop-out.',
+        'Rent went up by 120 a month. The budget is tight this winter.',
+        'Salary came in, moved 500 into the index fund and 200 into savings.',
+        'Electricity bill was 230 this quarter, almost double last year.',
+        'Ran 5k in 27 minutes, best this year. Knees a bit sore.',
+        'Doctor said the blood pressure is borderline. Less salt, more walking.',
+        'Caught the flu. Fever, aching, stayed in bed all day with tea.',
+      ]
+      await restoreBackup(
+        page,
+        testInfo.outputPath('v016.json'),
+        backupWith(
+          {
+            entries: writing.map((note, i) => freeWriting(`w${i}`, note, i + 1, EVENING)),
+            steps: [{ id: 'st1', text: 'Ask for an agenda first', when: '', kind: 'once', status: 'active', entryIds: [], activity: '', createdAt: stale, updatedAt: stale, finishedAt: null }],
+          },
+          EVENING,
+        ),
+      )
+      await page.goto('./#/more/meaning')
+      await page.getByRole('switch', { name: /Find entries by meaning/ }).check()
+      await page.goto('./#/insights')
+      await areasDone(page)
+      await look(page, at('insights-areas'))
+      await page.getByRole('region', { name: 'Life areas' }).locator('summary').first().click()
+      await look(page, at('insights-areas-opened'))
+
+      // Today: the provoker's question above the box (here a next step left for 5 weeks); a tap answers it.
+      await page.goto('./#/today')
+      const ask = page.getByRole('region', { name: 'A question from your writing' })
+      await expect(ask).toBeVisible()
+      await look(page, at('today-provoker'))
+      await ask.getByRole('button', { name: /Ask for an agenda first/ }).click()
+      await look(page, at('write-answering'))
+      await lookWithKeyboard(page, at('write-answering'), sheet.getByLabel(/Ask for an agenda first/))
+      await sheet.getByRole('button', { name: 'Close' }).click()
+
+      // A photo in the writer, with reading its text offered; then the entry it makes, its text read on the phone.
+      await captureBox(page).click()
+      await sheet.locator('input[type="file"]').setInputFiles(fileURLToPath(new URL('../fixtures/photos/receipt-clean.png', import.meta.url)))
+      await expect(sheet.getByRole('img', { name: 'Photo 1' })).toBeVisible()
+      await look(page, at('write-photo'))
+      await lookWithKeyboard(page, at('write-photo'), sheet.getByLabel("What's on your mind?"))
+      await sheet.getByRole('button', { name: 'Turn on' }).click()
+      await sheet.getByRole('button', { name: 'Save' }).click()
+      await expect(sheet.getByText('Text in this photo')).toBeVisible({ timeout: 90_000 })
+      await sheet.getByText('Text in this photo').click()
+      await look(page, at('entry-photo'))
+      await sheet.getByRole('button', { name: 'Done', exact: true }).click()
     })
 
     test(`the welcome, ${scheme}`, async ({ page }) => {

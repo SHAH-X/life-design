@@ -21,13 +21,13 @@ export function LifeAreas({ entries, byId, onOpen }: { entries: readonly Entry[]
       <h2 id={headingId} className="week-title">
         Life areas
       </h2>
-      <p className="muted small week-period">Last 30 days, sorted by what you wrote.</p>
+      <p className="muted small week-period">Last 30 days</p>
       {meaning !== 'on' ? (
         <aside className="notice">
           <p>
             Sort what you write into areas?
             <br />
-            <span className="muted small">Uses search by meaning: about 30 MB, once. Stays on this phone.</span>
+            <span className="muted small">About 30 MB, once. Stays on this phone.</span>
           </p>
           <button type="button" className="primary" onClick={() => void setMeaningSearch(true)}>
             Turn on

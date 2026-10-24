@@ -10,8 +10,9 @@ const BUDGETS = {
   // v0.8: 63 → 72. "Review due" is gone, so this test browser (not installed) now shows the install notice (10 words;
   // never on the Home Screen app), and Today has two ways in (+4). Owner-approved plan: budgets set from measurements.
   // v0.10: 72 → 85, the time each entry was logged (the owner's request; "8:00 PM" counts as three words here).
-  // v0.15: one box ("What's on your mind?" and its hint) in place of the two ways in.
-  'Today, a logged day [96]': 85,
+  // v0.15: one box ("What's on your mind?" and its hint) in place of the two ways in; v0.16 85 → 87 (87 measured), the
+  // owner's OK with the provoker (its question shows only some days: not on this one).
+  'Today, a logged day [96]': 87,
   'Write freely': 25,
   // An activity from before v0.15, opened: its parts and a possible insight (Team meeting has 4 fictional entries).
   // 90 until v0.9 (stopped restating the entry), 75 until v0.12.3: its parts as rows with small labels (owner's OK).
@@ -20,14 +21,16 @@ const BUDGETS = {
   // v0.13: one page, the week and the last 30 days (Patterns, 155, is gone). Its history: 80 until v0.9; + the week's
   // energy chart and card titles (the owner's chosen layout); v0.10 + logged times on stand-out entries; v0.11 + the
   // Next steps card; v0.12 + the Review a period row; v0.13 130 → 195 (194 measured), the owner's OK: one page in
-  // place of two (Insights 130 + Patterns 155).
-  'Insights, the fictional week and 30 days': 195,
+  // place of two (Insights 130 + Patterns 155); v0.16 195 → 224 (224 measured), the owner's OK: + Life areas (here its
+  // one-line offer, as search by meaning is off).
+  'Insights, the fictional week and 30 days': 224,
   'Insights → Next steps (empty)': 30,
   'Insights → Review a period, this week': 60, // v0.12: the period, what's in it, the two ways
   "Insights → What you're learning": 30, // v0.13
   'Insights → Earlier weeks': 30, // v0.13
   'More → AI review (no key yet)': 40, // v0.12: the two services, the key field
   'More → Search by meaning': 20, // v0.14: the switch and its line (17 measured)
+  'More → Reading photos': 20, // v0.16: the switch and its line
   'More [460]': 60,
   'More → Reminders [266]': 133,
   'More → Your purpose': 95, // seven purposes, each with its one-line explanation (the brief asks for both)
@@ -113,6 +116,7 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
     ['purpose', 'More → Your purpose'],
     ['ai', 'More → AI review (no key yet)'],
     ['meaning', 'More → Search by meaning'],
+    ['photos', 'More → Reading photos'],
     ['backup', 'More → Backup and restore [67]'],
   ] as const) {
     await page.goto(`./#/more/${path}`)
@@ -128,7 +132,7 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
 
 // The welcome on a new phone (Phase 3a.5). Set from measurements; raise only with the owner's OK.
 const WELCOME_BUDGETS = {
-  'Welcome: Life Design': 60, // the examples now say what each did to your energy
+  'Welcome: Life Design': 74, // v0.16 60 → 74 (74 measured), the owner's OK: what the one box is for, and two examples of it
   'Welcome: what it helps with': 105, // the purpose list, as in More → Your purpose
   'Welcome: a nudge each evening': 20,
 } as const

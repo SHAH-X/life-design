@@ -114,7 +114,7 @@ Only the owner can check these. When one is confirmed, change its status to ADOP
 | Evening question: answers save, ↻ Another, goal questions after setting a goal | v0.4 | TEST |
 | Every update since v0.3 keeps all data | v0.3 | TEST |
 | With the keyboard up: an entry's fields, "+ your own word", where, who and a next step stay in sight above Save; entry sheets fill the screen | v0.9.1 | TEST |
-| In the Home Screen app, the writer stays in place with the keyboard up: Save above the keyboard, nothing of Today above the sheet (the iOS Simulator showed the keyboard bar over Save on the old activity writing step, 2026-10-24: for the layout pass) | v0.12.2 | TEST |
+| In the Home Screen app, the writer stays in place with the keyboard up: Save above the keyboard, nothing of Today above the sheet (in the iOS Simulator, 2026-10-24, v0.16: Save stays clear of the keyboard bar in the writer, in a Safari tab and the Home Screen app; it was covered on the old activity writing step, now gone) | v0.12.2 | TEST |
 | Scrolling inside a sheet leaves the screen behind it still | v0.7.1 | TEST |
 | The welcome (open the address in Safari: its storage is separate from the Home Screen app's); "Need a start?"; the colours, Today's list, serif titles, links and ⓘ circles | v0.7 | TEST |
 | A purpose (it steers the evening question) | v0.9 | TEST |

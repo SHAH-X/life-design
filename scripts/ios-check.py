@@ -165,12 +165,14 @@ os.makedirs(OUT, exist_ok=True)
 SHOTS = []
 FAULTS = []
 
-def maybe(label, top, bottom, web=True):
-    """An element by its label in a band of the screen, or None (no refusal)."""
+def maybe(label, top, bottom, web=True, xs=(201, 250, 300, 120)):
+    """An element by its label in a band of the screen, or None (no refusal). Several columns: the update banner's
+    Reload sits right of the middle (v0.16: looking only at the middle missed it, and the walk met an old build)."""
     for y in range(top, bottom, 10):
-        e = at(201, y)
-        if (e.get('AXLabel') or '').strip() == label and is_web(e) == web:
-            return e['frame']
+        for x in xs:
+            e = at(x, y)
+            if (e.get('AXLabel') or '').strip() == label and is_web(e) == web:
+                return e['frame']
     return None
 
 

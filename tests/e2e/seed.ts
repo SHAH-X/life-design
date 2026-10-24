@@ -60,6 +60,40 @@ export function seedBackup(now: Date = new Date()) {
   }
 }
 
+/** A backup in today's format (8) with just the records given; every other table empty. */
+export function backupWith(data: Record<string, unknown[]>, now: Date = new Date()) {
+  const tables = ['entries', 'days', 'answers', 'ikigaiItems', 'odysseyPlans', 'planVersions', 'views', 'weeks', 'steps', 'aiReviews', 'reviews', 'settings', 'photos']
+  return { app: 'life-design', kind: 'backup', schemaVersion: 8, exportedAt: now.toISOString(), data: Object.fromEntries(tables.map((t) => [t, data[t] ?? []])) }
+}
+
+/** Free writing as the box saves it, `daysAgo` days back at noon. */
+export function freeWriting(id: string, note: string, daysAgo: number, now: Date = new Date()) {
+  const date = dateKey(daysAgo, now)
+  const at = new Date(`${date}T12:00:00`).getTime()
+  return {
+    id,
+    date,
+    part: 'afternoon',
+    activity: '',
+    engagement: 3,
+    energy: 0,
+    flow: false,
+    where: [],
+    people: [],
+    objects: [],
+    during: [],
+    after: [],
+    note,
+    source: 'evening',
+    kind: 'free',
+    purpose: 'free',
+    skipped: ['engagement', 'energy'],
+    status: 'done',
+    createdAt: at,
+    updatedAt: at,
+  }
+}
+
 /** Restores the fictional data through the app's own Restore screen (dated relative to `now`). */
 export async function restoreSeed(page: Page, path: string, now: Date = new Date()) {
   await restoreBackup(page, path, seedBackup(now))

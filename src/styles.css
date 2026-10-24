@@ -883,6 +883,8 @@ button.entry-row:focus-visible {
 .capture-box {
   display: grid;
   align-content: start;
+  /* The base button centres its content; the box reads from the left, like a text box. */
+  justify-content: start;
   justify-items: start;
   gap: 2px;
   width: 100%;
@@ -938,6 +940,7 @@ button.entry-row:focus-visible {
 .photo-full {
   display: block;
   overflow: hidden;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--border);
 }
@@ -969,16 +972,11 @@ button.entry-row:focus-visible {
   border-radius: 50%;
 }
 
-/* "Add a photo": the file input covers the whole button, so any tap on it opens the camera or the library. */
+/* "Add a photo" (a .button): the file input covers it whole, so any tap on it opens the camera or the library. */
 .photo-add {
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
   margin-top: 8px;
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  align-self: flex-start;
 }
 
 .photo-add input {
@@ -991,6 +989,14 @@ button.entry-row:focus-visible {
 
 .entry-photos figure {
   margin: 12px 0 0;
+}
+
+/* "Text in this photo": a whole row to tap, not a line of text. */
+.entry-photos summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--accent);
 }
 
 .photo-text {

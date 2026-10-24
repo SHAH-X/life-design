@@ -178,6 +178,10 @@ export function FreeWrite(props: { date: string; draft?: Entry; ask?: Ask; onClo
       <div className="field-foot">
         {text.trim() === '' ? <Starters starters={eveningStarters('free')} onPick={(t) => typeInto(box.current, t, setText)} /> : null}
       </div>
+      {/* Right under the box, so it stays in sight with the keyboard up (photos come after it). */}
+      <p id={hintId} className="field-help">
+        Tap the mic on the keyboard to speak.
+      </p>
       {photos.length ? (
         <ul className="photo-strip" aria-label="Photos">
           {photos.map((ref, i) => {
@@ -194,7 +198,7 @@ export function FreeWrite(props: { date: string; draft?: Entry; ask?: Ask; onClo
           })}
         </ul>
       ) : null}
-      <label className={`photo-add${adding ? ' busy' : ''}`}>
+      <label className="button photo-add">
         <input type="file" accept="image/*" multiple disabled={adding} onChange={(e) => {
           const files = [...(e.target.files ?? [])]
           e.target.value = ''
@@ -224,9 +228,6 @@ export function FreeWrite(props: { date: string; draft?: Entry; ask?: Ask; onClo
           </div>
         </aside>
       ) : null}
-      <p id={hintId} className="field-help">
-        Tap the mic on the keyboard to speak.
-      </p>
     </Dialog>
   )
 }
