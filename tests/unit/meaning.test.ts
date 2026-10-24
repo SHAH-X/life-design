@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { closeness, meaningChunks, meaningHash, meaningText, standOut } from '../../src/domain/meaning'
+import { closeness, closest, meaningChunks, meaningHash, meaningText, standOut } from '../../src/domain/meaning'
 import { fakeEntry } from '../fixtures/meaning'
 
 // Fictional example data.
@@ -22,8 +22,19 @@ describe('meaningText: what search by meaning reads in an entry', () => {
     expect(meaningText({ ...entry, reflections: [{ question: 'What went well?', text: '' }] })).toBe('A long walk!')
   })
 
+  it('reads an entry from before feeling words with the words the app shows for it', () => {
+    const old = { ...fakeEntry('old', 'Team meeting', '', [], []), engagement: 2 as const, energy: -1 as const }
+    expect(meaningText(old)).toBe('Team meeting. Felt distracted, tired.')
+  })
+
+  it("never guesses words: none for a skipped question, and none for free writing that had none", () => {
+    const skipped = { ...fakeEntry('s', 'Team meeting', '', [], []), skipped: ['engagement' as const, 'energy' as const] }
+    expect(meaningText(skipped)).toBe('Team meeting.')
+    expect(meaningText({ ...fakeEntry('f', '', 'Rain all day.', [], []), kind: 'free' })).toBe('Rain all day.')
+  })
+
   it('is empty for an entry with no words at all', () => {
-    expect(meaningText(fakeEntry('e1', '', '', [], []))).toBe('')
+    expect(meaningText({ ...fakeEntry('e1', '', '', [], []), skipped: ['engagement', 'energy'] })).toBe('')
   })
 })
 
@@ -63,6 +74,12 @@ describe('closeness and standOut: which entries to show, closest first', () => {
     expect(scores.get('b')).toBeCloseTo(0.6)
   })
 
+  it('closest: simply the closest, closest first, at most max', () => {
+    const scores = new Map([['a', 0.1], ['b', 0.9], ['c', 0.5], ['d', 0.3]])
+    expect(closest(scores, 3)).toEqual(['b', 'c', 'd'])
+    expect(closest(scores, 9)).toEqual(['b', 'c', 'd', 'a'])
+  })
+
   it('with few entries, gives the closest three', () => {
     const scores = new Map([['a', 0.1], ['b', 0.9], ['c', 0.5], ['d', 0.3]])
     expect(standOut(scores, 5)).toEqual(['b', 'c', 'd'])
@@ -79,11 +96,18 @@ describe('closeness and standOut: which entries to show, closest first', () => {
     expect(standOut(scores, 1)).toEqual(['closer'])
   })
 
-  it('when nothing stands out (half close, half far), still gives the closest three', () => {
+  it('when half are close and half far, gives the close ones, at most max', () => {
     const scores = new Map<string, number>()
     for (let i = 0; i < 10; i++) scores.set(`far${i}`, 0.2)
     for (let i = 0; i < 10; i++) scores.set(`near${i}`, 0.8)
-    expect(standOut(scores, 5)).toHaveLength(3)
-    expect(standOut(scores, 5).every((id) => id.startsWith('near'))).toBe(true)
+    expect(standOut(scores, 5)).toHaveLength(5)
+    expect(standOut(scores, 20).sort()).toEqual([...Array(10).keys()].map((i) => `near${i}`).sort())
+  })
+
+  it('when nothing stands out, gives the closest three and any tied with them, never splitting alike entries', () => {
+    const scores = new Map<string, number>([['low', 0]])
+    for (let i = 0; i < 11; i++) scores.set(`same${i}`, 0.5)
+    expect(standOut(scores, 20)).toHaveLength(11)
+    expect(standOut(scores, 4)).toHaveLength(4)
   })
 })

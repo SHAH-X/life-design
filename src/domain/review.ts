@@ -9,15 +9,17 @@ import { DURATION_LABELS, ENERGY_OPTIONS, wordsFor } from './feelings'
 import { focusFor, purposeInfo } from './purposes'
 import { stepLine } from './steps'
 
-export type PeriodPreset = 'this-week' | 'last-week' | 'this-month' | 'last-month'
+export type PeriodPreset = 'this-week' | 'last-week' | 'this-month' | 'last-month' | 'all-time'
 
 export interface Period {
   start: string
   end: string
 }
 
-/** This or last week (Monday to Sunday), this or last month. */
-export function periodFor(preset: PeriodPreset, today: string): Period {
+/** This or last week (Monday to Sunday), this or last month, or all time: from `first`, the first day anything was
+ *  written (v0.14, for "Only entries about this"). */
+export function periodFor(preset: PeriodPreset, today: string, first: string = today): Period {
+  if (preset === 'all-time') return { start: first < today ? first : today, end: today }
   if (preset === 'this-week' || preset === 'last-week') {
     const start = addDays(weekStart(today), preset === 'last-week' ? -7 : 0)
     return { start, end: addDays(start, 6) }
@@ -89,20 +91,44 @@ function entryLines(entry: Entry, steps: readonly Step[]): string[] {
   return lines
 }
 
-/** The period, in words: what an AI is given, and what you see under "See what's sent". */
-export function buildReviewPackage(data: ReviewData, period: Period, focus: string): ReviewPackage {
+/** The first day anything was written (an entry, a small joy, an evening answer), or null. */
+export function firstWrittenDate(data: Pick<ReviewData, 'entries' | 'days' | 'answers'>): string | null {
+  const dates = [...data.entries.filter((e) => e.status !== 'draft').map((e) => e.date), ...data.days.filter((d) => d.smallJoy.trim()).map((d) => d.date), ...data.answers.map((a) => a.date)]
+  return dates.length ? dates.reduce((a, b) => (b < a ? b : a)) : null
+}
+
+/**
+ * The period, in words: what an AI is given, and what you see under "See what's sent". `only` (v0.14, "Only entries
+ * about this"): just those entries, with the small joys, evening answers and week notes from their days and the next
+ * steps that came from them; the package says the rest was left out.
+ */
+export function buildReviewPackage(data: ReviewData, period: Period, focus: string, only?: ReadonlySet<string>): ReviewPackage {
   const entries = data.entries
-    .filter((e) => e.status !== 'draft' && within(e.date, period))
+    .filter((e) => e.status !== 'draft' && within(e.date, period) && (!only || only.has(e.id)))
     .sort((a, b) => a.date.localeCompare(b.date) || PART_ORDER[a.part] - PART_ORDER[b.part] || a.createdAt - b.createdAt)
-  const joys = data.days.filter((d) => d.smallJoy.trim() && within(d.date, period))
-  const answers = data.answers.filter((a) => a.text.trim() && within(a.date, period))
-  const steps = data.steps.filter((s) => s.status === 'active' || (s.finishedAt !== null && within(toDateKey(new Date(s.finishedAt)), period)))
-  const carry = data.weeks.filter((w) => w.carry.trim() && w.id >= weekStart(period.start) && w.id <= period.end)
+  const entryDates = new Set(entries.map((e) => e.date))
+  const entryIds = new Set(entries.map((e) => e.id))
+  const onTheirDays = (date: string) => !only || entryDates.has(date)
+  const joys = data.days.filter((d) => d.smallJoy.trim() && within(d.date, period) && onTheirDays(d.date))
+  const answers = data.answers.filter((a) => a.text.trim() && within(a.date, period) && onTheirDays(a.date))
+  const steps = data.steps.filter(
+    (s) =>
+      (s.status === 'active' || (s.finishedAt !== null && within(toDateKey(new Date(s.finishedAt)), period))) &&
+      (!only || s.entryIds.some((id) => entryIds.has(id))),
+  )
+  const carry = data.weeks.filter(
+    (w) => w.carry.trim() && w.id >= weekStart(period.start) && w.id <= period.end && (!only || [...entryDates].some((d) => weekStart(d) === w.id)),
+  )
 
   const range = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' }).formatRange(fromDateKey(period.start), fromDateKey(period.end))
   const purpose = purposeInfo(data.purpose.primary).label
   const own = data.purpose.primary === 'goal' ? data.purpose.goal.trim() : focusFor(data.purpose.primary, data.purpose.focus)
   const out: string[] = [`# My journal, ${range}`, '', `What I journal for: ${purpose}${own ? ` (${own.charAt(0).toLowerCase()}${own.slice(1)})` : ''}`]
+  if (only)
+    out.push(
+      '',
+      `Only the entries about "${focus.trim()}" are here, chosen by the app, with the small joys and answers from their days. The rest of the period is left out.`,
+    )
 
   const dates = [...new Set([...entries.map((e) => e.date), ...joys.map((d) => d.date), ...answers.map((a) => a.date)])].sort()
   for (const date of dates) {

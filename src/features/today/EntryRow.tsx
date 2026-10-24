@@ -1,6 +1,6 @@
 import type { Entry } from '../../db/types'
 import { energyEdge, entryWords } from '../../domain/feelings'
-import { loggedAt } from '../../lib/dates'
+import { loggedAt, shortDayMonth } from '../../lib/dates'
 
 /** What an entry is called in lists, labels and its sheet: the activity, or "Free writing" (never the writing itself:
  * a long first line once became a whole passage in bold, v0.12.2). */
@@ -13,9 +13,10 @@ export function entryTitle(entry: Entry): string {
  * its words, then at most two lines of what you wrote: the whole of it opens with the entry (owner, v0.12.2: "the very
  * big passage should not be shown like this"). A thin edge shows how it left you (blue gave energy, red took it); the
  * words say it too. An unfinished one says so.
- * Without `onOpen` it's a plain example, as on the welcome (no time: it was never written).
+ * Without `onOpen` it's a plain example, as on the welcome (no time: it was never written). `dated`: its day instead of
+ * the time, for a row away from its day's heading.
  */
-export function EntryRow({ entry, onOpen }: { entry: Entry; onOpen?: () => void }) {
+export function EntryRow({ entry, onOpen, dated = false }: { entry: Entry; onOpen?: () => void; dated?: boolean }) {
   const free = entry.kind === 'free'
   const words = free ? '' : entryWords(entry)
   const note = entry.note.replace(/\s+/g, ' ').trim()
@@ -24,8 +25,8 @@ export function EntryRow({ entry, onOpen }: { entry: Entry; onOpen?: () => void 
       <span className="entry-first">
         <span className="entry-activity">{entryTitle(entry)}</span>
         {onOpen ? (
-          <time className="entry-time" dateTime={new Date(entry.createdAt).toISOString()}>
-            {loggedAt(entry.createdAt, entry.date)}
+          <time className="entry-time" dateTime={dated ? entry.date : new Date(entry.createdAt).toISOString()}>
+            {dated ? shortDayMonth(entry.date) : loggedAt(entry.createdAt, entry.date)}
           </time>
         ) : null}
       </span>

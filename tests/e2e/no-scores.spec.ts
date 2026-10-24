@@ -1,16 +1,9 @@
-import { expect, type Page, test } from '@playwright/test'
-import { addEntry } from './helpers'
+import { expect, test } from '@playwright/test'
+import { addEntry, expectNoScores } from './helpers'
 import { restoreSeed } from './seed'
 
-// The guard for Phase 2.6's rule: nothing asks for or shows a rating, score, average or scale.
-// Plain counts ("5 times", "on 4 days") and dates are fine; a sign before a number, a decimal,
-// "x/5" or "x/10", or the word "average" is not.
-const SCORE = /[+−-]\d|\d\s*\/\s*(?:5|10)\b|\b\d\.\d\b|\baverage\b/i
-
-async function expectNoScores(page: Page, where: string) {
-  const text = await page.locator('body').innerText()
-  expect(text.match(SCORE)?.[0] ?? null, `a score on ${where}`).toBeNull()
-}
+// The guard for Phase 2.6's rule: nothing asks for or shows a rating, score, average or scale (expectNoScores).
+// Search by meaning's screens are checked in meaning.spec.ts, which has the model.
 
 test('no screen asks for or shows a rating or score', async ({ page }, testInfo) => {
   await restoreSeed(page, testInfo.outputPath('seed.json'))

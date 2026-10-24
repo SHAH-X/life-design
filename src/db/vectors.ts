@@ -1,4 +1,4 @@
-import { closeness, meaningChunks, meaningHash, meaningText, standOut } from '../domain/meaning'
+import { closeness, closest, meaningChunks, meaningHash, meaningText, standOut } from '../domain/meaning'
 import type { Embed } from '../lib/embedder'
 import { MEANING_MODEL } from '../lib/meaningModel'
 import { db as defaultDb, type LifeDesignDB } from './db'
@@ -60,22 +60,33 @@ async function update(embed: Embed, database: LifeDesignDB, onProgress?: (done: 
 
 /**
  * The finished entries that stand out as closest in meaning to a question, closest first, as ids (at most `max`).
- * `among` limits it to some entries (a period's). How close is never given: order only.
+ * `among` limits it to some entries (a period's). `pick`: those that stand out (the default), or simply the closest.
+ * How close is never given: order only. `onProgress` hears how the catching up goes, the first time a long journal
+ * is read.
  */
 export async function findByMeaning(
   query: string,
   embed: Embed,
-  { among, max }: { among?: readonly string[]; max: number },
+  {
+    among,
+    max,
+    pick = 'standOut',
+    onProgress,
+  }: { among?: readonly string[]; max: number; pick?: 'standOut' | 'closest'; onProgress?: (done: number, total: number) => void },
   database: LifeDesignDB = defaultDb,
 ): Promise<string[]> {
   const question = query.trim()
   if (!question) return []
-  await ensureVectors(embed, database)
+  await ensureVectors(embed, database, onProgress)
   const [vector] = await embed([question], 'query')
   const allowed = among ? new Set(among) : null
   const rows = (await database.vectors.toArray()).filter((r) => !allowed || allowed.has(r.entryId))
-  return standOut(closeness(vector!, rows), max)
+  const scores = closeness(vector!, rows)
+  return pick === 'closest' ? closest(scores, max) : standOut(scores, max)
 }
+
+/** Forgets every entry's numbers (with the model's files removed): they're worked out again if it's turned on. */
+export const clearVectors = (database: LifeDesignDB = defaultDb) => database.vectors.clear()
 
 /** The finished entries closest in meaning to a question, closest first: what to give an AI as context. */
 export async function relevantEntries(query: string, limit: number, embed: Embed, database: LifeDesignDB = defaultDb): Promise<Entry[]> {

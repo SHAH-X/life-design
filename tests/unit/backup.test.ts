@@ -279,7 +279,9 @@ describe('backup and restore', () => {
   it("never puts search by meaning's numbers in a backup: they're worked out again on the phone it's restored to", async () => {
     await phone.entries.put(entry('e1', 10, { note: 'Up early' }))
     await phone.vectors.put({ id: 'e1#0', entryId: 'e1', model: 'm', hash: 'h', vector: new Float32Array([0.6, 0.8]) })
+    await phone.settings.put({ key: 'meaningSearch', value: true, updatedAt: 10 })
     const backup = await createBackup(phone)
+    expect(backup.data.settings.map((s) => s.key)).not.toContain('meaningSearch') // its download is this phone's
     expect(Object.keys(backup.data).sort()).toEqual([...TABLE_NAMES].sort())
     expect(JSON.stringify(backup)).not.toContain('e1#0')
     const detected = detectFile(JSON.stringify(backup))
@@ -287,6 +289,7 @@ describe('backup and restore', () => {
     await applyImport(detected.raw, newPhone)
     expect(await newPhone.entries.get('e1')).toMatchObject({ note: 'Up early' })
     expect(await newPhone.vectors.count()).toBe(0)
+    expect(await newPhone.settings.get('meaningSearch')).toBeUndefined()
   })
 
   it('turns next steps kept on entries in older files (format 5) into steps, only once however often it is restored', async () => {

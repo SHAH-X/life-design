@@ -28,6 +28,7 @@ const BUDGETS = {
   "Insights → What you're learning": 30, // v0.13
   'Insights → Earlier weeks': 30, // v0.13
   'More → AI review (no key yet)': 40, // v0.12: the two services, the key field
+  'More → Search by meaning': 20, // v0.14: the switch and its line (17 measured)
   'More [460]': 60,
   'More → Reminders [266]': 133,
   'More → Your purpose': 95, // seven purposes, each with its one-line explanation (the brief asks for both)
@@ -139,6 +140,7 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
     ['reminders', 'More → Reminders [266]'],
     ['purpose', 'More → Your purpose'],
     ['ai', 'More → AI review (no key yet)'],
+    ['meaning', 'More → Search by meaning'],
     ['backup', 'More → Backup and restore [67]'],
   ] as const) {
     await page.goto(`./#/more/${path}`)

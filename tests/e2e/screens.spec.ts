@@ -151,6 +151,21 @@ for (const scheme of ['light', 'dark'] as const) {
         await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible()
         await look(page, at(route.replace('/', '-')))
       }
+      // Search by meaning (v0.14): offered the first time you search, then what it finds below the word matches,
+      // and Review narrowed to the entries about its focus. The real model, so it may take a few seconds.
+      await page.goto('./#/entries')
+      await page.getByLabel('Search your logs').fill('meeting')
+      await expect(page.getByText('Also find entries by meaning?')).toBeVisible()
+      await look(page, at('entries-meaning-offer'))
+      await page.getByRole('button', { name: 'Turn on' }).click()
+      await expect(page.getByRole('region', { name: 'Also about this' })).toBeVisible({ timeout: 60_000 })
+      await look(page, at('entries-by-meaning'))
+      await page.goto('./#/insights/review')
+      await page.getByLabel(/Anything to focus on/).fill('Why am I tired?')
+      await page.getByRole('switch', { name: 'Only entries about this' }).check()
+      await expect(page.getByText(/about this on \d+ days?/)).toBeVisible({ timeout: 60_000 })
+      await look(page, at('insights-review-about'))
+
       // What opens on Insights (v0.13): a day of the chart with its entries, the chart's table, and a line with the
       // entries behind it (links in opened parts went unstyled unseen in v0.11).
       await page.goto('./#/insights')
@@ -159,7 +174,7 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.locator('details.week-line > summary', { hasText: 'Commute' }).click()
       await look(page, at('insights-opened'))
 
-      for (const sub of ['reminders', 'purpose', 'words', 'appearance', 'ai', 'backup', 'export', 'phone', 'delete']) {
+      for (const sub of ['reminders', 'purpose', 'words', 'appearance', 'meaning', 'ai', 'backup', 'export', 'phone', 'delete']) {
         await page.goto(`./#/more/${sub}`)
         await expect(page.getByRole('link', { name: '‹ More' })).toBeVisible()
         await look(page, at(`more-${sub}`))

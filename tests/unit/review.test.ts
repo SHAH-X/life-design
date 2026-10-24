@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { type Answer, type Day, type Entry, entryDefaults, type Step, type Week } from '../../src/db/types'
-import { buildReviewPackage, periodFor, REVIEW_INSTRUCTIONS, type ReviewData } from '../../src/domain/review'
+import { buildReviewPackage, firstWrittenDate, periodFor, REVIEW_INSTRUCTIONS, type ReviewData } from '../../src/domain/review'
 
 // Review a period (v0.12): one package, in words, for an AI chat or the in-app review. Fictional example data.
 let n = 0
@@ -39,6 +39,14 @@ describe('periodFor: the periods to choose from', () => {
     expect(periodFor('this-month', thursday)).toEqual({ start: '2026-10-01', end: '2026-10-31' })
     expect(periodFor('last-month', thursday)).toEqual({ start: '2026-09-01', end: '2026-09-30' })
     expect(periodFor('last-month', '2026-01-15')).toEqual({ start: '2025-12-01', end: '2025-12-31' })
+  })
+
+  it('gives all time from the first day anything was written, or just today with nothing written', () => {
+    expect(periodFor('all-time', '2026-10-22', '2025-03-04')).toEqual({ start: '2025-03-04', end: '2026-10-22' })
+    expect(periodFor('all-time', '2026-10-22')).toEqual({ start: '2026-10-22', end: '2026-10-22' })
+    const days: Day[] = [{ date: '2026-09-01', smallJoy: 'Rain', createdAt: 1, updatedAt: 1 }, { date: '2026-01-01', smallJoy: '', createdAt: 1, updatedAt: 1 }]
+    expect(firstWrittenDate({ entries: [entry('2026-10-01', 'Walk'), entry('2025-02-02', 'Draft', { status: 'draft' })], days, answers: [] })).toBe('2026-09-01')
+    expect(firstWrittenDate({ entries: [], days: [], answers: [] })).toBeNull()
   })
 })
 
@@ -114,5 +122,22 @@ describe('buildReviewPackage: what an AI is given', () => {
   it('counts what is in it, so you see before anything leaves', () => {
     expect(pack.counts).toEqual({ entries: 2, days: 2, smallJoys: 1, answers: 1, steps: 1 })
     expect(pack.words).toBeGreaterThan(40)
+  })
+
+  it('"Only entries about this": just those entries, with what came from their days, and it says the rest is left out', () => {
+    const narrowed = buildReviewPackage(data, { start: '2026-10-19', end: '2026-10-25' }, ' Why am I tired on Mondays? ', new Set([meeting.id]))
+    expect(narrowed.data).toContain('Only the entries about "Why am I tired on Mondays?" are here, chosen by the app')
+    expect(narrowed.data).toContain('Team meeting')
+    expect(narrowed.data).toContain('Small joy: Coffee in the sun') // the meeting's day
+    expect(narrowed.data).toContain('Working on: Before the meeting: Ask for an agenda first') // came from the meeting
+    expect(narrowed.data).toContain('To carry into the week of 19 October')
+    expect(narrowed.data).not.toContain("Couldn't sleep") // free writing, not chosen
+    expect(narrowed.data).not.toContain('Calling my sister') // an answer from another day
+    expect(narrowed.counts).toEqual({ entries: 1, days: 1, smallJoys: 1, answers: 0, steps: 1 })
+  })
+
+  it('narrowed to nothing, sends nothing', () => {
+    const none = buildReviewPackage(data, { start: '2026-10-19', end: '2026-10-25' }, 'x', new Set())
+    expect(none.counts).toEqual({ entries: 0, days: 0, smallJoys: 0, answers: 0, steps: 0 })
   })
 })

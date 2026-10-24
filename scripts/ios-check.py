@@ -2,8 +2,8 @@
 
 Playwright's WebKit has no on-screen keyboard and none of iPhone Safari's own behaviour, where most layout faults
 were found (DECISIONS.md, "Testing in real iPhone Safari"). This walks the sheets that broke before with the real
-keyboard up, in a Safari tab and in the Home Screen app (the owner's way, which behaves differently), and saves
-screenshots to test-results/ios/ to look at (CLAUDE.md, "Look before done").
+keyboard up, in a Safari tab and in the Home Screen app (the owner's way, which behaves differently), then search by
+meaning with its real model, and saves screenshots to test-results/ios/ to look at (CLAUDE.md, "Look before done").
 
 Run: npm run ios-check (both), or npm run ios-check -- home (or safari). The app's preview server must be running:
 npm run build && npm run preview. The Home Screen run needs the app added there once (it says how).
@@ -246,6 +246,44 @@ def new_activity(mode):
     shot('7-saved')
 
 
+def by_meaning(mode):
+    """Search by meaning in the app (v0.14): Logs' offer turned on if it's asked, then a search that shares no word
+    with the entry it should find ("singing" for the choir rehearsal just saved). The model downloads, runs in its
+    worker in iPhone Safari, and answers: nothing found within two minutes is a fault."""
+    global PREFIX
+    PREFIX = mode
+    if mode == 'safari':
+        run('xcrun', 'simctl', 'openurl', UDID, APP + '#/entries')
+        time.sleep(4)
+        settle()
+    else:
+        done = find('Done', top=760, bottom=874, web=True)  # the saved entry's sheet covers the tab bar
+        tap(x=middle(done)[0], y=middle(done)[1])
+        logs = find('Logs', top=740, bottom=874, web=True)  # the tab
+        tap(x=middle(logs)[0], y=middle(logs)[1])
+    tap('Search your logs', field=True)
+    idb('ui', 'text', 'singing')
+    time.sleep(1)
+    tap('Logs')  # the heading: the keyboard goes down
+    for y in range(100, 420, 10):
+        for x in (70, 201):
+            if (at(x, y).get('AXLabel') or '').strip() == 'Turn on':
+                tap(x=x, y=y)
+                break
+        else:
+            continue
+        break
+    shot('8-meaning-working')
+    deadline = time.time() + 120
+    while time.time() < deadline:
+        if maybe('Also about this', 100, 640):
+            break
+        time.sleep(2)
+    else:
+        FAULTS.append(f'{mode}: search by meaning showed nothing for "singing" within two minutes')
+    shot('9-by-meaning')
+
+
 PREFIX = ''
 modes = sys.argv[1:] or ['safari', 'home']  # npm run ios-check -- home: one mode only
 try:
@@ -257,6 +295,7 @@ try:
         else:
             refuse(f'unknown mode "{mode}".', 'Use safari, home, or nothing for both.')
         new_activity(mode)
+        by_meaning(mode)
 finally:
     # Never left running: a simulator left booted for hours kept the Mac's load near 300, and every e2e test then
     # timed out starting its browser (2026-10-23: 51 of 90 "failed" against a live site that was fine).

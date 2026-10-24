@@ -3,8 +3,8 @@
 A private daily journal for iPhone, built on *Designing Your Life* (Burnett & Evans) and Ikigai.
 
 - **Journaling by purpose:** say what journaling is for (understand yourself, improve, learn, reach a goal, make sense of a hard time, everyday life, or just write). Reflect on an activity in a few taps, in words, never ratings: what it was like, what it did to your energy, how you felt, then one box to write in, with a few questions for your purpose as helpers. Or write freely. Every step after the first can be skipped, and unfinished entries are kept.
-- **Learn from it:** after each entry, your entry read back and, only when several entries agree, a possible insight with the entries behind it. Find any entry again in Logs.
-- **Review a period:** a week, a month or any range, copied for an AI chat of your choice, or reviewed in the app with your own free Groq key. Nothing is sent until you tap.
+- **Learn from it:** after each entry, your entry read back and, only when several entries agree, a possible insight with the entries behind it. Find any entry again in Logs, by its words or, once you turn it on, by what it's about (a small model on the phone: nothing is sent).
+- **Review a period:** a week, a month, all time or any range (or only the entries about a question), copied for an AI chat of your choice, or reviewed in the app with your own free Groq key. Nothing is sent until you tap.
 - **Next steps:** what you decide to do or try gathers in one list you can manage, once or ongoing, with an optional "when". A step comes back when you write about the same activity again.
 - **Insights, put together for you:** one page. Your week (what each day held for your energy, what stood out, the feelings that came up), then the last 30 days in words (what gives and uses up your energy, when time flew, the places, people and times that usually went one way), then what you're learning and your next steps. Nothing to choose or fill in, and every line opens to the entries behind it.
 - **An evening question:** a small joy, plus one question that changes each day and follows your purpose, sometimes about a pattern in your own days.

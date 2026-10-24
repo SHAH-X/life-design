@@ -17,6 +17,7 @@ import { AppearanceSettings } from './AppearanceSettings'
 import { BackupCard } from './BackupCard'
 import { DeleteAllCard } from './DeleteAllCard'
 import { ExportCard } from './ExportCard'
+import { MEANING_INFO, MeaningSettings } from './MeaningSettings'
 import { DEFAULT_PURPOSE } from '../today/usePurpose'
 import { OwnWords } from './OwnWords'
 import { PurposeSettings } from './PurposeSettings'
@@ -29,6 +30,7 @@ const PAGES = {
   purpose: 'Your purpose',
   words: 'Your feeling words',
   appearance: 'Appearance',
+  meaning: 'Search by meaning',
   ai: 'AI review',
   backup: 'Backup and restore',
   export: 'Spreadsheet export',
@@ -59,6 +61,10 @@ function MorePage({ page }: { page: Page }) {
         <Question as="h1" info={KEY_SAFETY} infoLabel="How is my key kept safe?">
           {PAGES[page]}
         </Question>
+      ) : page === 'meaning' ? (
+        <Question as="h1" info={MEANING_INFO} infoLabel="How does it work?">
+          {PAGES[page]}
+        </Question>
       ) : (
         <h1>{PAGES[page]}</h1>
       )}
@@ -66,6 +72,7 @@ function MorePage({ page }: { page: Page }) {
       {page === 'purpose' ? <PurposeSettings /> : null}
       {page === 'words' ? <OwnWords /> : null}
       {page === 'appearance' ? <AppearanceSettings /> : null}
+      {page === 'meaning' ? <MeaningSettings /> : null}
       {page === 'ai' ? <AiSettings /> : null}
       {page === 'backup' ? <BackupCard /> : null}
       {page === 'export' ? <ExportCard /> : null}
@@ -90,13 +97,14 @@ function useListStatus() {
     void isPersisted().then(setPersisted)
   }, [])
   const stored = useLiveQuery(async () => {
-    const [reminders, primary, lastExportAt, own, aiKey, aiProvider] = await Promise.all([
+    const [reminders, primary, lastExportAt, own, aiKey, aiProvider, meaning] = await Promise.all([
       getSetting<unknown>('reminders', null),
       getSetting<unknown>('primaryPurpose', DEFAULT_PURPOSE),
       getSetting<number | null>('lastExportAt', null),
       getOwnWords(),
       getSetting<unknown>('aiKey', null),
       getSetting<unknown>('aiProvider', 'groq'),
+      getSetting<unknown>('meaningSearch', null),
     ])
     const plan = normalizeReminderPlan(reminders, toDateKey(new Date()))
     const on = (Object.keys(REMINDER_NAMES) as (keyof typeof REMINDER_NAMES)[]).filter((k) => plan[k].on).map((k) => REMINDER_NAMES[k])
@@ -105,6 +113,7 @@ function useListStatus() {
       purpose: purposeInfo(PURPOSE_KEYS.includes(primary as Purpose) ? (primary as Purpose) : DEFAULT_PURPOSE).label,
       backup: lastExportAt ? `Last: ${shortDate(lastExportAt)}` : 'No backup yet',
       words: own.length ? own.map((w) => w.word).join(' · ') : 'None yet',
+      meaning: meaning === true ? 'On' : 'Off',
       ai: typeof aiKey === 'string' && aiKey ? `On · ${PROVIDERS[aiProvider === 'openai' ? 'openai' : 'groq'].label}` : 'Off',
     }
   }, [])
@@ -123,6 +132,7 @@ function MoreList() {
     { page: 'purpose', status: status.purpose },
     { page: 'words', status: status.words },
     { page: 'appearance', status: APPEARANCE_LABELS[getAppearance()] },
+    { page: 'meaning', status: status.meaning },
     { page: 'ai', status: status.ai },
     { page: 'backup', status: status.backup },
     { page: 'export' },

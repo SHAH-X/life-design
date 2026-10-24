@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { ensureVectors, findByMeaning, relevantEntries } from '../../src/db/vectors'
+import { meaningText } from '../../src/domain/meaning'
 import type { Embed } from '../../src/lib/embedder'
 import { fakeEntry } from '../fixtures/meaning'
 
@@ -49,7 +50,7 @@ describe('ensureVectors: the numbers kept in step with the journal', () => {
     await phone.entries.bulkPut([
       fakeEntry('done', 'Hike', 'Up the ridge.', [], []),
       { ...fakeEntry('draft', 'Swim', 'Cold.', [], []), status: 'draft' },
-      fakeEntry('empty', '', '', [], []),
+      { ...fakeEntry('empty', '', '', [], []), skipped: ['engagement', 'energy'] },
     ])
     await ensureVectors(fakeEmbed, phone)
     expect((await phone.vectors.toArray()).map((r) => r.entryId)).toEqual(['done'])
@@ -65,7 +66,8 @@ describe('ensureVectors: the numbers kept in step with the journal', () => {
     await phone.entries.update('a', { note: 'Down to the lake.' })
     await phone.entries.delete('b')
     await ensureVectors(fakeEmbed, phone)
-    expect(asked).toEqual(['Hike. Down to the lake.'])
+    expect(asked).toEqual([meaningText((await phone.entries.get('a'))!)])
+    expect(asked[0]).toContain('Down to the lake.')
     expect((await phone.vectors.toArray()).map((r) => r.entryId)).toEqual(['a'])
   })
 
@@ -115,6 +117,10 @@ describe('findByMeaning and relevantEntries', () => {
   it('brings the numbers up to date first, then gives the closest entries first, as ids', async () => {
     expect(await findByMeaning('cold lake', fakeEmbed, { max: 2 }, phone)).toEqual(['swim', 'hike'])
     expect(await phone.vectors.count()).toBe(3)
+  })
+
+  it('can give simply the closest instead of those that stand out', async () => {
+    expect(await findByMeaning('cold lake', fakeEmbed, { max: 1, pick: 'closest' }, phone)).toEqual(['swim'])
   })
 
   it('looks only among the given entries, and never at drafts', async () => {

@@ -1,5 +1,5 @@
 import type { Entry } from '../db/types'
-import { ENERGY_OPTIONS } from './feelings'
+import { ENERGY_OPTIONS, wordsFor } from './feelings'
 import { writtenParts } from './search'
 
 // Search by meaning (v0.14): finds entries that are about the same thing as a question, even with none of its words
@@ -12,9 +12,11 @@ const sentence = (text: string) => {
 }
 
 /** What search by meaning reads in an entry: what you wrote, the feeling words and the energy answer. Not the
- *  questions (the same on many entries), places or people. */
+ *  questions (the same on many entries), places or people. The feeling words are the ones its row shows: for an entry
+ *  from before feeling words, read from its values (wordsFor); free writing has only the words it was given. */
 export function meaningText(entry: Entry): string {
-  const felt = [...entry.during, ...entry.after].map((w) => w.toLowerCase())
+  const words = entry.kind === 'free' ? { during: entry.during, after: entry.after } : wordsFor(entry)
+  const felt = [...words.during, ...words.after].map((w) => w.toLowerCase())
   const energy = ENERGY_OPTIONS.find((o) => o.value === entry.energyEffect)?.label ?? ''
   return [...writtenParts(entry), felt.length ? `Felt ${felt.join(', ')}` : '', energy].map(sentence).filter(Boolean).join(' ')
 }
@@ -66,13 +68,24 @@ export function closeness(query: Float32Array, rows: readonly { entryId: string;
 }
 
 /** Phase A: no fixed cut-off told the right entries from the rest (no model passed F1 0.57). What worked was taking
- *  those that stand out from the rest for this question: 1.5 standard deviations above the mean. */
-const STAND_OUT = 1.5
+ *  those that stand out from the rest for this question. 1.5 standard deviations above the mean was too strict on the
+ *  screen tour's journal ("Why am I tired?" found none of its four drained commutes), so 1 (v0.14). */
+const STAND_OUT = 1
 /** Below this many entries there's no telling what stands out: the closest few instead. */
 const FEW = 10
 const CLOSEST_FEW = 3
 
-/** The entries that stand out as closest to the question, closest first, at most `max`. */
+/** The closest entries, closest first, at most `max`. Logs uses it: on the fictional set (11 questions, v0.14) the
+ *  closest three showed the fewest look-alikes, and found more of what was expected than standing out did. */
+export function closest(scores: ReadonlyMap<string, number>, max: number): string[] {
+  return [...scores.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, max)
+    .map(([id]) => id)
+}
+
+/** The entries that stand out as closest to the question, closest first, at most `max`: fewer, but more of them right
+ *  (Review a period uses it, where what's sent should be about the focus). */
 export function standOut(scores: ReadonlyMap<string, number>, max: number): string[] {
   const ranked = [...scores.entries()].sort((a, b) => b[1] - a[1])
   if (ranked.length < FEW) return ranked.slice(0, Math.min(CLOSEST_FEW, max)).map(([id]) => id)
@@ -80,5 +93,7 @@ export function standOut(scores: ReadonlyMap<string, number>, max: number): stri
   const mean = values.reduce((a, b) => a + b, 0) / values.length
   const sd = Math.sqrt(values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length)
   const picked = ranked.filter(([, s]) => s >= mean + STAND_OUT * sd)
-  return (picked.length ? picked : ranked.slice(0, CLOSEST_FEW)).slice(0, max).map(([id]) => id)
+  // Nothing stands out: the closest few, with any tied with the last of them (alike entries go together).
+  const cut = ranked[CLOSEST_FEW - 1]![1]
+  return (picked.length ? picked : ranked.filter(([, s]) => s >= cut)).slice(0, max).map(([id]) => id)
 }

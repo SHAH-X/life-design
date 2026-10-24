@@ -18,8 +18,9 @@ export const APP_ID = 'life-design'
  */
 export const BACKUP_SCHEMA_VERSION = 7
 
-/** Settings that never leave the phone, not even inside a backup. */
-export const SECRET_SETTING_KEYS: ReadonlySet<string> = new Set(['aiKey'])
+/** Settings that never leave the phone, not even inside a backup: the AI key, and whether search by meaning is on
+ *  (its download is this phone's: a phone restored to offers it again). */
+export const SECRET_SETTING_KEYS: ReadonlySet<string> = new Set(['aiKey', 'meaningSearch'])
 
 export interface BackupFile {
   app: typeof APP_ID

@@ -22,6 +22,7 @@ export type Embed = (texts: string[], kind: TextKind) => Promise<Float32Array[]>
 const IDLE_MS = 60_000
 
 let worker: Worker | null = null
+let answered = false
 let idle: ReturnType<typeof setTimeout> | undefined
 let nextId = 0
 const waiting = new Map<number, { resolve: (v: Float32Array[]) => void; reject: (e: MeaningError) => void }>()
@@ -42,7 +43,10 @@ function start(): Worker {
     const pending = waiting.get(reply.id)
     if (!pending) return
     waiting.delete(reply.id)
-    if ('vectors' in reply) pending.resolve(reply.vectors)
+    if ('vectors' in reply) {
+      answered = true
+      pending.resolve(reply.vectors)
+    }
     else pending.reject(new MeaningError(reply.problem))
     if (waiting.size === 0) idle = setTimeout(() => stop(null), IDLE_MS)
   }
@@ -61,6 +65,9 @@ export const embed: Embed = (texts, kind) => {
     worker!.postMessage({ id, texts, kind })
   })
 }
+
+/** Whether the model has answered since the app opened (it's quick from then on). */
+export const meaningReady = () => answered
 
 /** Whether the model's files are on this phone already (so turning it on won't download anything). */
 export async function meaningFilesDownloaded(): Promise<boolean> {

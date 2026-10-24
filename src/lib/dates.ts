@@ -68,6 +68,11 @@ export function loggedAt(createdAt: number, date: string, locale?: string): stri
   return toDateKey(at) === date ? time : `${at.toLocaleDateString(locale, { weekday: 'short' })} ${time}`
 }
 
+/** "Mon 19 Oct": an entry's day, on a row away from its day's heading (Logs, "Also about this"). */
+export function shortDayMonth(key: string, locale?: string): string {
+  return fromDateKey(key).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
 /** "Tue", for the week's chart axis. */
 export function shortWeekday(key: string, locale?: string): string {
   return fromDateKey(key).toLocaleDateString(locale, { weekday: 'short' })

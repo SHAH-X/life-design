@@ -46,7 +46,7 @@ https://shah-x.github.io/life-design/. Every decision and its status lives in `D
 
 ## No ratings, natural responses (Phase 2.6: "I don't want any rating to be given")
 - Nothing asks for or shows a rating, score, average or scale: not as numbers, not as stars, not as ordered word scales. Answers are natural words (feeling words, your own words, notes); results are words ("usually gives you energy"). Plain counts are fine ("5 times", "on 4 days"), and so are dates and the time an entry was logged.
-- Energy, engagement and flow are worked out on the phone from the words (`src/domain/feelings.ts`, one table of weights with tests) and stored for analysis, never displayed as values.
+- Energy, engagement and flow are worked out on the phone from the words (`src/domain/feelings.ts`, one table of weights with tests) and stored for analysis, never displayed as values. So is search by meaning's closeness: results show in order, never with how close.
 - `tests/e2e/no-scores.spec.ts` fails if a score pattern (`+2`, `3.0`, `7/10`, "average") appears on Today, the logging screens, an entry read back, Logs, or Insights and its pages (opened: a day of the chart, its table, every line).
 - New screens follow the same rule: natural questions with words, never gauges or 0–10. Worded choices are fine ("It gave me energy" · "It used up my energy" · "Little difference" · "A mix of both").
 - The standing "never" list from the market research lives in `DECISIONS.md`: check new features against it.

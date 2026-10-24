@@ -4,7 +4,7 @@ import { useUndo } from '../../app/undo'
 import { db } from '../../db/db'
 import { deleteAiReview, restoreAiReview, saveAiReview } from '../../db/repo'
 import type { AiReview } from '../../db/types'
-import { buildReviewPackage, type Period, type PeriodPreset, periodFor } from '../../domain/review'
+import { buildReviewPackage, firstWrittenDate, type Period, type PeriodPreset, periodFor } from '../../domain/review'
 import { AI_PROBLEMS, AiError, PROVIDERS, reviewWithAi } from '../../lib/ai'
 import { addDays, formatRecentPeriod, shortDate, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -13,21 +13,29 @@ import { Dialog } from '../../ui/Dialog'
 import { Loading } from '../../ui/Loading'
 import { PlainMarkdown } from '../../ui/PlainMarkdown'
 import { SwipeRow } from '../../ui/SwipeRow'
+import { Switch } from '../../ui/Switch'
+import { useMeaningResults, useMeaningSearch, workingText } from '../meaning/useMeaning'
 import { useAiSettings } from '../more/useAiSettings'
 import { usePurposeSettings } from '../today/usePurpose'
 
 // Review a period (v0.12, owner's two ways): copy it (or share it as a file) to any AI chat yourself, or "Review with
 // AI" here with your own key. Nothing leaves the phone until you tap, and "See what's sent" shows exactly what.
+// With search by meaning on (v0.14), "Only entries about this" narrows it to the entries about what you focus on.
 
 const PRESETS: readonly { value: PeriodPreset | 'custom'; label: string }[] = [
   { value: 'this-week', label: 'This week' },
   { value: 'last-week', label: 'Last week' },
   { value: 'this-month', label: 'This month' },
   { value: 'last-month', label: 'Last month' },
+  { value: 'all-time', label: 'All time' },
   { value: 'custom', label: 'Custom' },
 ]
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+
+/** At most this many entries about the focus go into a narrowed review. */
+const ABOUT_THIS = 20
+const NO_IDS: string[] = []
 
 export function ReviewPeriod() {
   const data = useLiveQuery(async () => {
@@ -56,16 +64,27 @@ export function ReviewPeriod() {
   const [problem, setProblem] = useState<string | null>(null)
   const [result, setResult] = useState<AiReview | null>(null)
   const [opened, setOpened] = useState<AiReview | null>(null)
-  // Render only once everything has loaded, so nothing moves under your finger.
-  if (data === undefined || purpose === undefined || ai === undefined) return <Loading />
+  const [onlyAbout, setOnlyAbout] = useState(false)
+  const meaning = useMeaningSearch()
 
+  const first = data ? (firstWrittenDate(data) ?? today) : today
   const period: Period =
-    preset !== 'custom' ? periodFor(preset, today) : custom.start <= custom.end ? custom : { start: custom.end, end: custom.start }
-  const pack = buildReviewPackage({ ...data, purpose: { primary: purpose.primary, focus: purpose.focus, goal: purpose.goal } }, period, focus)
+    preset !== 'custom' ? periodFor(preset, today, first) : custom.start <= custom.end ? custom : { start: custom.end, end: custom.start }
+  const narrowing = meaning === 'on' && onlyAbout && focus.trim() !== ''
+  const among = narrowing && data ? data.entries.filter((e) => e.status !== 'draft' && e.date >= period.start && e.date <= period.end).map((e) => e.id) : NO_IDS
+  const found = useMeaningResults(focus, { enabled: narrowing && data !== undefined, among, max: ABOUT_THIS })
+  // Render only once everything has loaded, so nothing moves under your finger.
+  if (data === undefined || purpose === undefined || ai === undefined || meaning === undefined) return <Loading />
+
+  // Narrowed, nothing can be copied or sent until the entries about the focus are found.
+  const only = narrowing ? new Set(found.state === 'done' ? found.ids : []) : undefined
+  const pending = narrowing && found.state !== 'done'
+  const pack = buildReviewPackage({ ...data, purpose: { primary: purpose.primary, focus: purpose.focus, goal: purpose.goal } }, period, focus, only)
   const { counts } = pack
   const nothing = counts.entries + counts.smallJoys + counts.answers === 0
+  const blocked = nothing || pending
   const inIt = [
-    `${plural(counts.entries, 'entry', 'entries')} on ${plural(counts.days, 'day')}`,
+    `${plural(counts.entries, 'entry', 'entries')}${narrowing ? ' about this' : ''} on ${plural(counts.days, 'day')}`,
     counts.smallJoys ? plural(counts.smallJoys, 'small joy') : '',
     counts.answers ? plural(counts.answers, 'evening answer') : '',
     counts.steps ? plural(counts.steps, 'next step') : '',
@@ -143,20 +162,35 @@ export function ReviewPeriod() {
 
       <section className="card" aria-label="What's in it">
         <p className="week-count">{formatRecentPeriod(period.start, period.end)}</p>
-        <p className="muted">{nothing ? 'Nothing written in this period yet.' : `${inIt.join(' · ')} · about ${pack.words.toLocaleString()} words`}</p>
+        {found.state === 'problem' && narrowing ? (
+          <p className="error small" role="alert">
+            {found.message}
+          </p>
+        ) : (
+          <p className="muted" role={narrowing ? 'status' : undefined}>
+            {found.state === 'working' && narrowing
+              ? workingText(found)
+              : nothing
+                ? narrowing
+                  ? 'No entries in this period stand out as about this.'
+                  : 'Nothing written in this period yet.'
+                : `${inIt.join(' · ')} · about ${pack.words.toLocaleString()} words`}
+          </p>
+        )}
         <label className="question-text" htmlFor={focusId}>
           Anything to focus on? <span className="muted small">Optional</span>
         </label>
         <input id={focusId} value={focus} maxLength={200} placeholder="e.g. Why am I tired on Mondays?" onChange={(e) => setFocus(e.target.value)} />
+        {meaning === 'on' && focus.trim() ? <Switch label="Only entries about this" checked={onlyAbout} onChange={setOnlyAbout} /> : null}
       </section>
 
       <section className="card" aria-label="Give it to an AI chat">
         <h2>For an AI chat</h2>
         <div className="stack">
-          <button type="button" className="wide" disabled={nothing} onClick={() => void copy()}>
+          <button type="button" className="wide" disabled={blocked} onClick={() => void copy()}>
             Copy for an AI chat
           </button>
-          <button type="button" className="wide" disabled={nothing} onClick={() => void share()}>
+          <button type="button" className="wide" disabled={blocked} onClick={() => void share()}>
             Share as a file
           </button>
         </div>
@@ -171,7 +205,7 @@ export function ReviewPeriod() {
         <h2>Review with AI</h2>
         {ai.key && ai.model ? (
           <>
-            <button type="button" className="primary wide" disabled={nothing || busy} onClick={() => void review()}>
+            <button type="button" className="primary wide" disabled={blocked || busy} onClick={() => void review()}>
               {busy ? 'Reviewing…' : 'Review with AI'}
             </button>
             <p className="muted small">
