@@ -103,6 +103,7 @@ def press(label):
     top = covering(f)
     if top:
         g = top['frame']
+        shot(f'fault-{label.lower()}')  # the moment it was found, as evidence
         FAULTS.append(f'{PREFIX}: "{label}" (y {f["y"]:.0f}-{f["y"] + f["height"]:.0f}) is partly under iOS\'s {top.get("AXLabel")!r} '
                       f'(y {g["y"]:.0f}-{g["y"] + g["height"]:.0f}) with the keyboard up')
         bar = find('Done', top=round(f['y']) - 20, bottom=round(f['y'] + f['height']) + 60, web=False, xs_list=((360, 320, 380),))
