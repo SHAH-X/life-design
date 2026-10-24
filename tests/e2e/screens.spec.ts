@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import { expect, test, type Page } from '@playwright/test'
-import { entryButton, fakeKeyboard, LONG_WRITING, showKeyboard } from './helpers'
+import { captureBox, entryButton, fakeKeyboard, LONG_WRITING, showKeyboard } from './helpers'
 import { expectCleanLayout } from './layout'
 import { restoreSeed } from './seed'
 
@@ -78,49 +78,38 @@ for (const scheme of ['light'] as const) {
 
       await page.goto('./#/today')
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      // A new day: the one box (v0.15), nothing else to choose.
+      await look(page, at('today-empty'))
+
+      // The writer, from the box; the keyboard over it.
+      await captureBox(page).click()
+      await look(page, at('write-freely'))
+      const writing = sheet.getByLabel("What's on your mind?")
+      await lookWithKeyboard(page, at('write-freely'), writing)
       // A long free writing, one paragraph as people write, so every list is looked at with it (v0.12.2 on the
       // owner's iPhone: shown whole, in bold, it pushed the buttons and everything after it out of sight).
-      await page.getByRole('button', { name: 'Write freely' }).click()
-      await sheet.getByLabel("What's on your mind?").fill(LONG_WRITING)
+      await writing.fill(LONG_WRITING)
       await sheet.getByRole('button', { name: 'Save' }).click()
+      await expect(sheet.getByText('✓ Saved')).toBeVisible()
+      await look(page, at('entry-saved'))
       await sheet.getByRole('button', { name: 'Done', exact: true }).click()
       await look(page, at('today'))
       await page.getByRole('button', { name: 'Previous day' }).click()
       await expect(page.getByRole('heading', { name: 'Yesterday' })).toBeVisible()
       await look(page, at('today-yesterday'))
 
-      // A new activity, one step at a time; the keyboard over each text box.
-      await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
-      await look(page, at('new-what'))
-      const what = sheet.getByLabel('What did you do?')
-      await what.fill('Choir rehearsal')
-      await lookWithKeyboard(page, at('new-what'), what)
-      await sheet.getByRole('button', { name: 'Next' }).click()
-      await look(page, at('new-like'))
-      await sheet.getByRole('button', { name: 'Absorbed', exact: true }).click()
-      await sheet.getByRole('button', { name: '+ your own word' }).click()
-      await lookWithKeyboard(page, at('new-like-own-word'), sheet.getByLabel('Your own word'))
-      await sheet.getByRole('button', { name: 'Next' }).click()
-      await look(page, at('new-energy'))
-      await sheet.getByRole('button', { name: 'It gave me energy' }).click()
-      await look(page, at('new-felt'))
-      await sheet.getByRole('button', { name: 'Happy', exact: true }).click()
-      await sheet.getByRole('button', { name: 'Next' }).click()
-      await look(page, at('new-write'))
-      await lookWithKeyboard(page, at('new-write'), sheet.getByLabel("What's on your mind about it?"))
-      await sheet.getByRole('button', { name: '+ How long, where, who' }).click()
-      await look(page, at('new-write-details'))
-      await sheet.getByRole('button', { name: 'Save' }).click()
-      await expect(sheet.getByText('✓ Saved')).toBeVisible()
-      await look(page, at('entry-saved'))
-      await sheet.getByRole('button', { name: 'Done', exact: true }).click()
-
-      // An entry: read as its parts; each opens its own question; "To remember" too.
-      await entryButton(page, 'Choir rehearsal').click()
-      const entry = page.getByRole('dialog', { name: 'Choir rehearsal' })
+      // An activity from before v0.15: read as its parts; each opens its own question (a word of your own with the
+      // keyboard up); "To remember" too.
+      await entryButton(page, 'Evening run').click()
+      const entry = page.getByRole('dialog', { name: 'Evening run' })
       await entry.getByRole('button', { name: 'Remember this' }).click()
       await entry.getByRole('button', { name: 'Keep this' }).click()
       await look(page, at('entry'))
+      await entry.getByRole('button', { name: /^What it was like/ }).click()
+      await look(page, at('entry-part-like'))
+      await sheet.getByRole('button', { name: '+ your own word' }).click()
+      await lookWithKeyboard(page, at('entry-part-like-own-word'), sheet.getByLabel('Your own word'))
+      await sheet.getByRole('button', { name: 'Close' }).click()
       for (const [label, name] of [
         ['What it did to your energy', 'entry-part-energy'],
         ['How you felt', 'entry-part-felt'],
@@ -132,10 +121,6 @@ for (const scheme of ['light'] as const) {
         await sheet.getByRole('button', { name: 'Close' }).click()
       }
       await entry.getByRole('button', { name: 'Done', exact: true }).click()
-
-      await page.getByRole('button', { name: 'Write freely' }).click()
-      await look(page, at('write-freely'))
-      await sheet.getByRole('button', { name: 'Close' }).click()
 
       for (const [route, heading] of [
         ['entries', 'Logs'],

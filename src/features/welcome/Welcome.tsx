@@ -8,37 +8,30 @@ import { EntryRow } from '../today/EntryRow'
 
 const STEPS = ['Life Design', 'What would you like it to help with?', 'A nudge each evening?'] as const
 
-// Fictional examples: what an entry looks like, and that a few words is enough.
-const example = (
-  activity: string,
-  during: string[],
-  energyEffect: Entry['energyEffect'],
-  after: string[],
-  energy: Entry['energy'],
-  note = '',
-): Entry => ({
+// Fictional examples: what you write is listed as it is, with no title or category to pick (v0.15).
+const example = (id: string, note: string): Entry => ({
   ...entryDefaults(),
-  energyEffect,
-  id: activity,
+  kind: 'free',
+  id,
   date: '2026-01-01',
   part: 'evening',
-  activity,
-  engagement: 4,
-  energy,
+  activity: '',
+  engagement: 3,
+  energy: 0,
   flow: false,
   where: [],
   people: [],
   objects: [],
-  during,
-  after,
+  during: [],
+  after: [],
   note,
   source: 'evening',
   createdAt: 0,
   updatedAt: 0,
 })
 const EXAMPLES = [
-  example('Evening run', ['Focused'], 'gave', ['Happy'], 2),
-  example('Team meeting', ['Distracted'], 'used', ['Tired'], -2, 'Went in circles. Next time: an agenda.'),
+  example('example-1', 'Long day. The report again, and I snapped at Sam. Say sorry tomorrow.'),
+  example('example-2', 'Idea for the garden: tomatoes along the fence, herbs in pots by the door.'),
 ]
 
 /** Where the welcome hands over: Today, or straight to restoring a backup or setting a reminder. */
@@ -99,7 +92,7 @@ export function Welcome({ onDone }: { onDone: (exit: Exit) => void }) {
 
       {step === 0 ? (
         <>
-          <p className="welcome-lead">Notice what gives you energy and what takes it, then design more of what fits.</p>
+          <p className="welcome-lead">Write whatever is on your mind, with nothing to sort or fill in. Find it again later by its words.</p>
           <ul className="entry-list" aria-label="Examples">
             {EXAMPLES.map((entry) => (
               <li key={entry.id}>

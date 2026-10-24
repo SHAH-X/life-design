@@ -1,7 +1,7 @@
 """The sheets in real iPhone Safari: the iOS Simulator (iPhone 17, the owner's phone) driven by Meta's idb.
 
 Playwright's WebKit has no on-screen keyboard and none of iPhone Safari's own behaviour, where most layout faults
-were found (DECISIONS.md, "Testing in real iPhone Safari"). This walks the sheets that broke before with the real
+were found (DECISIONS.md, "Testing in real iPhone Safari"). This walks Today's box (the writer) with the real
 keyboard up, in a Safari tab and in the Home Screen app (the owner's way, which behaves differently), then search by
 meaning with its real model, and saves screenshots to test-results/ios/ to look at (CLAUDE.md, "Look before done").
 
@@ -215,41 +215,25 @@ def open_home_screen_app():
            'Add it once: open the app in the simulator\'s Safari, Page Menu → Share → View More → Add to Home Screen → Add.')
 
 
-def new_activity(mode):
-    """New activity with the real keyboard, to Save. Screenshots and faults are named for the mode."""
+def write(mode):
+    """Today's box (v0.15) with the real keyboard: the writer opens, text goes in, Save. Screenshots and faults are
+    named for the mode."""
     global PREFIX
     PREFIX = mode
     shot('1-today')
-    tap('+ Reflect on an activity')
-    shot('2-new-activity')  # the keyboard comes up by itself in the Home Screen app; in Safari only for a tap
-    tap('What did you do?', field=True)
-    idb('ui', 'text', 'Choir rehearsal')
+    tap("What's on your mind? A thought, a worry, a plan…")
+    shot('2-writer')  # the keyboard comes up by itself in the Home Screen app; in Safari only for a tap
+    tap("What's on your mind?", field=True)
+    idb('ui', 'text', 'Choir rehearsal tonight, the new piece')
     time.sleep(1)
-    shot('3-what-keyboard')  # the sheet and Next above the keyboard, nothing of the page behind showing
-    press('Next')
-    for _ in range(3):
-        tap('Skip')
-    shot('4-write')
-    purpose = find('Questions for')
-    centre = middle(purpose)
-    chosen = at(*centre).get('AXValue') or ''
-    print(f'{mode}: purpose drop-down {purpose["width"]:.0f}x{purpose["height"]:.0f}pt, showing "{chosen}"')
-    if purpose['height'] < 24:
-        FAULTS.append(f'{mode}: the purpose drop-down is {purpose["height"]:.0f}pt tall (at least 24)')
-    tap(x=centre[0], y=centre[1])
-    time.sleep(1)
-    shot('5-purpose-menu')  # iOS's menu, the page not zoomed
-    item = find(chosen, top=round(purpose['y'] + purpose['height']), web=False)  # keep the same choice
-    tap(x=middle(item)[0], y=middle(item)[1])
-    tap("What's on your mind about it?", field=True)
-    shot('6-write-keyboard')  # the sheet in place: the box, "Tap the mic…" and Save above the keyboard
+    shot('3-writer-keyboard')  # the box, "Tap the mic…" and Save above the keyboard, nothing of Today behind
     press('Save')
-    shot('7-saved')
+    shot('4-saved')
 
 
 def by_meaning(mode):
     """Search by meaning in the app (v0.14): Logs' offer turned on if it's asked, then a search that shares no word
-    with the entry it should find ("singing" for the choir rehearsal just saved). The model downloads, runs in its
+    with the entry it should find ("singing" for the choir rehearsal just written). The model downloads, runs in its
     worker in iPhone Safari, and answers: nothing found within two minutes is a fault."""
     global PREFIX
     PREFIX = mode
@@ -295,7 +279,7 @@ try:
             open_home_screen_app()
         else:
             refuse(f'unknown mode "{mode}".', 'Use safari, home, or nothing for both.')
-        new_activity(mode)
+        write(mode)
         by_meaning(mode)
 finally:
     # Never left running: a simulator left booted for hours kept the Mac's load near 300, and every e2e test then

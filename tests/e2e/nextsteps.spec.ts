@@ -1,25 +1,23 @@
 import { expect, type Page, test } from '@playwright/test'
-import { swipe } from './helpers'
+import { captureBox, swipe } from './helpers'
 
-// Next steps you can manage (v0.11). Fictional example data.
+// Next steps you can manage (v0.11). Fictional example data. Since v0.15 they're kept after writing in Today's box.
 
 test.beforeEach(async ({ page }) => {
   await page.goto('./#/today')
 })
 
-/** Reflects on an activity, skipping every question, and stays on what it reads back. */
-async function reflect(page: Page, activity: string) {
-  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
-  const sheet = page.getByRole('dialog', { name: 'New activity' })
-  await sheet.getByLabel('What did you do?').fill(activity)
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  for (let i = 0; i < 3; i += 1) await sheet.getByRole('button', { name: 'Skip' }).click()
+/** Writes in Today's box and stays on what it reads back. */
+async function write(page: Page, words: string) {
+  await captureBox(page).click()
+  const sheet = page.getByRole('dialog', { name: 'Write freely' })
+  await sheet.getByLabel("What's on your mind?").fill(words)
   await sheet.getByRole('button', { name: 'Save' }).click()
-  return page.getByRole('dialog', { name: activity })
+  return page.getByRole('dialog', { name: 'Free writing' })
 }
 
-async function keepStep(page: Page, activity: string, choice: string, words: string, when = '') {
-  const view = await reflect(page, activity)
+async function keepStep(page: Page, writing: string, choice: string, words: string, when = '') {
+  const view = await write(page, writing)
   await view.getByRole('button', { name: choice }).click()
   await view.getByLabel('What exactly?').fill(words)
   if (when) await view.getByLabel(/^When\?/).fill(when)
@@ -29,8 +27,8 @@ async function keepStep(page: Page, activity: string, choice: string, words: str
 
 const stepsPage = (page: Page) => page.goto('./#/insights/steps')
 
-test('a next step joins the list, and comes back when you write about the same activity, with a tick for a one-off', async ({ page }) => {
-  const view = await keepStep(page, 'Team meeting', 'Try something differently', 'Ask for an agenda first', 'before the meeting')
+test('a next step joins the list, says where it came from, and a one-off is ticked off there', async ({ page }) => {
+  const view = await keepStep(page, 'The team meeting ran over again', 'Try something differently', 'Ask for an agenda first', 'before the meeting')
   await expect(view.getByRole('region', { name: 'Next step' }).getByRole('link', { name: /^Next step/ })).toContainText('Before the meeting: Ask for an agenda first')
   await view.getByRole('button', { name: 'Done', exact: true }).click()
 
@@ -39,21 +37,11 @@ test('a next step joins the list, and comes back when you write about the same a
   await expect(page.getByRole('region', { name: 'Next steps' })).toContainText('Before the meeting: Ask for an agenda first')
   await page.getByRole('link', { name: 'All next steps ›' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Next steps' })).toBeVisible()
-  await expect(page.getByRole('button', { name: /^Before the meeting: Ask for an agenda first/ })).toContainText('Once · from Team meeting')
+  const row = page.getByRole('button', { name: /^Before the meeting: Ask for an agenda first/ })
+  await expect(row).toContainText('Once · from Free writing')
 
-  // Writing about the same activity again: your plan comes back, and a one-off can be ticked.
-  await page.goto('./#/today')
-  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
-  const sheet = page.getByRole('dialog', { name: 'New activity' })
-  await sheet.getByRole('button', { name: 'Team meeting' }).click()
-  for (let i = 0; i < 3; i += 1) await sheet.getByRole('button', { name: 'Skip' }).click()
-  await expect(sheet.getByText('Your plan for this')).toBeVisible()
-  await expect(sheet.getByText('Before the meeting: Ask for an agenda first')).toBeVisible()
-  await sheet.getByLabel('Did it').check()
-  await sheet.getByRole('button', { name: 'Save' }).click()
-  await page.getByRole('dialog', { name: 'Team meeting' }).getByRole('button', { name: 'Done', exact: true }).click()
-
-  await stepsPage(page)
+  await row.click()
+  await page.getByRole('dialog', { name: 'Next step' }).getByRole('button', { name: 'I did it' }).click()
   await expect(page.getByText('Nothing yet.')).toBeVisible()
   await page.getByText('Finished (1)').click()
   await expect(page.getByRole('button', { name: /^Before the meeting: Ask for an agenda first/ })).toContainText('Done')

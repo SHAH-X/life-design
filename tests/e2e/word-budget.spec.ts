@@ -1,4 +1,5 @@
-import { expect, type Locator, type Page, test } from '@playwright/test'
+import { expect, type Locator, test } from '@playwright/test'
+import { captureBox } from './helpers'
 import { restoreSeed } from './seed'
 
 // The guard against clutter creeping back (owner feedback, Phase 2.5: "the app feels wordy").
@@ -9,14 +10,12 @@ const BUDGETS = {
   // v0.8: 63 → 72. "Review due" is gone, so this test browser (not installed) now shows the install notice (10 words;
   // never on the Home Screen app), and Today has two ways in (+4). Owner-approved plan: budgets set from measurements.
   // v0.10: 72 → 85, the time each entry was logged (the owner's request; "8:00 PM" counts as three words here).
+  // v0.15: one box ("What's on your mind?" and its hint) in place of the two ways in.
   'Today, a logged day [96]': 85,
-  'New activity: what [90 for the whole form]': 25,
-  'New activity: what it was like (10 answer words)': 25,
-  'New activity: energy (4 answers)': 30,
-  'New activity: how you felt (12 answer words)': 30,
-  'New activity: write (helpers and one box)': 60, // v0.9: one screen instead of reflect (25) and anything else (30); three helper questions
   'Write freely': 25,
-  'Entry, read back after saving': 105, // 90 until v0.9 (stopped restating the entry), 75 until v0.12.3: its parts as rows with small labels, each opening its question (owner's OK)
+  // An activity from before v0.15, opened: its parts and a possible insight (Team meeting has 4 fictional entries).
+  // 90 until v0.9 (stopped restating the entry), 75 until v0.12.3: its parts as rows with small labels (owner's OK).
+  'Entry, read back (an earlier activity)': 105,
   'Logs [the fictional five days]': 180, // 125 until v0.10: + the time each of the 19 entries was logged (called Entries until 2026-10-23)
   // v0.13: one page, the week and the last 30 days (Patterns, 155, is gone). Its history: 80 until v0.9; + the week's
   // energy chart and card titles (the owner's chosen layout); v0.10 + logged times on stand-out entries; v0.11 + the
@@ -68,49 +67,22 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
   const measure = async (screen: Screen, scope: Locator) => {
     counts[screen] = await visibleWords(scope)
   }
-  const settled = (p: Page) => p.waitForTimeout(350) // past the fade-in and tap guard
 
   await page.goto('./#/today')
   await page.getByRole('button', { name: 'Previous day' }).click()
   await expect(page.getByRole('heading', { name: 'Yesterday' })).toBeVisible()
   await measure('Today, a logged day [96]', main)
 
-  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
-  await measure('New activity: what [90 for the whole form]', sheet)
-  await sheet.getByLabel('What did you do?').fill('Choir rehearsal')
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  await settled(page)
-  await measure('New activity: what it was like (10 answer words)', sheet)
-  await sheet.getByRole('button', { name: 'Absorbed', exact: true }).click()
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  await settled(page)
-  await measure('New activity: energy (4 answers)', sheet)
-  await sheet.getByRole('button', { name: 'It gave me energy' }).click()
-  await settled(page)
-  await measure('New activity: how you felt (12 answer words)', sheet)
-  await sheet.getByRole('button', { name: 'Happy', exact: true }).click()
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  await settled(page)
-  await measure('New activity: write (helpers and one box)', sheet)
-  await sheet.getByRole('button', { name: 'Close' }).click()
-
-  await page.getByRole('button', { name: 'Write freely' }).click()
+  await captureBox(page).click()
   await measure('Write freely', sheet)
-  await sheet.getByRole('button', { name: 'Close' }).click()
-
-  // What an entry reads back just after saving (Team meeting has 4 fictional entries: a possible insight shows).
-  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
-  await sheet.getByRole('button', { name: 'Team meeting' }).click()
-  await settled(page)
-  await sheet.getByRole('button', { name: 'Distracted', exact: true }).click()
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  await settled(page)
-  await sheet.getByRole('button', { name: 'It used up my energy' }).click()
-  await settled(page)
-  await sheet.getByRole('button', { name: 'Skip' }).click()
+  await sheet.getByLabel("What's on your mind?").fill('Choir rehearsal tonight')
   await sheet.getByRole('button', { name: 'Save' }).click()
   await expect(sheet.getByText('✓ Saved')).toBeVisible()
-  await measure('Entry, read back after saving', sheet)
+  await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+
+  await page.locator('main .entry-list').getByRole('button', { name: /^Team meeting/ }).first().click()
+  await expect(sheet.getByRole('region', { name: 'Possible insight' })).toBeVisible()
+  await measure('Entry, read back (an earlier activity)', sheet)
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
 
   await page.goto('./#/entries')

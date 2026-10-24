@@ -26,6 +26,7 @@ https://shah-x.github.io/life-design/. What the app does and why: `DECISIONS.md`
 - Bugs: a failing test first, then the fix.
 - e2e locators: `name` matches part of a name, so short button names use `exact: true` (`{ name: 'Done', exact: true }`).
 - Docs say what is true now. When a decision changes, rewrite its row in `DECISIONS.md` in the same commit (a status goes in the Status column, never over the Why: `tests/unit/decisions.test.ts`). Then search README, DECISIONS and CLAUDE for the old wording, and for each word the screen showed (a button's label, not only the feature's name).
+- Layout last (owner, 2026-10-24): until the owner asks for the layout pass, build and check behaviour only (typecheck, unit tests, the e2e specs for what changed); skip `screens`, word budgets and `ios-check`, don't fix visual faults, and list the layout work owed in each report.
 - Other Claude sessions may share this working tree: stage by path (`git add <paths>`), never `-a` or `-A`, and re-read a doc just before rewriting it.
 - Machine safety: never `brew install` or `brew upgrade` without `--dry-run` first and the owner's OK.
 
@@ -45,7 +46,8 @@ https://shah-x.github.io/life-design/. What the app does and why: `DECISIONS.md`
 - When the app refuses something (a file, a password), say exactly why and what to do next.
 - Every question explains itself in plain words ("Did it give you energy, or take it?", not "Energy"); every answer is worded. The deeper why sits behind ⓘ.
 - A question that replaces another under the finger ignores taps for 300 ms, its answers `aria-disabled` meanwhile. An e2e test taps twice.
-- The activity questions and their word lists never change, so days stay comparable: tune weights in `feelings.ts`, not the words. Variety goes into the purpose and evening questions.
+- New writing has no title, category or questions: Today's one box opens the writer (v0.15, owner). Never add a form, picker or required field to it.
+- The activity questions and their word lists never change, so days stay comparable (activities from before v0.15 keep them when a part is changed): tune weights in `feelings.ts`, not the words. Variety goes into the purpose and evening questions.
 - Every step after "What did you do?" can be skipped; a skip is recorded in `skipped`, never guessed.
 - Next steps live in their own list (`steps`), never as buttons on an entry. `stepsForActivity` brings one back, `findLookAlike` joins look-alikes, and old next steps become steps through `stepsFromIntentions` only.
 - Purpose questions are helpers above one writing box, never fields to fill.

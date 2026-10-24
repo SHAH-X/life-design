@@ -1,4 +1,10 @@
+import { randomUUID } from 'node:crypto'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { expect, type Locator, type Page } from '@playwright/test'
+import { entryDefaults } from '../../src/db/types'
+import { deriveEngagement, deriveFlow, energyFrom } from '../../src/domain/feelings'
+import { dateKey, restoreBackup } from './seed'
 
 /** Playwright's WebKit can't show an iOS share sheet, so make the app use its download fallback. */
 export async function useDownloadsInsteadOfShareSheet(page: Page) {
@@ -41,46 +47,88 @@ export type EnergyAnswer = 'It gave me energy' | 'It used up my energy' | 'Littl
 
 export interface NewEntry {
   activity: string
-  /** "What was it like?" words; left out, the step is skipped. */
+  /** "What was it like?" words; left out, the step was skipped. */
   during?: string[]
   /** "What did it do to your energy?"; left out, skipped. */
   energy?: EnergyAnswer
   /** "How did you feel?" words; left out, skipped. */
   after?: string[]
-  /** What you write in the one box (your purpose's questions are helpers above it); left out, nothing written. */
+  /** What was written in its one box; left out, nothing written. */
   writing?: string
   where?: string
+  /** Days before today; 0 when left out. */
+  daysAgo?: number
+  /** Left unfinished ("Unfinished · Continue"). */
+  draft?: boolean
 }
 
-/** Reflects on an activity the way it's done on the phone: one question per screen, anything after the first skippable. */
-export async function addEntry(page: Page, entry: NewEntry) {
-  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
-  const sheet = page.getByRole('dialog', { name: 'New activity' })
-  await sheet.getByLabel('What did you do?').fill(entry.activity)
-  await sheet.getByRole('button', { name: 'Next' }).click()
+const EFFECT = { 'It gave me energy': 'gave', 'It used up my energy': 'used', 'Little difference': 'little', 'A mix of both': 'mixed' } as const
 
-  await expect(sheet.getByRole('heading', { name: 'What was it like?' })).toBeVisible()
-  for (const word of entry.during ?? []) await sheet.getByRole('button', { name: word, exact: true }).click()
-  await sheet.getByRole('button', { name: entry.during?.length ? 'Next' : 'Skip' }).click()
-
-  await expect(sheet.getByRole('heading', { name: 'What did it do to your energy?' })).toBeVisible()
-  await sheet.getByRole('button', { name: entry.energy ?? 'Skip', exact: true }).click() // an answer moves straight on
-
-  await expect(sheet.getByRole('heading', { name: 'How did you feel?' })).toBeVisible()
-  for (const word of entry.after ?? []) await sheet.getByRole('button', { name: word, exact: true }).click()
-  await sheet.getByRole('button', { name: entry.after?.length ? 'Next' : 'Skip' }).click()
-
-  await expect(sheet.getByLabel('Questions for')).toBeVisible()
-  if (entry.writing) await sheet.getByLabel("What's on your mind about it?").fill(entry.writing)
-  if (entry.where) {
-    await sheet.getByRole('button', { name: '+ How long, where, who' }).click()
-    await sheet.getByLabel('Add to where').fill(entry.where)
-    await sheet.getByLabel('Add to where').press('Enter')
+/**
+ * An activity entry as the phone saved it before v0.15, when Today had "+ Reflect on an activity": its numbers
+ * worked out from its words the way the flow did, and a skipped question recorded, never guessed.
+ */
+export function activityEntry(entry: NewEntry, at: number) {
+  const during = entry.during ?? []
+  const after = entry.after ?? []
+  const effect = entry.energy ? EFFECT[entry.energy] : null
+  const { energy, answered } = energyFrom(effect, after)
+  return {
+    ...entryDefaults(),
+    id: `activity-${randomUUID()}`,
+    date: dateKey(entry.daysAgo ?? 0, new Date(at)),
+    part: 'evening',
+    activity: entry.activity,
+    engagement: deriveEngagement(during),
+    energy,
+    flow: deriveFlow(during),
+    where: entry.where ? [entry.where] : [],
+    people: [],
+    objects: [],
+    during,
+    after,
+    note: entry.writing ?? '',
+    source: 'quick',
+    kind: 'activity',
+    purpose: 'know',
+    energyEffect: effect,
+    skipped: [...(during.length ? [] : ['engagement']), ...(answered ? [] : ['energy'])],
+    status: entry.draft ? 'draft' : 'done',
+    createdAt: at,
+    updatedAt: at,
   }
+}
+
+/**
+ * Activities, as a phone has them from before v0.15 (the flow that made them is gone): restored from a backup through
+ * the app's own Restore screen, newest last, then back to the page the test was on.
+ */
+export async function addEntries(page: Page, entries: NewEntry[]) {
+  const back = page.url()
+  const now = Date.now()
+  await restoreBackup(page, join(tmpdir(), `life-design-e2e-${randomUUID()}.json`), {
+    app: 'life-design',
+    kind: 'backup',
+    schemaVersion: 7,
+    exportedAt: new Date(now).toISOString(),
+    data: { entries: entries.map((e, i) => activityEntry(e, now - (entries.length - 1 - i) * 1000)) },
+  })
+  await page.goto(back)
+}
+
+export const addEntry = (page: Page, entry: NewEntry) => addEntries(page, [entry])
+
+/** Today's one way in (v0.15): looks like a text box, and opens the writer. */
+export const captureBox = (page: Page) => page.getByRole('button', { name: /^What's on your mind\?/ })
+
+/** Writes in Today's box the way it's done on the phone: the writer, Save, then the entry read back closed. */
+export async function writeEntry(page: Page, text: string) {
+  await captureBox(page).click()
+  const sheet = page.getByRole('dialog', { name: 'Write freely' })
+  await sheet.getByLabel("What's on your mind?").fill(text)
   await sheet.getByRole('button', { name: 'Save' }).click()
   await expect(sheet).toBeHidden()
-  // Saving shows the entry read back (its summary and a next step); Done closes it.
-  await closeSaved(page, entry.activity)
+  await closeSaved(page, 'Free writing')
 }
 
 /** The entry just saved, read back: check it says so, then close it. */

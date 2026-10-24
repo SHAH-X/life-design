@@ -118,12 +118,11 @@ function everyDaysRule(from: string, every: number, time: string, locale?: strin
 const DETAILS: Record<ReminderKind, { title: string; name: string; summary: string; description: string; screen: string; alarm: string }> = {
   daily: {
     title: 'Daily log',
-    name: 'Log my day',
-    summary: 'Life Design: log your day',
-    description:
-      'A minute or two: what you did, how it felt, and what it did to your energy. Open Life Design from your Home Screen.',
+    name: 'Write in Life Design',
+    summary: "Life Design: what's on your mind?",
+    description: 'A minute or two: write whatever is on your mind. Open Life Design from your Home Screen.',
     screen: 'today',
-    alarm: 'Time to log your day in Life Design',
+    alarm: "What's on your mind? Write it in Life Design",
   },
   review: {
     title: 'Look back',

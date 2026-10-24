@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { expect, type Page, type TestInfo, test } from '@playwright/test'
-import { addEntry, entryButton, eveningQuestion, smallJoy, useDownloadsInsteadOfShareSheet } from './helpers'
+import { addEntry, captureBox, entryButton, eveningQuestion, smallJoy, useDownloadsInsteadOfShareSheet } from './helpers'
 
 // Fictional example data.
 const V1_FIXTURE = fileURLToPath(new URL('../fixtures/v1-backup.json', import.meta.url))
@@ -68,7 +68,8 @@ test('back up, delete everything, then restore it all', async ({ page }, testInf
 
   await deleteEverything(page)
   await page.goto('./#/today')
-  await expect(page.getByText('Start with one thing you did.')).toBeVisible()
+  await expect(captureBox(page)).toBeVisible()
+  await expect(page.locator('main .entry-list')).toHaveCount(0)
 
   const dialog = await openRestore(page, file)
   await expect(dialog.getByText('Journal entries: 2 new')).toBeVisible()

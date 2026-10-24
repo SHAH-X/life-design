@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
+import { captureBox } from './helpers'
 
 // Never a blank screen. While the app sits in the background, iOS can drop its database connection (a long-running
 // WebKit bug: "UnknownError: Connection to Indexed Database server lost. Refresh the page to try again"), and Dexie
@@ -135,20 +136,10 @@ const BEFORE_THE_USUAL_SAVE = { timeout: 300, intervals: [50] }
 
 test('what you write is saved the moment you switch to another app', async ({ page }) => {
   await page.goto('./#/today')
-  await page.getByRole('button', { name: 'Write freely' }).click()
+  await captureBox(page).click()
   await page.getByRole('dialog', { name: 'Write freely' }).getByLabel("What's on your mind?").fill('A thought before switching apps')
   await switchAway(page)
   await expect.poll(() => savedEntries(page), BEFORE_THE_USUAL_SAVE).toBe(1)
   await page.reload()
   await expect(page.getByText('A thought before switching apps')).toBeVisible()
-})
-
-test('an activity you started is saved the moment you switch to another app', async ({ page }) => {
-  await page.goto('./#/today')
-  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
-  const sheet = page.getByRole('dialog', { name: 'New activity' })
-  await sheet.getByLabel('What did you do?').fill('Choir rehearsal')
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  await switchAway(page)
-  await expect.poll(() => savedEntries(page), BEFORE_THE_USUAL_SAVE).toBe(1)
 })

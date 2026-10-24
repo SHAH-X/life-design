@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addEntry } from './helpers'
+import { addEntry, captureBox } from './helpers'
 
 // The start page ('./', as the Home Screen icon opens it) on a new phone shows a short welcome, once.
 
@@ -9,11 +9,11 @@ test('a first open shows a short welcome; Skip goes straight to Today, and it ne
   await expect(page.getByText('A few words is enough. Everything stays on this phone.')).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Main' })).toBeHidden()
 
-  // Two example activities show what an entry looks like, with the energy edge.
+  // Two examples show that what you write is listed as it is: no title or category to pick (v0.15).
   const examples = page.getByRole('list', { name: 'Examples' })
   await expect(examples.getByRole('listitem')).toHaveCount(2)
-  await expect(examples.locator('.entry-row[data-energy="gives"]')).toContainText('Evening run')
-  await expect(examples.locator('.entry-row[data-energy="takes"]')).toContainText('Team meeting')
+  await expect(examples.locator('.entry-row').first()).toContainText('Free writing')
+  await expect(examples).toContainText('Say sorry tomorrow.')
   await expect(examples.getByRole('button')).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Skip' }).click()
@@ -43,20 +43,7 @@ test('the welcome asks what journaling is for, with a follow-up, then starts on 
   await page.getByRole('button', { name: 'Next' }).click()
   await page.getByRole('button', { name: 'Start' }).click()
   await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()
-
-  // An entry reflects for that purpose unless changed.
-  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
-  const sheet = page.getByRole('dialog', { name: 'New activity' })
-  await sheet.getByLabel('What did you do?').fill('Team meeting')
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  await sheet.getByRole('button', { name: 'Skip' }).click()
-  await sheet.getByRole('button', { name: 'Skip' }).click()
-  await sheet.getByRole('button', { name: 'Skip' }).click()
-  await expect(sheet.getByLabel('Questions for')).toHaveValue('grow')
-  await expect(sheet.getByRole('list', { name: 'Questions to think about' })).toContainText('What went well?')
-  // The focus you wrote shows with its questions.
-  await expect(sheet.getByText('Your focus: Staying calm in meetings')).toBeVisible()
-  await sheet.getByRole('button', { name: 'Close' }).click()
+  await expect(captureBox(page)).toBeVisible()
 
   await page.goto('./#/more/purpose')
   await expect(page.getByRole('radio', { name: /^Improve myself/ })).toBeChecked()

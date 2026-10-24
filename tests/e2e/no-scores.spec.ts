@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addEntry, expectNoScores } from './helpers'
+import { addEntry, captureBox, expectNoScores } from './helpers'
 import { restoreSeed } from './seed'
 
 // The guard for Phase 2.6's rule: nothing asks for or shows a rating, score, average or scale (expectNoScores).
@@ -12,18 +12,9 @@ test('no screen asks for or shows a rating or score', async ({ page }, testInfo)
   await page.getByRole('button', { name: 'Previous day' }).click()
   await expectNoScores(page, 'Today')
 
-  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
-  const sheet = page.getByRole('dialog', { name: 'New activity' })
-  await sheet.getByLabel('What did you do?').fill('Choir rehearsal')
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  await expectNoScores(page, 'What was it like?')
-  await sheet.getByRole('button', { name: 'Focused', exact: true }).click()
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  await expectNoScores(page, 'What did it do to your energy?')
-  await sheet.getByRole('button', { name: 'It gave me energy' }).click()
-  await expectNoScores(page, 'How did you feel?')
-  await sheet.getByRole('button', { name: 'Skip' }).click()
-  await expectNoScores(page, "What's on your mind about it?")
+  await captureBox(page).click()
+  const sheet = page.getByRole('dialog', { name: 'Write freely' })
+  await expectNoScores(page, 'the writer')
   await sheet.getByRole('button', { name: 'Close' }).click()
 
   await page.goto('./#/entries')

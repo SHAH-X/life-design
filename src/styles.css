@@ -879,11 +879,24 @@ button.entry-row:focus-visible {
 
 /* ---------- Purpose journaling (Phase 4) ---------- */
 
-/* Today's two ways in: reflect on an activity (the main one), or write freely. */
-.journal-actions {
+/* Today's one way in (v0.15): looks like a text box; a tap opens the writer, full screen above the keyboard. */
+.capture-box {
   display: grid;
-  gap: 8px;
+  align-content: start;
+  justify-items: start;
+  gap: 2px;
+  width: 100%;
+  min-height: 88px;
   margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  text-align: left;
+}
+
+.capture-hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 400;
 }
 
 .entry-status {

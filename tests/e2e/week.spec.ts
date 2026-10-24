@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addEntry } from './helpers'
+import { addEntry, entryButton } from './helpers'
 import { restoreSeed } from './seed'
 
 // The weekly review is put together automatically (Phase 4). A fixed Saturday, so the fictional five days before
@@ -30,15 +30,8 @@ test('Insights opens on this week, put together from what you wrote, with nothin
 
 test("the week's feelings open their entries; next steps show in their own card", async ({ page }) => {
   await page.goto('./#/today')
-  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
-  const sheet = page.getByRole('dialog', { name: 'New activity' })
-  await sheet.getByLabel('What did you do?').fill('Team meeting')
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  await sheet.getByRole('button', { name: 'Skip' }).click()
-  await sheet.getByRole('button', { name: 'Skip' }).click()
-  await sheet.getByRole('button', { name: 'Frustrated', exact: true }).click()
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  await sheet.getByRole('button', { name: 'Save' }).click()
+  await addEntry(page, { activity: 'Team meeting', after: ['Frustrated'] })
+  await entryButton(page, 'Team meeting').click()
   const view = page.getByRole('dialog', { name: 'Team meeting' })
   await view.getByRole('button', { name: 'Try something differently' }).click()
   await view.getByLabel('What exactly?').fill('Ask for an agenda first')

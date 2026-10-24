@@ -10,7 +10,6 @@ import type { PurposeSettings } from './usePurpose'
 
 /** Which entry sheet is open, on Today or in Logs. */
 export type EntrySheetState =
-  | { kind: 'new'; date: string }
   | { kind: 'free'; date: string }
   /** An entry you tapped: an unfinished one carries on; a finished one opens to read (fresh: just saved). */
   | { kind: 'open'; entry: Entry; fresh?: boolean }
@@ -32,20 +31,6 @@ export function EntrySheet({ state, onChange, suggestions, own, purpose }: Props
   const close = () => onChange(null)
   const show = (entry: Entry) => onChange({ kind: 'open', entry, fresh: true })
 
-  if (state.kind === 'new') {
-    return (
-      <EntryFlow
-        date={state.date}
-        suggestions={suggestions}
-        own={own}
-        purpose={purpose.primary}
-        goal={purpose.goal}
-        focus={purpose.focus}
-        onClose={close}
-        onSaved={show}
-      />
-    )
-  }
   if (state.kind === 'free') return <FreeWrite date={state.date} onClose={close} onSaved={show} />
   if (state.kind === 'part') {
     const back = () => onChange({ kind: 'open', entry: state.entry })

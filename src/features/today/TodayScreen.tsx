@@ -24,7 +24,7 @@ const byTimeOfDay = (a: Entry, b: Entry) => PART_ORDER[a.part] - PART_ORDER[b.pa
 export function TodayScreen() {
   const today = useToday()
   const [date, setDate] = useState(today)
-  // A new activity, free writing, or an entry you tapped (an unfinished one carries on where it was left).
+  // Writing (the box), or an entry you tapped (an unfinished one carries on where it was left).
   const [sheet, setSheet] = useState<EntrySheetState>(null)
   const remove = useDeleteEntry()
 
@@ -81,19 +81,14 @@ export function TodayScreen() {
         </p>
       ) : null}
 
-      <section aria-label="Activities">
-        {sorted.length === 0 ? (
-          <p className="empty">{welcomeBack ? "Welcome back. Missed days don't matter: start with one thing you did." : 'Start with one thing you did.'}</p>
-        ) : null}
-        {/* The two ways in come first, always in the same place: a long day never pushes them out of sight (v0.12.2). */}
-        <div className="journal-actions">
-          <button type="button" className="primary wide" onClick={() => setSheet({ kind: 'new', date })}>
-            + Reflect on an activity
-          </button>
-          <button type="button" className="wide" onClick={() => setSheet({ kind: 'free', date })}>
-            Write freely
-          </button>
-        </div>
+      <section aria-label="Your writing">
+        {welcomeBack ? <p className="empty">Welcome back. Missed days don't matter.</p> : null}
+        {/* One way in (v0.15, owner: "If I have to think about where a thought belongs, I won't record it"): no title,
+            no category, no questions. It comes first, always in the same place: a long day never pushes it out of sight. */}
+        <button type="button" className="capture-box" onClick={() => setSheet({ kind: 'free', date })}>
+          <span className="capture-prompt">What's on your mind?</span>
+          <span className="capture-hint">A thought, a worry, a plan…</span>
+        </button>
         {sorted.length === 0 ? null : (
           <ul className="entry-list">
             {sorted.map((entry) => (

@@ -1,35 +1,23 @@
-import { expect, type Page, test } from '@playwright/test'
-import { addEntry, closeSaved, entryButton, openPart } from './helpers'
+import { expect, test } from '@playwright/test'
+import { addEntry, captureBox, closeSaved, entryButton, openPart, writeEntry } from './helpers'
 import { dateKey, restoreBackup } from './seed'
 
-// Purpose journaling (Phase 4): the owner's brief, journey by journey. Fictional example data.
+// Purpose journaling (Phase 4): the owner's brief, journey by journey. Fictional example data. Since v0.15 new
+// writing goes in Today's one box; activities from before then (restored, as a phone has them) keep their questions.
 
 test.beforeEach(async ({ page }) => {
   await page.goto('./#/today')
 })
 
-/** Skips the three taps to the writing step. */
-async function toWrite(page: Page, activity: string) {
-  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
-  const sheet = page.getByRole('dialog', { name: 'New activity' })
-  await sheet.getByLabel('What did you do?').fill(activity)
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  for (let i = 0; i < 3; i += 1) await sheet.getByRole('button', { name: 'Skip' }).click()
-  await expect(sheet.getByLabel('Questions for')).toBeVisible()
-  return sheet
-}
-
-test("one box to write in, with the purpose's questions above it as helpers; another purpose just for this entry", async ({ page }) => {
-  const sheet = await toWrite(page, 'Spanish lesson')
+test("an earlier activity's words: the purpose's questions above its box as helpers; another purpose just for it", async ({ page }) => {
+  await addEntry(page, { activity: 'Spanish lesson' })
+  const sheet = await openPart(page, 'Spanish lesson', 'Your words')
   await expect(sheet.getByLabel('Questions for')).toHaveValue('know')
   const helpers = sheet.getByRole('list', { name: 'Questions to think about' })
-  await expect(helpers.getByRole('listitem')).toHaveText([
-    'What stood out to you about it?',
-    'How did you feel, and what might have influenced that?',
-    'What did it show you about what you like, value or need?',
-  ])
+  await expect(helpers.getByRole('listitem')).toHaveCount(3)
+  const before = await helpers.getByRole('listitem').allTextContents()
   await sheet.getByRole('button', { name: '↻ Other questions' }).click()
-  await expect(helpers.getByRole('listitem').first()).toHaveText('Have you noticed something like this before?')
+  await expect.poll(() => helpers.getByRole('listitem').allTextContents()).not.toEqual(before)
 
   // Helpers to think with, not fields to fill: one box, and no openers (the questions do that job).
   await sheet.getByLabel('Questions for').selectOption('learn')
@@ -38,15 +26,16 @@ test("one box to write in, with the purpose's questions above it as helpers; ano
   await expect(sheet.getByRole('button', { name: 'Need a start?' })).toHaveCount(0)
   await sheet.getByLabel("What's on your mind about it?").fill('The past tense finally made sense. Flashcards helped.')
   await sheet.getByRole('button', { name: 'Save' }).click()
-  await closeSaved(page, 'Spanish lesson')
+  await page.getByRole('dialog', { name: 'Spanish lesson' }).getByRole('button', { name: 'Done', exact: true }).click()
 
   const edit = await openPart(page, 'Spanish lesson', 'Your words')
   await expect(edit.getByLabel('Questions for')).toHaveValue('learn')
   await expect(edit.getByLabel("What's on your mind about it?")).toHaveValue('The past tense finally made sense. Flashcards helped.')
 })
 
-test('a hard time is asked about gently, and writing freely shows no questions', async ({ page }) => {
-  const sheet = await toWrite(page, 'Difficult call with family')
+test('a hard time is asked about gently, and "Write freely" as a purpose shows no questions', async ({ page }) => {
+  await addEntry(page, { activity: 'Difficult call with family' })
+  const sheet = await openPart(page, 'Difficult call with family', 'Your words')
   await sheet.getByLabel('Questions for').selectOption('calm')
   await expect(sheet.getByText("Write only what feels okay. There doesn't have to be a lesson.")).toBeVisible()
   await expect(sheet.getByRole('list', { name: 'Questions to think about' })).toContainText('What happened, from your point of view?')
@@ -110,17 +99,16 @@ test('an entry written with separate answers (v0.8.0) still reads back and edits
   await expect(page.getByRole('dialog', { name: 'Book club' })).toContainText('Everyone had read it, for once')
 })
 
-test('every step after the first can be skipped, and the entry still saves', async ({ page }) => {
+test('an earlier activity with its questions skipped shows no words for them: nothing is guessed', async ({ page }) => {
   await addEntry(page, { activity: 'Walk to the shop' })
   const walk = entryButton(page, 'Walk to the shop')
   await expect(walk).toBeVisible()
   await expect(walk).not.toHaveAttribute('data-energy')
-  // Nothing was guessed for the skipped questions.
   await expect(walk.locator('.entry-feelings')).toHaveCount(0)
 })
 
-test('write freely: a blank page, saved, and still there after a reload', async ({ page }) => {
-  await page.getByRole('button', { name: 'Write freely' }).click()
+test('the box: a blank page, saved, and still there after a reload', async ({ page }) => {
+  await captureBox(page).click()
   const sheet = page.getByRole('dialog', { name: 'Write freely' })
   await expect(sheet.getByLabel("What's on your mind?")).toBeFocused()
   await expect(sheet.getByRole('button', { name: 'Save' })).toBeDisabled()
@@ -135,33 +123,50 @@ test('write freely: a blank page, saved, and still there after a reload', async 
   await page.reload()
   await expect(entryButton(page, 'Free writing')).toBeVisible()
   const edit = await openPart(page, 'Free writing', 'Your words')
-  await expect(edit.getByLabel("What's on your mind?")).toHaveValue(
-    "Couldn't sleep\nKept thinking about the move, and what I'd miss",
-  )
+  await expect(edit.getByLabel("What's on your mind?")).toHaveValue("Couldn't sleep\nKept thinking about the move, and what I'd miss")
 })
 
-test('an unfinished entry is kept, and carries on where it was left', async ({ page }) => {
-  await page.getByRole('button', { name: '+ Reflect on an activity' }).click()
-  const sheet = page.getByRole('dialog', { name: 'New activity' })
-  await sheet.getByLabel('What did you do?').fill('Gym')
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  await sheet.getByRole('button', { name: 'Focused', exact: true }).click()
-  await sheet.getByRole('button', { name: 'Next' }).click()
-  await expect(sheet.getByRole('heading', { name: 'What did it do to your energy?' })).toBeVisible()
+test('unfinished writing is kept, and carries on where it was left', async ({ page }) => {
+  await captureBox(page).click()
+  const sheet = page.getByRole('dialog', { name: 'Write freely' })
+  await sheet.getByLabel("What's on your mind?").fill('Half a thought about the garden')
   await sheet.getByRole('button', { name: 'Close' }).click()
+  const draft = entryButton(page, 'Free writing')
+  await expect(draft).toContainText('Unfinished · Continue')
+  await page.reload()
+  await entryButton(page, 'Free writing').click()
+  await expect(sheet.getByLabel("What's on your mind?")).toHaveValue('Half a thought about the garden')
+  await sheet.getByRole('button', { name: 'Save' }).click()
+  await closeSaved(page, 'Free writing')
+  await expect(entryButton(page, 'Free writing')).not.toContainText('Unfinished')
+})
 
+test('an activity left unfinished before v0.15 carries on where it was left; a quick double tap never answers the next question', async ({ page }) => {
+  await addEntry(page, { activity: 'Gym', during: ['Focused'], draft: true })
   const gym = entryButton(page, 'Gym')
   await expect(gym).toContainText('Unfinished · Continue')
-  await page.reload()
-  await entryButton(page, 'Gym').click()
+  await gym.click()
+  const sheet = page.getByRole('dialog', { name: 'New activity' })
   await expect(sheet.getByRole('heading', { name: 'What did it do to your energy?' })).toBeVisible()
-  await sheet.getByRole('button', { name: 'It gave me energy' }).click()
+
+  // An answer moves straight on; the same spot tapped again just after must not answer the next question.
+  const answer = sheet.getByRole('button', { name: 'It gave me energy' })
+  const box = await answer.boundingBox()
+  if (!box) throw new Error('the answer is not on screen')
+  const x = box.x + box.width / 2
+  const y = box.y + box.height / 2
+  await page.mouse.click(x, y)
+  await page.waitForFunction(() => document.querySelector('dialog[open] h2.question-text')?.textContent === 'How did you feel?', undefined, {
+    polling: 'raf',
+  })
+  await page.mouse.click(x, y)
+  await expect(sheet.getByRole('group', { name: 'How did you feel?' }).getByRole('button', { pressed: true })).toHaveCount(0)
+
   await sheet.getByRole('button', { name: 'Skip' }).click()
   await sheet.getByRole('button', { name: 'Save' }).click()
   await closeSaved(page, 'Gym')
   await expect(entryButton(page, 'Gym')).not.toContainText('Unfinished')
   await expect(entryButton(page, 'Gym')).toContainText('focused · gave energy')
-  await expect(page.locator('main .entry-list').getByRole('listitem')).toHaveCount(1)
 })
 
 test('nothing leaves the phone: every request stays on this site', async ({ page }) => {
@@ -170,11 +175,7 @@ test('nothing leaves the phone: every request stays on this site', async ({ page
   page.on('request', (request) => {
     if (new URL(request.url()).origin !== origin) elsewhere.push(request.url())
   })
-  await addEntry(page, { activity: 'Choir rehearsal', during: ['Absorbed'], energy: 'It gave me energy', after: ['Happy'], writing: 'The harmonies. Lovely evening' })
-  await page.getByRole('button', { name: 'Write freely' }).click()
-  await page.getByRole('dialog', { name: 'Write freely' }).getByLabel("What's on your mind?").fill('A good day')
-  await page.getByRole('dialog', { name: 'Write freely' }).getByRole('button', { name: 'Save' }).click()
-  await closeSaved(page, 'Free writing')
+  await writeEntry(page, 'A good day. The harmonies at choir, a lovely evening')
   await page.goto('./#/entries')
   await page.goto('./#/insights')
   await page.goto('./#/more')

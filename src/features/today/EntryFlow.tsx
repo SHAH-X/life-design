@@ -64,7 +64,8 @@ function resumeStep(draft: Entry): number {
  * Reflect on an activity, one question per screen, every answer in words and every step after the first
  * optional: what you did, what it was like, what it did to your energy, how you felt, then one box to write in,
  * with your purpose's questions above it as helpers. Saved as a draft from the first step on, so nothing is lost
- * if you stop.
+ * if you stop. Since v0.15 Today has one box instead (FreeWrite), so this only finishes an unfinished activity
+ * started before then.
  */
 export function EntryFlow({ date, suggestions, own, purpose: primary, goal, focus, draft, onClose, onSaved }: Props) {
   const activityId = useId()
