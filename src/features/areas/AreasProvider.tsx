@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
 import { ensureAreas, lifeAreas } from '../../db/areas'
 import { db } from '../../db/db'
+import { ensureLoopVectors } from '../../db/loops'
 import { isDone } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import { type AreaId, entryTitle } from '../../domain/areas'
@@ -28,9 +29,9 @@ const NOTHING: Areas = { meaning: undefined, byEntry: undefined, work: { state: 
 const AreasContext = createContext<Areas>(NOTHING)
 
 /**
- * Keeps life areas in step with the journal while the app is open: when finished entries change (and when it starts),
- * the model works out what's new, in its worker, a moment after the last change. Nothing runs while you write a new
- * entry: a draft isn't read.
+ * Keeps life areas and the provoker's open loops in step with the journal while the app is open: when finished entries
+ * change (and when it starts), the model works out what's new, in its worker, a moment after the last change. Nothing
+ * runs while you write a new entry: a draft isn't read.
  */
 export function AreasProvider({ children }: { children: ReactNode }) {
   const meaning = useMeaningSearch()
@@ -49,6 +50,8 @@ export function AreasProvider({ children }: { children: ReactNode }) {
       ensureAreas(embed, db, (done, total) => {
         if (live) setWork({ state: 'working', progress: { done, total } })
       })
+        // Then the provoker's open loops, which read the same numbers.
+        .then(() => ensureLoopVectors(embed, db))
         .then(() => {
           if (live) setWork({ state: 'idle' })
         })

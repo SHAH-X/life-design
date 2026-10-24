@@ -112,14 +112,23 @@ export interface Entry {
   /** A draft stays out of Insights and the weekly review until it's saved. */
   status: 'draft' | 'done'
   skipped: Measure[]
+  /** The question from Today's box this writing answers (v0.16), or null. */
+  replyTo: ReplyTo | null
   createdAt: number
   updatedAt: number
+}
+
+/** A question the app asked from your own writing (src/prompts/provoke.ts), kept with the writing that answers it. */
+export interface ReplyTo {
+  /** What it asked about: `loop:<loop id>`, `step:<step id>` or `quiet:<area id>`. */
+  id: string
+  question: string
 }
 
 /** The new fields, as entries from before v0.8 (and files that leave them out) get them. */
 export function entryDefaults(): Pick<
   Entry,
-  'kind' | 'purpose' | 'energyEffect' | 'duration' | 'reflections' | 'intention' | 'take' | 'insightHidden' | 'status' | 'skipped'
+  'kind' | 'purpose' | 'energyEffect' | 'duration' | 'reflections' | 'intention' | 'take' | 'insightHidden' | 'status' | 'skipped' | 'replyTo'
 > {
   return {
     kind: 'activity',
@@ -132,6 +141,7 @@ export function entryDefaults(): Pick<
     insightHidden: false,
     status: 'done',
     skipped: [],
+    replyTo: null,
   }
 }
 
@@ -304,6 +314,18 @@ export interface MeaningVector {
   /** Fingerprint of the model and the text these numbers came from. */
   hash: string
   vector: Float32Array
+}
+
+/** An open loop's meaning (v0.16), from a sentence of an entry (src/domain/loops.ts): derived, so never in a backup. */
+export interface LoopVector {
+  /** The loop's id: `<entry id>#<sentence>`. */
+  id: string
+  entryId: string
+  /** Fingerprint of the model, the sentence and the one before it. */
+  hash: string
+  sentence: Float32Array
+  /** The sentence with the one before it. */
+  context: Float32Array
 }
 
 /** A life area's centre (v0.16), worked out from its examples (src/domain/areas.ts); `shared` is what all writing

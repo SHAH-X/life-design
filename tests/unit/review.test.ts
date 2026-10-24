@@ -107,6 +107,12 @@ describe('buildReviewPackage: what an AI is given', () => {
     expect(pack.data).not.toMatch(/[−-]2|energy: -?\d/i)
   })
 
+  it("says which of Today's questions free writing answers (v0.16)", () => {
+    const reply = { ...free, id: 'reply', replyTo: { id: 'loop:x#1', question: 'On Tue 13 Oct you wrote “Need to call the bank”. Where are you with it?' } }
+    const answered = buildReviewPackage({ ...data, entries: [reply] }, { start: '2026-10-19', end: '2026-10-25' }, '')
+    expect(answered.data).toContain('Free writing (logged 21:14, answering "On Tue 13 Oct you wrote “Need to call the bank”. Where are you with it?"): Couldn\'t sleep')
+  })
+
   it('leaves out drafts and other weeks', () => {
     expect(pack.data).not.toContain('Gym')
     expect(pack.data).not.toContain('Old meeting')

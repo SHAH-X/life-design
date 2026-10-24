@@ -1,7 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { answered } from '../../db/provoker'
 import { saveEntry } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import { partOfDay, toDateKey } from '../../lib/dates'
+import type { Ask } from '../../prompts/provoke'
 import { eveningStarters } from '../../prompts/starters'
 import { Dialog } from '../../ui/Dialog'
 import { Starters, typeInto } from '../../ui/Starters'
@@ -11,9 +13,12 @@ const DRAFT_DELAY_MS = 500
 
 /**
  * Write freely: one blank page, no questions. Openers are there if wanted, never in the way. Saved as a draft
- * as you write, so closing never loses anything.
+ * as you write, so closing never loses anything. With `ask` (Today's question from your writing, v0.16) the page asks
+ * it instead, and the writing keeps it; finishing it settles the question.
  */
-export function FreeWrite({ date, draft, onClose, onSaved }: { date: string; draft?: Entry; onClose: () => void; onSaved?: (entry: Entry) => void }) {
+export function FreeWrite(props: { date: string; draft?: Entry; ask?: Ask; onClose: () => void; onSaved?: (entry: Entry) => void }) {
+  const { date, draft, ask, onClose, onSaved } = props
+  const replyTo = ask ? { id: ask.id, question: ask.question } : (draft?.replyTo ?? null)
   const id = useId()
   const hintId = useId()
   const box = useRef<HTMLTextAreaElement>(null)
@@ -48,6 +53,7 @@ export function FreeWrite({ date, draft, onClose, onSaved }: { date: string; dra
           purpose: 'free',
           skipped: ['engagement', 'energy'],
           status,
+          replyTo,
         },
         saved.current,
       )
@@ -93,6 +99,7 @@ export function FreeWrite({ date, draft, onClose, onSaved }: { date: string; dra
     finished.current = true
     try {
       await persist('done')
+      if (replyTo) await answered(toDateKey(new Date()), replyTo).catch(() => undefined)
       if (onSaved && saved.current) onSaved(saved.current)
       else onClose()
     } catch {
@@ -110,7 +117,7 @@ export function FreeWrite({ date, draft, onClose, onSaved }: { date: string; dra
   return (
     <Dialog title="Write freely" onClose={onClose} footer={footer} full fillBody>
       <label className="question-text" htmlFor={id}>
-        What's on your mind?
+        {replyTo?.question ?? "What's on your mind?"}
       </label>
       <textarea ref={box} id={id} aria-describedby={hintId} className="fill" data-autofocus value={text} rows={10} maxLength={20000} onChange={(e) => setText(e.target.value)} />
       <div className="field-foot">

@@ -69,7 +69,10 @@ const lower = (words: readonly string[]) => words.map((w) => w.toLowerCase()).jo
 /** One entry, as you gave it, in words. */
 function entryLines(entry: Entry, steps: readonly Step[]): string[] {
   const at = loggedAt(entry.createdAt, entry.date, LOCALE)
-  if (entry.kind === 'free') return [`- Free writing (logged ${at}): ${entry.note.trim().replace(/\n+/g, ' / ')}`]
+  if (entry.kind === 'free') {
+    const asked = entry.replyTo ? `, answering "${entry.replyTo.question}"` : ''
+    return [`- Free writing (logged ${at}${asked}): ${entry.note.trim().replace(/\n+/g, ' / ')}`]
+  }
   const lines = [`- ${entry.part.charAt(0).toUpperCase()}${entry.part.slice(1)}: ${entry.activity} (logged ${at})`]
   const add = (label: string, value: string) => {
     if (value.trim()) lines.push(`  - ${label}: ${value.trim()}`)

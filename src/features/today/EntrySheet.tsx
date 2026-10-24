@@ -1,6 +1,7 @@
 import type { Suggestions } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import type { OwnWord } from '../../domain/feelings'
+import type { Ask } from '../../prompts/provoke'
 import { EntryEdit, type EntryPart } from './EntryEdit'
 import { EntryFlow } from './EntryFlow'
 import { EntryView } from './EntryView'
@@ -10,7 +11,8 @@ import type { PurposeSettings } from './usePurpose'
 
 /** Which entry sheet is open, on Today or in Logs. */
 export type EntrySheetState =
-  | { kind: 'free'; date: string }
+  /** Writing; `ask`: answering Today's question from your writing. */
+  | { kind: 'free'; date: string; ask?: Ask }
   /** An entry you tapped: an unfinished one carries on; a finished one opens to read (fresh: just saved). */
   | { kind: 'open'; entry: Entry; fresh?: boolean }
   /** One part of a finished entry, changed on its own; back to the entry after. */
@@ -31,7 +33,7 @@ export function EntrySheet({ state, onChange, suggestions, own, purpose }: Props
   const close = () => onChange(null)
   const show = (entry: Entry) => onChange({ kind: 'open', entry, fresh: true })
 
-  if (state.kind === 'free') return <FreeWrite date={state.date} onClose={close} onSaved={show} />
+  if (state.kind === 'free') return <FreeWrite date={state.date} ask={state.ask} onClose={close} onSaved={show} />
   if (state.kind === 'part') {
     const back = () => onChange({ kind: 'open', entry: state.entry })
     if (state.part === 'remember') return <RememberEdit entry={state.entry} onClose={back} />

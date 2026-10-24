@@ -899,6 +899,27 @@ button.entry-row:focus-visible {
   font-weight: 400;
 }
 
+/* Today's question from your writing (v0.16), above the box: the question opens the writer; two quiet links below.
+   Its final look waits for the layout pass. */
+.provoker {
+  margin-bottom: 12px;
+}
+
+.provoker-ask {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  text-align: left;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.provoker-actions {
+  display: flex;
+  gap: 20px;
+  margin: 4px 0 0;
+}
+
 .entry-status {
   font-size: 0.8rem;
   font-weight: 600;

@@ -45,6 +45,7 @@ export interface EntryDraft {
   insightHidden?: boolean
   status?: Entry['status']
   skipped?: Entry['skipped']
+  replyTo?: Entry['replyTo']
 }
 
 const tidy = (s: string) => s.trim().replace(/\s+/g, ' ')
@@ -101,6 +102,7 @@ export function buildEntry(draft: EntryDraft, existing: Entry | undefined, now: 
     insightHidden: keep('insightHidden'),
     status: keep('status'),
     skipped: keep('skipped'),
+    replyTo: keep('replyTo'),
     createdAt: existing?.createdAt ?? time,
     updatedAt: time,
   }

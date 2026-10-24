@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { clearAreaCentres } from '../../db/areas'
+import { clearLoopVectors } from '../../db/loops'
 import { clearVectors } from '../../db/vectors'
 import { meaningFilesDownloaded, removeMeaningFiles } from '../../lib/embedder'
 import { Loading } from '../../ui/Loading'
@@ -42,6 +43,7 @@ function MeaningCard(initial: { on: boolean; downloaded: boolean }) {
     await removeMeaningFiles()
     await clearVectors()
     await clearAreaCentres()
+    await clearLoopVectors()
     setDownloaded(false)
     setNote('Removed. It downloads again if you turn it on.')
   }

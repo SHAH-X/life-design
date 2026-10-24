@@ -4,6 +4,7 @@ import { applyImport, BACKUP_SCHEMA_VERSION, createBackup, detectFile, planImpor
 import { lockText, unlockText } from '../../src/db/crypto'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { newReview } from '../../src/db/repo'
+import { isEntry } from '../../src/db/validate'
 import { emptyPlan } from '../../src/domain/lifeDesign'
 import { type AiReview, type Answer, type Entry, entryDefaults, type Step, TABLE_NAMES } from '../../src/db/types'
 
@@ -246,6 +247,26 @@ describe('backup and restore', () => {
     expect(await newPhone.entries.get('d1')).toMatchObject({ status: 'draft' })
     expect(await newPhone.steps.get('st1')).toEqual(agenda)
     expect(await newPhone.weeks.get('2026-10-19')).toMatchObject({ carry: 'Walk at lunch' })
+  })
+
+  it("backs up and restores the question writing answers, and what you told the provoker (v0.16)", async () => {
+    const reply = entry('q1', 3000, {
+      kind: 'free',
+      activity: '',
+      purpose: 'free',
+      note: 'Switched supplier, saves 30 a month',
+      skipped: ['engagement', 'energy'],
+      replyTo: { id: 'loop:e1#1', question: 'On Sat 12 Sept you wrote “Need to compare tariffs”. Where are you with it?' },
+    })
+    const told = { asked: { 'loop:e1#1': '2026-10-24' }, closed: ['loop:e1#1'], held: null, restDay: '2026-10-24' }
+    await phone.entries.put(reply)
+    await phone.settings.put({ key: 'provoker', value: told, updatedAt: 3000 })
+    const detected = detectFile(JSON.stringify(await createBackup(phone)))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    await applyImport(detected.raw, newPhone)
+    expect(await newPhone.entries.get('q1')).toEqual(reply)
+    expect((await newPhone.settings.get('provoker'))?.value).toEqual(told)
+    expect(isEntry({ ...reply, replyTo: { id: '', question: 'Where are you with it?' } })).toBe(false)
   })
 
   it('backs up and restores reviews by AI, and never the AI key', async () => {

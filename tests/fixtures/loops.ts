@@ -1,0 +1,351 @@
+import type { Entry } from '../../src/db/types'
+import { areaEntry } from './areas'
+
+// Fictional writing for open loops (step 3, 2026-10-24). LOOP_SENTENCES: sentences a person would call an open loop
+// (something to do, waited on or undecided) and look-alikes that aren't (regret, the past, "you have to" in general,
+// documentation, predictions). LOOP_JOURNAL: dated entries whose loops are written about again later, or not.
+
+export type LoopKind = 'do' | 'waiting' | 'decide'
+
+export const LOOP_SENTENCES: readonly { text: string; kind: LoopKind | null }[] = [
+  { text: 'Need to compare tariffs this weekend.', kind: 'do' },
+  { text: 'I have to call the bank about the charge on my card.', kind: 'do' },
+  { text: 'Should really book a dentist appointment.', kind: 'do' },
+  { text: "I'm going to ask my manager about the senior role.", kind: 'do' },
+  { text: 'Planning to start running again next week.', kind: 'do' },
+  { text: 'Must renew the passport before March.', kind: 'do' },
+  { text: 'Remember to send Sam the photos.', kind: 'do' },
+  { text: "I'll write the onboarding doc tomorrow.", kind: 'do' },
+  { text: 'Need to test our numpy code on the free-threaded build.', kind: 'do' },
+  { text: 'To do: fix the leaking tap, take the recycling out, renew the car insurance.', kind: 'do' },
+  { text: 'I want to be someone who keeps promises to myself.', kind: 'do' },
+  { text: 'Next week I will set the stop loss before I enter.', kind: 'do' },
+  { text: 'Gotta sort out the gutters before winter.', kind: 'do' },
+  { text: "Don't forget to cancel the free trial.", kind: 'do' },
+  { text: "Promised Mum I'd visit more often.", kind: 'do' },
+  { text: 'Still waiting for the refund from the airline.', kind: 'waiting' },
+  { text: 'Waiting to hear back from the fintech startup.', kind: 'waiting' },
+  { text: "Haven't heard from the landlord about the deposit.", kind: 'waiting' },
+  { text: 'Should I pay down the mortgage early or keep investing?', kind: 'decide' },
+  { text: 'Do I really want to stay in this job?', kind: 'decide' },
+  { text: 'What if I moved closer to my sister?', kind: 'decide' },
+  { text: 'Not sure whether to take the course or wait until spring.', kind: 'decide' },
+  { text: "Can't decide if I should sell the car.", kind: 'decide' },
+  { text: 'I should have said something in the meeting.', kind: null },
+  { text: 'Had to wait an hour for the bus.', kind: null },
+  { text: 'We needed to leave early because of the rain.', kind: null },
+  { text: "You have to see the view from the ridge, it's stunning.", kind: null },
+  { text: 'Fix: do the network call first, then open the transaction.', kind: null },
+  { text: 'Docs: you must set the idempotency key header.', kind: null },
+  { text: 'It should be fine, the forecast is dry.', kind: null },
+  { text: 'I have to admit it was fun.', kind: null },
+  { text: 'I will never forget that sunset.', kind: null },
+  { text: 'Why do I put off the things I care about most?', kind: null },
+  { text: 'Paid off the credit card finally.', kind: null },
+  { text: 'Booked a physio for Thursday.', kind: null },
+  { text: 'The engineer is coming Thursday between 8 and 1.', kind: null },
+  { text: 'Ugh, what a day.', kind: null },
+  { text: 'Who knew pasta was so easy?', kind: null },
+  { text: "I didn't want to go but I'm glad I did.", kind: null },
+  { text: 'I was going to call her but she called first.', kind: null },
+  { text: 'Always check git log --graph first.', kind: null },
+  { text: 'The plan is working, sales are up.', kind: null },
+  { text: "We'll see.", kind: null },
+  { text: "Thought I'd hate it, but I loved the class.", kind: null },
+  { text: 'This function has to return a promise.', kind: null },
+  { text: 'They should fix the potholes on our road.', kind: null },
+]
+
+/** Written after the first rules as unseen sentences (they found 9 of the 19 loops and took 2 of the 14 others for
+ *  loops), then used to widen the rules: tuning sentences now. */
+export const LOOP_SENTENCES_MORE: readonly { text: string; kind: LoopKind | null }[] = [
+  { text: 'I need to get my car serviced.', kind: 'do' },
+  { text: 'We have to decide on the venue by Friday.', kind: 'do' },
+  { text: 'Must call grandma this week.', kind: 'do' },
+  { text: 'I should start saving for the deposit.', kind: 'do' },
+  { text: 'Going to try the 5am wake-up for a week.', kind: 'do' },
+  { text: 'Thinking about asking for a sabbatical.', kind: 'decide' },
+  { text: "Still haven't replied to Jo's email.", kind: 'do' },
+  { text: 'Waiting on the blood test results.', kind: 'waiting' },
+  { text: "The parcel still hasn't arrived.", kind: 'waiting' },
+  { text: 'Should I tell her how I feel?', kind: 'decide' },
+  { text: 'Is it worth upgrading the laptop now?', kind: 'decide' },
+  { text: 'Need a new passport photo before I can renew.', kind: 'do' },
+  { text: 'Have to remember the bins on Tuesday.', kind: 'do' },
+  { text: 'Want to read more this winter.', kind: 'do' },
+  { text: "I'd like to learn to sail one day.", kind: 'do' },
+  { text: 'Hoping to hear about the flat by Monday.', kind: 'waiting' },
+  { text: "Can't make up my mind about the new job offer.", kind: 'decide' },
+  { text: "I'll ask Dad for the recipe.", kind: 'do' },
+  { text: "Book the vet for the cat's jab.", kind: 'do' },
+  { text: 'I had to laugh at the dog.', kind: null },
+  { text: 'You need to try this ramen place.', kind: null },
+  { text: 'She has to work this weekend.', kind: null },
+  { text: 'The bus should be here soon.', kind: null },
+  { text: 'I needed that holiday.', kind: null },
+  { text: 'We were going to go but it rained.', kind: null },
+  { text: "Never thought I'd enjoy running.", kind: null },
+  { text: 'I will always love that song.', kind: null },
+  { text: 'It has to be the best pizza in town.', kind: null },
+  { text: "Should've brought an umbrella.", kind: null },
+  { text: 'Why is everything so expensive?', kind: null },
+  { text: 'What a game!', kind: null },
+  { text: 'Finished the onboarding doc.', kind: null },
+  { text: 'I want to scream.', kind: null },
+]
+
+/** Written after the rules were widened and never used to change them: how they do on sentences they haven't seen. */
+export const LOOP_UNSEEN: readonly { text: string; kind: LoopKind | null }[] = [
+  { text: 'I really need to stop checking my phone in bed.', kind: 'do' },
+  { text: 'Have to finish the tax return by Sunday.', kind: 'do' },
+  { text: 'Should probably apologise to Priya.', kind: 'do' },
+  { text: "I'm going to cook more at home this month.", kind: 'do' },
+  { text: 'Want to get back into drawing.', kind: 'do' },
+  { text: 'Call the plumber about the shower.', kind: 'do' },
+  { text: 'Pay the parking fine before it doubles.', kind: 'do' },
+  { text: "I still haven't booked the flights for Christmas.", kind: 'do' },
+  { text: "We'll paint the hallway next weekend.", kind: 'do' },
+  { text: 'Need to chase the invoice from March.', kind: 'do' },
+  { text: 'Must stop saying yes to everything.', kind: 'do' },
+  { text: 'Planning to ask for a four-day week.', kind: 'do' },
+  { text: 'Still waiting on the visa decision.', kind: 'waiting' },
+  { text: "Haven't heard back about the flat viewing.", kind: 'waiting' },
+  { text: "The council still hasn't replied about the tree.", kind: 'waiting' },
+  { text: 'Should I move the savings into the index fund?', kind: 'decide' },
+  { text: "Can't decide between the two job offers.", kind: 'decide' },
+  { text: 'Do I keep the car or sell it before winter?', kind: 'decide' },
+  { text: 'Wondering whether to go back to university.', kind: 'decide' },
+  { text: 'I should have gone to bed earlier.', kind: null },
+  { text: 'We had to cancel the picnic.', kind: null },
+  { text: 'You must try the new bakery on the corner.', kind: null },
+  { text: 'He needs to sort his life out.', kind: null },
+  { text: 'The meeting should be short tomorrow.', kind: null },
+  { text: 'Called Mum, she was in good spirits.', kind: null },
+  { text: 'Booked the flights to Rome.', kind: null },
+  { text: 'I wanted to cry when I saw the bill.', kind: null },
+  { text: 'It was going to be a long day anyway.', kind: null },
+  { text: 'What a mess the kitchen was.', kind: null },
+  { text: 'How did it get so late?', kind: null },
+  { text: 'The function must return a string.', kind: null },
+  { text: 'Paid the gas bill.', kind: null },
+  { text: 'I will never understand cricket.', kind: null },
+  { text: 'Sent the photos to Sam at last.', kind: null },
+]
+
+export interface JournalCase {
+  id: string
+  date: string
+  text: string
+  /** The loops in it, by a piece of their sentence: `closedBy` is the later entry that writes about it again. */
+  loops?: readonly { quote: string; closedBy: string | null }[]
+}
+
+/** Six weeks before 2026-10-24. */
+export const LOOP_JOURNAL: readonly JournalCase[] = [
+  {
+    id: 'j01',
+    date: '2026-09-12',
+    text: 'Electricity bill was 230 this quarter, almost double last year. Need to compare tariffs this weekend.',
+    loops: [{ quote: 'compare tariffs', closedBy: 'j09' }],
+  },
+  { id: 'j02', date: '2026-09-13', text: 'Long run by the river, 8k. Knees held up fine.' },
+  {
+    id: 'j03',
+    date: '2026-09-14',
+    text: 'There is a charge on my card I do not recognise, 49.99 from an online shop. I have to call the bank about it.',
+    loops: [{ quote: 'call the bank', closedBy: 'j12' }],
+  },
+  {
+    id: 'j04',
+    date: '2026-09-15',
+    text: "Performance review went well. I'm going to ask my manager about the senior role before the next cycle.",
+    loops: [{ quote: 'ask my manager about the senior role', closedBy: null }],
+  },
+  {
+    id: 'j05',
+    date: '2026-09-16',
+    text: 'The flight to Lisbon was cancelled in July and I am still waiting for the refund from the airline. Third email sent.',
+    loops: [{ quote: 'waiting for the refund', closedBy: 'j20' }],
+  },
+  { id: 'j06', date: '2026-09-17', text: 'Coffee with an old school friend. We picked up as if no time had passed.' },
+  {
+    id: 'j07',
+    date: '2026-09-18',
+    text: 'Should I pay down the mortgage early or keep investing? The rate is 4.2% and the index fund has done better than that.',
+    loops: [{ quote: 'pay down the mortgage', closedBy: null }],
+  },
+  {
+    id: 'j08',
+    date: '2026-09-19',
+    text: 'React 19 notes: use() unwraps a promise inside render. Need to test our numpy code on the free-threaded Python build too.',
+    loops: [{ quote: 'numpy code', closedBy: 'j16' }],
+  },
+  {
+    id: 'j09',
+    date: '2026-09-21',
+    text: 'Switched energy supplier at last. The new fixed tariff saves about 30 a month on electricity.',
+  },
+  {
+    id: 'j10',
+    date: '2026-09-22',
+    text: "Mum sounded lonely on the phone. Promised her I'd visit more often, at least once a month.",
+    loops: [{ quote: 'visit more often', closedBy: 'j22' }],
+  },
+  { id: 'j11', date: '2026-09-23', text: 'Gym: squats 3x5 at 80kg, bench 3x5 at 60kg. Felt strong.' },
+  {
+    id: 'j12',
+    date: '2026-09-24',
+    text: 'Rang the bank, the 49.99 was fraud. They cancelled the card and the money is back in my account.',
+  },
+  {
+    id: 'j13',
+    date: '2026-09-26',
+    text: 'Back aches after sitting all day. Should really book a dentist appointment too, the filling feels loose.',
+    loops: [{ quote: 'dentist appointment', closedBy: null }],
+  },
+  {
+    id: 'j14',
+    date: '2026-09-28',
+    text: 'Trading review: three losses after the rate decision. Next week I will set the stop loss before I enter every trade.',
+    loops: [{ quote: 'set the stop loss', closedBy: 'j19' }],
+  },
+  {
+    id: 'j15',
+    date: '2026-09-30',
+    text: 'Interview with the fintech startup, two rounds. Waiting to hear back from them by Friday.',
+    loops: [{ quote: 'hear back', closedBy: null }],
+  },
+  {
+    id: 'j16',
+    date: '2026-10-02',
+    text: 'Ran the numpy test suite on the free-threaded Python build: two failures in the C extension, the rest passed.',
+  },
+  {
+    id: 'j17',
+    date: '2026-10-04',
+    text: 'Gotta sort out the gutters before winter, water came over the edge in the storm.',
+    loops: [{ quote: 'gutters', closedBy: null }],
+  },
+  {
+    id: 'j18',
+    date: '2026-10-05',
+    text: 'Do I really want to stay in this job? The work is fine but there is no growth and the commute kills me.',
+    loops: [{ quote: 'stay in this job', closedBy: null }],
+  },
+  {
+    id: 'j19',
+    date: '2026-10-07',
+    text: 'Good trading week. Put the stop in before every entry like I said I would, and the two losers were small.',
+  },
+  {
+    id: 'j20',
+    date: '2026-10-08',
+    text: 'The airline finally paid the refund for the cancelled Lisbon flight, 312 back on the card.',
+  },
+  {
+    id: 'j21',
+    date: '2026-10-09',
+    text: "Don't forget to cancel the free trial of the streaming app before it renews on the 20th.",
+    loops: [{ quote: 'cancel the free trial', closedBy: null }],
+  },
+  {
+    id: 'j22',
+    date: '2026-10-11',
+    text: 'Took the train to see Mum for the weekend. We baked bread and looked through old photos.',
+  },
+  {
+    id: 'j23',
+    date: '2026-10-12',
+    text: 'Not sure whether to take the data course now or wait until spring when work is calmer.',
+    loops: [{ quote: 'take the data course', closedBy: null }],
+  },
+  { id: 'j24', date: '2026-10-13', text: 'Portfolio down 6% this month. Not panicking, the thesis has not changed.' },
+  {
+    id: 'j25',
+    date: '2026-10-14',
+    text: 'Planning to start running again next week, the knee feels fine now.',
+    loops: [{ quote: 'start running again', closedBy: 'j28' }],
+  },
+  { id: 'j26', date: '2026-10-15', text: 'Argument with my partner about whose turn it is to cook. It was not about cooking.' },
+  {
+    id: 'j27',
+    date: '2026-10-16',
+    text: "Haven't heard from the landlord about the deposit, it has been five weeks since we moved out.",
+    loops: [{ quote: 'deposit', closedBy: null }],
+  },
+  { id: 'j28', date: '2026-10-19', text: 'First run in a month, 5k slow and easy. The knee held up.' },
+  {
+    id: 'j29',
+    date: '2026-10-20',
+    text: 'Remember to send Sam the photos from the wedding, he asked twice.',
+    loops: [{ quote: 'send Sam the photos', closedBy: null }],
+  },
+  { id: 'j30', date: '2026-10-21', text: 'Spent too much on takeaways again this week. I do not even enjoy half of them.' },
+  {
+    id: 'j31',
+    date: '2026-10-22',
+    text: 'Bought a second-hand bike for commuting. Should save on the train fare.',
+  },
+]
+
+/** Written after the cut-off was chosen on LOOP_JOURNAL and never used to change it. */
+export const LOOP_JOURNAL_UNSEEN: readonly JournalCase[] = [
+  {
+    id: 'u01',
+    date: '2026-09-20',
+    text: 'The boiler is making a banging noise again. Need to get someone to service it before it gets cold.',
+    loops: [{ quote: 'service it', closedBy: 'u06' }],
+  },
+  {
+    id: 'u02',
+    date: '2026-09-22',
+    text: 'Applied for the product manager role at the bank. Waiting to hear if I get an interview.',
+    loops: [{ quote: 'hear if I get an interview', closedBy: 'u08' }],
+  },
+  {
+    id: 'u03',
+    date: '2026-09-25',
+    text: 'I want to read one book a month again, I have barely opened one since the summer.',
+    loops: [{ quote: 'read one book a month', closedBy: null }],
+  },
+  { id: 'u04', date: '2026-09-27', text: 'Dinner with Leo and Ana, too much wine, lots of laughing about the old flat.' },
+  {
+    id: 'u05',
+    date: '2026-09-29',
+    text: 'Should I tell my manager I am burnt out, or just push through until the project ends?',
+    loops: [{ quote: 'tell my manager', closedBy: null }],
+  },
+  { id: 'u06', date: '2026-10-01', text: 'The gas engineer came and serviced the boiler. A loose pump, fixed in an hour, no more banging.' },
+  {
+    id: 'u07',
+    date: '2026-10-03',
+    text: 'My tooth has been sensitive for a week. Have to book the dentist.',
+    loops: [{ quote: 'book the dentist', closedBy: null }],
+  },
+  { id: 'u08', date: '2026-10-06', text: 'The bank called: first interview for the product manager job is next Wednesday.' },
+  {
+    id: 'u09',
+    date: '2026-10-08',
+    text: 'Planning to set up a direct debit into savings every payday.',
+    loops: [{ quote: 'direct debit into savings', closedBy: 'u12' }],
+  },
+  { id: 'u10', date: '2026-10-10', text: 'Long walk on the beach with the dog, cold and windy and lovely.' },
+  {
+    id: 'u11',
+    date: '2026-10-12',
+    text: 'I still have not sorted out the car insurance renewal, it runs out on the 30th.',
+    loops: [{ quote: 'car insurance', closedBy: null }],
+  },
+  { id: 'u12', date: '2026-10-15', text: 'Set up a standing order: 200 goes into the savings account the day after my salary lands.' },
+  {
+    id: 'u13',
+    date: '2026-10-16',
+    text: 'Need to reply to the wedding invitation from my cousin, the deadline is Friday.',
+    loops: [{ quote: 'reply to the wedding invitation', closedBy: 'u15' }],
+  },
+  { id: 'u14', date: '2026-10-17', text: 'Read about compound interest and index funds for an hour, fascinating stuff.' },
+  { id: 'u15', date: '2026-10-19', text: 'Said yes to the cousin’s wedding in June, sent the RSVP card back today.' },
+  { id: 'u16', date: '2026-10-20', text: 'Tired all day. Coffee at 4pm was a mistake.' },
+]
+
+export const journalEntry = (c: JournalCase): Entry => ({ ...areaEntry({ id: c.id, text: c.text, expect: [] }, c.date), createdAt: Date.parse(`${c.date}T20:00:00`) })

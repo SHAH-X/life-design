@@ -8,6 +8,7 @@ import {
   type Entry,
   entryDefaults,
   type IkigaiItem,
+  type LoopVector,
   type MeaningVector,
   type OdysseyPlan,
   type PlanVersion,
@@ -33,6 +34,7 @@ export type LifeDesignDB = Dexie & {
   settings: EntityTable<Setting, 'key'>
   vectors: EntityTable<MeaningVector, 'id'>
   areaCentres: EntityTable<AreaCentre, 'id'>
+  loopVectors: EntityTable<LoopVector, 'id'>
 }
 
 export const DB_NAME = 'life-design'
@@ -147,11 +149,23 @@ export function openDb(name = DB_NAME): LifeDesignDB {
   database.version(9).stores({
     vectors: 'id, entryId',
   })
-  // v0.16: life areas. Each area's centre, worked out from the app's own examples: derived, so never in a backup. A
-  // new, empty table: nothing else changes.
-  database.version(10).stores({
-    areaCentres: 'id',
-  })
+  // v0.16: life areas and the provoker. Each area's centre (from the app's own examples) and each open loop's meaning:
+  // derived, so never in a backup; new, empty tables. Entries gain the question they answer, none so far: not an
+  // edit, so updatedAt stays.
+  database
+    .version(10)
+    .stores({
+      areaCentres: 'id',
+      loopVectors: 'id, entryId',
+    })
+    .upgrade((tx) =>
+      tx
+        .table('entries')
+        .toCollection()
+        .modify((entry: Record<string, unknown>) => {
+          if (entry.replyTo === undefined) entry.replyTo = null
+        }),
+    )
   return database
 }
 

@@ -18,7 +18,8 @@ const words = (list: readonly string[]) => [...new Set(list.map((w) => w.toLower
  * and when, how long, where and who. A skipped question says so (never guessed). Free writing is its words. */
 function partsFor(entry: Entry): { part: EntryPart; label: string; value: string; empty: boolean; edge?: 'gives' | 'takes' }[] {
   const writing = [...entry.reflections.map((r) => `${r.question} ${r.text}`), entry.note.trim()].filter(Boolean).join('\n\n')
-  const yourWords = { part: 'writing' as const, label: 'Your words', value: writing || 'Nothing written yet', empty: !writing }
+  // Writing that answers Today's question (v0.16) is labelled with it.
+  const yourWords = { part: 'writing' as const, label: entry.replyTo?.question ?? 'Your words', value: writing || 'Nothing written yet', empty: !writing }
   if (entry.kind === 'free') return [yourWords]
   const { during, after } = wordsFor(entry)
   const energy = ENERGY_OPTIONS.find((o) => o.value === entry.energyEffect)?.label ?? ''

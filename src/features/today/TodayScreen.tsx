@@ -17,8 +17,9 @@ import { EveningQuestion } from './EveningQuestion'
 import { SmallJoy } from './SmallJoy'
 import { useDeleteEntry } from './useDeleteEntry'
 import { useOwnWords } from './useOwnWords'
+import { Provoker } from './Provoker'
+import { useProvoker } from './useProvoker'
 import { useToday } from './useToday'
-
 
 const byTimeOfDay = (a: Entry, b: Entry) => PART_ORDER[a.part] - PART_ORDER[b.part] || a.createdAt - b.createdAt
 
@@ -41,6 +42,7 @@ export function TodayScreen() {
   const tonight = useTonight(date)
   const own = useOwnWords()
   const suggestions = useLiveQuery(() => loadSuggestions(), [], NO_SUGGESTIONS)
+  const provoker = useProvoker(today)
   const isToday = date === today
 
   // Render only once everything has loaded, so nothing jumps under your finger.
@@ -51,7 +53,8 @@ export function TodayScreen() {
     purpose === undefined ||
     tonight === undefined ||
     own === undefined ||
-    lastEntryDate === undefined
+    lastEntryDate === undefined ||
+    provoker === undefined
   ) {
     return <Loading />
   }
@@ -85,6 +88,8 @@ export function TodayScreen() {
 
       <section aria-label="Your writing">
         {welcomeBack ? <p className="empty">Welcome back. Missed days don't matter.</p> : null}
+        {/* The provoker (v0.16): at most one question a day from your own writing, today only. */}
+        {isToday ? <Provoker key={today} today={today} data={provoker} onAnswer={(ask) => setSheet({ kind: 'free', date, ask })} /> : null}
         {/* One way in (v0.15, owner: "If I have to think about where a thought belongs, I won't record it"): no title,
             no category, no questions. It comes first, always in the same place: a long day never pushes it out of sight. */}
         <button type="button" className="capture-box" onClick={() => setSheet({ kind: 'free', date })}>
