@@ -22,6 +22,14 @@ describe('the colour palette', () => {
     expect(html.match(/name="theme-color"/g)).toHaveLength(1)
   })
 
+  it('uses only names that are defined: a missing one quietly draws nothing (v0.16 used --line, which never was)', () => {
+    // Defined in the stylesheet, or set by the code while the keyboard is up.
+    const keyboard = readFileSync('src/ui/useKeyboardInset.ts', 'utf8')
+    const defined = new Set([...css.matchAll(/(--[\w-]+)\s*:/g), ...keyboard.matchAll(/setProperty\('(--[\w-]+)'/g)].map((m) => m[1]))
+    const used = [...new Set([...css.matchAll(/var\((--[\w-]+)/g)].map((m) => m[1]))]
+    expect(used.filter((name) => !defined.has(name))).toEqual([])
+  })
+
   it('writes every colour once, in :root', () => {
     const colours = [...rootBlock().matchAll(/--([\w-]+):\s*(#[0-9a-f]{3,8}|rgb\([^)]*\))\s*;/gi)].map((m) => m[1])
     expect(colours.length).toBeGreaterThan(20)

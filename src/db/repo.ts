@@ -12,6 +12,7 @@ import {
   type EntrySource,
   entryDefaults,
   type OdysseyPlan,
+  type Photo,
   type Purpose,
   type Review,
   type Step,
@@ -46,6 +47,7 @@ export interface EntryDraft {
   status?: Entry['status']
   skipped?: Entry['skipped']
   replyTo?: Entry['replyTo']
+  photos?: Entry['photos']
 }
 
 const tidy = (s: string) => s.trim().replace(/\s+/g, ' ')
@@ -103,6 +105,7 @@ export function buildEntry(draft: EntryDraft, existing: Entry | undefined, now: 
     status: keep('status'),
     skipped: keep('skipped'),
     replyTo: keep('replyTo'),
+    photos: keep('photos'),
     createdAt: existing?.createdAt ?? time,
     updatedAt: time,
   }
@@ -111,7 +114,7 @@ export function buildEntry(draft: EntryDraft, existing: Entry | undefined, now: 
 export async function saveEntry(draft: EntryDraft, existing?: Entry, database: LifeDesignDB = defaultDb): Promise<Entry> {
   const entry = buildEntry(draft, existing, new Date())
   if (entry.kind === 'activity' && !entry.activity) throw new Error('An entry needs an activity')
-  if (entry.kind === 'free' && !entry.note && entry.reflections.length === 0) throw new Error('Free writing needs some words')
+  if (entry.kind === 'free' && !entry.note && entry.reflections.length === 0 && entry.photos.length === 0) throw new Error('Free writing needs some words or a photo')
   await guardWrite(() => database.entries.put(entry))
   return entry
 }
@@ -134,8 +137,16 @@ export async function patchEntry(
   await guardWrite(() => database.entries.update(id, { ...tidied, updatedAt: Date.now() }))
 }
 
-export async function deleteEntry(id: string, database: LifeDesignDB = defaultDb): Promise<void> {
-  await guardWrite(() => database.entries.delete(id))
+/** Deletes an entry and its photos; the photos are given back, for Undo. */
+export async function deleteEntry(id: string, database: LifeDesignDB = defaultDb): Promise<Photo[]> {
+  return guardWrite(() =>
+    database.transaction('rw', database.entries, database.photos, async () => {
+      const photos = await database.photos.where('entryId').equals(id).toArray()
+      await database.photos.bulkDelete(photos.map((p) => p.id))
+      await database.entries.delete(id)
+      return photos
+    }),
+  )
 }
 
 /** A new next step: from an entry (its activity comes with it, so it comes back when you write about that again), or by hand. */
@@ -217,8 +228,23 @@ export async function restoreAiReview(review: AiReview, database: LifeDesignDB =
 }
 
 /** Puts a deleted entry back exactly as it was (Undo after a swipe to delete). */
-export async function restoreEntry(entry: Entry, database: LifeDesignDB = defaultDb): Promise<void> {
-  await guardWrite(() => database.entries.put(entry))
+export async function restoreEntry(entry: Entry, photos: readonly Photo[] = [], database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() =>
+    database.transaction('rw', database.entries, database.photos, async () => {
+      await database.photos.bulkPut([...photos])
+      await database.entries.put(entry)
+    }),
+  )
+}
+
+/** A photo kept with an entry (shrunk already: src/lib/photo.ts). */
+export async function savePhoto(photo: Photo, database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() => database.photos.put(photo))
+}
+
+/** Photos no longer on their entry (taken off it while writing). */
+export async function deletePhotos(ids: readonly string[], database: LifeDesignDB = defaultDb): Promise<void> {
+  if (ids.length) await guardWrite(() => database.photos.bulkDelete([...ids]))
 }
 
 export async function setSmallJoy(date: string, text: string, database: LifeDesignDB = defaultDb): Promise<void> {

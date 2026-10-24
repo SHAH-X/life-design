@@ -9,7 +9,9 @@ import { addDays, DAY_PARTS, loggedAt, longDate, shortDay, toDateKey } from '../
 import { Dialog } from '../../ui/Dialog'
 import { revealOnMount } from '../../ui/keepInView'
 import type { EntryPart } from './EntryEdit'
-import { useEntryTitle } from '../areas/AreasProvider'
+import { useAreas, useEntryTitle } from '../areas/AreasProvider'
+import { StoredPhoto } from '../photos/PhotoView'
+import { usePhotoText } from '../photos/usePhotoText'
 import { NextStep } from './NextStep'
 
 const words = (list: readonly string[]) => [...new Set(list.map((w) => w.toLowerCase()))].join(' · ')
@@ -52,6 +54,8 @@ function when(entry: Entry): string {
 export function EntryView(props: { entryId: string; fresh?: boolean; onPart: (entry: Entry, part: EntryPart | 'remember') => void; onClose: () => void }) {
   const { entryId, fresh = false, onPart, onClose } = props
   const entryTitle = useEntryTitle()
+  const { photoProblem } = useAreas()
+  const reading = usePhotoText()
   const takeId = useId()
   const data = useLiveQuery(async () => {
     const entry = await db.entries.get(entryId)
@@ -122,6 +126,24 @@ export function EntryView(props: { entryId: string; fresh?: boolean; onPart: (en
           </button>
         ))}
       </section>
+
+      {entry.photos.length ? (
+        <section className="entry-photos" aria-label="Photos">
+          {entry.photos.map((photo, i) => (
+            <figure key={photo.id}>
+              <StoredPhoto id={photo.id} className="photo-full" alt={`Photo ${i + 1}`} />
+              {photo.text ? (
+                <details>
+                  <summary>Text in this photo</summary>
+                  <p className="photo-text">{photo.text}</p>
+                </details>
+              ) : photo.text === null ? (
+                <figcaption className="muted small">{photoProblem ?? (reading === 'on' ? 'Reading its text…' : "Its text isn't read: More → Reading photos.")}</figcaption>
+              ) : null}
+            </figure>
+          ))}
+        </section>
+      ) : null}
 
       {entry.take ? (
         <section className="insight-card" aria-label="Your take">

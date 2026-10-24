@@ -1,6 +1,6 @@
 import { type AreaCentres, type AreaId, areaCentres, LIFE_AREAS, MIN_AREA_WORDS, placeEntries } from '../domain/areas'
 import { meaningHash } from '../domain/meaning'
-import { writtenParts } from '../domain/search'
+import { photoTexts, writtenParts } from '../domain/search'
 import type { Embed } from '../lib/embedder'
 import { MEANING_MODEL } from '../lib/meaningModel'
 import { db as defaultDb, type LifeDesignDB } from './db'
@@ -74,7 +74,7 @@ export async function lifeAreas(database: LifeDesignDB = defaultDb): Promise<Map
   const [centres, entries, rows] = await Promise.all([loadCentres(database), database.entries.toArray(), database.vectors.toArray()])
   if (!centres) return null
   const placeable = new Set(
-    entries.filter((e) => e.status !== 'draft' && wordCount(writtenParts(e).join(' ')) >= MIN_AREA_WORDS).map((e) => e.id),
+    entries.filter((e) => e.status !== 'draft' && wordCount([...writtenParts(e), ...photoTexts(e)].join(' ')) >= MIN_AREA_WORDS).map((e) => e.id),
   )
   const pieces = new Map<string, Float32Array[]>()
   for (const row of rows.sort((a, b) => a.id.localeCompare(b.id, 'en', { numeric: true }))) {

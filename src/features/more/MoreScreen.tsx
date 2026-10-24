@@ -16,6 +16,7 @@ import { BackupCard } from './BackupCard'
 import { DeleteAllCard } from './DeleteAllCard'
 import { ExportCard } from './ExportCard'
 import { MEANING_INFO, MeaningSettings } from './MeaningSettings'
+import { PHOTO_TEXT_INFO, PhotoTextSettings } from './PhotoTextSettings'
 import { DEFAULT_PURPOSE } from '../today/usePurpose'
 import { OwnWords } from './OwnWords'
 import { PurposeSettings } from './PurposeSettings'
@@ -28,6 +29,7 @@ const PAGES = {
   purpose: 'Your purpose',
   words: 'Your feeling words',
   meaning: 'Search by meaning',
+  photos: 'Reading photos',
   ai: 'AI review',
   backup: 'Backup and restore',
   export: 'Spreadsheet export',
@@ -62,6 +64,10 @@ function MorePage({ page }: { page: Page }) {
         <Question as="h1" info={MEANING_INFO} infoLabel="How does it work?">
           {PAGES[page]}
         </Question>
+      ) : page === 'photos' ? (
+        <Question as="h1" info={PHOTO_TEXT_INFO} infoLabel="How does it work?">
+          {PAGES[page]}
+        </Question>
       ) : (
         <h1>{PAGES[page]}</h1>
       )}
@@ -69,6 +75,7 @@ function MorePage({ page }: { page: Page }) {
       {page === 'purpose' ? <PurposeSettings /> : null}
       {page === 'words' ? <OwnWords /> : null}
       {page === 'meaning' ? <MeaningSettings /> : null}
+      {page === 'photos' ? <PhotoTextSettings /> : null}
       {page === 'ai' ? <AiSettings /> : null}
       {page === 'backup' ? <BackupCard /> : null}
       {page === 'export' ? <ExportCard /> : null}
@@ -93,7 +100,7 @@ function useListStatus() {
     void isPersisted().then(setPersisted)
   }, [])
   const stored = useLiveQuery(async () => {
-    const [reminders, primary, lastExportAt, own, aiKey, aiProvider, meaning] = await Promise.all([
+    const [reminders, primary, lastExportAt, own, aiKey, aiProvider, meaning, photoText] = await Promise.all([
       getSetting<unknown>('reminders', null),
       getSetting<unknown>('primaryPurpose', DEFAULT_PURPOSE),
       getSetting<number | null>('lastExportAt', null),
@@ -101,6 +108,7 @@ function useListStatus() {
       getSetting<unknown>('aiKey', null),
       getSetting<unknown>('aiProvider', 'groq'),
       getSetting<unknown>('meaningSearch', null),
+      getSetting<unknown>('photoText', null),
     ])
     const plan = normalizeReminderPlan(reminders, toDateKey(new Date()))
     const on = (Object.keys(REMINDER_NAMES) as (keyof typeof REMINDER_NAMES)[]).filter((k) => plan[k].on).map((k) => REMINDER_NAMES[k])
@@ -110,6 +118,7 @@ function useListStatus() {
       backup: lastExportAt ? `Last: ${shortDate(lastExportAt)}` : 'No backup yet',
       words: own.length ? own.map((w) => w.word).join(' · ') : 'None yet',
       meaning: meaning === true ? 'On' : 'Off',
+      photos: photoText === true ? 'On' : 'Off',
       ai: typeof aiKey === 'string' && aiKey ? `On · ${PROVIDERS[aiProvider === 'openai' ? 'openai' : 'groq'].label}` : 'Off',
     }
   }, [])
@@ -128,6 +137,7 @@ function MoreList() {
     { page: 'purpose', status: status.purpose },
     { page: 'words', status: status.words },
     { page: 'meaning', status: status.meaning },
+    { page: 'photos', status: status.photos },
     { page: 'ai', status: status.ai },
     { page: 'backup', status: status.backup },
     { page: 'export' },

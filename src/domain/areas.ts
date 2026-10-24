@@ -201,11 +201,13 @@ const BY_ID = new Map(LIFE_AREAS.map((a) => [a.id, a]))
 export const areaName = (id: AreaId): string => BY_ID.get(id)?.name ?? id
 
 /** What an entry is called in lists, labels and its sheet: the activity, or for free writing its life areas ("Money ·
- * Health", v0.16), or "Free writing" while it's in none. Never the writing itself: a long first line once became a
- * whole passage in bold (v0.12.2). Screens use `useEntryTitle`, which knows the areas. */
+ * Health", v0.16), or while it's in none "Free writing" ("Photo" if a photo is all there is). Never the writing
+ * itself: a long first line once became a whole passage in bold (v0.12.2). Screens use `useEntryTitle`, which knows
+ * the areas. */
 export function entryTitle(entry: Entry, areas: readonly AreaId[] = []): string {
   if (entry.kind !== 'free') return entry.activity
-  return areas.length ? areas.map(areaName).join(' · ') : 'Free writing'
+  if (areas.length) return areas.map(areaName).join(' · ')
+  return !entry.note.trim() && entry.photos.length ? 'Photo' : 'Free writing'
 }
 
 export interface AreaLine {

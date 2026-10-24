@@ -1,5 +1,6 @@
 import type { Entry } from '../../db/types'
 import { energyEdge, entryWords } from '../../domain/feelings'
+import { photoTexts } from '../../domain/search'
 import { loggedAt, shortDayMonth } from '../../lib/dates'
 import { useEntryTitle } from '../areas/AreasProvider'
 
@@ -14,8 +15,11 @@ import { useEntryTitle } from '../areas/AreasProvider'
 export function EntryRow({ entry, onOpen, dated = false }: { entry: Entry; onOpen?: () => void; dated?: boolean }) {
   const entryTitle = useEntryTitle()
   const free = entry.kind === 'free'
-  const words = free ? '' : entryWords(entry)
-  const note = entry.note.replace(/\s+/g, ' ').trim()
+  const count = entry.photos?.length ?? 0
+  // Free writing has no feeling words; its photos are named there instead (v0.16).
+  const words = free ? (count ? (count === 1 ? 'Photo' : `${count} photos`) : '') : entryWords(entry)
+  // A photo on its own shows the text read from it.
+  const note = (entry.note || photoTexts(entry).join(' ')).replace(/\s+/g, ' ').trim()
   const content = (
     <span className="entry-text">
       <span className="entry-first">

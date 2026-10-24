@@ -920,6 +920,83 @@ button.entry-row:focus-visible {
   margin: 4px 0 0;
 }
 
+/* Photos (v0.16): small ones in the writer, whole ones in an entry. Their final look waits for the layout pass. */
+.photo-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.photo-strip li {
+  position: relative;
+}
+
+.photo-thumb,
+.photo-full {
+  display: block;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--border);
+}
+
+.photo-thumb {
+  width: 88px;
+  height: 88px;
+}
+
+.photo-thumb img,
+.photo-full img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-full {
+  width: 100%;
+}
+
+.photo-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+/* "Add a photo": the file input covers the whole button, so any tap on it opens the camera or the library. */
+.photo-add {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.photo-add input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+}
+
+.entry-photos figure {
+  margin: 12px 0 0;
+}
+
+.photo-text {
+  white-space: pre-wrap;
+}
+
 .entry-status {
   font-size: 0.8rem;
   font-weight: 600;

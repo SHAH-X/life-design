@@ -43,6 +43,7 @@ const emptyRaw = (): RawData => ({
   aiReviews: [],
   reviews: [],
   settings: [],
+  photos: [],
 })
 
 let phone: LifeDesignDB
@@ -238,7 +239,7 @@ describe('backup and restore', () => {
     await phone.steps.put(agenda)
     await phone.weeks.put({ id: '2026-10-19', carry: 'Walk at lunch', createdAt: 2000, updatedAt: 2000 })
     const backup = await createBackup(phone)
-    expect(backup.schemaVersion).toBe(7)
+    expect(backup.schemaVersion).toBe(8)
     const detected = detectFile(JSON.stringify(backup))
     if (detected.format !== 'backup') throw new Error('expected a backup')
     await applyImport(detected.raw, newPhone)

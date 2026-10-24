@@ -5,11 +5,16 @@ export function writtenParts(entry: Entry): string[] {
   return [entry.activity, entry.note, ...entry.reflections.map((r) => r.text), entry.take, entry.intention?.text ?? '']
 }
 
-/** Whether an entry mentions the search words anywhere: what you did, your words, answers, next step. */
+/** The text read from an entry's photos (v0.16), those read so far. Not what you wrote: open loops never read it. */
+export function photoTexts(entry: Entry): string[] {
+  return (entry.photos ?? []).map((p) => p.text?.trim() ?? '').filter(Boolean)
+}
+
+/** Whether an entry mentions the search words anywhere: what you did, your words, answers, next step, its photos. */
 export function matchesSearch(entry: Entry, query: string): boolean {
   const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
   if (words.length === 0) return true
-  const text = [...writtenParts(entry), ...entry.during, ...entry.after, ...entry.reflections.map((r) => r.question)]
+  const text = [...writtenParts(entry), ...photoTexts(entry), ...entry.during, ...entry.after, ...entry.reflections.map((r) => r.question)]
     .join(' ')
     .toLowerCase()
   return words.every((w) => text.includes(w))

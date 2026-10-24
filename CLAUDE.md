@@ -70,8 +70,8 @@ https://shah-x.github.io/life-design/. What the app does and why: `DECISIONS.md`
 
 ## Tech
 - Stack in DECISIONS. `tsc --noEmit` only; vite-plugin-pwa (generateSW) asks before updating. Base path `/life-design/`; hash routes (`#/today`).
-- The CSP is injected at build time in `vite.config.ts`; `connect-src` names only this site, `api.groq.com` and `api.openai.com` (a unit test checks). A new AI service means adding its address there, on purpose. A worker doesn't take the `<meta>` policy, so it fetches only its own fixed files (`tests/unit/meaningWorker.test.ts`).
-- Search by meaning's model files are git-ignored in `public/models/`, pinned in `src/lib/meaning-model.json`. `npm run model` fetches and checks them (a changed file refuses: never edit a hash to make it pass); the build refuses without them; never precached. `tests/unit/meaningModel.test.ts` runs the real model in Node.
+- The CSP is injected at build time in `vite.config.ts`; `connect-src` names only this site, `api.groq.com` and `api.openai.com` (a unit test checks). A new AI service means adding its address there, on purpose. A worker doesn't take the `<meta>` policy, so each fetches only its own fixed files (`tests/unit/meaningWorker.test.ts`, `ocrWorker.test.ts`).
+- The on-phone models' files (search by meaning, reading photos) are git-ignored in `public/models/`, pinned in `src/lib/meaning-model.json` and `ocr-model.json`. `npm run model` fetches and checks them (a changed file refuses: never edit a hash to make it pass); the build refuses without them; never precached. `meaningModel`, `areasModel`, `loopsModel` and `ocrModel` tests run the real models in Node, on fictional data only.
 - e2e tests stand in for the AI service with `page.route` and `test.use({ serviceWorkers: 'block' })` (requests through the service worker skip `page.route`). The live check, `tests/e2e/ai-live.spec.ts`, runs only with `AI_LIVE=1` and a fake key.
 - Icons: edit `public/logo.svg`, then `npm run icons`. Node 22.12 or newer (`.nvmrc`).
 

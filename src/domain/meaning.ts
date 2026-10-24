@@ -1,6 +1,6 @@
 import type { Entry } from '../db/types'
 import { ENERGY_OPTIONS, wordsFor } from './feelings'
-import { writtenParts } from './search'
+import { photoTexts, writtenParts } from './search'
 
 // Search by meaning (v0.14): finds entries that are about the same thing as a question, even with none of its words
 // ("times I felt burned out" finds "running on empty"). The model on the phone turns each entry into numbers once
@@ -11,14 +11,16 @@ const sentence = (text: string) => {
   return !t || /[.!?…]$/.test(t) ? t : `${t}.`
 }
 
-/** What search by meaning reads in an entry: what you wrote, the feeling words and the energy answer. Not the
- *  questions (the same on many entries), places or people. The feeling words are the ones its row shows: for an entry
- *  from before feeling words, read from its values (wordsFor); free writing has only the words it was given. */
+/** What search by meaning reads in an entry: what you wrote, the text in its photos (v0.16), the feeling words and the
+ *  energy answer. Not the questions (the same on many entries), places or people. The feeling words are the ones its
+ *  row shows: for an entry from before feeling words, read from its values (wordsFor); free writing has only the words
+ *  it was given. */
 export function meaningText(entry: Entry): string {
   const words = entry.kind === 'free' ? { during: entry.during, after: entry.after } : wordsFor(entry)
   const felt = [...words.during, ...words.after].map((w) => w.toLowerCase())
   const energy = ENERGY_OPTIONS.find((o) => o.value === entry.energyEffect)?.label ?? ''
-  return [...writtenParts(entry), felt.length ? `Felt ${felt.join(', ')}` : '', energy].map(sentence).filter(Boolean).join(' ')
+  const photos = photoTexts(entry).map((t) => t.replace(/\s+/g, ' '))
+  return [...writtenParts(entry), ...photos, felt.length ? `Felt ${felt.join(', ')}` : '', energy].map(sentence).filter(Boolean).join(' ')
 }
 
 /** Long writing in pieces of at most `max` words, cut at sentence ends, so a passage deep in it can still be found. */

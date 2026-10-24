@@ -114,6 +114,27 @@ export interface Entry {
   skipped: Measure[]
   /** The question from Today's box this writing answers (v0.16), or null. */
   replyTo: ReplyTo | null
+  /** Its photos (v0.16), in order: the images are in `photos`; the text read from each is kept here. */
+  photos: PhotoRef[]
+  createdAt: number
+  updatedAt: number
+}
+
+/** A photo of an entry, and the text read from it on the phone: null until read (or while reading is off). */
+export interface PhotoRef {
+  id: string
+  text: string | null
+}
+
+/** A photo (v0.16): shrunk on the phone to a JPEG of about 300 KB, kept as base64 so it backs up like the rest. */
+export interface Photo {
+  id: string
+  entryId: string
+  type: 'image/jpeg'
+  width: number
+  height: number
+  /** The JPEG, base64. */
+  data: string
   createdAt: number
   updatedAt: number
 }
@@ -128,7 +149,7 @@ export interface ReplyTo {
 /** The new fields, as entries from before v0.8 (and files that leave them out) get them. */
 export function entryDefaults(): Pick<
   Entry,
-  'kind' | 'purpose' | 'energyEffect' | 'duration' | 'reflections' | 'intention' | 'take' | 'insightHidden' | 'status' | 'skipped' | 'replyTo'
+  'kind' | 'purpose' | 'energyEffect' | 'duration' | 'reflections' | 'intention' | 'take' | 'insightHidden' | 'status' | 'skipped' | 'replyTo' | 'photos'
 > {
   return {
     kind: 'activity',
@@ -142,6 +163,7 @@ export function entryDefaults(): Pick<
     status: 'done',
     skipped: [],
     replyTo: null,
+    photos: [],
   }
 }
 
@@ -351,6 +373,7 @@ export interface BackupData {
   aiReviews: AiReview[]
   reviews: Review[]
   settings: Setting[]
+  photos: Photo[]
 }
 
 export type TableName = keyof BackupData
@@ -368,6 +391,7 @@ export const TABLE_NAMES: readonly TableName[] = [
   'aiReviews',
   'reviews',
   'settings',
+  'photos',
 ]
 
 export const TABLE_LABELS: Record<TableName, string> = {
@@ -383,4 +407,5 @@ export const TABLE_LABELS: Record<TableName, string> = {
   aiReviews: 'AI reviews',
   reviews: 'Reviews',
   settings: 'Settings',
+  photos: 'Photos',
 }

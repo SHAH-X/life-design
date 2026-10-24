@@ -209,6 +209,7 @@ describe('database upgrade', () => {
       status: 'done',
       skipped: [],
       replyTo: null,
+      photos: [],
     })
     expect(await upgraded.weeks.count()).toBe(0)
     await upgraded.delete()
@@ -277,9 +278,9 @@ describe('database upgrade', () => {
     ])
     // The step left its entry; "Remember this" stays (What you're learning); nothing else changed, updatedAt included
     // (v0.16 adds the question each answers: none).
-    expect(await upgraded.entries.get('e1')).toEqual({ ...meeting, intention: null, replyTo: null })
-    expect(await upgraded.entries.get('e2')).toEqual({ ...walk, replyTo: null })
-    expect(await upgraded.entries.get('e3')).toEqual({ ...plain, replyTo: null })
+    expect(await upgraded.entries.get('e1')).toEqual({ ...meeting, intention: null, replyTo: null, photos: [] })
+    expect(await upgraded.entries.get('e2')).toEqual({ ...walk, replyTo: null, photos: [] })
+    expect(await upgraded.entries.get('e3')).toEqual({ ...plain, replyTo: null, photos: [] })
     await upgraded.delete()
   })
 
@@ -307,13 +308,13 @@ describe('database upgrade', () => {
 
     const upgraded = openDb(name)
     expect(upgraded.verno).toBe(10)
-    expect(await upgraded.entries.get('kept')).toEqual({ id: 'kept', date: '2026-10-20', activity: 'Choir rehearsal', updatedAt: 1, createdAt: 1, replyTo: null })
+    expect(await upgraded.entries.get('kept')).toEqual({ id: 'kept', date: '2026-10-20', activity: 'Choir rehearsal', updatedAt: 1, createdAt: 1, replyTo: null, photos: [] })
     expect(await upgraded.aiReviews.get('r1')).toEqual(review)
     expect(await upgraded.vectors.count()).toBe(0)
     await upgraded.delete()
   })
 
-  it("keeps everything from a v0.15 phone (version 9), search by meaning's numbers too; adds empty tables for life areas and loops, and no question to each entry", async () => {
+  it("keeps everything from a v0.15 phone (version 9), search by meaning's numbers too; adds empty tables for life areas, loops and photos; no question or photo on any entry", async () => {
     const name = `upgrade-${crypto.randomUUID()}`
     const v9 = new Dexie(name)
     v9.version(9).stores({
@@ -339,10 +340,11 @@ describe('database upgrade', () => {
 
     const upgraded = openDb(name)
     expect(upgraded.verno).toBe(10)
-    expect(await upgraded.entries.get('kept')).toEqual({ ...written, replyTo: null })
+    expect(await upgraded.entries.get('kept')).toEqual({ ...written, replyTo: null, photos: [] })
     expect(await upgraded.vectors.get('kept#0')).toEqual(numbers)
     expect(await upgraded.areaCentres.count()).toBe(0)
     expect(await upgraded.loopVectors.count()).toBe(0)
+    expect(await upgraded.photos.count()).toBe(0)
     await upgraded.delete()
   })
 })

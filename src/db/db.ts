@@ -11,6 +11,7 @@ import {
   type LoopVector,
   type MeaningVector,
   type OdysseyPlan,
+  type Photo,
   type PlanVersion,
   type Review,
   type Setting,
@@ -35,6 +36,7 @@ export type LifeDesignDB = Dexie & {
   vectors: EntityTable<MeaningVector, 'id'>
   areaCentres: EntityTable<AreaCentre, 'id'>
   loopVectors: EntityTable<LoopVector, 'id'>
+  photos: EntityTable<Photo, 'id'>
 }
 
 export const DB_NAME = 'life-design'
@@ -149,14 +151,15 @@ export function openDb(name = DB_NAME): LifeDesignDB {
   database.version(9).stores({
     vectors: 'id, entryId',
   })
-  // v0.16: life areas and the provoker. Each area's centre (from the app's own examples) and each open loop's meaning:
-  // derived, so never in a backup; new, empty tables. Entries gain the question they answer, none so far: not an
-  // edit, so updatedAt stays.
+  // v0.16: life areas, the provoker and photos. Each area's centre (from the app's own examples) and each open loop's
+  // meaning: derived, so never in a backup. Photos: yours, so in a backup. New, empty tables. Entries gain the question
+  // they answer and their photos, none so far: not an edit, so updatedAt stays.
   database
     .version(10)
     .stores({
       areaCentres: 'id',
       loopVectors: 'id, entryId',
+      photos: 'id, entryId',
     })
     .upgrade((tx) =>
       tx
@@ -164,6 +167,7 @@ export function openDb(name = DB_NAME): LifeDesignDB {
         .toCollection()
         .modify((entry: Record<string, unknown>) => {
           if (entry.replyTo === undefined) entry.replyTo = null
+          if (!Array.isArray(entry.photos)) entry.photos = []
         }),
     )
   return database

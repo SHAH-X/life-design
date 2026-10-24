@@ -3,11 +3,14 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useS
 import { ensureAreas, lifeAreas } from '../../db/areas'
 import { db } from '../../db/db'
 import { ensureLoopVectors } from '../../db/loops'
+import { ensurePhotoText } from '../../db/photoText'
 import { isDone } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import { type AreaId, entryTitle } from '../../domain/areas'
 import { embed, MEANING_PROBLEMS, MeaningError } from '../../lib/embedder'
+import { OCR_PROBLEMS, OcrError, readPhoto } from '../../lib/reader'
 import { type MeaningSearch, useMeaningSearch } from '../meaning/useMeaning'
+import { usePhotoText } from '../photos/usePhotoText'
 
 /** After a change, this long without another before the entries are read again (an edit saves as you type). */
 const SETTLE_MS = 1500
@@ -23,51 +26,68 @@ export interface Areas {
   /** Each finished entry's areas; null until the areas are first worked out, undefined while loading. */
   byEntry: ReadonlyMap<string, readonly AreaId[]> | null | undefined
   work: AreasWork
+  /** Why photos couldn't be read lately, in the app's words; null when they could (or reading is off). */
+  photoProblem: string | null
 }
 
-const NOTHING: Areas = { meaning: undefined, byEntry: undefined, work: { state: 'idle' } }
+const NOTHING: Areas = { meaning: undefined, byEntry: undefined, work: { state: 'idle' }, photoProblem: null }
 const AreasContext = createContext<Areas>(NOTHING)
 
 /**
- * Keeps life areas and the provoker's open loops in step with the journal while the app is open: when finished entries
- * change (and when it starts), the model works out what's new, in its worker, a moment after the last change. Nothing
- * runs while you write a new entry: a draft isn't read.
+ * The app's work on the phone while it's open, a moment after the last change: the text in photos not read yet (with
+ * reading photos on), then life areas and the provoker's open loops (with search by meaning on), each model in its own
+ * worker. Search by meaning reads only finished entries: nothing is worked out from writing in progress.
  */
 export function AreasProvider({ children }: { children: ReactNode }) {
   const meaning = useMeaningSearch()
   const on = meaning === 'on'
-  const finished = useLiveQuery(
-    async () => (on ? (await db.entries.toArray()).filter(isDone).map((e) => `${e.id}:${e.updatedAt}`).sort().join('|') : ''),
-    [on],
-  )
+  const reading = usePhotoText() === 'on'
+  const changes = useLiveQuery(async () => {
+    if (!on && !reading) return ''
+    const entries = await db.entries.toArray()
+    const finished = on ? entries.filter(isDone).map((e) => `${e.id}:${e.updatedAt}`).sort().join('|') : ''
+    const unread = reading ? entries.flatMap((e) => (e.photos ?? []).filter((p) => p.text === null).map((p) => p.id)).sort().join('|') : ''
+    return `${finished}#${unread}`
+  }, [on, reading])
   const byEntry = useLiveQuery(() => (on ? lifeAreas(db) : null), [on])
   const [work, setWork] = useState<AreasWork>({ state: 'idle' })
+  const [photoProblem, setPhotoProblem] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!on || finished === undefined) return
+    if ((!on && !reading) || changes === undefined) return
     let live = true
     const timer = setTimeout(() => {
-      ensureAreas(embed, db, (done, total) => {
-        if (live) setWork({ state: 'working', progress: { done, total } })
-      })
-        // Then the provoker's open loops, which read the same numbers.
-        .then(() => ensureLoopVectors(embed, db))
-        .then(() => {
+      void (async () => {
+        if (reading) {
+          try {
+            await ensurePhotoText(readPhoto, db)
+            if (live) setPhotoProblem(null)
+          } catch (error) {
+            if (live) setPhotoProblem(error instanceof OcrError ? error.message : OCR_PROBLEMS.start)
+          }
+        }
+        if (!on) return
+        try {
+          await ensureAreas(embed, db, (done, total) => {
+            if (live) setWork({ state: 'working', progress: { done, total } })
+          })
+          // Then the provoker's open loops, which read the same numbers.
+          await ensureLoopVectors(embed, db)
           if (live) setWork({ state: 'idle' })
-        })
-        .catch((error: unknown) => {
+        } catch (error) {
           if (live) setWork({ state: 'problem', message: error instanceof MeaningError ? error.message : MEANING_PROBLEMS.start })
-        })
+        }
+      })()
     }, SETTLE_MS)
     return () => {
       live = false
       clearTimeout(timer)
     }
-  }, [on, finished])
+  }, [on, reading, changes])
 
   // Turned off, titles lose their areas at once (the query's last answer may still be the areas').
   const known = on ? byEntry : meaning === undefined ? undefined : null
-  return <AreasContext.Provider value={{ meaning, byEntry: known, work }}>{children}</AreasContext.Provider>
+  return <AreasContext.Provider value={{ meaning, byEntry: known, work, photoProblem: reading ? photoProblem : null }}>{children}</AreasContext.Provider>
 }
 
 export const useAreas = (): Areas => useContext(AreasContext)

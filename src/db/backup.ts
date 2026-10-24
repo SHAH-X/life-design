@@ -12,15 +12,15 @@ export const APP_ID = 'life-design'
 /**
  * 1 = Phase 1; 2 adds reviews; 3 adds evening answers and each review moment's "why"; 4 adds earlier versions of
  * Odyssey Plans and Workview & Lifeview; 5 adds purpose journaling (entry purpose, reflections, next steps, free
- * writing, drafts) and weekly notes; 6 moves next steps into their own list (steps); 7 adds reviews by AI. Older files
- * still restore (their next steps become steps); newer ones are refused by older app versions. The AI key never goes
- * into a backup.
+ * writing, drafts) and weekly notes; 6 moves next steps into their own list (steps); 7 adds reviews by AI; 8 adds
+ * photos, and each entry's question and photos (v0.16). Older files still restore (their next steps become steps);
+ * newer ones are refused by older app versions. The AI key never goes into a backup.
  */
-export const BACKUP_SCHEMA_VERSION = 7
+export const BACKUP_SCHEMA_VERSION = 8
 
-/** Settings that never leave the phone, not even inside a backup: the AI key, and whether search by meaning is on
- *  (its download is this phone's: a phone restored to offers it again). */
-export const SECRET_SETTING_KEYS: ReadonlySet<string> = new Set(['aiKey', 'meaningSearch'])
+/** Settings that never leave the phone, not even inside a backup: the AI key, and whether search by meaning and
+ *  reading photos are on (their downloads are this phone's: a phone restored to offers them again). */
+export const SECRET_SETTING_KEYS: ReadonlySet<string> = new Set(['aiKey', 'meaningSearch', 'photoText'])
 
 export interface BackupFile {
   app: typeof APP_ID
@@ -79,6 +79,7 @@ export async function createBackup(database: LifeDesignDB = defaultDb, now: Date
     aiReviews: await database.aiReviews.toArray(),
     reviews: await database.reviews.toArray(),
     settings: (await database.settings.toArray()).filter((s) => !SECRET_SETTING_KEYS.has(s.key)),
+    photos: await database.photos.toArray(),
   }))
   return { app: APP_ID, kind: 'backup', schemaVersion: BACKUP_SCHEMA_VERSION, exportedAt: now.toISOString(), data }
 }

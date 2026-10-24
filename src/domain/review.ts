@@ -7,6 +7,7 @@ import type { Answer, Day, Entry, Purpose, Step, Week } from '../db/types'
 import { addDays, dayMonthLong, fromDateKey, loggedAt, longDate, PART_ORDER, toDateKey } from '../lib/dates'
 import { DURATION_LABELS, ENERGY_OPTIONS, wordsFor } from './feelings'
 import { focusFor, purposeInfo } from './purposes'
+import { photoTexts } from './search'
 import { stepLine } from './steps'
 
 export type PeriodPreset = 'this-week' | 'last-week' | 'this-month' | 'last-month' | 'all-time'
@@ -71,7 +72,10 @@ function entryLines(entry: Entry, steps: readonly Step[]): string[] {
   const at = loggedAt(entry.createdAt, entry.date, LOCALE)
   if (entry.kind === 'free') {
     const asked = entry.replyTo ? `, answering "${entry.replyTo.question}"` : ''
-    return [`- Free writing (logged ${at}${asked}): ${entry.note.trim().replace(/\n+/g, ' / ')}`]
+    // A photo goes as the text read from it, never the image (v0.16).
+    const photos = photoTexts(entry).map((t) => `  - Text in a photo: ${t.replace(/\s*\n+\s*/g, ' / ')}`)
+    const words = entry.note.trim() ? entry.note.trim().replace(/\n+/g, ' / ') : entry.photos.length ? '(a photo)' : ''
+    return [`- Free writing (logged ${at}${asked}): ${words}`, ...photos]
   }
   const lines = [`- ${entry.part.charAt(0).toUpperCase()}${entry.part.slice(1)}: ${entry.activity} (logged ${at})`]
   const add = (label: string, value: string) => {

@@ -10,6 +10,7 @@ import {
   type Entry,
   type IkigaiItem,
   type OdysseyPlan,
+  type Photo,
   type PlanVersion,
   type Review,
   type Setting,
@@ -56,7 +57,24 @@ function hasValidJournalFields(x: Rec): boolean {
     isOptional(x.insightHidden, isBool) &&
     isOptional(x.status, isOneOf(['draft', 'done'])) &&
     isOptional(x.skipped, (v) => Array.isArray(v) && v.every(isOneOf(['engagement', 'energy']))) &&
-    isOptional(x.replyTo, (v) => v === null || (isObj(v) && isNonEmptyStr(v.id) && isStr(v.question)))
+    isOptional(x.replyTo, (v) => v === null || (isObj(v) && isNonEmptyStr(v.id) && isStr(v.question))) &&
+    isOptional(x.photos, (v) => Array.isArray(v) && v.every((p) => isObj(p) && isNonEmptyStr(p.id) && (p.text === null || isStr(p.text))))
+  )
+}
+
+/** A photo: a JPEG, base64, with its size (v0.16). */
+export function isPhoto(x: unknown): x is Photo {
+  return (
+    isObj(x) &&
+    isNonEmptyStr(x.id) &&
+    isNonEmptyStr(x.entryId) &&
+    x.type === 'image/jpeg' &&
+    isNum(x.width) &&
+    isNum(x.height) &&
+    isNonEmptyStr(x.data) &&
+    /^[A-Za-z0-9+/]+=*$/.test(x.data) &&
+    isNum(x.createdAt) &&
+    isNum(x.updatedAt)
   )
 }
 
@@ -243,6 +261,7 @@ export const VALIDATORS: { [K in TableName]: (x: unknown) => x is BackupData[K][
   aiReviews: isAiReview,
   reviews: isReview,
   settings: isSetting,
+  photos: isPhoto,
 }
 
 /** Fills in fields that older files don't have yet, after validation. */
