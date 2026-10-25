@@ -25,12 +25,14 @@ const NOTE_MARKDOWN = '# To do\n- Call the plumber on Thursday\n- Book the denti
 async function fakeGemini(page: Page) {
   const photos: { auth: string | null; image: string }[] = []
   const instructions: string[] = []
+  const efforts: unknown[] = []
   await page.route('https://generativelanguage.googleapis.com/**', async (route: Route) => {
     const request = route.request()
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
     const json = (body: object) => route.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify(body) })
     if (request.url().endsWith('/models')) return json({ data: [{ id: 'models/gemini-2.5-flash' }] })
-    const body = JSON.parse(request.postData() ?? '{}') as { messages: { content: Part[] }[] }
+    const body = JSON.parse(request.postData() ?? '{}') as { messages: { content: Part[] }[]; reasoning_effort?: unknown }
+    efforts.push(body.reasoning_effort)
     const image = body.messages[0]!.content.find((p) => p.type === 'image_url')!.image_url!.url
     photos.push({ auth: request.headers().authorization ?? null, image })
     instructions.push(body.messages[0]!.content.find((p) => p.type === 'text')!.text!)
@@ -39,7 +41,7 @@ async function fakeGemini(page: Page) {
       : { receipt: false, description: 'A sticky note with a reminder about the dentist', text: NOTE_MARKDOWN }
     return json({ choices: [{ message: { content: JSON.stringify(reply) } }] })
   })
-  return { photos, instructions }
+  return { photos, instructions, efforts }
 }
 
 const photo = (id: string, entryId: string, data: string) => ({ id, entryId, type: 'image/jpeg', width: 600, height: 800, data, createdAt: 1, updatedAt: 1 })
@@ -65,7 +67,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('a receipt goes to your AI by itself once it’s set up; another photo only on “Read with AI”, as Markdown', async ({ page }, testInfo) => {
-  const { photos, instructions } = await fakeGemini(page)
+  const { photos, instructions, efforts } = await fakeGemini(page)
   await restorePhotos(page, testInfo.outputPath('photos.json'))
   await page.goto('./#/more/photos')
   await page.getByRole('switch', { name: /Read the text in photos/ }).check()
@@ -104,6 +106,9 @@ test('a receipt goes to your AI by itself once it’s set up; another photo only
   await page.getByLabel('Search your logs').fill('organic')
   await expect(entryButton(page, 'Photo')).toBeVisible()
   await expect(entryButton(page, 'Free writing')).toHaveCount(0)
+
+  // Gemini was asked to think little: reading is copying out (v0.19.1).
+  expect(efforts).toEqual(['low', 'low'])
 
   // Its items came sorted into kinds, from the fixed list, in the same reading.
   expect(instructions[0]).toContain('Give each item the kind it most likely is, written exactly as one of: Fruit and veg,')

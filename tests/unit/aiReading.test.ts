@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ensureAiReadings, photoReaderSettings, readOnePhoto } from '../../src/db/aiReading'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import type { Entry, Photo } from '../../src/db/types'
@@ -140,6 +140,42 @@ describe('readPhotoWithAi: one photo to the AI', () => {
       { type: 'text', text: 'Read it' },
       { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,AAAA' } },
     ])
+  })
+
+  it('asks Gemini to think little (reading is copying out, not reasoning); OpenAI, whose older models refuse it, gets nothing new', async () => {
+    const sent: Record<string, unknown>[] = []
+    const fetchImpl = (async (_url: string, init?: RequestInit) => {
+      sent.push(JSON.parse(String(init?.body)))
+      return new Response(JSON.stringify({ choices: [{ message: { content: '{"receipt": false}' } }] }), { status: 200 })
+    }) as typeof fetch
+    await readPhotoWithAi({ provider: 'gemini', key: 'AIza_test_abcd', model: 'gemini-3.5-flash', instructions: 'Read it', jpeg: 'AAAA' }, fetchImpl)
+    await readPhotoWithAi({ provider: 'openai', key: 'sk-test_abcd', model: 'gpt-4o', instructions: 'Read it', jpeg: 'AAAA' }, fetchImpl)
+    expect(sent[0]!.reasoning_effort).toBe('low')
+    expect(sent[1]).not.toHaveProperty('reasoning_effort')
+  })
+
+  it('waits two minutes for a photo, and a timeout or limit is said in words about a photo, never "a shorter period"', async () => {
+    vi.useFakeTimers()
+    try {
+      // A service that never answers, until the app gives up.
+      const silent = ((_url: string, init?: RequestInit) =>
+        new Promise((_resolve, reject) => init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))))) as typeof fetch
+      let failed: unknown = null
+      const reading = readPhotoWithAi({ provider: 'gemini', key: 'AIza_test_abcd', model: 'm', instructions: 'Read it', jpeg: 'AAAA' }, silent).catch((error: unknown) => {
+        failed = error
+      })
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(failed).toBeNull() // a minute isn't enough for a long receipt
+      await vi.advanceTimersByTimeAsync(60_000)
+      await reading
+      expect(failed).toEqual(new AiError('timeout', 'No answer within two minutes. Try again in a moment.'))
+    } finally {
+      vi.useRealTimers()
+    }
+    const limited = (async () => new Response('{}', { status: 429 })) as typeof fetch
+    await expect(readPhotoWithAi({ provider: 'gemini', key: 'AIza_test_abcd', model: 'm', instructions: 'Read it', jpeg: 'AAAA' }, limited)).rejects.toThrow(
+      "That's more than the service allows just now. Wait a minute and try again.",
+    )
   })
 })
 

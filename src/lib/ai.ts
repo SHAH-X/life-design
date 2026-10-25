@@ -61,6 +61,15 @@ export const AI_PROBLEMS: Record<AiProblem, string> = {
 /** A refused key for photos alone (v0.18.2) is checked where it's kept. */
 export const PHOTO_KEY_PROBLEM = "The key wasn't accepted. Check it in More → Reading photos."
 
+/** How long to wait for a photo's reading: a long receipt's reply is long (v0.19.1). */
+export const PHOTO_TIMEOUT_MS = 120_000
+
+/** A photo's problems in words about a photo: there's no period to shorten or chat to copy it to. */
+const PHOTO_PROBLEMS: Partial<Record<AiProblem, string>> = {
+  timeout: 'No answer within two minutes. Try again in a moment.',
+  limit: "That's more than the service allows just now. Wait a minute and try again.",
+}
+
 export class AiError extends Error {
   constructor(
     readonly problem: AiProblem,
@@ -185,11 +194,14 @@ export const READS_IMAGES: readonly AiProvider[] = ['gemini', 'openai']
 export async function readPhotoWithAi(
   request: { provider: AiProvider; key: string; model: string; instructions: string; jpeg: string },
   fetchImpl: Fetch = fetch,
-  timeoutMs = AI_TIMEOUT_MS,
+  timeoutMs = PHOTO_TIMEOUT_MS,
 ): Promise<string> {
   const body = {
     model: request.model,
     response_format: { type: 'json_object' },
+    // Reading a photo is copying out what's printed, not reasoning: Gemini thinks little, so it answers sooner
+    // (Google: lower the thinking level to cut latency). OpenAI's older models refuse this, so it's Gemini's alone.
+    ...(request.provider === 'gemini' ? { reasoning_effort: 'low' } : {}),
     messages: [
       {
         role: 'user',
@@ -205,7 +217,10 @@ export async function readPhotoWithAi(
     { method: 'POST', headers: headers(request.key), body: JSON.stringify(body) },
     fetchImpl,
     timeoutMs,
-  )) as { choices?: { message?: { content?: unknown } }[] }
+  ).catch((error: unknown) => {
+    const said = error instanceof AiError ? PHOTO_PROBLEMS[error.problem] : undefined
+    throw said ? new AiError((error as AiError).problem, said) : error
+  })) as { choices?: { message?: { content?: unknown } }[] }
   const text = answer.choices?.[0]?.message?.content
   if (typeof text !== 'string' || !text.trim()) throw new AiError('other')
   return text.trim()
