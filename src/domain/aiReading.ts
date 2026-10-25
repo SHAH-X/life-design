@@ -10,7 +10,7 @@ import { ITEM_KINDS, type ItemKind, readReceipt } from './receipts'
 export const AI_READING_INSTRUCTIONS = [
   'Read this photo. Reply with JSON only.',
   'If it is a receipt, reply: {"receipt": true, "shop": "the shop", "date": "YYYY-MM-DD or null", "currency": "£, $, € or empty", "items": [{"name": "the item as printed, its codes left out", "price": "1.73", "quantity": 1, "kind": "Dairy and eggs"}], "total": "the total paid, or null", "text": "all the text you can read, line by line"}.',
-  'The date is when it was bought: never a refund, exchange or expiry date; null if the photo shows none.',
+  'The date is when it was bought: never a refund, exchange, expiry, collection or delivery date; null if the photo shows none.',
   'Each line bought is an item at the price it shows (for "2 @ 1.50 3.00", one item: quantity 2, price "3.00"). A saving or discount is an item with a negative price. Payment, change, gift card, balance and points lines are not items.',
   `Give each item the kind it most likely is, written exactly as one of: ${ITEM_KINDS.join(', ')}. If you are not sure, Other.`,
   'If it is not a receipt, reply: {"receipt": false, "description": "what the photo shows, in one sentence", "text": "what is printed on it, as Markdown"}.',

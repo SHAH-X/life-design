@@ -6,6 +6,7 @@ import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { newReview } from '../../src/db/repo'
 import { isEntry } from '../../src/db/validate'
 import { emptyPlan } from '../../src/domain/lifeDesign'
+import { ITEM_KINDS } from '../../src/domain/receipts'
 import { type AiReview, type Answer, type Entry, entryDefaults, type Step, TABLE_NAMES } from '../../src/db/types'
 
 // Fictional example data.
@@ -257,7 +258,7 @@ describe('backup and restore', () => {
     await phone.steps.put(agenda)
     await phone.weeks.put({ id: '2026-10-19', carry: 'Walk at lunch', createdAt: 2000, updatedAt: 2000 })
     const backup = await createBackup(phone)
-    expect(backup.schemaVersion).toBe(9)
+    expect(backup.schemaVersion).toBe(10)
     const detected = detectFile(JSON.stringify(backup))
     if (detected.format !== 'backup') throw new Error('expected a backup')
     await applyImport(detected.raw, newPhone)
@@ -326,8 +327,9 @@ describe('backup and restore', () => {
     expect(damaged({ items: [{ name: 'Oat milk', price: '1.45', quantity: 1 }] })).toBe(false)
     expect(damaged({ date: '12th Oct' })).toBe(false)
     expect(damaged({ items: [{ name: 'Oat milk', price: 145, quantity: 1, kind: 'Milk' }] })).toBe(false)
-    // A reading from before kinds (v0.18) still restores.
+    // A reading from before kinds (v0.18) still restores, and so do clothes (v0.19.2).
     expect(damaged({ items: [{ name: 'Oat milk', price: 145, quantity: 1 }] })).toBe(true)
+    expect(damaged({ items: [{ name: 'Wool scarf', price: 1500, quantity: 1, kind: 'Clothes and shoes' }] })).toBe(true)
     expect(isEntry({ ...withReceipt, photos: [{ id: 'p1', text: null, ai: { ...ai, by: 3 } }] })).toBe(false)
   })
 
@@ -431,6 +433,11 @@ describe('backup and restore', () => {
   it('refuses a backup made by a newer version of the app', () => {
     const text = JSON.stringify({ app: 'life-design', kind: 'backup', schemaVersion: BACKUP_SCHEMA_VERSION + 1, data: {} })
     expect(detectFile(text)).toEqual({ format: 'too-new', schemaVersion: BACKUP_SCHEMA_VERSION + 1 })
+  })
+
+  it('moves to a new backup format with each new item kind: an older version would skip an entry with one, its writing too', () => {
+    // v0.19.2 added Clothes and shoes and format 10. A new kind: raise the format, then both numbers here.
+    expect({ format: BACKUP_SCHEMA_VERSION, kinds: ITEM_KINDS.length }).toEqual({ format: 10, kinds: 13 })
   })
 
   it('recognises locked backups, v1 files and everything else', async () => {
