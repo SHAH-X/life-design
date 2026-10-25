@@ -44,6 +44,7 @@ https://shah-x.github.io/life-design/. What the app does and why: `DECISIONS.md`
 - Long words never squeeze a label: words go on a line of their own. The Insights e2e test checks no line's name wraps past two lines.
 - Before adding a class name, search `styles.css` for it: a shared name picks up another screen's look.
 - When the app refuses something (a file, a password), say exactly why and what to do next.
+- An error's words fit where it shows: a message written for one feature (a review's "try a shorter period") isn't shown for another; each AI call words its own problems (`PHOTO_PROBLEMS` in `src/lib/ai.ts`), with a test.
 - Every question explains itself in plain words ("Did it give you energy, or take it?", not "Energy"); every answer is worded. The deeper why sits behind ⓘ.
 - A question that replaces another under the finger ignores taps for 300 ms, its answers `aria-disabled` meanwhile. An e2e test taps twice.
 - New writing has no title, category or questions: Today's one box opens the writer (v0.15, owner). Never add a form, picker or required field to it.
