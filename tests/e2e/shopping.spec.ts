@@ -134,10 +134,10 @@ test('Share as a spreadsheet gives every item, a row each, through the share men
   const file = await sharedFile(page)
   expect(file.name).toBe('life-design-shopping-2026-10-24.csv')
   const rows = file.text.replace(/^﻿/, '').trimEnd().split('\r\n')
-  expect(rows[0]).toBe('date,shop,item,kind,quantity,price,currency,receipt_total,adds_up,date_read,read_by')
+  expect(rows[0]).toBe('date,shop,item,as_printed,kind,quantity,price,currency,receipt_total,adds_up,date_read,read_by')
   expect(rows).toHaveLength(13)
-  expect(rows).toContain('2026-10-10,Tesco,Clubcard saving,,1,-0.50,£,1.25,yes,yes,Gemini · gemini-2.5-flash')
-  expect(rows).toContain('2026-10-03,TESCO,Bananas,Fruit and veg,1,0.95,£,3.60,yes,yes,Gemini · gemini-2.5-flash')
+  expect(rows).toContain('2026-10-10,Tesco,Clubcard saving,Clubcard saving,,1,-0.50,£,1.25,yes,yes,Gemini · gemini-2.5-flash')
+  expect(rows).toContain('2026-10-03,TESCO,Bananas,Bananas,Fruit and veg,1,0.95,£,3.60,yes,yes,Gemini · gemini-2.5-flash')
 })
 
 test('with no receipts, Shopping says where they come from', async ({ page }) => {

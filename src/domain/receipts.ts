@@ -12,7 +12,11 @@ export const ITEM_KINDS = ['Fruit and veg', 'Meat and fish', 'Dairy and eggs', '
 export type ItemKind = (typeof ITEM_KINDS)[number]
 
 export interface ReceiptItem {
+  /** As printed, its codes left out ("GRK YOG 4PK"): what price changes and repeats match on, as a shop prints the same
+   *  name each time. */
   name: string
+  /** What your AI took it for, in plain words ("Greek yoghurt, 4 pack"), when it read the receipt (v0.19.3). */
+  plain?: string
   /** In minor units; a saving is negative. */
   price: number
   /** From a "2 x 0.89" line, or a "2 @ 1.50 3.00" one; 1 if none. */
@@ -20,6 +24,9 @@ export interface ReceiptItem {
   /** From ITEM_KINDS, when your AI read the receipt. */
   kind?: ItemKind
 }
+
+/** An item as it's shown: what your AI took it for, else as printed (read by the phone, or before v0.19.3). */
+export const itemShown = (item: ReceiptItem) => item.plain || item.name
 
 export interface Receipt {
   shop: string

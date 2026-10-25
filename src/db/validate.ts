@@ -76,7 +76,7 @@ function isAiReading(x: unknown): boolean {
     isStr(r.currency) &&
     (r.total === null || Number.isInteger(r.total)) &&
     Array.isArray(r.items) &&
-    r.items.every((i) => isObj(i) && isStr(i.name) && Number.isInteger(i.price) && Number.isInteger(i.quantity) && isOptional(i.kind, isOneOf(ITEM_KINDS)))
+    r.items.every((i) => isObj(i) && isStr(i.name) && isOptional(i.plain, isStr) && Number.isInteger(i.price) && Number.isInteger(i.quantity) && isOptional(i.kind, isOneOf(ITEM_KINDS)))
   )
 }
 

@@ -156,8 +156,8 @@ export interface AiReading {
     shop: string
     date: string | null
     currency: string
-    /** `kind` from ITEM_KINDS, from v0.19; readings before then have none. */
-    items: { name: string; price: number; quantity: number; kind?: ItemKind }[]
+    /** `kind` from ITEM_KINDS, from v0.19, and `plain`, what it most likely is, from v0.19.3; readings before have none. */
+    items: { name: string; plain?: string; price: number; quantity: number; kind?: ItemKind }[]
     total: number | null
   } | null
 }

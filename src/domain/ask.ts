@@ -5,6 +5,7 @@
 // the phone adds. Everything sent is kept, for "What was sent", and an amount in the answer that none of it gave is
 // pointed out.
 import type { ChatMessage, ToolCall, ToolSpec } from '../lib/ai'
+import { itemShown } from './receipts'
 import { type KnownReceipt, money, paid, shopKey, spendByShop } from './shopping'
 
 export interface FoundEntry {
@@ -94,7 +95,7 @@ export function askInstructions(today: string): string {
     'Never add, multiply or total numbers yourself. For spending by shop or by month, call spend_by_shop and give its totals as they are. For any other total, call sum with the item or receipt ids and use the total it gives.',
     'To split items into kinds (for example dairy, fruit and veg, bakery, household), use the kind an item comes with; group those without one yourself, by their names; then call sum once for each group.',
     "If a receipt has adds: false, its items don't add up to its printed total: say so, and use its printed total for what was spent.",
-    'Item names are as the receipt prints them, often shortened or misread ("Cln balckberr", "Sbp cshws 15"): when you list items, give what each most likely is in plain words (blackberries, cashews); if you are not sure, give it only as printed, adding nothing.',
+    'An item\'s name is what an AI took it for when it read the receipt, and "printed" is how the receipt printed it, when they differ. An item with no "printed" is as the receipt prints it, often shortened or misread ("Grk yog 4pk", "Chc mffn"): when you list items, give what each most likely is in plain words (Greek yoghurt, chocolate muffin); if you are not sure, give it only as printed, adding nothing.',
     "Say only what the journal shows; if it doesn't show something, say that. Never guess. No scores or ratings.",
     'Name the receipts and entries you used by their ids in square brackets, like [r:ID] for a receipt or [e:ID] for an entry (the r: or e: is needed), where you mention them.',
     'Answer briefly, in plain words; a short list helps for items and totals.',
@@ -167,7 +168,7 @@ export async function runTool(call: ToolCall, journal: AskJournal): Promise<{ re
       id: r.id,
       shop: r.shop,
       date: r.date,
-      items: r.items.map((item, n) => ({ id: `${r.id}:${n}`, name: item.name, price: money(item.price, r.currency), ...(item.quantity > 1 ? { quantity: item.quantity } : {}), ...(item.kind ? { kind: item.kind } : {}) })),
+      items: r.items.map((item, n) => ({ id: `${r.id}:${n}`, name: itemShown(item), ...(itemShown(item) !== item.name ? { printed: item.name } : {}), price: money(item.price, r.currency), ...(item.quantity > 1 ? { quantity: item.quantity } : {}), ...(item.kind ? { kind: item.kind } : {}) })),
       total: r.total === null ? null : money(r.total, r.currency),
       adds: r.adds,
     }))

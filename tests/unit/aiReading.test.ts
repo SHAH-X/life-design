@@ -32,9 +32,15 @@ const receiptReply = JSON.stringify({
 })
 
 describe('AI_READING_INSTRUCTIONS: how the AI is asked to read a photo', () => {
-  it('asks for a receipt, each item with its kind', () => {
+  it('asks for a receipt, each item with its plain name and its kind', () => {
     expect(AI_READING_INSTRUCTIONS).toContain(
-      'If it is a receipt, reply: {"receipt": true, "shop": "the shop", "date": "YYYY-MM-DD or null", "currency": "£, $, € or empty", "items": [{"name": "the item as printed, its codes left out", "price": "1.73", "quantity": 1, "kind": "Dairy and eggs"}], "total": "the total paid, or null", "text": "all the text you can read, line by line"}.',
+      'If it is a receipt, reply: {"receipt": true, "shop": "the shop", "date": "YYYY-MM-DD or null", "currency": "£, $, € or empty", "items": [{"name": "the item as printed, its codes left out", "plain": "what it is, in plain words", "price": "1.73", "quantity": 1, "kind": "Dairy and eggs"}], "total": "the total paid, or null", "text": "all the text you can read, line by line"}.',
+    )
+  })
+
+  it('asks what each item most likely is, in plain words, and as printed when unsure', () => {
+    expect(AI_READING_INSTRUCTIONS).toContain(
+      'Give each item a plain name too: what it most likely is, in plain words ("GRK YOG 4PK" is "Greek yoghurt, 4 pack"); if you are not sure, the name as printed, adding nothing.',
     )
   })
 
@@ -91,6 +97,27 @@ describe('parseAiReading: what is kept of the AI’s reply', () => {
     })
   })
 
+  it('keeps the plain name your AI gave each item, trimmed; anything but words is dropped', () => {
+    const reply = JSON.stringify({
+      receipt: true,
+      shop: 'M&S',
+      date: '2026-10-12',
+      currency: '£',
+      items: [
+        { name: 'GRK YOG 4PK', plain: ' Greek yoghurt, 4 pack ', price: '2.25', quantity: 1 },
+        { name: 'Bananas', plain: 7, price: '0.95' },
+        { name: 'Tea', plain: '', price: '1.00' },
+      ],
+      total: '4.20',
+      text: '',
+    })
+    expect(parseAiReading(reply, BY, 1)?.receipt?.items).toEqual([
+      { name: 'GRK YOG 4PK', plain: 'Greek yoghurt, 4 pack', price: 225, quantity: 1 },
+      { name: 'Bananas', price: 95, quantity: 1 },
+      { name: 'Tea', price: 100, quantity: 1 },
+    ])
+  })
+
   it('reads JSON wrapped in words or a code block, keeps a photo’s description, and gives up on nonsense', () => {
     expect(parseAiReading('Here it is:\n```json\n{"receipt": false, "description": "A whiteboard with goals", "text": "Q4 goals"}\n```', BY, 1)).toMatchObject({
       description: 'A whiteboard with goals',
@@ -122,6 +149,12 @@ describe('what the AI read, used', () => {
     const ai = parseAiReading('{"receipt": false, "description": "A whiteboard with goals", "text": "Q4 goals"}', BY, 1)!
     expect(photoTexts(photoEntry('e1', { id: 'p1', text: 'Q4 g0als', ai }))).toEqual(['A whiteboard with goals\nQ4 goals'])
     expect(photoTexts(photoEntry('e2', { id: 'p2', text: 'Q4 g0als' }))).toEqual(['Q4 g0als'])
+  })
+
+  it('search and meaning find a receipt by the plain names its items were given, when they differ from the printed ones', () => {
+    const reply = { receipt: true, shop: 'M&S', items: [{ name: 'GRK YOG 4PK', plain: 'Greek yoghurt, 4 pack', price: '2.25' }, { name: 'Bananas', plain: 'Bananas', price: '0.95' }], total: '3.20', text: 'M&S\nGRK YOG 4PK 2.25\nBananas 0.95' }
+    const ai = parseAiReading(JSON.stringify(reply), BY, 1)!
+    expect(photoTexts(photoEntry('e1', { id: 'p1', text: null, ai }))).toEqual(['M&S\nGRK YOG 4PK 2.25\nBananas 0.95\nGreek yoghurt, 4 pack'])
   })
 
   it('a photo goes by itself only when the phone takes it for a receipt', () => {

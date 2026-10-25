@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { runTool } from '../../src/domain/ask'
-import type { ItemKind } from '../../src/domain/receipts'
+import { type ItemKind, itemShown } from '../../src/domain/receipts'
 import {
   amountsOf,
   inWords,
@@ -174,6 +174,23 @@ describe('kinds: what was bought, by the kind your AI gave each item', () => {
 
   it('says nothing of kinds in a month where no item has one', () => {
     expect(shoppingMonth(RECEIPTS, '2026-10', TODAY).kinds).toBeNull()
+  })
+})
+
+describe('plain names: what your AI took each item for (v0.19.3)', () => {
+  const named = (id: string, date: string, plain: string, price: number) => receipt(id, 'M&S', date, [], { items: [{ name: 'GRK YOG 4PK', plain, price, quantity: 1 }], total: price })
+  // The AI's words can differ between readings; the shop prints the same name each time.
+  const YOGHURT = [named('y1', '2026-10-02', 'Greek yoghurt, 4 pack', 225), named('y2', '2026-10-09', 'Greek yogurt 4-pack', 225), named('y3', '2026-10-16', 'Greek yoghurt, 4 pack', 250)]
+
+  it('shows the latest plain name, and matches price changes and repeats by the printed name', () => {
+    const month = shoppingMonth(YOGHURT, '2026-10', TODAY)
+    expect(month.repeats.map((r) => [r.name, ids(r.receipts)])).toEqual([['Greek yoghurt, 4 pack', ['y1', 'y2', 'y3']]])
+    expect(month.priceChanges.map((c) => [c.name, c.before.price, c.now.price])).toEqual([['Greek yoghurt, 4 pack', 225, 250]])
+  })
+
+  it('shows an item as printed when it has no plain name (read by the phone, or before v0.19.3)', () => {
+    expect(itemShown({ name: 'Bananas', price: 95, quantity: 1 })).toBe('Bananas')
+    expect(itemShown({ name: 'GRK YOG 4PK', plain: 'Greek yoghurt, 4 pack', price: 225, quantity: 1 })).toBe('Greek yoghurt, 4 pack')
   })
 })
 

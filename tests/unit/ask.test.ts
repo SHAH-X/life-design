@@ -64,6 +64,21 @@ describe('the tools: what the phone answers', () => {
     expect(askInstructions('2026-10-24')).toMatch(/use the kind an item comes with; group those without one yourself/)
   })
 
+  it('find_receipts gives the plain name an AI gave an item, with how it was printed when that differs', async () => {
+    const read = known('k1', 'M&S', '2026-10-03', 320, {
+      items: [
+        { name: 'GRK YOG 4PK', plain: 'Greek yoghurt, 4 pack', price: 225, quantity: 1, kind: 'Dairy and eggs' },
+        { name: 'Bananas', plain: 'Bananas', price: 95, quantity: 1 },
+      ],
+    })
+    const found = (await parsed(call('find_receipts', {}), journal({ receipts: [read] }))) as { receipts: { items: object[] }[] }
+    expect(found.receipts[0]!.items).toEqual([
+      { id: 'k1:0', name: 'Greek yoghurt, 4 pack', printed: 'GRK YOG 4PK', price: '£2.25', kind: 'Dairy and eggs' },
+      { id: 'k1:1', name: 'Bananas', price: '£0.95' },
+    ])
+    expect(askInstructions('2026-10-24')).toMatch(/"printed" is how the receipt printed it/)
+  })
+
   it('find_receipts can keep to a shop', async () => {
     const found = (await parsed(call('find_receipts', { shop: 'tesco' }))) as { receipts: { id: string }[] }
     expect(found.receipts.map((r) => r.id)).toEqual(['p2'])
