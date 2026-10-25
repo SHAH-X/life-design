@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readReceipt, receiptDate } from '../../src/domain/receipts'
+import { readReceipt, receiptDate, receiptTime } from '../../src/domain/receipts'
 import { type ExpectedReceipt, RECEIPTS, RECEIPTS_UNSEEN } from '../fixtures/receipts'
 
 /** What the rules made of each fictional receipt, as the fixture writes it. */
@@ -51,6 +51,12 @@ describe('readReceipt: a receipt in the text read from a photo', () => {
     const r = readReceipt('SHOP\nTea 3.00\nBalance before Saving 3.00\n**£1 off with Sparks** 1.00\nBalance to Pay 2.00')
     expect(r?.items.map((i) => i.price)).toEqual([300, -100])
     expect(r?.adds).toBe(true)
+  })
+
+  it('reads the till’s time beside the date, never another time on the receipt (v0.19.5)', () => {
+    expect(receiptTime('Open 08:00-22:00\nSHOP\n25/10/26 15:05 0000 000', false)).toBe('15:05')
+    expect(receiptTime('GREENLEAF MARKET\n12 Oct 2026 9:05\nTea 3.00', false)).toBe('09:05')
+    expect(receiptTime('SHOP 08:00-22:00\n25/10/2026\nTea 3.00', false)).toBeNull()
   })
 
   it('never reads an amount stuck to letters as a price ("ne.auj9,28M")', () => {

@@ -140,6 +140,20 @@ test('Share as a spreadsheet gives every item, a row each, through the share men
   expect(rows).toContain('2026-10-03,TESCO,Bananas,Bananas,Fruit and veg,1,0.95,£,3.60,yes,yes,Gemini · gemini-2.5-flash')
 })
 
+// Owner, 2026-10-25: "if i upload the same receipt twice, it counts it twice".
+test('the same receipt added twice is counted once; the copy is listed to check and says so under its photo', async ({ page }, testInfo) => {
+  const tea = reading('Corner Shop', '2026-10-20', [['Tea', 300, 'Drinks'], ['Milk', 120, 'Dairy and eggs']])
+  const first = receiptEntry('first', '2026-10-20', tea)
+  const again = receiptEntry('again', '2026-10-22', tea) // the same photo, added two days later
+  await restoreBackup(page, testInfo.outputPath('receipts.json'), backupWith({ entries: [first, again] }, SATURDAY))
+  await page.goto('./#/shopping')
+  await expect(page.getByRole('strong')).toHaveText('£4.20')
+  const check = page.getByRole('region', { name: 'To check' }).locator('li')
+  await expect(check).toHaveText([/Corner Shop · £4\.20 · already added: counted once/])
+  await check.getByRole('button').click()
+  await expect(page.getByRole('dialog', { name: 'Photo' }).getByText('Already in Shopping from an earlier photo: counted once.')).toBeVisible()
+})
+
 test('with no receipts, Shopping says where they come from', async ({ page }) => {
   await page.goto('./#/shopping')
   await expect(page.getByRole('heading', { level: 1, name: 'Shopping' })).toBeVisible()

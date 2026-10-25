@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { Entry } from '../../src/db/types'
 import { runTool } from '../../src/domain/ask'
 import { type ItemKind, itemShown } from '../../src/domain/receipts'
 import {
@@ -6,6 +7,7 @@ import {
   inWords,
   type KnownReceipt,
   monthTotals,
+  receiptsAndCopies,
   receiptsOf,
   shopKey,
   shoppingMonth,
@@ -88,6 +90,56 @@ describe('receiptsOf: whether a date was read, and who read it', () => {
     expect(byAi).toMatchObject({ date: '2026-10-12', dated: false, readBy: 'Gemini · gemini-2.5-flash' })
     const [byPhone] = receiptsOf([{ ...areaEntry({ id: 'e2', text: '', expect: [] }, '2026-10-20'), photos: [{ id: 'p2', text: 'GREENLEAF MARKET\n12 Oct 2026\nOat milk 1.65\nTOTAL 1.65' }] }])
     expect(byPhone).toMatchObject({ date: '2026-10-12', dated: true, readBy: null })
+  })
+})
+
+// Owner, 2026-10-25: "if i upload the same receipt twice, it counts it twice … it should have been able to detect that".
+describe('the same receipt added twice is counted once (v0.19.5)', () => {
+  type Photo = Entry['photos'][number]
+  const read = (text: string, items: [name: string, price: number][], total: number, over: object = {}) => ({
+    by: 'Gemini · gemini-test',
+    at: 1,
+    text,
+    description: '',
+    version: 2,
+    receipt: { shop: 'Corner Shop', date: '2026-10-12', currency: '£', items: items.map(([name, price]) => ({ name, price, quantity: 1 })), total, ...over },
+  })
+  const added = (id: string, createdAt: number, photo: Photo): Entry => ({ ...areaEntry({ id, text: '', expect: [] }, '2026-10-12'), createdAt, photos: [photo] })
+  const TEA = read('CORNER SHOP\n12/10/2026 09:15\nTea 3.00\nMilk 1.20\nTOTAL 4.20', [['Tea', 300], ['Milk', 120]], 420)
+  const ids = (entries: Entry[]) => receiptsOf(entries).map((r) => r.id)
+
+  it('counts the one added first, wherever it sits, and lists a later copy to check', () => {
+    const entries = [added('e2', 2, { id: 'again', text: null, ai: TEA }), added('e1', 1, { id: 'first', text: null, ai: TEA })]
+    expect(ids(entries)).toEqual(['first'])
+    const { receipts, copies } = receiptsAndCopies(entries)
+    expect(copies.map((c) => [c.copy.id, c.of.id])).toEqual([['again', 'first']])
+    const month = shoppingMonth(receipts, '2026-10', TODAY, copies)
+    expect(inWords(month.spent)).toBe('£4.20')
+    expect(month.toCheck.map((c) => [c.receipt.id, c.why])).toEqual([['again', ['already added: counted once']]])
+  })
+
+  it('knows a new photo of it read by the phone, its names printed in capitals', () => {
+    const phone = 'CORNER SHOP\n12/10/2026 09:15\nTEA 3.00\nMILK 1.20\nTOTAL 4.20'
+    expect(ids([added('e1', 1, { id: 'first', text: null, ai: TEA }), added('e2', 2, { id: 'photo', text: phone })])).toEqual(['first'])
+  })
+
+  it('keeps two receipts alike bought at different times of day: the same thing bought twice', () => {
+    const later = read('CORNER SHOP\n12/10/2026 10:40\nTea 3.00\nMilk 1.20\nTOTAL 4.20', [['Tea', 300], ['Milk', 120]], 420)
+    expect(ids([added('e1', 1, { id: 'first', text: null, ai: TEA }), added('e2', 2, { id: 'second', text: null, ai: later })])).toEqual(['first', 'second'])
+  })
+
+  it('keeps receipts that differ in a price, the total, the shop or the date', () => {
+    const others = [
+      read('', [['Tea', 300], ['Milk', 125]], 425),
+      read('', [['Tea', 300], ['Milk', 120]], 420, { shop: 'Other Shop' }),
+      read('', [['Tea', 300], ['Milk', 120]], 420, { date: '2026-10-13' }),
+    ]
+    const entries = [added('e0', 0, { id: 'first', text: null, ai: TEA }), ...others.map((ai, i) => added(`e${i + 1}`, i + 1, { id: `other${i + 1}`, text: null, ai }))]
+    expect(ids(entries)).toEqual(['first', 'other1', 'other2', 'other3'])
+  })
+
+  it('counts the copy once the first is deleted', () => {
+    expect(ids([added('e2', 2, { id: 'again', text: null, ai: TEA })])).toEqual(['again'])
   })
 })
 

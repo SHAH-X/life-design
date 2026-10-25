@@ -5,7 +5,7 @@
 import { MIN_COUNT } from '../analysis/stats'
 import type { Entry, PhotoRef } from '../db/types'
 import { addMonths } from '../lib/dates'
-import { chainOf, ITEM_KINDS, type ItemKind, itemShown, type ReceiptItem, readReceipt, type Receipt, shopWords } from './receipts'
+import { chainOf, ITEM_KINDS, type ItemKind, itemShown, type ReceiptItem, readReceipt, type Receipt, receiptTime, shopWords } from './receipts'
 
 /** A receipt in a photo of a finished entry. Its id is the photo's; its date is the receipt's, else the entry's. */
 export interface KnownReceipt extends Omit<Receipt, 'date'> {
@@ -30,17 +30,47 @@ function receiptOf(photo: PhotoRef): Receipt | null {
   return photo.text ? readReceipt(photo.text) : null
 }
 
-export function receiptsOf(entries: readonly Entry[]): KnownReceipt[] {
-  return entries
+/** A receipt added again, left out of every total (v0.19.5): a second upload of the same photo, or a new photo of the
+ *  same receipt. `of` is the one counted, the first added. */
+export interface ReceiptCopy {
+  copy: KnownReceipt
+  of: KnownReceipt
+}
+
+/** The receipts in finished entries, oldest first, each counted once (`sameReceipt`), and the copies left out. */
+export function receiptsAndCopies(entries: readonly Entry[]): { receipts: KnownReceipt[]; copies: ReceiptCopy[] } {
+  const added = entries
     .filter((e) => e.status !== 'draft')
+    .sort((a, b) => a.createdAt - b.createdAt)
     .flatMap((entry) =>
       (entry.photos ?? []).flatMap((photo) => {
         const receipt = receiptOf(photo)
+        if (!receipt) return []
         const readBy = photo.ai?.receipt ? photo.ai.by : null
-        return receipt ? [{ ...receipt, id: photo.id, entryId: entry.id, date: receipt.date ?? entry.date, dated: receipt.date !== null, readBy }] : []
+        const time = receiptTime(photo.ai?.text || photo.text || '', receipt.currency === '$')
+        return [{ receipt: { ...receipt, id: photo.id, entryId: entry.id, date: receipt.date ?? entry.date, dated: receipt.date !== null, readBy }, time }]
       }),
     )
-    .sort((a, b) => a.date.localeCompare(b.date))
+  const counted: typeof added = []
+  const copies: ReceiptCopy[] = []
+  for (const one of added) {
+    const of = counted.find((first) => sameReceipt(first, one))
+    if (of) copies.push({ copy: one.receipt, of: of.receipt })
+    else counted.push(one)
+  }
+  return { receipts: counted.map((c) => c.receipt).sort((a, b) => a.date.localeCompare(b.date)), copies }
+}
+
+/** The receipts in finished entries, oldest first, each counted once: what Shopping and Ask add up. */
+export const receiptsOf = (entries: readonly Entry[]): KnownReceipt[] => receiptsAndCopies(entries).receipts
+
+/** One receipt read twice: the same shop, date, total and item prices (whatever their names, as the phone and your AI
+ *  write them differently), the same currency and till time when both show one, so two alike bought an hour apart stay
+ *  two. */
+function sameReceipt(a: { receipt: KnownReceipt; time: string | null }, b: { receipt: KnownReceipt; time: string | null }): boolean {
+  const key = ({ receipt: r }: typeof a) => [shopKey(r.shop), r.date, paid(r), r.items.map((item) => item.price).sort((x, y) => x - y).join(',')].join('|')
+  const alike = (x: string | null, y: string | null) => !x || !y || x === y
+  return shopKey(a.receipt.shop) !== '' && key(a) === key(b) && alike(a.receipt.currency, b.receipt.currency) && alike(a.time, b.time)
 }
 
 /** Words that say which kind of branch, or that it's a company, not which shop: "Tesco Express" is Tesco. */
@@ -288,7 +318,7 @@ function kindsOf(receipts: readonly KnownReceipt[], currency: string): Kinds | n
 }
 
 /** Everything the Shopping tab says about one month ("2026-10"), on `today`. */
-export function shoppingMonth(all: readonly KnownReceipt[], month: string, today: string): ShoppingMonth {
+export function shoppingMonth(all: readonly KnownReceipt[], month: string, today: string, copies: readonly ReceiptCopy[] = []): ShoppingMonth {
   const receipts = all.filter((r) => r.date.slice(0, 7) === month)
   const currency = mainCurrency(receipts)
   const lastMonth = shiftMonth(month, -1)
@@ -329,7 +359,8 @@ export function shoppingMonth(all: readonly KnownReceipt[], month: string, today
           receipt.dated ? '' : 'no date read, so it counts on the day you added it',
         ].filter(Boolean),
       }))
-      .filter((c) => c.why.length > 0),
+      .filter((c) => c.why.length > 0)
+      .concat(copies.filter((c) => c.copy.date.slice(0, 7) === month).map((c) => ({ receipt: c.copy, why: ['already added: counted once'] }))),
     kinds: kindsOf(receipts, currency),
   }
 }

@@ -4,6 +4,7 @@ import { db } from '../../db/db'
 import { deleteEntry, patchEntry } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import { DURATION_OPTIONS, ENERGY_OPTIONS, entryWords, wordsFor } from '../../domain/feelings'
+import { receiptsAndCopies } from '../../domain/shopping'
 import { possibleInsight } from '../../domain/summary'
 import { addDays, DAY_PARTS, loggedAt, longDate, shortDay, toDateKey } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
@@ -65,6 +66,8 @@ export function EntryView(props: { entryId: string; fresh?: boolean; onPart: (en
     const same = key ? await db.entries.filter((e) => e.activity.trim().toLowerCase() === key).toArray() : [entry]
     return { entry, same }
   }, [entryId])
+  // Photos of receipts already added from an earlier photo (v0.19.5): counted once, so the copy says so.
+  const copies = useLiveQuery(async () => new Set(receiptsAndCopies(await db.entries.toArray()).copies.map((c) => c.copy.id)), [])
   const [taking, setTaking] = useState(false)
   const [take, setTake] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -133,7 +136,7 @@ export function EntryView(props: { entryId: string; fresh?: boolean; onPart: (en
           {entry.photos.map((photo, i) => (
             <figure key={photo.id}>
               <StoredPhoto id={photo.id} className="photo-full" alt={`Photo ${i + 1}`} />
-              <PhotoReading photo={photo} phoneProblem={photoProblem} phoneReading={reading === 'on'} aiProblem={aiProblem} />
+              <PhotoReading photo={photo} phoneProblem={photoProblem} phoneReading={reading === 'on'} aiProblem={aiProblem} copy={copies?.has(photo.id) ?? false} />
             </figure>
           ))}
         </section>

@@ -135,12 +135,24 @@ function dateIn(line: string, us: boolean): string | null {
 /** The first date on the receipt that isn't a deadline or a day to come (a refund's last day, an expiry, a collection
  *  day), or null. */
 export function receiptDate(text: string, us: boolean): string | null {
+  return dateLine(text, us)?.date ?? null
+}
+
+/** The till's time printed beside a receipt's date ("25/10/26 15:05" is "15:05"), or null: two receipts alike at
+ *  different times are two things bought (v0.19.5). Another time on it ("Open 08:00-22:00") isn't the till's. */
+export function receiptTime(text: string, us: boolean): string | null {
+  const time = dateLine(text, us)?.line.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/)
+  return time ? `${time[1]!.padStart(2, '0')}:${time[2]}` : null
+}
+
+/** The line with a receipt's date on it, and the date. */
+function dateLine(text: string, us: boolean): { date: string; line: string } | null {
   const lines = text.split('\n')
   for (const [i, line] of lines.entries()) {
     const above = lines[i - 1] ?? ''
     if (DEADLINE.test(line) || (DEADLINE.test(above) && !dateIn(above, us))) continue
     const date = dateIn(line, us)
-    if (date) return date
+    if (date) return { date, line }
   }
   return null
 }
