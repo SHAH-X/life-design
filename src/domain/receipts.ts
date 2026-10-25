@@ -62,7 +62,7 @@ const NOT_TOTAL = /\bsub[\s-]?total\b|\btotal\s+(?:saving|savings|discount|items
 const NOT_ITEMS = /^(?:\d+\s+)?(?:sub ?total|tax|vat|tva|card|visa|mastercard|amex|debit|credit|cb|cash|change|paid|contactless|tendered|tip|rounding|balance)\b/i
 /** "Balance before Saving": the priced lines after it, up to the total, are savings, even when the photo lost their minus. */
 const BEFORE_SAVINGS = /\bbefore\s+sav/i
-/** Before a name: a product code, then perhaps a department code ("29510900 T22 Mag Talcum"). */
+/** Before a name: a product code, then perhaps a department code ("11110000 T21 Hand Soap"). */
 const CODES = /^\d{5,}\s+(?:[A-Z]\d{1,3}\s+)?/
 /** Stars around a name ("**£4 off with Sparks**", read as "*×…×*x"). */
 const STARS = /^[*×x]*[*×]\s*|\s*[*×][*×x]*$/g
@@ -85,7 +85,7 @@ const unslip = (s: string) => s.replace(/\b0(?=[a-z])/g, 'O')
 
 const isCaps = (s: string) => /[A-Z]/.test(s) && !/[a-z]/.test(s)
 
-/** "29510900 SEMI SKIM MILK" → "Semi skim milk"; mixed case is kept as written. */
+/** "11110000 SEMI SKIM MILK" → "Semi skim milk"; mixed case is kept as written. */
 const itemName = (s: string) => {
   const t = unslip(s).replace(CODES, '').replace(STARS, '').replace(/\s+[E£]$/, '').replace(/\s+/g, ' ').trim()
   return isCaps(t) ? t.charAt(0) + t.slice(1).toLowerCase() : t
@@ -145,7 +145,7 @@ export function receiptDate(text: string, us: boolean): string | null {
   return null
 }
 
-/** A tilted photo can read rows as one line ("Ibuprofen 200mg 3.49 Plasters 2.25", "… £1.73F 29510900 CLN …"): a
+/** A tilted photo can read rows as one line ("Ibuprofen 200mg 3.49 Plasters 2.25", "… £1.15F 11110000 SEMI …"): a
  *  price followed by more words or a product code starts a new row. "32.41L £48.29" stays as it is. */
 const splitRows = (line: string) => line.split(new RegExp(String.raw`(?<=(?:[£$€]\s?|\bE|(?<![A-Za-z\d]))${AMOUNT}${MARK}?\s?[£$€]?)\s+(?=[A-Za-z][A-Za-z]|\d{5,}\s)`))
 
