@@ -2,11 +2,18 @@ import { writeFile } from 'node:fs/promises'
 import { expect, type Page } from '@playwright/test'
 
 // Fictional data, dated relative to today so the tests never go stale.
-const DAY = 86_400_000
 const pad = (n: number) => String(n).padStart(2, '0')
 
+/** `now` moved by whole calendar days, at the same clock time. Never 24 hours of milliseconds: a day is 23 or 25 hours
+ *  when the clocks change (24-hour steps put two days' entries on one date for the last hour of 25 Oct 2026). */
+export function daysFrom(now: Date, days: number): Date {
+  const d = new Date(now)
+  d.setDate(d.getDate() + days)
+  return d
+}
+
 export function dateKey(daysAgo: number, now: Date = new Date()): string {
-  const d = new Date(now.getTime() - daysAgo * DAY)
+  const d = daysFrom(now, -daysAgo)
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
@@ -18,7 +25,7 @@ export function dateKey(daysAgo: number, now: Date = new Date()): string {
 export function seedBackup(now: Date = new Date()) {
   const entries: object[] = []
   const add = (daysAgo: number, activity: string, energy: number, engagement: number, extra: object = {}) => {
-    const at = now.getTime() - daysAgo * DAY
+    const at = daysFrom(now, -daysAgo).getTime()
     entries.push({
       id: `seed-${entries.length}`,
       date: dateKey(daysAgo, now),

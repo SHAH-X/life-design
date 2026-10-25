@@ -15,7 +15,7 @@ import {
   smallJoy,
   writeEntry,
 } from './helpers'
-import { restoreSeed } from './seed'
+import { daysFrom, restoreSeed } from './seed'
 
 // Fictional example data. Since v0.15 Today has one way in, a box that opens the writer; activities reflected on
 // before then are restored from a backup (addEntry), as a phone has them.
@@ -228,7 +228,7 @@ test('editing and writing freely keep every field in sight, on the whole screen'
 
 test('scrolling inside a sheet never moves the page behind it', async ({ page }, testInfo) => {
   // v0.7 on the iPhone: scrolling inside a sheet scrolled the screen behind it.
-  await restoreSeed(page, testInfo.outputPath('seed.json'), new Date(Date.now() + 86_400_000)) // fictional entries dated today
+  await restoreSeed(page, testInfo.outputPath('seed.json'), daysFrom(new Date(), 1)) // fictional entries dated today
   await page.goto('./#/today')
   const behind = page.locator('main .entry-list').getByRole('button', { name: /^Commute/ })
   await expect(behind).toBeVisible()
@@ -302,7 +302,7 @@ test('"Need a start?" in the writer types in an opener, and the rest is yours', 
 
 test("back after a few days away, Today says missed days don't matter: no counts, no streaks", async ({ page }, testInfo) => {
   // The fictional entries end 5 days ago.
-  await restoreSeed(page, testInfo.outputPath('seed.json'), new Date(Date.now() - 4 * 86_400_000))
+  await restoreSeed(page, testInfo.outputPath('seed.json'), daysFrom(new Date(), -4))
   await page.goto('./#/today')
   await expect(page.getByText("Welcome back. Missed days don't matter.")).toBeVisible()
   await page.getByRole('button', { name: 'Previous day' }).click()
