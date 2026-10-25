@@ -21,8 +21,8 @@ const receiptReply = JSON.stringify({
   date: '2026-10-12',
   currency: '£',
   items: [
-    { name: 'Oat milk', price: '1.45', quantity: 1 },
-    { name: 'Eggs', price: '£2.10', quantity: 1 },
+    { name: 'Oat milk', price: '1.45', quantity: 1, kind: 'dairy and eggs' },
+    { name: 'Eggs', price: '£2.10', quantity: 1, kind: 'Eggs' },
     { name: 'Promo saving', price: -0.5 },
     { name: '', price: '9.99' },
     { name: 'No price' },
@@ -32,9 +32,15 @@ const receiptReply = JSON.stringify({
 })
 
 describe('AI_READING_INSTRUCTIONS: how the AI is asked to read a photo', () => {
-  it('still asks for a receipt as before', () => {
+  it('asks for a receipt, each item with its kind', () => {
     expect(AI_READING_INSTRUCTIONS).toContain(
-      'If it is a receipt, reply: {"receipt": true, "shop": "the shop", "date": "YYYY-MM-DD or null", "currency": "£, $, € or empty", "items": [{"name": "the item as printed, its codes left out", "price": "1.73", "quantity": 1}], "total": "the total paid, or null", "text": "all the text you can read, line by line"}.',
+      'If it is a receipt, reply: {"receipt": true, "shop": "the shop", "date": "YYYY-MM-DD or null", "currency": "£, $, € or empty", "items": [{"name": "the item as printed, its codes left out", "price": "1.73", "quantity": 1, "kind": "Dairy and eggs"}], "total": "the total paid, or null", "text": "all the text you can read, line by line"}.',
+    )
+  })
+
+  it('gives every kind from the fixed list, and Other when unsure', () => {
+    expect(AI_READING_INSTRUCTIONS).toContain(
+      'Give each item the kind it most likely is, written exactly as one of: Fruit and veg, Meat and fish, Dairy and eggs, Bread and bakery, Cupboard, Frozen, Drinks, Snacks and sweets, Alcohol, Household, Toiletries and health, Other. If you are not sure, Other.',
     )
   })
 
@@ -60,7 +66,7 @@ describe('parseAiReading: what is kept of the AI’s reply', () => {
     expect(parseAiReading(`\`\`\`json\n${reply}\n\`\`\``, BY, 1)?.text).toBe(markdown)
   })
 
-  it('keeps a receipt’s items with a name and a price, in pence; a saving is negative', () => {
+  it('keeps a receipt’s items with a name and a price, in pence, and a kind from the list; a saving is negative', () => {
     expect(parseAiReading(receiptReply, BY, 7)).toEqual({
       by: BY,
       at: 7,
@@ -71,7 +77,8 @@ describe('parseAiReading: what is kept of the AI’s reply', () => {
         date: '2026-10-12',
         currency: '£',
         items: [
-          { name: 'Oat milk', price: 145, quantity: 1 },
+          // "dairy and eggs" is a kind on the list, as it's written there; "Eggs" isn't one, so it's dropped.
+          { name: 'Oat milk', price: 145, quantity: 1, kind: 'Dairy and eggs' },
           { name: 'Eggs', price: 210, quantity: 1 },
           { name: 'Promo saving', price: -50, quantity: 1 },
         ],

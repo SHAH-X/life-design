@@ -54,6 +54,16 @@ describe('the tools: what the phone answers', () => {
     expect(found.receipts[0]!.total).toBe('14.20')
   })
 
+  it('find_receipts gives the kind an AI read for an item, and the AI is told to use it when it splits items into kinds', async () => {
+    const read = known('k1', 'Tesco', '2026-10-03', 240, { items: [{ name: 'Bananas', price: 95, quantity: 1, kind: 'Fruit and veg' }, { name: 'Mystery', price: 145, quantity: 1 }] })
+    const found = (await parsed(call('find_receipts', {}), journal({ receipts: [read] }))) as { receipts: { items: object[] }[] }
+    expect(found.receipts[0]!.items).toEqual([
+      { id: 'k1:0', name: 'Bananas', price: '£0.95', kind: 'Fruit and veg' },
+      { id: 'k1:1', name: 'Mystery', price: '£1.45' },
+    ])
+    expect(askInstructions('2026-10-24')).toMatch(/use the kind an item comes with; group those without one yourself/)
+  })
+
   it('find_receipts can keep to a shop', async () => {
     const found = (await parsed(call('find_receipts', { shop: 'tesco' }))) as { receipts: { id: string }[] }
     expect(found.receipts.map((r) => r.id)).toEqual(['p2'])

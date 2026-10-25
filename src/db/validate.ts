@@ -1,4 +1,5 @@
 // Shape checks for records arriving from a backup file. Anything that fails is skipped, never imported.
+import { ITEM_KINDS } from '../domain/receipts'
 import { isEnergy, isEngagement } from '../domain/scales'
 import { isDateKey } from '../lib/dates'
 import {
@@ -75,7 +76,7 @@ function isAiReading(x: unknown): boolean {
     isStr(r.currency) &&
     (r.total === null || Number.isInteger(r.total)) &&
     Array.isArray(r.items) &&
-    r.items.every((i) => isObj(i) && isStr(i.name) && Number.isInteger(i.price) && Number.isInteger(i.quantity))
+    r.items.every((i) => isObj(i) && isStr(i.name) && Number.isInteger(i.price) && Number.isInteger(i.quantity) && isOptional(i.kind, isOneOf(ITEM_KINDS)))
   )
 }
 
