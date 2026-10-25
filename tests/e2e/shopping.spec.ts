@@ -7,13 +7,13 @@ import { backupWith, freeWriting, restoreBackup } from './seed'
 
 const SATURDAY = new Date(2026, 9, 24, 20, 0)
 
-type Item = [name: string, pence: number]
+type Item = [name: string, pence: number, kind?: string]
 const reading = (shop: string, date: string | null, items: Item[], total?: number) => ({
   by: 'Gemini · gemini-2.5-flash',
   at: SATURDAY.getTime(),
   text: '',
   description: '',
-  receipt: { shop, date, currency: '£', items: items.map(([name, price]) => ({ name, price, quantity: 1 })), total: total ?? items.reduce((s, [, p]) => s + p, 0) },
+  receipt: { shop, date, currency: '£', items: items.map(([name, price, kind]) => ({ name, price, quantity: 1, ...(kind ? { kind } : {}) })), total: total ?? items.reduce((s, [, p]) => s + p, 0) },
 })
 
 const daysBefore = (date: string) => Math.round((new Date(2026, 9, 24).getTime() - new Date(`${date}T00:00:00`).getTime()) / 86_400_000)
@@ -21,12 +21,12 @@ const receiptEntry = (id: string, date: string, ai: ReturnType<typeof reading>) 
 
 const MILK = 'Semi Skimmed Milk 2.27L'
 const ENTRIES = [
-  receiptEntry('t1', '2026-09-12', reading('Tesco Express', '2026-09-12', [[MILK, 145], ['Bananas', 95]])),
-  receiptEntry('t2', '2026-10-03', reading('TESCO', '2026-10-03', [[MILK, 145], ['Bananas', 95], ['Bread', 120]])),
-  receiptEntry('a1', '2026-10-05', reading('ALDI', '2026-10-05', [['Coffee', 450]], 999)),
-  receiptEntry('t3', '2026-10-10', reading('Tesco', '2026-10-10', [['Bananas', 95], ['Pasta', 80], ['Clubcard saving', -50]])),
-  receiptEntry('t4', '2026-10-17', reading('Tesco Stores Ltd', '2026-10-17', [[MILK, 165], ['Pasta', 80]])),
-  // No date read: it counts on its entry's day, the 23rd.
+  receiptEntry('t1', '2026-09-12', reading('Tesco Express', '2026-09-12', [[MILK, 145, 'Dairy and eggs'], ['Bananas', 95, 'Fruit and veg']])),
+  receiptEntry('t2', '2026-10-03', reading('TESCO', '2026-10-03', [[MILK, 145, 'Dairy and eggs'], ['Bananas', 95, 'Fruit and veg'], ['Bread', 120, 'Bread and bakery']])),
+  receiptEntry('a1', '2026-10-05', reading('ALDI', '2026-10-05', [['Coffee', 450, 'Drinks']], 999)),
+  receiptEntry('t3', '2026-10-10', reading('Tesco', '2026-10-10', [['Bananas', 95, 'Fruit and veg'], ['Pasta', 80, 'Cupboard'], ['Clubcard saving', -50]])),
+  receiptEntry('t4', '2026-10-17', reading('Tesco Stores Ltd', '2026-10-17', [[MILK, 165, 'Dairy and eggs'], ['Pasta', 80, 'Cupboard']])),
+  // No date read: it counts on its entry's day, the 23rd. Its item has no kind: read before kinds.
   receiptEntry('j1', '2026-10-23', reading('J Sainsbury plc', null, [['Big shop', 4210]])),
 ]
 
@@ -71,6 +71,21 @@ test('Shopping has its own tab: the month so far, next to last month by the same
   await tesco.first().getByRole('button').click()
   await expect(page.getByRole('dialog')).toBeVisible()
   await page.getByRole('dialog').getByRole('button', { name: 'Done', exact: true }).click()
+
+  // By kind: none has 3 items, so they're in the list's own order, never ranked; then what has no kind.
+  const kinds = page.getByRole('region', { name: 'By kind' })
+  await expect(kinds.getByText('Items at their prices, before offers')).toBeVisible()
+  await expect(kinds.locator('summary')).toHaveText([
+    'Fruit and veg · 2 items · £1.90',
+    'Dairy and eggs · 2 items · £3.10',
+    'Bread and bakery · 1 item · £1.20',
+    'Cupboard · 2 items · £1.60',
+    'Drinks · 1 item · £4.50',
+    'Not sorted · 1 item on 1 receipt · £42.10',
+  ])
+  await kinds.locator('summary', { hasText: 'Dairy and eggs' }).click()
+  const dairy = kinds.locator('details.week-line', { hasText: 'Dairy and eggs' }).locator('.evidence-list li')
+  await expect(dairy).toHaveText([`Sat 17 Oct ${MILK} · Tesco Stores Ltd · £1.65`, `Sat 3 Oct ${MILK} · TESCO · £1.45`])
 
   // The same milk at the same shop, at its price before and now.
   await expect(page.getByRole('region', { name: 'Price changes at the same shop' }).locator('summary')).toHaveText(`${MILK} · TESCO: £1.45 on 3 Oct, £1.65 on 17 Oct`)
@@ -119,9 +134,10 @@ test('Share as a spreadsheet gives every item, a row each, through the share men
   const file = await sharedFile(page)
   expect(file.name).toBe('life-design-shopping-2026-10-24.csv')
   const rows = file.text.replace(/^﻿/, '').trimEnd().split('\r\n')
-  expect(rows[0]).toBe('date,shop,item,quantity,price,currency,receipt_total,adds_up,date_read,read_by')
+  expect(rows[0]).toBe('date,shop,item,kind,quantity,price,currency,receipt_total,adds_up,date_read,read_by')
   expect(rows).toHaveLength(13)
-  expect(rows).toContain('2026-10-10,Tesco,Clubcard saving,1,-0.50,£,1.25,yes,yes,Gemini · gemini-2.5-flash')
+  expect(rows).toContain('2026-10-10,Tesco,Clubcard saving,,1,-0.50,£,1.25,yes,yes,Gemini · gemini-2.5-flash')
+  expect(rows).toContain('2026-10-03,TESCO,Bananas,Fruit and veg,1,0.95,£,3.60,yes,yes,Gemini · gemini-2.5-flash')
 })
 
 test('with no receipts, Shopping says where they come from', async ({ page }) => {

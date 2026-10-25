@@ -4,12 +4,19 @@
 // items don't add up to its total says so (`adds`), and answers say it too. Tuned on tests/fixtures/receipts.ts; v0.17.1
 // on the layout of a real receipt the owner tried (product codes, VAT marks, "Balance to Pay", a gift card after it).
 
+/** What an item is, as your AI sorts it while it reads a receipt (Shopping, v0.19). The list never changes, so months
+ *  stay comparable; the phone's own reading gives no kind. */
+export const ITEM_KINDS = ['Fruit and veg', 'Meat and fish', 'Dairy and eggs', 'Bread and bakery', 'Cupboard', 'Frozen', 'Drinks', 'Snacks and sweets', 'Alcohol', 'Household', 'Toiletries and health', 'Other'] as const
+export type ItemKind = (typeof ITEM_KINDS)[number]
+
 export interface ReceiptItem {
   name: string
   /** In minor units; a saving is negative. */
   price: number
   /** From a "2 x 0.89" line, or a "2 @ 1.50 3.00" one; 1 if none. */
   quantity: number
+  /** From ITEM_KINDS, when your AI read the receipt. */
+  kind?: ItemKind
 }
 
 export interface Receipt {

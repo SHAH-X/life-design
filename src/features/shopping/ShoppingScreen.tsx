@@ -5,6 +5,8 @@ import { db } from '../../db/db'
 import { loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
 import {
   inWords,
+  type KindLine,
+  type Kinds,
   type KnownReceipt,
   money,
   monthTotals,
@@ -31,6 +33,7 @@ const CHART_MONTHS = 6
 const REPEATS_SHOWN = 10
 
 const receiptsWord = (n: number) => `${n} receipt${n === 1 ? '' : 's'}`
+const itemsWord = (n: number) => `${n} item${n === 1 ? '' : 's'}`
 
 /**
  * Shopping (v0.19, its own tab): what you spent, from the receipts in your photos, worked out on the phone with no AI.
@@ -146,6 +149,7 @@ function Month({ receipts, month, today, onOpen }: { receipts: readonly KnownRec
         <Months receipts={receipts} month={month} today={today} />
       </div>
       <Where its={its} onOpen={onOpen} />
+      {its.kinds ? <ByKind kinds={its.kinds} onOpen={onOpen} /> : null}
       {its.priceChanges.length ? (
         <Section title="Price changes at the same shop">
           <ul className="plain-list compact">
@@ -244,6 +248,61 @@ function Where({ its, onOpen }: { its: ShoppingMonth; onOpen: (r: KnownReceipt) 
         </ul>
       ) : null}
     </Section>
+  )
+}
+
+/** What was bought, by the kind your AI gave each item: kinds with 3+ items by what was spent, the rest in the list's
+ *  order; then what has no kind yet. */
+function ByKind({ kinds, onOpen }: { kinds: Kinds; onOpen: (r: KnownReceipt) => void }) {
+  const line = (k: KindLine) => <ItemLine key={k.kind} label={k.kind} detail={`${itemsWord(k.items.length)} · ${inWords(k.spent)}`} items={k.items} onOpen={onOpen} />
+  return (
+    <Section title="By kind" status="Items at their prices, before offers">
+      {kinds.ranked.length ? <ul className="plain-list compact">{kinds.ranked.map(line)}</ul> : null}
+      {kinds.ranked.length && kinds.others.length ? <p className="muted small">Fewer than 3 items</p> : null}
+      {kinds.others.length ? <ul className="plain-list compact">{kinds.others.map(line)}</ul> : null}
+      {kinds.notSorted ? (
+        <ul className="plain-list compact">
+          <ReceiptLine
+            label="Not sorted"
+            detail={`${itemsWord(kinds.notSorted.items)} on ${receiptsWord(kinds.notSorted.receipts.length)} · ${inWords(kinds.notSorted.spent)}`}
+            receipts={kinds.notSorted.receipts}
+            onOpen={onOpen}
+          />
+        </ul>
+      ) : null}
+    </Section>
+  )
+}
+
+/** A kind's line, opening to its items, newest first: day, item, shop and price, each opening its receipt's entry. */
+function ItemLine(props: { label: string; detail: string; items: KindLine['items']; onOpen: (r: KnownReceipt) => void }) {
+  const { label, detail, items, onOpen } = props
+  const listed = [...items].sort((a, b) => b.receipt.date.localeCompare(a.receipt.date))
+  return (
+    <li>
+      <details className="week-line">
+        <summary>
+          <span>{label}</span>
+          <span className="muted small"> · {detail}</span>
+        </summary>
+        <ul className="plain-list compact evidence-list">
+          {listed.map(({ item, receipt }, i) => (
+            <li key={`${receipt.id}-${i}`}>
+              <button type="button" className="line-button" onClick={() => onOpen(receipt)}>
+                <span>
+                  <span className="muted small">{shortDayMonth(receipt.date)} </span>
+                  {item.name}
+                  <span className="muted small">
+                    {' '}
+                    · {receipt.shop || 'No shop read'} · {money(item.price, receipt.currency)}
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </details>
+    </li>
   )
 }
 

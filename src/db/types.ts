@@ -1,3 +1,4 @@
+import type { ItemKind } from '../domain/receipts'
 import type { Energy, Engagement } from '../domain/scales'
 import type { DayPart } from '../lib/dates'
 
@@ -155,7 +156,8 @@ export interface AiReading {
     shop: string
     date: string | null
     currency: string
-    items: { name: string; price: number; quantity: number }[]
+    /** `kind` from ITEM_KINDS, from v0.19; readings before then have none. */
+    items: { name: string; price: number; quantity: number; kind?: ItemKind }[]
     total: number | null
   } | null
 }

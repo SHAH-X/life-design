@@ -5,7 +5,7 @@
 import { MIN_COUNT } from '../analysis/stats'
 import type { Entry, PhotoRef } from '../db/types'
 import { addMonths } from '../lib/dates'
-import { readReceipt, type Receipt } from './receipts'
+import { ITEM_KINDS, type ItemKind, type ReceiptItem, readReceipt, type Receipt } from './receipts'
 
 /** A receipt in a photo of a finished entry. Its id is the photo's; its date is the receipt's, else the entry's. */
 export interface KnownReceipt extends Omit<Receipt, 'date'> {
@@ -185,6 +185,21 @@ export interface ToCheck {
   why: string[]
 }
 
+/** The month's items of one kind, at their prices: before offers, which have a line of their own. */
+export interface KindLine {
+  kind: ItemKind
+  items: { item: ReceiptItem; receipt: KnownReceipt }[]
+  spent: Amounts
+}
+
+export interface Kinds {
+  /** Kinds with MIN_COUNT items or more, most spent first; the rest in the list's own order, never ranked. */
+  ranked: KindLine[]
+  others: KindLine[]
+  /** Items with no kind: the phone read their receipt, or your AI did before kinds (v0.19). */
+  notSorted: { items: number; receipts: KnownReceipt[]; spent: Amounts } | null
+}
+
 export interface ShoppingMonth {
   month: string
   receipts: KnownReceipt[]
@@ -200,6 +215,8 @@ export interface ShoppingMonth {
   priceChanges: PriceChange[]
   repeats: Repeat[]
   toCheck: ToCheck[]
+  /** Null when no item in the month has a kind. */
+  kinds: Kinds | null
 }
 
 /** Below this a receipt is a small shop: £10, in pence. */
@@ -262,6 +279,27 @@ function repeats(receipts: readonly KnownReceipt[], currency: string): Repeat[] 
     .sort((a, b) => b.receipts.length - a.receipts.length || inCurrency(b.spent, currency) - inCurrency(a.spent, currency) || a.name.localeCompare(b.name))
 }
 
+/** The month's items by kind; null when none has one. */
+function kindsOf(receipts: readonly KnownReceipt[], currency: string): Kinds | null {
+  const bought = receipts.flatMap((receipt) => receipt.items.filter((item) => item.price > 0).map((item) => ({ item, receipt })))
+  const lines = ITEM_KINDS.map((kind): KindLine => {
+    const items = bought.filter((b) => b.item.kind === kind)
+    const spent: Amounts = []
+    for (const b of items) addTo(spent, b.receipt.currency, b.item.price)
+    return { kind, items, spent }
+  }).filter((line) => line.items.length > 0)
+  if (lines.length === 0) return null
+  const ranked = lines.filter((line) => line.items.length >= MIN_COUNT).sort((a, b) => inCurrency(b.spent, currency) - inCurrency(a.spent, currency))
+  const unsorted = bought.filter((b) => !b.item.kind)
+  const spent: Amounts = []
+  for (const b of unsorted) addTo(spent, b.receipt.currency, b.item.price)
+  return {
+    ranked,
+    others: lines.filter((line) => !ranked.includes(line)),
+    notSorted: unsorted.length ? { items: unsorted.length, receipts: [...new Set(unsorted.map((b) => b.receipt))], spent } : null,
+  }
+}
+
 /** Everything the Shopping tab says about one month ("2026-10"), on `today`. */
 export function shoppingMonth(all: readonly KnownReceipt[], month: string, today: string): ShoppingMonth {
   const receipts = all.filter((r) => r.date.slice(0, 7) === month)
@@ -305,6 +343,7 @@ export function shoppingMonth(all: readonly KnownReceipt[], month: string, today
         ].filter(Boolean),
       }))
       .filter((c) => c.why.length > 0),
+    kinds: kindsOf(receipts, currency),
   }
 }
 

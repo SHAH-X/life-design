@@ -307,13 +307,13 @@ describe('backup and restore', () => {
     expect(await newPhone.questions.get('q1')).toEqual(asked)
   })
 
-  it('backs up and restores what the AI read in a photo, and refuses a damaged reading (v0.18)', async () => {
+  it('backs up and restores what the AI read in a photo, its items’ kinds too, and refuses a damaged reading (v0.18)', async () => {
     const ai = {
       by: 'Gemini · gemini-2.5-flash',
       at: 6000,
       text: 'GREENLEAF MARKET\nOat milk 1.45',
       description: '',
-      receipt: { shop: 'Greenleaf Market', date: '2026-10-12', currency: '£', items: [{ name: 'Oat milk', price: 145, quantity: 1 }], total: 145 },
+      receipt: { shop: 'Greenleaf Market', date: '2026-10-12', currency: '£', items: [{ name: 'Oat milk', price: 145, quantity: 1, kind: 'Dairy and eggs' as const }], total: 145 },
     }
     const withReceipt = entry('r1', 6000, { photos: [{ id: 'p1', text: 'GREENLEAF MARKET', ai }] })
     await phone.entries.put(withReceipt)
@@ -325,6 +325,9 @@ describe('backup and restore', () => {
     expect(damaged({ total: 1.45 })).toBe(false)
     expect(damaged({ items: [{ name: 'Oat milk', price: '1.45', quantity: 1 }] })).toBe(false)
     expect(damaged({ date: '12th Oct' })).toBe(false)
+    expect(damaged({ items: [{ name: 'Oat milk', price: 145, quantity: 1, kind: 'Milk' }] })).toBe(false)
+    // A reading from before kinds (v0.18) still restores.
+    expect(damaged({ items: [{ name: 'Oat milk', price: 145, quantity: 1 }] })).toBe(true)
     expect(isEntry({ ...withReceipt, photos: [{ id: 'p1', text: null, ai: { ...ai, by: 3 } }] })).toBe(false)
   })
 

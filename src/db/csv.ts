@@ -81,7 +81,7 @@ export function csvFileName(now: Date): string {
   return `life-design-entries-${toDateKey(now)}.csv`
 }
 
-const RECEIPT_HEADER = ['date', 'shop', 'item', 'quantity', 'price', 'currency', 'receipt_total', 'adds_up', 'date_read', 'read_by']
+const RECEIPT_HEADER = ['date', 'shop', 'item', 'kind', 'quantity', 'price', 'currency', 'receipt_total', 'adds_up', 'date_read', 'read_by']
 
 /** Pence as a plain number a spreadsheet adds up, "1.45" or "-0.50"; the currency has a column of its own. */
 const pounds = (minor: number) => `${minor < 0 ? '-' : ''}${(Math.abs(minor) / 100).toFixed(2)}`
@@ -96,6 +96,7 @@ export function receiptsToCsv(receipts: readonly KnownReceipt[]): string {
           cell(r.date),
           cell(r.shop, true),
           cell(item.name, true),
+          cell(item.kind ?? ''),
           cell(item.quantity),
           cell(pounds(item.price)),
           cell(r.currency),

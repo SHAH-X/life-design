@@ -43,7 +43,7 @@ export const ASK_TOOLS: ToolSpec[] = [
     function: {
       name: 'find_receipts',
       description:
-        'Receipts from photos in the journal: shop, date, each item with its id and price, the printed total, and whether the items add up to it. Optionally only between two dates (YYYY-MM-DD, both included) and only from a shop whose name contains some words.',
+        'Receipts from photos in the journal: shop, date, each item with its id, price and (when an AI read the receipt) its kind, the printed total, and whether the items add up to it. Optionally only between two dates (YYYY-MM-DD, both included) and only from a shop whose name contains some words.',
       parameters: {
         type: 'object',
         properties: {
@@ -92,7 +92,7 @@ export function askInstructions(today: string): string {
     `You answer questions about the user's own journal, which is on their phone. Today is ${today}.`,
     'Look things up with the tools: spend_by_shop for how much was spent; find_receipts for items and what was bought; find_entries for anything written.',
     'Never add, multiply or total numbers yourself. For spending by shop or by month, call spend_by_shop and give its totals as they are. For any other total, call sum with the item or receipt ids and use the total it gives.',
-    'To split items into kinds (for example dairy, fruit and veg, bakery, household), group them yourself by their names, then call sum once for each group.',
+    'To split items into kinds (for example dairy, fruit and veg, bakery, household), use the kind an item comes with; group those without one yourself, by their names; then call sum once for each group.',
     "If a receipt has adds: false, its items don't add up to its printed total: say so, and use its printed total for what was spent.",
     'Item names are as the receipt prints them, often shortened or misread ("Cln balckberr", "Sbp cshws 15"): when you list items, give what each most likely is in plain words (blackberries, cashews); if you are not sure, give it only as printed, adding nothing.',
     "Say only what the journal shows; if it doesn't show something, say that. Never guess. No scores or ratings.",
@@ -167,7 +167,7 @@ export async function runTool(call: ToolCall, journal: AskJournal): Promise<{ re
       id: r.id,
       shop: r.shop,
       date: r.date,
-      items: r.items.map((item, n) => ({ id: `${r.id}:${n}`, name: item.name, price: money(item.price, r.currency), ...(item.quantity > 1 ? { quantity: item.quantity } : {}) })),
+      items: r.items.map((item, n) => ({ id: `${r.id}:${n}`, name: item.name, price: money(item.price, r.currency), ...(item.quantity > 1 ? { quantity: item.quantity } : {}), ...(item.kind ? { kind: item.kind } : {}) })),
       total: r.total === null ? null : money(r.total, r.currency),
       adds: r.adds,
     }))

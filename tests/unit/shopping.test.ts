@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { runTool } from '../../src/domain/ask'
+import type { ItemKind } from '../../src/domain/receipts'
 import {
   amountsOf,
   inWords,
@@ -146,6 +147,33 @@ describe('shoppingMonth: a month, worked out on the phone', () => {
       ['x1', ['no shop read']],
       ['j1', ['no date read, so it counts on the day you added it']],
     ])
+  })
+})
+
+describe('kinds: what was bought, by the kind your AI gave each item', () => {
+  const sorted = (id: string, date: string, items: [name: string, price: number, kind?: ItemKind][]) =>
+    receipt(id, 'Tesco', date, [], { items: items.map(([name, price, kind]) => ({ name, price, quantity: 1, ...(kind ? { kind } : {}) })), total: items.reduce((s, [, p]) => s + p, 0) })
+  const KINDS = [
+    sorted('k1', '2026-10-03', [['Bananas', 95, 'Fruit and veg'], ['Apples', 150, 'Fruit and veg'], ['Milk', 145, 'Dairy and eggs'], ['Milk saving', -50, 'Dairy and eggs']]),
+    sorted('k2', '2026-10-10', [['Carrots', 60, 'Fruit and veg'], ['Cheddar', 300, 'Dairy and eggs'], ['Bleach', 120, 'Household']]),
+    // Read by the phone: no kinds.
+    sorted('k3', '2026-10-12', [['Thing', 200], ['Other thing', 100]]),
+    sorted('k4', '2026-09-30', [['Melon', 999, 'Fruit and veg']]),
+  ]
+
+  it('ranks only kinds with 3 or more items, lists the rest in the list’s own order, and counts items before offers', () => {
+    const kinds = shoppingMonth(KINDS, '2026-10', TODAY).kinds!
+    expect(kinds.ranked.map((k) => [k.kind, k.items.length, inWords(k.spent)])).toEqual([['Fruit and veg', 3, '£3.05']])
+    // Dairy's saving isn't an item bought: offers have a line of their own.
+    expect(kinds.others.map((k) => [k.kind, k.items.length, inWords(k.spent)])).toEqual([
+      ['Dairy and eggs', 2, '£4.45'],
+      ['Household', 1, '£1.20'],
+    ])
+    expect(kinds.notSorted).toEqual({ items: 2, receipts: [KINDS[2]], spent: [{ currency: '£', minor: 300 }] })
+  })
+
+  it('says nothing of kinds in a month where no item has one', () => {
+    expect(shoppingMonth(RECEIPTS, '2026-10', TODAY).kinds).toBeNull()
   })
 })
 
