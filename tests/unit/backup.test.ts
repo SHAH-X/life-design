@@ -333,6 +333,9 @@ describe('backup and restore', () => {
     // An item's plain name (v0.19.3) is words or nothing.
     expect(damaged({ items: [{ name: 'GRK YOG 4PK', plain: 'Greek yoghurt, 4 pack', price: 225, quantity: 1 }] })).toBe(true)
     expect(damaged({ items: [{ name: 'GRK YOG 4PK', plain: 4, price: 225, quantity: 1 }] })).toBe(false)
+    // Which instructions it was read with, and replies that couldn't be used since (v0.19.4), are numbers or nothing.
+    expect(isEntry({ ...withReceipt, photos: [{ id: 'p1', text: null, ai: { ...ai, version: 2, tries: 1 } }] })).toBe(true)
+    expect(isEntry({ ...withReceipt, photos: [{ id: 'p1', text: null, ai: { ...ai, tries: 'once' } }] })).toBe(false)
     expect(isEntry({ ...withReceipt, photos: [{ id: 'p1', text: null, ai: { ...ai, by: 3 } }] })).toBe(false)
   })
 

@@ -1,4 +1,4 @@
-import { AI_READING_INSTRUCTIONS, looksLikeReceipt, parseAiReading } from '../domain/aiReading'
+import { AI_READING_INSTRUCTIONS, dueForAi, parseAiReading, READING_VERSION } from '../domain/aiReading'
 import { READS_IMAGES } from '../lib/ai'
 import type { AiProvider, AiReading, Entry } from './types'
 import { db as defaultDb, type LifeDesignDB } from './db'
@@ -15,30 +15,43 @@ export interface PhotoReader {
   by: string
 }
 
-/** What a reply that can't be used leaves on the photo: tried, so it isn't sent again by itself. */
+/** What a reply that can't be used leaves on a photo not read before: tried, and counted (`dueForAi`). */
 const unusable = (by: string, at: number): AiReading => ({ by, at, text: '', description: '', receipt: null })
 
-/** Reads one photo with the AI now (the tap on "Read with AI") and keeps what it read. */
-export async function readOnePhoto(photoId: string, reader: PhotoReader, database: LifeDesignDB = defaultDb): Promise<AiReading> {
+/** Reads one photo with the AI now (a tap on "Read with AI", or by itself) and keeps what it read. A reply it can't
+ *  use never wipes an earlier reading: that stays, with the try counted. */
+export async function readOnePhoto(photoId: string, reader: PhotoReader, database: LifeDesignDB = defaultDb): Promise<AiReading | undefined> {
   const photo = await database.photos.get(photoId)
   if (!photo) throw new Error('That photo is not on this phone any more.')
   const at = Date.now()
-  const reading = parseAiReading(await reader.send(photo.data, AI_READING_INSTRUCTIONS), reader.by, at) ?? unusable(reader.by, at)
-  await database.transaction('rw', database.entries, async () => {
+  const parsed = parseAiReading(await reader.send(photo.data, AI_READING_INSTRUCTIONS), reader.by, at)
+  return database.transaction('rw', database.entries, async () => {
     const entry = await database.entries.get(photo.entryId)
-    if (!entry?.photos.some((p) => p.id === photoId)) return
+    const before = entry?.photos.find((p) => p.id === photoId)?.ai
+    if (!entry || !entry.photos.some((p) => p.id === photoId)) return undefined
+    const reading: AiReading = parsed
+      ? { ...parsed, version: READING_VERSION }
+      : { ...(before && (before.text || before.description) ? before : unusable(reader.by, at)), tries: (before?.tries ?? 0) + 1 }
     await database.entries.update(entry.id, { photos: entry.photos.map((p) => (p.id === photoId ? { ...p, ai: reading } : p)) })
+    return reading
   })
-  return reading
 }
 
 const running = new WeakMap<LifeDesignDB, Promise<void>>()
 
-/** The photos the phone's own reading takes for a receipt and the AI hasn't read yet. */
-export const waitingForAi = (entries: readonly Entry[]) => entries.flatMap((e) => (e.photos ?? []).filter((p) => !p.ai && looksLikeReceipt(p.text)).map((p) => p.id))
+/** Receipts your AI is still to read (`dueForAi`): those never read first, then those it couldn't read, then those
+ *  read before kinds or plain names. */
+export function waitingForAi(entries: readonly Entry[]): string[] {
+  const due = entries.flatMap((e) => (e.photos ?? []).map((p) => ({ id: p.id, why: dueForAi(p) })))
+  return (['new', 'retry', 'again'] as const).flatMap((why) => due.filter((d) => d.why === why).map((d) => d.id))
+}
 
-/** Sends those, one at a time; one whose picture isn't on the phone (not written yet) waits. A key, limit or
- *  connection problem stops here and is thrown, to try again next time. */
+/** After a round that leaves receipts unread, the next is this long after, while the app is open (v0.19.4). */
+const RETRY_MINUTES = [1, 5, 15, 30]
+export const nextTryIn = (rounds: number) => RETRY_MINUTES[Math.min(rounds, RETRY_MINUTES.length - 1)]! * 60_000
+
+/** Sends those, one at a time, each once a round; one whose picture isn't on the phone (not written yet) waits. A
+ *  key, limit, busy or connection problem stops the round and is thrown: the next round tries again (AreasProvider). */
 export function ensureAiReadings(reader: PhotoReader, database: LifeDesignDB = defaultDb): Promise<void> {
   const already = running.get(database)
   if (already) return already

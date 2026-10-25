@@ -5,7 +5,7 @@
 // words, as printed when the AI isn't sure (v0.19.3). Any other photo comes back as
 // Markdown, laid out as printed (code, a chart, a page), kept as written for search and Ask, and shown as plain text
 // until the layout pass. A chart gives only its printed values (owner, 2026-10-24).
-import type { AiReading } from '../db/types'
+import type { AiReading, PhotoRef } from '../db/types'
 import { ITEM_KINDS, type ItemKind, readReceipt } from './receipts'
 
 export const AI_READING_INSTRUCTIONS = [
@@ -86,3 +86,24 @@ export function parseAiReading(reply: string, by: string, at: number): AiReading
 
 /** Whether the phone's own reading takes a photo for a receipt (so it goes to the AI by itself). */
 export const looksLikeReceipt = (text: string | null) => Boolean(text && readReceipt(text))
+
+/** Which instructions a reading was made with: 2 asks for each item's kind and plain name (v0.19.3). A receipt read
+ *  before (none kept) whose items have no kinds or no plain names is read again by itself, once. */
+export const READING_VERSION = 2
+
+/** A receipt whose replies can't be used goes by itself this many times in all; after that, only on a tap. */
+export const MAX_TRIES = 3
+
+/**
+ * Why a photo goes to your AI by itself (owner, 2026-10-25: "keeps trying … such that no one is left out"): a receipt
+ * not read yet ('new'), one whose reply couldn't be used ('retry', MAX_TRIES in all), or one read before items had
+ * kinds or plain names ('again'); null for any other photo, which goes only on a tap.
+ */
+export function dueForAi(photo: Pick<PhotoRef, 'text' | 'ai'>): 'new' | 'retry' | 'again' | null {
+  const ai = photo.ai
+  if (!ai) return looksLikeReceipt(photo.text) ? 'new' : null
+  if ((ai.tries ?? 0) >= MAX_TRIES) return null
+  if (!ai.text && !ai.description) return looksLikeReceipt(photo.text) ? 'retry' : null
+  const items = ai.receipt?.items ?? []
+  return ai.receipt && !ai.version && (items.every((item) => !item.kind) || items.every((item) => !item.plain)) ? 'again' : null
+}

@@ -1,9 +1,9 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { ensureAreas, lifeAreas } from '../../db/areas'
 import { db } from '../../db/db'
 import { ensureLoopVectors } from '../../db/loops'
-import { ensureAiReadings, photoReaderSettings, waitingForAi } from '../../db/aiReading'
+import { ensureAiReadings, nextTryIn, photoReaderSettings, waitingForAi } from '../../db/aiReading'
 import { ensurePhotoText } from '../../db/photoText'
 import { isDone } from '../../db/repo'
 import type { Entry } from '../../db/types'
@@ -40,8 +40,10 @@ const AreasContext = createContext<Areas>(NOTHING)
 
 /**
  * The app's work on the phone while it's open, a moment after the last change: the text in photos not read yet (with
- * reading photos on), then life areas and the provoker's open loops (with search by meaning on), each model in its own
- * worker. Search by meaning reads only finished entries: nothing is worked out from writing in progress.
+ * reading photos on), then receipts to your AI, then life areas and the provoker's open loops (with search by meaning
+ * on), each model in its own worker. Search by meaning reads only finished entries: nothing is worked out from writing
+ * in progress. Receipts your AI is still to read are tried again by themselves (v0.19.4): on coming back to the app,
+ * and while it's open, after longer and longer waits (`nextTryIn`); a refused key waits for a new one.
  */
 export function AreasProvider({ children }: { children: ReactNode }) {
   const meaning = useMeaningSearch()
@@ -62,6 +64,22 @@ export function AreasProvider({ children }: { children: ReactNode }) {
   const [work, setWork] = useState<AreasWork>({ state: 'idle' })
   const [photoProblem, setPhotoProblem] = useState<string | null>(null)
   const [aiProblem, setAiProblem] = useState<string | null>(null)
+  /** A round of receipts to your AI that no change asked for: on coming back to the app, or after a wait. */
+  const [round, setRound] = useState(0)
+  /** Rounds in a row that left receipts unread, and the wait for the next. */
+  const unreadRounds = useRef(0)
+  const retry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => {
+    const back = () => {
+      if (document.visibilityState === 'visible') setRound((n) => n + 1)
+    }
+    document.addEventListener('visibilitychange', back)
+    return () => {
+      document.removeEventListener('visibilitychange', back)
+      clearTimeout(retry.current)
+    }
+  }, [])
 
   useEffect(() => {
     if ((!on && !reading) || changes === undefined) return
@@ -76,12 +94,20 @@ export function AreasProvider({ children }: { children: ReactNode }) {
             if (live) setPhotoProblem(error instanceof OcrError ? error.message : OCR_PROBLEMS.start)
           }
           // Then what the phone takes for receipts, to your AI (owner's choice, v0.18), when it can read photos.
-          try {
-            const ai = await photoReaderSettings(db)
-            if (ai?.auto) await ensureAiReadings(photoReader(ai), db)
-            if (live) setAiProblem(null)
-          } catch (error) {
-            if (live) setAiProblem(error instanceof AiError ? error.message : AI_PROBLEMS.other)
+          const ai = await photoReaderSettings(db).catch(() => null)
+          if (ai?.auto) {
+            clearTimeout(retry.current)
+            let refused = false
+            try {
+              await ensureAiReadings(photoReader(ai), db)
+              if (live) setAiProblem(null)
+            } catch (error) {
+              refused = error instanceof AiError && error.problem === 'key'
+              if (live) setAiProblem(error instanceof AiError ? error.message : AI_PROBLEMS.other)
+            }
+            const unread = waitingForAi(await db.entries.toArray()).length > 0
+            if (live && unread && !refused) retry.current = setTimeout(() => setRound((n) => n + 1), nextTryIn(unreadRounds.current++))
+            else if (!unread) unreadRounds.current = 0
           }
         }
         if (!on) return
@@ -101,7 +127,7 @@ export function AreasProvider({ children }: { children: ReactNode }) {
       live = false
       clearTimeout(timer)
     }
-  }, [on, reading, changes])
+  }, [on, reading, changes, round])
 
   // Turned off, titles lose their areas at once (the query's last answer may still be the areas').
   const known = on ? byEntry : meaning === undefined ? undefined : null

@@ -152,6 +152,10 @@ export interface AiReading {
   at: number
   text: string
   description: string
+  /** Which instructions it was read with (READING_VERSION, v0.19.4); readings before have none. */
+  version?: number
+  /** Replies that couldn't be used since it was last read (v0.19.4): a receipt goes by itself MAX_TRIES times in all. */
+  tries?: number
   receipt: {
     shop: string
     date: string | null
