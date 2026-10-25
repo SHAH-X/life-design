@@ -3,6 +3,7 @@ import { type ReactNode, useId, useState } from 'react'
 import { receiptsToCsv, shoppingCsvFileName } from '../../db/csv'
 import { db } from '../../db/db'
 import { loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
+import { itemShown } from '../../domain/receipts'
 import {
   inWords,
   type KindLine,
@@ -291,7 +292,7 @@ function ItemLine(props: { label: string; detail: string; items: KindLine['items
               <button type="button" className="line-button" onClick={() => onOpen(receipt)}>
                 <span>
                   <span className="muted small">{shortDayMonth(receipt.date)} </span>
-                  {item.name}
+                  {itemShown(item)}
                   <span className="muted small">
                     {' '}
                     · {receipt.shop || 'No shop read'} · {money(item.price, receipt.currency)}

@@ -118,16 +118,16 @@ describe('receiptsToCsv: every item on your receipts, a row each (fictional rece
     ...over,
   })
 
-  it('gives each item its kind, and its receipt’s date, shop, printed total and who read it, prices as plain numbers', () => {
-    const csv = receiptsToCsv([receipt({}), receipt({ id: 'p2', shop: 'Greenleaf, Market', date: '2026-10-03', total: 999, adds: false, dated: false, readBy: 'Gemini · gemini-2.5-flash', items: [{ name: '=Oat milk', price: 145, quantity: 2 }] })])
+  it('gives each item its plain name, as printed, its kind, and its receipt’s date, shop, printed total and who read it, prices as plain numbers', () => {
+    const csv = receiptsToCsv([receipt({}), receipt({ id: 'p2', shop: 'Greenleaf, Market', date: '2026-10-03', total: 999, adds: false, dated: false, readBy: 'Gemini · gemini-2.5-flash', items: [{ name: '=Oat milk', plain: 'Oat drink', price: 145, quantity: 2 }] })])
     const lines = csv.replace(/^\ufeff/, '').trimEnd().split('\r\n')
     expect(csv.startsWith('\ufeff')).toBe(true)
     expect(lines).toEqual([
-      'date,shop,item,kind,quantity,price,currency,receipt_total,adds_up,date_read,read_by',
+      'date,shop,item,as_printed,kind,quantity,price,currency,receipt_total,adds_up,date_read,read_by',
       // Oldest first; a comma is quoted, and a name that starts like a formula can't run as one.
-      `2026-10-03,"Greenleaf, Market",'=Oat milk,,2,1.45,£,9.99,no,no,Gemini · gemini-2.5-flash`,
-      '2026-10-17,Tesco,Semi Skimmed Milk 2.27L,Dairy and eggs,1,1.65,£,1.15,yes,yes,the phone',
-      '2026-10-17,Tesco,Clubcard saving,,1,-0.50,£,1.15,yes,yes,the phone',
+      `2026-10-03,"Greenleaf, Market",Oat drink,'=Oat milk,,2,1.45,£,9.99,no,no,Gemini · gemini-2.5-flash`,
+      '2026-10-17,Tesco,Semi Skimmed Milk 2.27L,Semi Skimmed Milk 2.27L,Dairy and eggs,1,1.65,£,1.15,yes,yes,the phone',
+      '2026-10-17,Tesco,Clubcard saving,Clubcard saving,,1,-0.50,£,1.15,yes,yes,the phone',
     ])
     expect(shoppingCsvFileName(new Date(2026, 9, 24, 20))).toBe('life-design-shopping-2026-10-24.csv')
   })

@@ -5,7 +5,7 @@
 import { MIN_COUNT } from '../analysis/stats'
 import type { Entry, PhotoRef } from '../db/types'
 import { addMonths } from '../lib/dates'
-import { chainOf, ITEM_KINDS, type ItemKind, type ReceiptItem, readReceipt, type Receipt, shopWords } from './receipts'
+import { chainOf, ITEM_KINDS, type ItemKind, itemShown, type ReceiptItem, readReceipt, type Receipt, shopWords } from './receipts'
 
 /** A receipt in a photo of a finished entry. Its id is the photo's; its date is the receipt's, else the entry's. */
 export interface KnownReceipt extends Omit<Receipt, 'date'> {
@@ -219,7 +219,7 @@ const itemKey = (name: string) => name.toLowerCase().replace(/\s+/g, ' ').trim()
 
 /** Price changes whose latest purchase is in the month: the same printed name, at the same shop, in the same
  *  quantity, against the last time it cost something else. A name seen at two prices on one receipt is two things
- *  (two sizes printed alike), so it's left out. */
+ *  (two sizes printed alike), so it's left out. Each is named as your AI last took it (`itemShown`). */
 function priceChanges(receipts: readonly KnownReceipt[], month: string): PriceChange[] {
   type Bought = { name: string; price: number; receipt: KnownReceipt }
   const bought = new Map<string, Bought[]>()
@@ -229,7 +229,7 @@ function priceChanges(receipts: readonly KnownReceipt[], month: string): PriceCh
     for (const item of receipt.items) {
       if (item.price <= 0 || WEIGHED.test(item.name)) continue
       const key = [shop, itemKey(item.name), item.quantity, receipt.currency].join('|')
-      bought.set(key, [...(bought.get(key) ?? []), { name: item.name, price: item.price, receipt }])
+      bought.set(key, [...(bought.get(key) ?? []), { name: itemShown(item), price: item.price, receipt }])
     }
   }
   const changes: PriceChange[] = []
@@ -247,16 +247,16 @@ function priceChanges(receipts: readonly KnownReceipt[], month: string): PriceCh
   return changes.sort((a, b) => b.now.receipt.date.localeCompare(a.now.receipt.date) || a.name.localeCompare(b.name))
 }
 
-/** What's on MIN_COUNT or more receipts, by its printed name, most receipts first. */
+/** What's on MIN_COUNT or more receipts, by its printed name (named as your AI last took it), most receipts first. */
 function repeats(receipts: readonly KnownReceipt[], currency: string): Repeat[] {
   const on = new Map<string, { name: string; receipts: KnownReceipt[]; spent: Amounts }>()
   for (const receipt of receipts) {
     for (const item of receipt.items) {
       if (item.price <= 0) continue
       const key = itemKey(item.name)
-      const found = on.get(key) ?? { name: item.name, receipts: [], spent: [] }
+      const found = on.get(key) ?? { name: itemShown(item), receipts: [], spent: [] }
       if (!found.receipts.includes(receipt)) found.receipts.push(receipt)
-      found.name = item.name
+      found.name = itemShown(item)
       addTo(found.spent, receipt.currency, item.price)
       on.set(key, found)
     }

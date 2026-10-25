@@ -37,7 +37,7 @@ async function fakeGemini(page: Page) {
     photos.push({ auth: request.headers().authorization ?? null, image })
     instructions.push(body.messages[0]!.content.find((p) => p.type === 'text')!.text!)
     const reply = image.endsWith(RECEIPT_JPEG)
-      ? { receipt: true, shop: 'Greenleaf Market', date: '2026-10-12', currency: '£', items: [{ name: 'Organic oat milk', price: '1.45', quantity: 1, kind: 'Dairy and eggs' }], total: '1.45', text: 'GREENLEAF MARKET\nORGANIC OAT MILK 1.45' }
+      ? { receipt: true, shop: 'Greenleaf Market', date: '2026-10-12', currency: '£', items: [{ name: 'ORG OAT MLK', plain: 'Organic oat milk', price: '1.45', quantity: 1, kind: 'Dairy and eggs' }], total: '1.45', text: 'GREENLEAF MARKET\nORG OAT MLK 1.45' }
       : { receipt: false, description: 'A sticky note with a reminder about the dentist', text: NOTE_MARKDOWN }
     return json({ choices: [{ message: { content: JSON.stringify(reply) } }] })
   })
@@ -85,7 +85,7 @@ test('a receipt goes to your AI by itself once it’s set up; another photo only
   await expect(receipt.getByText('Read by Gemini · gemini-2.5-flash')).toBeVisible()
   await expect(receipt.getByRole('button', { name: 'Read with AI' })).toHaveCount(0)
   await receipt.getByText('Text in this photo').click()
-  await expect(receipt.locator('.photo-text')).toContainText('ORGANIC OAT MILK')
+  await expect(receipt.locator('.photo-text')).toContainText('ORG OAT MLK')
   await receipt.getByRole('button', { name: 'Done', exact: true }).click()
 
   await entryButton(page, 'Free writing').click()
@@ -102,7 +102,7 @@ test('a receipt goes to your AI by itself once it’s set up; another photo only
   expect(await note.locator('.photo-text').innerText()).toBe(NOTE_MARKDOWN)
   await note.getByRole('button', { name: 'Done', exact: true }).click()
 
-  // Found by the AI's words, which the phone's reading didn't have.
+  // Found by the plain name the AI gave an item, which the receipt doesn't print (v0.19.3).
   await page.getByLabel('Search your logs').fill('organic')
   await expect(entryButton(page, 'Photo')).toBeVisible()
   await expect(entryButton(page, 'Free writing')).toHaveCount(0)
@@ -113,7 +113,11 @@ test('a receipt goes to your AI by itself once it’s set up; another photo only
   // Its items came sorted into kinds, from the fixed list, in the same reading.
   expect(instructions[0]).toContain('Give each item the kind it most likely is, written exactly as one of: Fruit and veg,')
   await page.goto('./#/shopping')
-  await expect(page.getByRole('region', { name: 'By kind' }).locator('summary')).toHaveText(['Dairy and eggs · 1 item · £1.45'])
+  const byKind = page.getByRole('region', { name: 'By kind' })
+  await expect(byKind.locator('summary')).toHaveText(['Dairy and eggs · 1 item · £1.45'])
+  await byKind.locator('summary').click()
+  await expect(byKind.getByRole('button', { name: /Organic oat milk/ })).toBeVisible()
+  await expect(byKind.getByText('ORG OAT MLK')).toHaveCount(0)
 })
 
 test('a receipt your AI read before items had kinds can be read again, on a tap, to sort them', async ({ page }, testInfo) => {
@@ -130,7 +134,7 @@ test('a receipt your AI read before items had kinds can be read again, on a tap,
   await page.goto('./#/entries')
   await entryButton(page, 'Photo').click()
   const dialog = page.getByRole('dialog', { name: 'Photo' })
-  await expect(dialog.getByText('Sends this photo to Gemini again, to sort its items into kinds.')).toBeVisible()
+  await expect(dialog.getByText('Sends this photo to Gemini again, to give its items proper names and sort them into kinds.')).toBeVisible()
   await dialog.getByRole('button', { name: 'Read with AI again' }).click()
   await expect(dialog.getByRole('button', { name: /Read with AI/ })).toHaveCount(0)
   expect(photos).toHaveLength(1)
@@ -138,6 +142,30 @@ test('a receipt your AI read before items had kinds can be read again, on a tap,
 
   await page.goto('./#/shopping')
   await expect(page.getByRole('region', { name: 'By kind' }).locator('summary')).toHaveText(['Dairy and eggs · 1 item · £1.45'])
+})
+
+test('a receipt your AI read before plain names can be read again, on a tap, to name its items', async ({ page }, testInfo) => {
+  const { photos } = await fakeGemini(page)
+  const before = { by: 'Gemini · gemini-2.5-flash', at: 1, text: 'GREENLEAF MARKET', description: '', receipt: { shop: 'Greenleaf Market', date: '2026-10-12', currency: '£', items: [{ name: 'ORG OAT MLK', price: 145, quantity: 1, kind: 'Dairy and eggs' }], total: 145 } }
+  const receipt = { ...freeWriting('e1', '', 12, SATURDAY), photos: [{ id: 'p1', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text, ai: before }] }
+  await restoreBackup(page, testInfo.outputPath('photos.json'), backupWith({ entries: [receipt], photos: [photo('p1', 'e1', RECEIPT_JPEG)] }, SATURDAY))
+  await setUpGemini(page)
+  await page.waitForTimeout(SETTLED)
+  expect(photos).toEqual([]) // already read: it doesn't go again by itself
+
+  await page.goto('./#/entries')
+  await entryButton(page, 'Photo').click()
+  const dialog = page.getByRole('dialog', { name: 'Photo' })
+  await expect(dialog.getByText('Sends this photo to Gemini again, to give its items proper names.')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Read with AI again' }).click()
+  await expect(dialog.getByRole('button', { name: /Read with AI/ })).toHaveCount(0)
+  expect(photos).toHaveLength(1)
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+
+  await page.goto('./#/shopping')
+  const byKind = page.getByRole('region', { name: 'By kind' })
+  await byKind.locator('summary').click()
+  await expect(byKind.getByRole('button', { name: /Organic oat milk/ })).toBeVisible()
 })
 
 test('Groq for Ask and reviews, Gemini for photos: a key of its own on Reading photos', async ({ page }, testInfo) => {

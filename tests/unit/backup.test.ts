@@ -330,6 +330,9 @@ describe('backup and restore', () => {
     // A reading from before kinds (v0.18) still restores, and so do clothes (v0.19.2).
     expect(damaged({ items: [{ name: 'Oat milk', price: 145, quantity: 1 }] })).toBe(true)
     expect(damaged({ items: [{ name: 'Wool scarf', price: 1500, quantity: 1, kind: 'Clothes and shoes' }] })).toBe(true)
+    // An item's plain name (v0.19.3) is words or nothing.
+    expect(damaged({ items: [{ name: 'GRK YOG 4PK', plain: 'Greek yoghurt, 4 pack', price: 225, quantity: 1 }] })).toBe(true)
+    expect(damaged({ items: [{ name: 'GRK YOG 4PK', plain: 4, price: 225, quantity: 1 }] })).toBe(false)
     expect(isEntry({ ...withReceipt, photos: [{ id: 'p1', text: null, ai: { ...ai, by: 3 } }] })).toBe(false)
   })
 
