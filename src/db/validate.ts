@@ -66,7 +66,7 @@ function hasValidJournalFields(x: Rec): boolean {
 
 /** A photo as the AI read it (v0.18): its text, and a receipt's items with prices in minor units. */
 function isAiReading(x: unknown): boolean {
-  if (!isObj(x) || !isStr(x.by) || !isNum(x.at) || !isStr(x.text) || !isStr(x.description)) return false
+  if (!isObj(x) || !isStr(x.by) || !isNum(x.at) || !isStr(x.text) || !isStr(x.description) || !isOptional(x.version, isNum) || !isOptional(x.tries, isNum)) return false
   if (x.receipt === null) return true
   const r = x.receipt
   return (

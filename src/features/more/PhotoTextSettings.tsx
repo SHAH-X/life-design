@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ocrFilesDownloaded, removeOcrFiles } from '../../lib/reader'
 import { Loading } from '../../ui/Loading'
 import { Switch } from '../../ui/Switch'
-import { photoReaderSettings } from '../../db/aiReading'
+import { photoReaderSettings, waitingForAi } from '../../db/aiReading'
 import { db } from '../../db/db'
 import { setSetting } from '../../db/repo'
 import { PROVIDERS, READS_IMAGES } from '../../lib/ai'
@@ -74,21 +74,31 @@ function PhotoTextCard({ ai, ...initial }: { on: boolean; downloaded: boolean; a
   )
 }
 
-/** Receipts to your AI as you add them (v0.18, owner's choice), when an AI set up reads photos. On by default. */
+/** Receipts to your AI as you add them (v0.18, owner's choice), and again until they're read in full (v0.19.4), when an
+ *  AI set up reads photos. On by default. */
 function AiReceiptsSwitch({ reader }: { reader: NonNullable<Reader> }) {
   const [on, setOn] = useState<boolean | null>(null)
   const checked = on ?? reader.auto
+  const waiting = useLiveQuery(async () => waitingForAi(await db.entries.toArray()).length, [])
+  const label = PROVIDERS[reader.provider].label
   const turn = (next: boolean) => {
     setOn(next)
     void setSetting('aiReceipts', next)
   }
   return (
-    <Switch
-      label="Read receipts with AI"
-      hint={`A photo with prices goes to ${PROVIDERS[reader.provider].label} as you add it; any other photo only when you tap "Read with AI".`}
-      checked={checked}
-      onChange={turn}
-    />
+    <>
+      <Switch
+        label="Read receipts with AI"
+        hint={`A photo with prices goes to ${label} as you add it, and again until it's read in full; any other photo only when you tap "Read with AI".`}
+        checked={checked}
+        onChange={turn}
+      />
+      {checked && waiting ? (
+        <p className="muted small" role="status">
+          {waiting === 1 ? '1 receipt' : `${waiting} receipts`} waiting for {label}: read by itself while the app is open.
+        </p>
+      ) : null}
+    </>
   )
 }
 

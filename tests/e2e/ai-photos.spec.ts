@@ -120,43 +120,47 @@ test('a receipt goes to your AI by itself once it’s set up; another photo only
   await expect(byKind.getByText('ORG OAT MLK')).toHaveCount(0)
 })
 
-test('a receipt your AI read before items had kinds can be read again, on a tap, to sort them', async ({ page }, testInfo) => {
+test('a receipt your AI read before items had kinds or plain names is read again by itself, once', async ({ page }, testInfo) => {
   const { photos } = await fakeGemini(page)
   const before = { by: 'Gemini · gemini-2.5-flash', at: 1, text: 'GREENLEAF MARKET', description: '', receipt: { shop: 'Greenleaf Market', date: '2026-10-12', currency: '£', items: [{ name: 'Organic oat milk', price: 145, quantity: 1 }], total: 145 } }
   const receipt = { ...freeWriting('e1', '', 12, SATURDAY), photos: [{ id: 'p1', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text, ai: before }] }
   await restoreBackup(page, testInfo.outputPath('photos.json'), backupWith({ entries: [receipt], photos: [photo('p1', 'e1', RECEIPT_JPEG)] }, SATURDAY))
   await setUpGemini(page)
-  await page.waitForTimeout(SETTLED)
-  expect(photos).toEqual([]) // already read: it doesn't go again by itself
-
   await page.goto('./#/shopping')
   await expect(page.getByRole('region', { name: 'By kind' })).toHaveCount(0)
-  await page.goto('./#/entries')
-  await entryButton(page, 'Photo').click()
-  const dialog = page.getByRole('dialog', { name: 'Photo' })
-  await expect(dialog.getByText('Sends this photo to Gemini again, to give its items proper names and sort them into kinds.')).toBeVisible()
-  await dialog.getByRole('button', { name: 'Read with AI again' }).click()
-  await expect(dialog.getByRole('button', { name: /Read with AI/ })).toHaveCount(0)
-  expect(photos).toHaveLength(1)
-  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
 
+  await page.goto('./#/more/photos')
+  await page.getByRole('switch', { name: /Read the text in photos/ }).check()
+  await expect.poll(() => photos.length, { timeout: 15_000 }).toBe(1)
   await page.goto('./#/shopping')
-  await expect(page.getByRole('region', { name: 'By kind' }).locator('summary')).toHaveText(['Dairy and eggs · 1 item · £1.45'])
+  const byKind = page.getByRole('region', { name: 'By kind' })
+  await expect(byKind.locator('summary')).toHaveText(['Dairy and eggs · 1 item · £1.45'])
+  await byKind.locator('summary').click()
+  await expect(byKind.getByRole('button', { name: /Organic oat milk/ })).toBeVisible()
+
+  // Once: coming back to the app doesn't send it again.
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await page.waitForTimeout(SETTLED)
+  expect(photos).toHaveLength(1)
 })
 
-test('a receipt your AI read before plain names can be read again, on a tap, to name its items', async ({ page }, testInfo) => {
+test('with "Read receipts with AI" off, a receipt read before plain names is read again only on a tap', async ({ page }, testInfo) => {
   const { photos } = await fakeGemini(page)
   const before = { by: 'Gemini · gemini-2.5-flash', at: 1, text: 'GREENLEAF MARKET', description: '', receipt: { shop: 'Greenleaf Market', date: '2026-10-12', currency: '£', items: [{ name: 'ORG OAT MLK', price: 145, quantity: 1, kind: 'Dairy and eggs' }], total: 145 } }
   const receipt = { ...freeWriting('e1', '', 12, SATURDAY), photos: [{ id: 'p1', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text, ai: before }] }
   await restoreBackup(page, testInfo.outputPath('photos.json'), backupWith({ entries: [receipt], photos: [photo('p1', 'e1', RECEIPT_JPEG)] }, SATURDAY))
   await setUpGemini(page)
+  await page.goto('./#/more/photos')
+  await page.getByRole('switch', { name: /Read the text in photos/ }).check()
+  await page.getByRole('switch', { name: /Read receipts with AI/ }).uncheck()
   await page.waitForTimeout(SETTLED)
-  expect(photos).toEqual([]) // already read: it doesn't go again by itself
+  expect(photos).toEqual([])
 
   await page.goto('./#/entries')
   await entryButton(page, 'Photo').click()
   const dialog = page.getByRole('dialog', { name: 'Photo' })
   await expect(dialog.getByText('Sends this photo to Gemini again, to give its items proper names.')).toBeVisible()
+  await expect(dialog.getByText(/read by itself/)).toHaveCount(0)
   await dialog.getByRole('button', { name: 'Read with AI again' }).click()
   await expect(dialog.getByRole('button', { name: /Read with AI/ })).toHaveCount(0)
   expect(photos).toHaveLength(1)
@@ -166,6 +170,40 @@ test('a receipt your AI read before plain names can be read again, on a tap, to 
   const byKind = page.getByRole('region', { name: 'By kind' })
   await byKind.locator('summary').click()
   await expect(byKind.getByRole('button', { name: /Organic oat milk/ })).toBeVisible()
+})
+
+// Owner, 2026-10-25: errors "often" on "Read with AI again"; asked that the ones not read keep being tried by themselves.
+test('a receipt Gemini is too busy to read waits, says so, and is read by itself later with no tap', async ({ page }, testInfo) => {
+  test.setTimeout(120_000)
+  const { photos } = await fakeGemini(page)
+  // Google's 503 for the first two rounds: each round asks four times, about 2, 4 and 8 seconds apart.
+  let busy = 0
+  await page.route('https://generativelanguage.googleapis.com/**/chat/completions', (route) => {
+    if (route.request().method() === 'OPTIONS' || busy >= 8) return route.fallback()
+    busy++
+    return route.fulfill({ status: 503, headers: CORS, contentType: 'application/json', body: JSON.stringify({ error: { message: 'The model is overloaded.' } }) })
+  })
+  await restorePhotos(page, testInfo.outputPath('photos.json'))
+  await setUpGemini(page)
+  await page.goto('./#/more/photos')
+  await page.getByRole('switch', { name: /Read the text in photos/ }).check()
+  await expect(page.getByText('1 receipt waiting for Gemini: read by itself while the app is open.')).toBeVisible()
+  await expect.poll(() => busy, { timeout: 30_000 }).toBe(4)
+
+  await page.goto('./#/entries')
+  await entryButton(page, 'Photo').click()
+  const dialog = page.getByRole('dialog', { name: 'Photo' })
+  await expect(dialog.getByText("Couldn't be read just now: it's tried again by itself while the app is open.")).toBeVisible({ timeout: 10_000 })
+  await expect(dialog.getByRole('alert')).toHaveCount(0)
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+
+  // A minute later, with no tap, it tries again (still busy); coming back to the app, again, and it's read.
+  await page.clock.fastForward('01:05')
+  await expect.poll(() => busy, { timeout: 30_000 }).toBe(8)
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await expect.poll(() => photos.length, { timeout: 15_000 }).toBe(1)
+  await page.goto('./#/more/photos')
+  await expect(page.getByText(/waiting for Gemini/)).toHaveCount(0)
 })
 
 test('Groq for Ask and reviews, Gemini for photos: a key of its own on Reading photos', async ({ page }, testInfo) => {

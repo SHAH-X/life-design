@@ -125,7 +125,29 @@ export function defaultModel(provider: AiProvider, models: readonly string[]): s
 
 type Fetch = typeof fetch
 
+/** A busy service (its own servers: 500, 503) is asked again after these waits, each up to a quarter longer at random,
+ *  while the call's time allows: Google's advice (v0.19.4, owner: "Read with AI again" often said it was busy). A
+ *  refused key, a limit, a timeout or a bad answer isn't asked again. */
+const BUSY_RETRY_MS = [2_000, 4_000, 8_000]
+
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 async function call(url: string, init: RequestInit, fetchImpl: Fetch, timeoutMs: number): Promise<unknown> {
+  const deadline = Date.now() + timeoutMs
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await callOnce(url, init, fetchImpl, deadline - Date.now())
+    } catch (error) {
+      const wait = BUSY_RETRY_MS[attempt]
+      if (!(error instanceof AiError && error.problem === 'busy') || wait === undefined) throw error
+      const waited = wait * (1 + Math.random() / 4)
+      if (Date.now() + waited >= deadline) throw error
+      await pause(waited)
+    }
+  }
+}
+
+async function callOnce(url: string, init: RequestInit, fetchImpl: Fetch, timeoutMs: number): Promise<unknown> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   let response: Response

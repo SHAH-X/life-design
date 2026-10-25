@@ -1,9 +1,9 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ensureAiReadings, photoReaderSettings, readOnePhoto } from '../../src/db/aiReading'
+import { ensureAiReadings, nextTryIn, photoReaderSettings, readOnePhoto, waitingForAi } from '../../src/db/aiReading'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import type { Entry, Photo } from '../../src/db/types'
-import { AI_READING_INSTRUCTIONS, amount, looksLikeReceipt, parseAiReading } from '../../src/domain/aiReading'
+import { AI_READING_INSTRUCTIONS, amount, looksLikeReceipt, parseAiReading, READING_VERSION } from '../../src/domain/aiReading'
 import { photoTexts } from '../../src/domain/search'
 import { receiptsOf } from '../../src/domain/shopping'
 import { photoReader } from '../../src/features/photos/photoReader'
@@ -274,7 +274,7 @@ describe('ensureAiReadings and readOnePhoto: sending photos, one at a time', () 
       withPhotos('e1', [
         { id: 'receipt', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text },
         { id: 'note', text: RECEIPTS.find((r) => r.id === 'note')!.text },
-        { id: 'read', text: RECEIPTS.find((r) => r.id === 'cafe')!.text, ai: parseAiReading(receiptReply, BY, 1)! },
+        { id: 'read', text: RECEIPTS.find((r) => r.id === 'cafe')!.text, ai: { ...parseAiReading(receiptReply, BY, 1)!, version: READING_VERSION } },
       ]),
     )
     await phone.photos.bulkPut([photo('receipt', 'e1'), photo('note', 'e1'), photo('read', 'e1')])
@@ -283,21 +283,67 @@ describe('ensureAiReadings and readOnePhoto: sending photos, one at a time', () 
     expect(sent).toEqual(['receipt'])
     const entry = await phone.entries.get('e1')
     expect(entry?.updatedAt).toBe(3)
-    expect(entry?.photos.find((p) => p.id === 'receipt')?.ai?.receipt?.total).toBe(305)
+    expect(entry?.photos.find((p) => p.id === 'receipt')?.ai).toMatchObject({ version: READING_VERSION, receipt: { total: 305 } })
     expect(entry?.photos.find((p) => p.id === 'note')?.ai).toBeUndefined()
   })
 
-  it('keeps a reply it can’t use as tried, so it isn’t sent again by itself; a tap can try again', async () => {
+  // Owner, 2026-10-25: "keeps trying for the ones that weren't properly read … such that no one is left out".
+  it('sends a receipt whose reply it couldn’t use again by itself, 3 tries in all, then leaves it for a tap', async () => {
     await phone.entries.put(withPhotos('e1', [{ id: 'receipt', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text }]))
     await phone.photos.put(photo('receipt', 'e1'))
     let sends = 0
     const reader = { by: BY, send: async () => (sends++, 'Sorry, too blurry.') }
+    for (let round = 0; round < 4; round++) await ensureAiReadings(reader, phone)
+    expect(sends).toBe(3)
+    expect((await phone.entries.get('e1'))?.photos[0]?.ai).toMatchObject({ text: '', description: '', receipt: null, tries: 3 })
+    expect(waitingForAi((await phone.entries.toArray()))).toEqual([])
+    await readOnePhoto('receipt', { by: BY, send: async () => receiptReply }, phone)
+    const read = (await phone.entries.get('e1'))?.photos[0]?.ai
+    expect(read?.receipt?.items).toHaveLength(3)
+    expect(read?.tries).toBeUndefined()
+  })
+
+  it('sends a receipt read before items had kinds or plain names again by itself, once, whatever comes back', async () => {
+    const before = parseAiReading(receiptReply, BY, 1)! // kinds, but no plain names
+    await phone.entries.put(withPhotos('e1', [{ id: 'old', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text, ai: before }]))
+    await phone.photos.put(photo('old', 'e1'))
+    let sends = 0
+    // The AI still gives no plain names: it isn't asked again for them.
+    const reader = { by: BY, send: async () => (sends++, receiptReply) }
     await ensureAiReadings(reader, phone)
     await ensureAiReadings(reader, phone)
     expect(sends).toBe(1)
-    expect((await phone.entries.get('e1'))?.photos[0]?.ai).toMatchObject({ text: '', description: '', receipt: null })
-    await readOnePhoto('receipt', { by: BY, send: async () => receiptReply }, phone)
-    expect((await phone.entries.get('e1'))?.photos[0]?.ai?.receipt?.items).toHaveLength(3)
+    expect((await phone.entries.get('e1'))?.photos[0]?.ai?.version).toBe(READING_VERSION)
+  })
+
+  it('never wipes an earlier reading with a reply it can’t use: the earlier one stays, and the try is counted', async () => {
+    const before = parseAiReading(receiptReply, BY, 1)!
+    await phone.entries.put(withPhotos('e1', [{ id: 'old', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text, ai: before }]))
+    await phone.photos.put(photo('old', 'e1'))
+    await ensureAiReadings({ by: BY, send: async () => 'Sorry, too blurry.' }, phone)
+    expect((await phone.entries.get('e1'))?.photos[0]?.ai).toEqual({ ...before, tries: 1 })
+  })
+
+  it('sends receipts never read first, then those it couldn’t read, then those read before kinds or names', async () => {
+    const greenleaf = RECEIPTS.find((r) => r.id === 'greenleaf')!.text
+    const blurry = { by: BY, at: 1, text: '', description: '', receipt: null, tries: 1 }
+    await phone.entries.put(
+      withPhotos('e1', [
+        { id: 'old', text: greenleaf, ai: parseAiReading(receiptReply, BY, 1)! },
+        { id: 'blurry', text: greenleaf, ai: blurry },
+        { id: 'new', text: greenleaf },
+        { id: 'note', text: RECEIPTS.find((r) => r.id === 'note')!.text, ai: { ...blurry, tries: 0 } },
+      ]),
+    )
+    await phone.photos.bulkPut([photo('old', 'e1'), photo('blurry', 'e1'), photo('new', 'e1'), photo('note', 'e1')])
+    expect(waitingForAi(await phone.entries.toArray())).toEqual(['new', 'blurry', 'old'])
+    const sent: string[] = []
+    await ensureAiReadings({ by: BY, send: async (jpeg) => (sent.push(atob(jpeg)), receiptReply) }, phone)
+    expect(sent).toEqual(['new', 'blurry', 'old'])
+  })
+
+  it('waits longer after each round that leaves receipts unread: 1, 5 and 15 minutes, then every 30', () => {
+    expect([0, 1, 2, 3, 4, 10].map(nextTryIn)).toEqual([1, 5, 15, 30, 30, 30].map((minutes) => minutes * 60_000))
   })
 
   it('passes over a receipt whose picture isn’t on the phone (not written yet, or a damaged restore) and sends the rest', async () => {

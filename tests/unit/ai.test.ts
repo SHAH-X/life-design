@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { AiError, chatModels, defaultModel, listModels, PROVIDERS, reviewWithAi } from '../../src/lib/ai'
 
 // Review with AI (v0.12): our own small client for Groq and OpenAI (both speak the OpenAI chat format). The key is
@@ -81,13 +81,51 @@ describe('reviewWithAi', () => {
     expect(await fails(() => json({ error: { message: `Invalid API Key ${KEY}` } }, 401))).toBe('key')
     expect(await fails(() => json({ error: { message: 'Rate limit reached' } }, 429))).toBe('limit')
     expect(await fails(() => json({ error: { message: 'Request too large' } }, 413))).toBe('limit')
-    expect(await fails(() => json({}, 503))).toBe('busy')
     expect(await fails(() => json({ choices: [] }))).toBe('other')
     expect(
       await fails(() => {
         throw new TypeError('Load failed')
       }),
     ).toBe('offline')
+  })
+
+  const REQUEST = { provider: 'groq' as const, key: KEY, model: 'm', instructions: 'i', data: 'd' }
+  const ANSWER = { choices: [{ message: { content: 'Fine' } }] }
+  /** Runs with a fake clock (no variation in the waits), moving it on by `ms` while `run` waits. */
+  async function onFakeClock<T>(ms: number, run: () => Promise<T>): Promise<T> {
+    vi.useFakeTimers()
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    try {
+      const result = run().catch((error: unknown) => error as T)
+      await vi.advanceTimersByTimeAsync(ms)
+      return await result
+    } finally {
+      vi.useRealTimers()
+      vi.restoreAllMocks()
+    }
+  }
+
+  // Owner, 2026-10-25: "Read with AI again" often said the service was busy (Google's 500 or 503: its own servers).
+  it('asks a busy service again, about 2, 4 and 8 seconds apart, before saying it’s busy (Google’s advice)', async () => {
+    let n = 0
+    const twice = fakeFetch(() => (n++ < 2 ? json({}, 503) : json(ANSWER)))
+    expect(await onFakeClock(6_100, () => reviewWithAi(REQUEST, twice.fn))).toBe('Fine')
+    expect(twice.calls).toHaveLength(3)
+    const always = fakeFetch(() => json({}, 500))
+    expect(await onFakeClock(20_000, () => reviewWithAi(REQUEST, always.fn))).toMatchObject({ problem: 'busy', message: 'The service is busy. Try again in a minute.' })
+    expect(always.calls).toHaveLength(4)
+  })
+
+  it('never asks again after a refused key, a limit or a bad answer, and stops asking at its time limit', async () => {
+    for (const status of [401, 429, 400]) {
+      const once = fakeFetch(() => json({}, status))
+      await onFakeClock(20_000, () => reviewWithAi(REQUEST, once.fn))
+      expect(once.calls).toHaveLength(1)
+    }
+    // With 3 seconds to answer: asked again after 2, and not after the 4 more that would pass the limit.
+    const busy = fakeFetch(() => json({}, 503))
+    expect(await onFakeClock(20_000, () => reviewWithAi(REQUEST, busy.fn, 3_000))).toMatchObject({ problem: 'busy' })
+    expect(busy.calls).toHaveLength(2)
   })
 
   it('stops waiting after the time limit', async () => {
