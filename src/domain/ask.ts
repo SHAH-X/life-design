@@ -55,12 +55,24 @@ export interface AskJournal {
 /** Words that say which kind of branch, or that it's a company, not which shop: "Tesco Express" is Tesco. */
 const BRANCH_WORDS = new Set(['express', 'extra', 'metro', 'local', 'superstore', 'superstores', 'supermarket', 'supermarkets', 'store', 'stores', 'food', 'ltd', 'limited', 'plc', 'inc', 'llc', 'uk', 'gb'])
 
-/** A shop's name as one key: "TESCO EXPRESS", "Tesco" and "Tesco Stores Ltd" are all "tesco". The first word always
- *  stays ("Local Butcher"), so different shops stay apart ("Pizza Express", "Pizza Hut"); '' when there's no name. */
+/** UK chains whose names on receipts differ by more than a branch word, their companies' included ("J Sainsbury plc",
+ *  "Marks & Spencer", "Wm Morrison"): a name starting with any of these words is that chain. */
+const CHAINS: [key: string, starts: string[][]][] = [
+  ['sainsburys', [['sainsburys'], ['sainsbury'], ['j', 'sainsbury'], ['j', 'sainsburys'], ['js', 'sainsbury']]],
+  ['m&s', [['m&s'], ['m', '&', 's'], ['marks', '&', 'spencer'], ['marks', 'and', 'spencer']]],
+  ['coop', [['coop'], ['co', 'op'], ['cooperative']]],
+  ['morrisons', [['morrisons'], ['morrison'], ['wm', 'morrison'], ['wm', 'morrisons']]],
+  ...['tesco', 'asda', 'aldi', 'lidl', 'waitrose', 'iceland'].map((chain): [string, string[][]] => [chain, [[chain]]]),
+]
+
+/** A shop's name as one key: "TESCO EXPRESS", "Tesco" and "Tesco Stores Ltd" are all "tesco", and a chain's other
+ *  names are the chain ("J Sainsbury plc" is "sainsburys"). Otherwise the first word always stays ("Local Butcher"), so
+ *  different shops stay apart ("Pizza Express", "Pizza Hut"); '' when there's no name. */
 export function shopKey(name: string): string {
   const all = name.toLowerCase().replace(/['’`.-]/g, '').match(/[\p{L}\p{N}&]+/gu) ?? []
   const named = all[0] === 'the' && all.length > 1 ? all.slice(1) : all
-  return named.filter((word, i) => i === 0 || !BRANCH_WORDS.has(word)).join(' ')
+  const chain = CHAINS.find(([, starts]) => starts.some((start) => start.every((word, i) => named[i] === word)))
+  return chain ? chain[0] : named.filter((word, i) => i === 0 || !BRANCH_WORDS.has(word)).join(' ')
 }
 
 export const ASK_TOOLS: ToolSpec[] = [

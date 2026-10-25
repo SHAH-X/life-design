@@ -101,6 +101,24 @@ describe('shopKey: one name for one shop', () => {
     expect(shopKey('Express')).toBe('express')
     expect(shopKey('Local Butcher')).toBe('local butcher')
   })
+
+  it("reads a UK chain's other names, its company's included, as the chain: J Sainsbury plc is Sainsbury's", () => {
+    const chains = [
+      ["Sainsbury's", 'J Sainsbury plc', 'JS Sainsbury', "Sainsbury's Supermarkets Ltd", 'SAINSBURYS LOCAL'],
+      ['M&S', 'M&S Simply Food', 'Marks & Spencer', 'Marks and Spencer plc', 'M & S'],
+      ['Co-op', 'Co-op Food', 'The Co-operative Food', 'Co op'],
+      ['Morrisons', 'Morrisons Daily', 'Wm Morrison Supermarkets', 'WM MORRISONS'],
+      ['Lidl', 'Lidl GB', 'Lidl Great Britain Ltd'],
+      ['Aldi', 'ALDI STORES LTD'],
+      ['Asda', 'ASDA Superstore', 'Asda Stores Ltd'],
+      ['Tesco', 'Tesco Stores Ltd', 'TESCO EXPRESS'],
+      ['Waitrose', 'Waitrose & Partners'],
+      ['Iceland', 'Iceland Foods Ltd'],
+    ]
+    for (const names of chains) expect(new Set(names.map(shopKey)), names[0]).toEqual(new Set([shopKey(names[0]!)]))
+    // Each chain still its own shop.
+    expect(new Set(chains.map((names) => shopKey(names[0]!))).size).toBe(chains.length)
+  })
 })
 
 // Receipts as the phone knows them, for spending by shop: fictional, prices in pence, not in date order.
@@ -153,6 +171,16 @@ describe('spend_by_shop: spending by month and shop, all worked out on the phone
     expect(tesco).toEqual({ total: '£0.30', months: [{ month: '2026-10', total: '£0.30', shops: [{ shop: 'Tesco', also_named: ['Tesco Stores Ltd'], total: '£0.30', receipt_ids: ['t2', 't3'] }] }] })
     expect(await parsed(call('spend_by_shop', { shop: 'Sainsbury' }), j)).toMatchObject({ total: '£6.70' })
     expect(await parsed(call('spend_by_shop', { from: '2027-01-01' }), j)).toEqual({ total: null, months: [] })
+  })
+
+  it("joins a chain's names on different receipts, and finds them by its company's name", async () => {
+    const chain = journal({ receipts: [known('m1', 'M&S Simply Food', '2026-10-02', 450), known('m2', 'Marks & Spencer', '2026-10-16', 1200), known('j1', 'J Sainsbury plc', '2026-10-05', 300), known('j2', "Sainsbury's", '2026-10-11', 210)] })
+    const spend = (await parsed(call('spend_by_shop', {}), chain)) as Spend
+    expect(spend.months[0]!.shops.map((s) => [s.shop, s.total, s.receipt_ids])).toEqual([
+      ['M&S Simply Food', '£16.50', ['m1', 'm2']],
+      ["Sainsbury's", '£5.10', ['j1', 'j2']],
+    ])
+    expect(await parsed(call('spend_by_shop', { shop: 'Marks and Spencer' }), chain)).toMatchObject({ total: '£16.50' })
   })
 
   it('gives the AI no say in which receipts are added: ids it sends are ignored', async () => {
