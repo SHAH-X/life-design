@@ -1795,6 +1795,17 @@ details.more-ways summary {
   fill: var(--viz-axis);
 }
 
+/* Spending each month (Shopping): one series, one hue for amount. */
+.chart-col.seq {
+  fill: var(--viz-seq);
+}
+
+.chart-grid {
+  stroke: var(--viz-grid);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
 .chart-empty {
   fill: var(--viz-muted);
 }

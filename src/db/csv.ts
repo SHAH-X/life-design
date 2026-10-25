@@ -1,5 +1,6 @@
 import { DURATION_LABELS, ENERGY_OPTIONS } from '../domain/feelings'
 import { purposeInfo } from '../domain/purposes'
+import type { KnownReceipt } from '../domain/shopping'
 import { stepLine } from '../domain/steps'
 import { PART_ORDER, toDateKey } from '../lib/dates'
 import type { Entry, Step, StepStatus } from './types'
@@ -78,4 +79,36 @@ export function entriesToCsv(entries: readonly Entry[], steps: readonly Step[] =
 
 export function csvFileName(now: Date): string {
   return `life-design-entries-${toDateKey(now)}.csv`
+}
+
+const RECEIPT_HEADER = ['date', 'shop', 'item', 'quantity', 'price', 'currency', 'receipt_total', 'adds_up', 'date_read', 'read_by']
+
+/** Pence as a plain number a spreadsheet adds up, "1.45" or "-0.50"; the currency has a column of its own. */
+const pounds = (minor: number) => `${minor < 0 ? '-' : ''}${(Math.abs(minor) / 100).toFixed(2)}`
+
+/** Every item on your receipts (Shopping, v0.19), a row each, oldest first; a receipt's total is the one it printed. */
+export function receiptsToCsv(receipts: readonly KnownReceipt[]): string {
+  const rows = [...receipts]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .flatMap((r) =>
+      r.items.map((item) =>
+        [
+          cell(r.date),
+          cell(r.shop, true),
+          cell(item.name, true),
+          cell(item.quantity),
+          cell(pounds(item.price)),
+          cell(r.currency),
+          cell(r.total === null ? '' : pounds(r.total)),
+          cell(r.adds ? 'yes' : 'no'),
+          cell(r.dated ? 'yes' : 'no'),
+          cell(r.readBy ?? 'the phone', true),
+        ].join(','),
+      ),
+    )
+  return `\ufeff${[RECEIPT_HEADER.join(','), ...rows].join('\r\n')}\r\n`
+}
+
+export function shoppingCsvFileName(now: Date): string {
+  return `life-design-shopping-${toDateKey(now)}.csv`
 }

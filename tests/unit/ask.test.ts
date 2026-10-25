@@ -95,6 +95,8 @@ const known = (id: string, shop: string, date: string, total: number | null, ove
   total,
   adds: true,
   items: [{ name: 'Item', price: total ?? 0, quantity: 1 }],
+  dated: true,
+  readBy: null,
   ...over,
 })
 

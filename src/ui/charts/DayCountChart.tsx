@@ -29,7 +29,7 @@ const GAP = 2 // the surface gap between counted segments
 const MIN_SEGMENT = 6 // below this a day's count is one solid column, not segments
 
 /** A column's far segment: a 4px rounded data end, square where it meets the one before. */
-function endPath(x: number, w: number, near: number, far: number): string {
+export function endPath(x: number, w: number, near: number, far: number): string {
   const h = Math.abs(far - near)
   const r = Math.min(4, w / 2, h)
   const s = far < near ? 1 : -1 // grows up (1) or down (-1)

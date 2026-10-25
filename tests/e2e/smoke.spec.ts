@@ -13,7 +13,7 @@ test('the app shell loads, navigates, and is an installable offline-ready PWA', 
   await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()
 
   const nav = page.getByRole('navigation', { name: 'Main' })
-  for (const label of ['Today', 'Logs', 'Insights', 'More']) {
+  for (const label of ['Today', 'Logs', 'Ask', 'Shopping', 'Insights', 'More']) {
     await expect(nav.getByRole('link', { name: label })).toBeVisible()
   }
 
