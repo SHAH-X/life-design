@@ -40,8 +40,12 @@ describe('AI_READING_INSTRUCTIONS: how the AI is asked to read a photo', () => {
 
   it('gives every kind from the fixed list, and Other when unsure', () => {
     expect(AI_READING_INSTRUCTIONS).toContain(
-      'Give each item the kind it most likely is, written exactly as one of: Fruit and veg, Meat and fish, Dairy and eggs, Bread and bakery, Cupboard, Frozen, Drinks, Snacks and sweets, Alcohol, Household, Toiletries and health, Other. If you are not sure, Other.',
+      'Give each item the kind it most likely is, written exactly as one of: Fruit and veg, Meat and fish, Dairy and eggs, Bread and bakery, Cupboard, Frozen, Drinks, Snacks and sweets, Alcohol, Household, Toiletries and health, Clothes and shoes, Other. If you are not sure, Other.',
     )
+  })
+
+  it('asks for the day it was bought, never a refund, expiry, collection or delivery day', () => {
+    expect(AI_READING_INSTRUCTIONS).toContain('The date is when it was bought: never a refund, exchange, expiry, collection or delivery date; null if the photo shows none.')
   })
 
   it('asks for anything else as Markdown, laid out as printed: headings, lists, tables, and code named by its language', () => {

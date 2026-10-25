@@ -33,4 +33,27 @@ describe('readReceipt: a receipt in the text read from a photo', () => {
     expect(receiptDate('10/17/2026', false)).toBe('2026-10-17')
     expect(receiptDate('no date here', false)).toBeNull()
   })
+
+  it('reads a month named between hyphens or after a day with its ending ("25-Oct-2026", "28th October 2026")', () => {
+    expect(receiptDate('Order Date: 25-0ct-2026', false)).toBe('2026-10-25')
+    expect(receiptDate('Paid 28th October 2026', false)).toBe('2026-10-28')
+  })
+
+  it('never takes a collection or delivery day, or a card’s expiry, for when it was bought', () => {
+    expect(receiptDate('Free collection in store from MARKET SQUARE on\nWed. 28th Oct 2026\nOrder Date: 25-Oct-2026', false)).toBe('2026-10-25')
+    expect(receiptDate('Delivery date 30/10/2026\n24/10/2026 15:10', false)).toBe('2026-10-24')
+    expect(receiptDate('Exp. Date 01/30/25', false)).toBeNull()
+    // "home delivery or collection in store" names no day: the date under it is when it was bought.
+    expect(receiptDate('Shop online for easy home\ndelivery or collection in store\n24/10/2026 15:10', false)).toBe('2026-10-24')
+  })
+
+  it('keeps a saving negative when the photo lost its minus, under "Balance before Saving"', () => {
+    const r = readReceipt('SHOP\nTea 3.00\nBalance before Saving 3.00\n**£1 off with Sparks** 1.00\nBalance to Pay 2.00')
+    expect(r?.items.map((i) => i.price)).toEqual([300, -100])
+    expect(r?.adds).toBe(true)
+  })
+
+  it('never reads an amount stuck to letters as a price ("ne.auj9,28M")', () => {
+    expect(readReceipt('SHOP\nTea 3.00\nWed 28th Oct ne.auj9,28M ts bneqe\nTOTAL 3.00')?.items.map((i) => i.name)).toEqual(['Tea'])
+  })
 })
