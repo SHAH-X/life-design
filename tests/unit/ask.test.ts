@@ -9,12 +9,10 @@ import {
   askInstructions,
   askJournal,
   cite,
-  type KnownReceipt,
   notFromPhoneLine,
-  receiptsOf,
   runTool,
-  shopKey,
 } from '../../src/domain/ask'
+import { type KnownReceipt, receiptsOf } from '../../src/domain/shopping'
 import { AiError, chatWithTools, type ToolCall } from '../../src/lib/ai'
 import { areaEntry } from '../fixtures/areas'
 import { RECEIPTS } from '../fixtures/receipts'
@@ -84,40 +82,6 @@ describe('the tools: what the phone answers', () => {
     expect(asked).toEqual(['rent'])
     expect(await parsed(call('delete_everything', {}))).toEqual({ error: 'There is no tool called delete_everything.' })
     expect(await parsed({ id: 'x', type: 'function', function: { name: 'sum', arguments: '{oops' } })).toEqual({ error: 'The arguments were not JSON.' })
-  })
-})
-
-describe('shopKey: one name for one shop', () => {
-  it('reads a branch kind, a company word, "the", capitals and apostrophes as the same shop', () => {
-    expect(new Set(['TESCO EXPRESS', 'Tesco', 'Tesco Stores Ltd', 'tesco extra', 'Tesco Metro'].map(shopKey))).toEqual(new Set(['tesco']))
-    expect(shopKey("Sainsbury's Local")).toBe(shopKey('SAINSBURYS'))
-    expect(shopKey('Co-op Food')).toBe(shopKey('CO-OP'))
-    expect(shopKey('The Daily Grind Cafe')).toBe(shopKey('Daily Grind Cafe'))
-  })
-
-  it('keeps different shops apart, and keeps such a word when it starts the name', () => {
-    expect(shopKey('Pizza Express')).not.toBe(shopKey('Pizza Hut'))
-    expect(shopKey('M&S')).not.toBe(shopKey('Aldi'))
-    expect(shopKey('Express')).toBe('express')
-    expect(shopKey('Local Butcher')).toBe('local butcher')
-  })
-
-  it("reads a UK chain's other names, its company's included, as the chain: J Sainsbury plc is Sainsbury's", () => {
-    const chains = [
-      ["Sainsbury's", 'J Sainsbury plc', 'JS Sainsbury', "Sainsbury's Supermarkets Ltd", 'SAINSBURYS LOCAL'],
-      ['M&S', 'M&S Simply Food', 'Marks & Spencer', 'Marks and Spencer plc', 'M & S'],
-      ['Co-op', 'Co-op Food', 'The Co-operative Food', 'Co op'],
-      ['Morrisons', 'Morrisons Daily', 'Wm Morrison Supermarkets', 'WM MORRISONS'],
-      ['Lidl', 'Lidl GB', 'Lidl Great Britain Ltd'],
-      ['Aldi', 'ALDI STORES LTD'],
-      ['Asda', 'ASDA Superstore', 'Asda Stores Ltd'],
-      ['Tesco', 'Tesco Stores Ltd', 'TESCO EXPRESS'],
-      ['Waitrose', 'Waitrose & Partners'],
-      ['Iceland', 'Iceland Foods Ltd'],
-    ]
-    for (const names of chains) expect(new Set(names.map(shopKey)), names[0]).toEqual(new Set([shopKey(names[0]!)]))
-    // Each chain still its own shop.
-    expect(new Set(chains.map((names) => shopKey(names[0]!))).size).toBe(chains.length)
   })
 })
 

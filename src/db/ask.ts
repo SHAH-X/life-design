@@ -1,4 +1,5 @@
-import { type AskJournal, type FoundEntry, receiptsOf } from '../domain/ask'
+import type { AskJournal, FoundEntry } from '../domain/ask'
+import { receiptsOf } from '../domain/shopping'
 import { matchesSearch, photoTexts, writtenParts } from '../domain/search'
 import type { Embed } from '../lib/embedder'
 import { db as defaultDb, type LifeDesignDB } from './db'
