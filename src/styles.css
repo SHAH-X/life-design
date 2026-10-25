@@ -713,6 +713,36 @@ button.entry-row:focus-visible {
   padding-left: 22px;
 }
 
+/* A table in an AI's answer (v0.18.3), drawn like a chart's table view; one wider than the screen scrolls in its box. */
+.md-table {
+  margin: 6px 0 12px;
+  overflow-x: auto;
+}
+
+.md-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.md-table th,
+.md-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.md-table th {
+  font-weight: 600;
+}
+
+.md-table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+
 /* Swipe left to delete, as in iOS Messages (v0.10). The row slides over a red Delete; scrolling stays vertical. */
 .swipe-row {
   position: relative;

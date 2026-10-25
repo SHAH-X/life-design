@@ -136,9 +136,9 @@ export function askInstructions(today: string): string {
     'Never add, multiply or total numbers yourself. For spending by shop or by month, call spend_by_shop and give its totals as they are. For any other total, call sum with the item or receipt ids and use the total it gives.',
     'To split items into kinds (for example dairy, fruit and veg, bakery, household), group them yourself by their names, then call sum once for each group.',
     "If a receipt has adds: false, its items don't add up to its printed total: say so, and use its printed total for what was spent.",
-    'Item names are as the receipt prints them, often shortened or misread ("Cln balckberr", "Sbp cshws 15"): when you list items, give what each most likely is in plain words (blackberries, cashews), and leave one as printed if you are not sure.',
+    'Item names are as the receipt prints them, often shortened or misread ("Cln balckberr", "Sbp cshws 15"): when you list items, give what each most likely is in plain words (blackberries, cashews); if you are not sure, give it only as printed, adding nothing.',
     "Say only what the journal shows; if it doesn't show something, say that. Never guess. No scores or ratings.",
-    'Name the receipts and entries you used by their ids in square brackets, like [r:ID] or [e:ID], where you mention them.',
+    'Name the receipts and entries you used by their ids in square brackets, like [r:ID] for a receipt or [e:ID] for an entry (the r: or e: is needed), where you mention them.',
     'Answer briefly, in plain words; a short list helps for items and totals.',
   ].join('\n')
 }
@@ -227,8 +227,9 @@ export function notFromPhoneLine(amounts: readonly string[]): string | null {
   return `${named} came from the AI, not from the phone: check ${amounts.length === 1 ? 'it' : 'them'}.`
 }
 
-/** What a tool gives back, as JSON for the AI; `about` says in a few words what it was (for "What was sent"). */
-export async function runTool(call: ToolCall, journal: AskJournal): Promise<{ result: string; about: string }> {
+/** What a tool gives back, as JSON for the AI; `about` says in a few words what it was (for "What was sent");
+ *  `entries`, the ids of the entries it gave. */
+export async function runTool(call: ToolCall, journal: AskJournal): Promise<{ result: string; about: string; entries?: string[] }> {
   let args: Record<string, unknown>
   try {
     args = JSON.parse(call.function.arguments || '{}') as Record<string, unknown>
@@ -305,6 +306,7 @@ export async function runTool(call: ToolCall, journal: AskJournal): Promise<{ re
     return {
       result: JSON.stringify({ entries: found.map((e) => ({ id: e.id, date: e.date, title: e.title, text: e.text })) }),
       about: `${found.length} entr${found.length === 1 ? 'y' : 'ies'} about "${about}"`,
+      entries: found.map((e) => e.id),
     }
   }
 
@@ -344,26 +346,36 @@ export async function askJournal(question: string, journal: AskJournal, chat: Ch
     { label: 'How to answer', text: instructions },
     { label: 'Your question', text: question },
   ]
+  const known = { receipts: new Set(journal.receipts.map((r) => r.id)), entries: new Set<string>() }
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const reply = await chat(messages)
-    if (reply.toolCalls.length === 0) return { ...cite(reply.content), sent }
+    if (reply.toolCalls.length === 0) return { ...cite(reply.content, known), sent }
     messages.push({ role: 'assistant', content: reply.content || null, tool_calls: reply.toolCalls })
     for (const call of reply.toolCalls) {
-      const { result, about } = await runTool(call, journal)
+      const { result, about, entries } = await runTool(call, journal)
       messages.push({ role: 'tool', tool_call_id: call.id, content: result })
       sent.push({ label: about, text: result })
+      for (const id of entries ?? []) known.entries.add(id)
     }
   }
   throw new AskError("The AI kept asking for more without answering. Try a narrower question, such as a single month.")
 }
 
-/** The answer without its [r:ID] and [e:ID] marks, and what they named. */
-export function cite(text: string): Pick<AskResult, 'answer' | 'cited'> {
+/** Ids the phone gave for an answer, so one the AI writes bare ([p1], without its r: or e:) is still known. */
+export interface KnownIds {
+  receipts: ReadonlySet<string>
+  entries: ReadonlySet<string>
+}
+
+/** The answer without its [r:ID] and [e:ID] marks (or a bare [ID] the phone gave), and what they named. Other
+ *  brackets stay. */
+export function cite(text: string, known: KnownIds = { receipts: new Set(), entries: new Set() }): Pick<AskResult, 'answer' | 'cited'> {
   const receipts: string[] = []
   const entries: string[] = []
   const answer = text
-    .replace(/\s*\[([re]):([\w-]+)\]/g, (_, kind: string, id: string) => {
-      const into = kind === 'r' ? receipts : entries
+    .replace(/\s*\[(?:([re]):)?([\w-]+)\]/g, (whole: string, kind: string | undefined, id: string) => {
+      const into = kind === 'r' || (!kind && known.receipts.has(id)) ? receipts : kind === 'e' || (!kind && known.entries.has(id)) ? entries : null
+      if (!into) return whole
       if (!into.includes(id)) into.push(id)
       return ''
     })

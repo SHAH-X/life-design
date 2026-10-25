@@ -235,6 +235,32 @@ describe('askJournal: a question answered, the phone doing the sums', () => {
   it('takes the [r:…] and [e:…] marks out of the answer, keeping what they named once each', () => {
     expect(cite('Milk [r:p1] and eggs [r:p1], see [e:e9].')).toEqual({ answer: 'Milk and eggs, see.', cited: { receipts: ['p1'], entries: ['e9'] } })
   })
+
+  // The AI wrote a receipt's id as [aaca…] without its r: (owner, 2026-10-25), and it stayed in the answer.
+  it('takes out an id written without its r: or e: too, when the phone gave it; other brackets stay', () => {
+    const known = { receipts: new Set(['3f2a9c1e-77b0-4d1a-9e55-0c6b2d8f4a10']), entries: new Set(['e9']) }
+    expect(cite('M&S receipt [3f2a9c1e-77b0-4d1a-9e55-0c6b2d8f4a10] – 24 Oct, see [e9]; [sic] and [p404] stay.', known)).toEqual({
+      answer: 'M&S receipt – 24 Oct, see; [sic] and [p404] stay.',
+      cited: { receipts: ['3f2a9c1e-77b0-4d1a-9e55-0c6b2d8f4a10'], entries: ['e9'] },
+    })
+  })
+
+  it('knows the ids the phone sent: an answer naming a receipt or an entry by its bare id still names it', async () => {
+    const script: Chat = async (messages) => {
+      const last = messages.at(-1)!
+      if (last.role === 'user') return { content: '', toolCalls: [call('find_receipts', {}, 'a'), call('find_entries', { about: 'rent' }, 'b')] }
+      return { content: 'Tesco [p2] and rent [e9].', toolCalls: [] }
+    }
+    const j = journal({ findEntries: async () => [{ id: 'e9', date: '2026-10-01', title: 'Money', text: 'Rent went up' }] })
+    const result = await askJournal('What about Tesco and rent?', j, script, '2026-10-24')
+    expect(result.answer).toBe('Tesco and rent.')
+    expect(result.cited).toEqual({ receipts: ['p2'], entries: ['e9'] })
+  })
+
+  it('tells the AI the r: or e: is needed, and to add nothing to a name it isn’t sure of', () => {
+    expect(askInstructions('2026-10-24')).toMatch(/the r: or e: is needed/)
+    expect(askInstructions('2026-10-24')).toMatch(/if you are not sure, give it only as printed, adding nothing/)
+  })
 })
 
 describe('chatWithTools: one turn with the AI service', () => {

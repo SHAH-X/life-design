@@ -118,6 +118,55 @@ test('spending by shop is the phone’s; an amount the AI wrote itself is pointe
   await expect(answer.getByText('Spending by shop and month: 2 receipts from 2026-10-01 to 2026-10-31')).toBeVisible()
 })
 
+// A table came back as one line of pipes, with a receipt's id left in it (owner, 2026-10-25).
+test('an answer with a table shows a table, and a receipt named by its bare id still opens', async ({ page }, testInfo) => {
+  await page.route('https://generativelanguage.googleapis.com/**', async (route: Route) => {
+    const request = route.request()
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
+    const json = (body: object) => route.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify(body) })
+    if (request.url().endsWith('/models')) return json({ data: [{ id: 'models/gemini-2.5-flash' }] })
+    const messages = (JSON.parse(request.postData() ?? '{}') as { messages: Message[] }).messages
+    const last = messages.at(-1)!
+    if (last.role === 'user') return json({ choices: [{ message: { content: null, tool_calls: [toolCall('a', 'find_receipts', { shop: 'greenleaf' })] } }] })
+    const receipt = (JSON.parse(last.content ?? '{}') as { receipts: { items: { name: string; price: string }[] }[] }).receipts[0]!
+    if (messages.find((m) => m.role === 'user')?.content?.includes('every column')) {
+      const columns = ['Item as printed on the receipt', 'What it most likely is', 'Department', 'Aisle', 'Unit price', 'Quantity', 'Line total', 'Saving', 'Kind of food']
+      const row = (i: { name: string; price: string }) => `| ${i.name} | ${i.name.toLowerCase()} | Groceries and household | Aisle twelve | ${i.price} | 1 | ${i.price} | 0.00 | Everyday basics |`
+      return json({ choices: [{ message: { content: `| ${columns.join(' | ')} |\n|${columns.map(() => '---').join('|')}|\n${receipt.items.map(row).join('\n')}` } }] })
+    }
+    const rows = receipt.items.map((i) => `| ${i.name} | ${i.name.toLowerCase()} | ${i.price} | 1 |`).join('\n')
+    return json({ choices: [{ message: { content: `Greenleaf Market receipt [p1], 12 Oct 2026:\n\n| Item (as printed) | What it is | Price | Qty |\n|---|---|---|---|\n${rows}\n\nTotal printed: 14.20.` } }] })
+  })
+  await restoreReceipts(page, testInfo.outputPath('receipts.json'))
+  await setUpGemini(page)
+  await page.goto('./#/ask')
+  await page.getByLabel('What would you like to know?').fill('List what I bought at Greenleaf, with all details')
+  await page.getByRole('button', { name: 'Ask', exact: true }).click()
+
+  const answer = page.getByRole('region', { name: 'Answer' })
+  const table = answer.getByRole('table')
+  await expect(table).toBeVisible()
+  await expect(table.getByRole('columnheader')).toHaveText(['Item (as printed)', 'What it is', 'Price', 'Qty'])
+  await expect(table.getByRole('row')).toHaveCount(6) // the header and five items
+  await expect(table.getByRole('cell', { name: '1.45' })).toHaveCSS('text-align', 'right')
+  await expect(answer.getByText('Greenleaf Market receipt, 12 Oct 2026:')).toBeVisible()
+  await expect(answer).not.toContainText('|')
+  await expect(answer).not.toContainText('[p1]')
+  await answer.screenshot({ path: testInfo.outputPath('answer-with-a-table.png') })
+  await answer.getByRole('button', { name: /2026-10-12/ }).click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await page.getByRole('dialog').getByRole('button', { name: 'Done', exact: true }).click()
+
+  // A table too wide for the screen scrolls in its own box; the page never scrolls sideways.
+  await page.getByLabel('What would you like to know?').fill('Greenleaf, every column you can')
+  await page.getByRole('button', { name: 'Ask', exact: true }).click()
+  const wide = answer.locator('.md-table')
+  await expect(wide.getByRole('columnheader')).toHaveCount(9)
+  expect(await wide.evaluate((box) => box.scrollWidth > box.clientWidth)).toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await answer.screenshot({ path: testInfo.outputPath('answer-with-a-wide-table.png') })
+})
+
 test('Logs’ search only finds again; without an AI set up, Ask says where to set one up and sends nothing', async ({ page }, testInfo) => {
   const sent = await fakeGemini(page)
   await restoreReceipts(page, testInfo.outputPath('receipts.json'))
