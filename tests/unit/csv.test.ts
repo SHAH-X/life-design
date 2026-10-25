@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { entriesToCsv } from '../../src/db/csv'
+import { entriesToCsv, receiptsToCsv, shoppingCsvFileName } from '../../src/db/csv'
 import { type Entry, entryDefaults, type Step } from '../../src/db/types'
+import type { KnownReceipt } from '../../src/domain/shopping'
 
 const entry = (over: Partial<Entry>): Entry => ({
   id: 'e',
@@ -96,5 +97,38 @@ describe('entriesToCsv', () => {
 
   it('leaves out drafts', () => {
     expect(rows(entriesToCsv([entry({ id: 'd', status: 'draft' })]))).toHaveLength(1)
+  })
+})
+
+describe('receiptsToCsv: every item on your receipts, a row each (fictional receipts)', () => {
+  const receipt = (over: Partial<KnownReceipt>): KnownReceipt => ({
+    id: 'p1',
+    entryId: 'e1',
+    shop: 'Tesco',
+    date: '2026-10-17',
+    currency: '£',
+    total: 115,
+    adds: true,
+    items: [
+      { name: 'Semi Skimmed Milk 2.27L', price: 165, quantity: 1 },
+      { name: 'Clubcard saving', price: -50, quantity: 1 },
+    ],
+    dated: true,
+    readBy: null,
+    ...over,
+  })
+
+  it('gives each item its receipt’s date, shop, printed total and who read it, prices as plain numbers', () => {
+    const csv = receiptsToCsv([receipt({}), receipt({ id: 'p2', shop: 'Greenleaf, Market', date: '2026-10-03', total: 999, adds: false, dated: false, readBy: 'Gemini · gemini-2.5-flash', items: [{ name: '=Oat milk', price: 145, quantity: 2 }] })])
+    const lines = csv.replace(/^\ufeff/, '').trimEnd().split('\r\n')
+    expect(csv.startsWith('\ufeff')).toBe(true)
+    expect(lines).toEqual([
+      'date,shop,item,quantity,price,currency,receipt_total,adds_up,date_read,read_by',
+      // Oldest first; a comma is quoted, and a name that starts like a formula can't run as one.
+      `2026-10-03,"Greenleaf, Market",'=Oat milk,2,1.45,£,9.99,no,no,Gemini · gemini-2.5-flash`,
+      '2026-10-17,Tesco,Semi Skimmed Milk 2.27L,1,1.65,£,1.15,yes,yes,the phone',
+      '2026-10-17,Tesco,Clubcard saving,1,-0.50,£,1.15,yes,yes,the phone',
+    ])
+    expect(shoppingCsvFileName(new Date(2026, 9, 24, 20))).toBe('life-design-shopping-2026-10-24.csv')
   })
 })

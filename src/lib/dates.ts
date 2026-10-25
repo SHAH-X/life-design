@@ -56,6 +56,16 @@ export function formatPeriod(start: string, end: string, locale?: string): strin
   return start === end ? format.format(fromDateKey(start)) : format.formatRange(fromDateKey(start), fromDateKey(end))
 }
 
+/** "October", or "Oct" for chart axes, for a YYYY-MM month. */
+export function monthName(month: string, style: 'long' | 'short' = 'long', locale?: string): string {
+  return fromDateKey(`${month}-01`).toLocaleDateString(locale, { month: style })
+}
+
+/** "October 2026" for a YYYY-MM month. */
+export function monthYear(month: string, locale?: string): string {
+  return fromDateKey(`${month}-01`).toLocaleDateString(locale, { month: 'long', year: 'numeric' })
+}
+
 /** "12 Oct" for weekly chart axes. */
 export function dayMonth(key: string, locale?: string): string {
   return fromDateKey(key).toLocaleDateString(locale, { day: 'numeric', month: 'short' })

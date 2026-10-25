@@ -28,6 +28,7 @@ describe('parseRoute', () => {
     const { parseRoute, hashFor } = await import('../../src/lib/route')
     expect(parseRoute('#/insights/week-2026-10-19')).toEqual({ tab: 'insights', sub: 'week-2026-10-19' })
     expect(parseRoute('#/insights')).toEqual({ tab: 'insights', sub: null })
+    expect(parseRoute('#/shopping/2026-09')).toEqual({ tab: 'shopping', sub: '2026-09' })
     expect(parseRoute('#/nope/abc')).toEqual({ tab: 'today', sub: null })
     expect(hashFor('insights', 'a b')).toBe('#/insights/a%20b')
     expect(parseRoute(hashFor('insights', 'a b'))).toEqual({ tab: 'insights', sub: 'a b' })

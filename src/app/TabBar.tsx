@@ -45,6 +45,16 @@ const ITEMS: { tab: Tab; label: string; icon: ReactNode }[] = [
     ),
   },
   {
+    tab: 'shopping',
+    label: 'Shopping',
+    icon: (
+      <svg {...ICON_PROPS}>
+        <path d="M3 9h18l-1.8 10.2a1 1 0 0 1-1 .8H5.8a1 1 0 0 1-1-.8Z" />
+        <path d="M8 9l4-5 4 5M9.5 13v3M14.5 13v3" />
+      </svg>
+    ),
+  },
+  {
     tab: 'insights',
     label: 'Insights',
     icon: (
