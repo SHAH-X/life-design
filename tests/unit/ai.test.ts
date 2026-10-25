@@ -113,6 +113,17 @@ describe('Gemini (v0.18), through its OpenAI-compatible address', () => {
     expect(defaultModel('gemini', ['gemini-9-pro', 'gemini-2.5-flash'])).toBe('gemini-2.5-flash')
   })
 
+  it('picks the newest plain flash a key lists, never a -lite or -preview, so the choice keeps up as Google renames them', () => {
+    // Google's Flash models in October 2026 (ai.google.dev pricing): the list named in the code had gone stale.
+    const october2026 = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite', 'gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-flash-latest']
+    expect(defaultModel('gemini', october2026)).toBe('gemini-3.8-flash')
+    // Versions compare as numbers: 3.10 is newer than 3.9.
+    expect(defaultModel('gemini', ['gemini-3.9-flash', 'gemini-3.10-flash', 'gemini-4-flash-preview', 'gemini-4.1-flash-lite'])).toBe('gemini-3.10-flash')
+    // With no plain one, the latest alias, then any flash.
+    expect(defaultModel('gemini', ['gemini-flash-latest', 'gemini-9-pro'])).toBe('gemini-flash-latest')
+    expect(defaultModel('gemini', ['gemini-3-flash-preview', 'gemini-9-pro'])).toBe('gemini-3-flash-preview')
+  })
+
   it('takes its 400 "pass a valid API key" as a refused key, in the app’s own words; another 400 stays unexpected', async () => {
     const refused = fakeFetch(() => json([{ error: { code: 400, message: 'Please pass a valid API key', status: 'INVALID_ARGUMENT' } }], 400))
     const error = await listModels('gemini', GEMINI_KEY, refused.fn).catch((e: unknown) => e)

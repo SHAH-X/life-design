@@ -28,8 +28,9 @@ export const PROVIDERS: Record<AiProvider, ProviderInfo> = {
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
     paid: false,
     keyUrl: 'https://aistudio.google.com/apikey',
-    // Its newest fast models first; with none of these, the first "flash" your key lists, then any.
-    preferred: ['gemini-3-flash', 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-pro'],
+    // The newest plain flash your key lists comes first (newestGeminiFlash: Google renames them every few months, and
+    // a list of names went stale); with none, these, then the first "flash", then any.
+    preferred: ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.5-pro'],
   },
   openai: {
     label: 'OpenAI',
@@ -99,8 +100,27 @@ export function chatModels(ids: readonly string[]): string[] {
   return ids.map((id) => id.replace(/^models\//, '')).filter((id) => !NOT_CHAT.test(id)).sort()
 }
 
+/** Gemini's newest plain fast model a key lists, "gemini-3.8-flash": never a -lite, -preview or other variant.
+ *  Versions compare as numbers (3.10 is newer than 3.9). */
+function newestGeminiFlash(models: readonly string[]): string | undefined {
+  const version = (id: string) => id.match(/^gemini-(\d+)(?:\.(\d+))?-flash$/)
+  return models
+    .filter((id) => version(id))
+    .sort((a, b) => {
+      const [, aMajor, aMinor = '0'] = version(a)!
+      const [, bMajor, bMinor = '0'] = version(b)!
+      return Number(bMajor) - Number(aMajor) || Number(bMinor) - Number(aMinor)
+    })[0]
+}
+
 export function defaultModel(provider: AiProvider, models: readonly string[]): string | null {
-  return PROVIDERS[provider].preferred.find((id) => models.includes(id)) ?? (provider === 'gemini' ? models.find((id) => /flash/.test(id)) : undefined) ?? models[0] ?? null
+  return (
+    (provider === 'gemini' ? newestGeminiFlash(models) : undefined) ??
+    PROVIDERS[provider].preferred.find((id) => models.includes(id)) ??
+    (provider === 'gemini' ? models.find((id) => /flash/.test(id)) : undefined) ??
+    models[0] ??
+    null
+  )
 }
 
 type Fetch = typeof fetch
