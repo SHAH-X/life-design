@@ -15,9 +15,10 @@ const KEY_PROBLEMS = new Set<string>([AI_PROBLEMS.key, PHOTO_KEY_PROBLEM])
  * hasn't read (a receipt goes by itself; any other photo only on this tap). A receipt the AI read before items had
  * kinds (v0.19) or plain names (v0.19.3) can be read again, on a tap, to sort and name them for Shopping. A receipt
  * still to be read is read by itself while the app is open (v0.19.4), so a problem that passes is said that way; a
- * refused key needs you, so it's said as it is.
+ * refused key needs you, so it's said as it is. A receipt already added from an earlier photo says it's counted once
+ * (v0.19.5).
  */
-export function PhotoReading(props: { photo: PhotoRef; phoneProblem: string | null; phoneReading: boolean; aiProblem: string | null }) {
+export function PhotoReading(props: { photo: PhotoRef; phoneProblem: string | null; phoneReading: boolean; aiProblem: string | null; copy?: boolean }) {
   const { photo, phoneProblem, phoneReading } = props
   const reader = useLiveQuery(() => photoReaderSettings(db), [])
   const [busy, setBusy] = useState(false)
@@ -73,6 +74,7 @@ export function PhotoReading(props: { photo: PhotoRef; phoneProblem: string | nu
           </p>
         </>
       ) : null}
+      {props.copy ? <p className="muted small">Already in Shopping from an earlier photo: counted once.</p> : null}
       {waiting ? <p className="muted small">{waiting}</p> : null}
       {problem ? (
         <p className="error small" role="alert">

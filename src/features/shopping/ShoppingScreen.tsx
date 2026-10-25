@@ -9,10 +9,11 @@ import {
   type KindLine,
   type Kinds,
   type KnownReceipt,
+  type ReceiptCopy,
   money,
   monthTotals,
   paid,
-  receiptsOf,
+  receiptsAndCopies,
   SMALL_SHOP,
   type ShoppingMonth,
   shoppingMonth,
@@ -55,7 +56,7 @@ export function ShoppingScreen({ sub }: { sub: string | null }) {
     const entry = byId.get(receipt.entryId)
     if (entry) setSheet({ kind: 'open', entry })
   }
-  const receipts = receiptsOf(entries)
+  const { receipts, copies } = receiptsAndCopies(entries)
   const today = toDateKey(new Date())
   const thisMonth = today.slice(0, 7)
   const month = sub && /^\d{4}-\d{2}$/.test(sub) ? sub : thisMonth
@@ -63,14 +64,14 @@ export function ShoppingScreen({ sub }: { sub: string | null }) {
   return (
     <>
       {month === thisMonth ? (
-        <ThisMonth receipts={receipts} today={today} onOpen={open} />
+        <ThisMonth receipts={receipts} copies={copies} today={today} onOpen={open} />
       ) : (
         <>
           <a className="back-link" href={hashFor('shopping')}>
             ‹ Shopping
           </a>
           <h1>{monthYear(month)}</h1>
-          <Month receipts={receipts} month={month} today={today} onOpen={open} />
+          <Month receipts={receipts} copies={copies} month={month} today={today} onOpen={open} />
         </>
       )}
       <EntrySheet state={sheet} onChange={setSheet} suggestions={suggestions} own={own} purpose={purpose} />
@@ -78,7 +79,7 @@ export function ShoppingScreen({ sub }: { sub: string | null }) {
   )
 }
 
-function ThisMonth({ receipts, today, onOpen }: { receipts: readonly KnownReceipt[]; today: string; onOpen: (r: KnownReceipt) => void }) {
+function ThisMonth({ receipts, copies, today, onOpen }: { receipts: readonly KnownReceipt[]; copies: readonly ReceiptCopy[]; today: string; onOpen: (r: KnownReceipt) => void }) {
   const [sharing, setSharing] = useState(false)
   const headingId = useId()
   const thisMonth = today.slice(0, 7)
@@ -94,7 +95,7 @@ function ThisMonth({ receipts, today, onOpen }: { receipts: readonly KnownReceip
   return (
     <>
       <h1>Shopping</h1>
-      <Month receipts={receipts} month={thisMonth} today={today} onOpen={onOpen} />
+      <Month receipts={receipts} copies={copies} month={thisMonth} today={today} onOpen={onOpen} />
       {earlier.length ? (
         <section aria-labelledby={headingId}>
           <h2 id={headingId} className="week-title">
@@ -129,8 +130,9 @@ function ThisMonth({ receipts, today, onOpen }: { receipts: readonly KnownReceip
 }
 
 /** Everything about one month, top to bottom: how much, each month, where, what changed, what came back, to check. */
-function Month({ receipts, month, today, onOpen }: { receipts: readonly KnownReceipt[]; month: string; today: string; onOpen: (r: KnownReceipt) => void }) {
-  const its = shoppingMonth(receipts, month, today)
+function Month(props: { receipts: readonly KnownReceipt[]; copies: readonly ReceiptCopy[]; month: string; today: string; onOpen: (r: KnownReceipt) => void }) {
+  const { receipts, month, today, onOpen } = props
+  const its = shoppingMonth(receipts, month, today, props.copies)
   if (its.receipts.length === 0) return <p className="muted">No receipts in {monthYear(month)}.</p>
   const shops = its.shops.ranked.length + its.shops.others.filter((s) => s.name !== null).length
   return (
