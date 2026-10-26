@@ -193,7 +193,8 @@ test('a receipt Gemini is too busy to read waits, says so, and is read by itself
   await page.goto('./#/entries')
   await entryButton(page, 'Photo').click()
   const dialog = page.getByRole('dialog', { name: 'Photo' })
-  await expect(dialog.getByText("Couldn't be read just now: it's tried again by itself while the app is open.")).toBeVisible({ timeout: 10_000 })
+  // Why, in words (owner, 2026-10-26: the same message every time, its reason hidden).
+  await expect(dialog.getByText("Couldn't be read just now. The service is busy. Try again in a minute. It's tried again by itself while the app is open.")).toBeVisible({ timeout: 10_000 })
   await expect(dialog.getByRole('alert')).toHaveCount(0)
   await dialog.getByRole('button', { name: 'Done', exact: true }).click()
 
@@ -204,6 +205,25 @@ test('a receipt Gemini is too busy to read waits, says so, and is read by itself
   await expect.poll(() => photos.length, { timeout: 15_000 }).toBe(1)
   await page.goto('./#/more/photos')
   await expect(page.getByText(/waiting for Gemini/)).toHaveCount(0)
+})
+
+// A tap says its own problem, even on a receipt waiting to go by itself (owner, 2026-10-26: it showed the waiting line).
+test('a tap on Read with AI that Gemini refuses says why, on a receipt waiting to go by itself too', async ({ page }, testInfo) => {
+  await fakeGemini(page)
+  await page.route('https://generativelanguage.googleapis.com/**/chat/completions', (route) =>
+    route.request().method() === 'OPTIONS'
+      ? route.fallback()
+      : route.fulfill({ status: 429, headers: CORS, contentType: 'application/json', body: JSON.stringify({ error: { message: 'Quota exceeded.' } }) }),
+  )
+  await restorePhotos(page, testInfo.outputPath('photos.json'))
+  await setUpGemini(page)
+  await page.goto('./#/more/photos')
+  await page.getByRole('switch', { name: /Read the text in photos/ }).check()
+  await page.goto('./#/entries')
+  await entryButton(page, 'Photo').click()
+  const dialog = page.getByRole('dialog', { name: 'Photo' })
+  await dialog.getByRole('button', { name: 'Read with AI' }).click()
+  await expect(dialog.getByRole('alert')).toHaveText("That's more than the service allows just now. Wait a minute and try again.", { timeout: 20_000 })
 })
 
 test('Groq for Ask and reviews, Gemini for photos: a key of its own on Reading photos', async ({ page }, testInfo) => {

@@ -30,12 +30,14 @@ export function PhotoReading(props: { photo: PhotoRef; phoneProblem: string | nu
   const again = unsorted ? 'to give its items proper names and sort them into kinds' : unnamed ? 'to give its items proper names' : null
   // A receipt waiting to go by itself shows why it hasn't; a tap's own problem shows after the tap.
   const byItself = Boolean(phoneReading && reader?.auto && dueForAi(photo))
-  const said = tapProblem ?? (byItself ? props.aiProblem : null)
-  const passes = byItself && said !== null && !KEY_PROBLEMS.has(said)
-  const problem = passes ? null : said
+  // A tap's problem always shows as itself (owner, 2026-10-26: one hid behind the waiting line). A problem with the
+  // tries by itself says why too, unless it's the key, which waits for you.
+  const background = byItself ? props.aiProblem : null
+  const passes = !tapProblem && background !== null && !KEY_PROBLEMS.has(background)
+  const problem = tapProblem ?? (passes ? null : background)
   const waiting = byItself && !busy && !problem && reader
     ? passes
-      ? "Couldn't be read just now: it's tried again by itself while the app is open."
+      ? `Couldn't be read just now. ${background} It's tried again by itself while the app is open.`
       : `Waiting for ${PROVIDERS[reader.provider].label}: read by itself while the app is open.`
     : null
   const read = async () => {
