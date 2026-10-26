@@ -279,7 +279,7 @@ function PayeeLine({ group }: { group: PayeeGroup }) {
           <span>{group.payee.name}</span>
           <span className="muted small">
             {' '}
-            · {paymentsWord(group.lines.length)} · {pounds(group.total)}
+            · {paymentsWord(group.lines.filter((l) => !l.refund).length)} · {pounds(group.total)}
           </span>
         </summary>
         <LineList lines={group.lines} />
@@ -353,7 +353,7 @@ function LineList({ lines, why, moves = false }: { lines: readonly MoneyLine[]; 
     if (to) return `${name(l.account)} → ${name(to.account)}`
     if (l.moving === 'flex') return l.amount > 0 ? 'Spread with Flex' : `Paid off, from ${name(l.account)}`
     if (l.moving === 'own') return l.amount < 0 ? `${name(l.account)} → ${l.payee.name}` : `${l.payee.name} → ${name(l.account)}`
-    const way = l.amount < 0 ? `out of ${name(l.account)}` : `into ${name(l.account)}`
+    const way = l.amount < 0 ? `out of ${name(l.account)}` : l.refund ? `back into ${name(l.account)}` : `into ${name(l.account)}`
     return payees ? `${l.payee.name} · ${way}` : way[0]!.toUpperCase() + way.slice(1)
   }
   return (
