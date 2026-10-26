@@ -161,6 +161,7 @@ function nameAbove(above: readonly Line[], bank: string): string | null {
     const number = line.text.match(/\baccount (?:number|no\.?)\s*:?\s*(\d{6,8})\b/i)
     if (number) return `${bank} ···${number[1]!.slice(-4)}`
   }
+  if (above.some((line) => /^flex statement$/i.test(line.text))) return 'Monzo Flex'
   const potName = above.findIndex((line) => /^pot name$/i.test(line.text))
   if (potName > 0) return `${bank} ${above[potName - 1]!.text} pot`
   if (above.some((line) => /\bpot statement\b/i.test(line.text))) return `${bank} pot`
@@ -203,7 +204,8 @@ export function readStatement(all: readonly TextPiece[]): { accounts: StatementA
         return found ? pence(found.str) : null
       }
       const [amount, moneyIn, moneyOut] = [money('amount'), money('in'), money('out')]
-      const value = amount ?? (moneyIn !== null ? Math.abs(moneyIn) : moneyOut !== null ? -Math.abs(moneyOut) : null)
+      // Some statements fill the unused column with 0.00 (Monzo Flex's): in less out, either one missing as nothing.
+      const value = amount ?? (moneyIn === null && moneyOut === null ? null : Math.abs(moneyIn ?? 0) - Math.abs(moneyOut ?? 0))
       if (value === null) return []
       inRows.add(row.anchor)
       for (const p of row.pieces) inRows.add(p)
@@ -244,9 +246,14 @@ export function readStatement(all: readonly TextPiece[]): { accounts: StatementA
     if (printed.length === 0) return []
     // Oldest first (some banks print newest first), then each balance checked against the line before.
     const lines = printed[0]!.date > printed.at(-1)!.date ? [...printed].reverse() : [...printed]
-    lines.forEach((line, i) => {
+    // A card's or Flex's balance is what you owe, so money out raises it: whichever way more lines follow.
+    const follows = (owed: boolean) => (line: StatementLine, i: number) => {
       const before = lines[i - 1]?.balance
-      line.adds = i === 0 || before === null || before === undefined || line.balance === null || before + line.amount === line.balance
+      return i === 0 || before === null || before === undefined || line.balance === null || before + (owed ? -line.amount : line.amount) === line.balance
+    }
+    const owed = lines.filter(follows(true)).length > lines.filter(follows(false)).length
+    lines.forEach((line, i) => {
+      line.adds = follows(owed)(line, i)
     })
     const dates = lines.map((l) => l.date).sort()
     return [{ account, from: period?.from ?? dates[0]!, to: period?.to ?? dates.at(-1)!, lines }]

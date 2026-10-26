@@ -88,3 +88,13 @@ export async function namePayee(key: string, name: string, database: LifeDesignD
   const { [key]: _, ...rest } = accountNamesOf(await database.settings.get(PAYEE_NAMES))
   await setSetting(PAYEE_NAMES, name.trim() ? { ...rest, [key]: name.trim() } : rest, database)
 }
+
+/** Takes an account out wholly (owner, 2026-10-26: a statement read wrongly): its lines, its statements and your name
+ *  for it. Bringing its statements in again puts it back. */
+export async function removeAccount(account: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  await database.transaction('rw', database.bankLines, database.statements, database.settings, async () => {
+    await database.bankLines.where('account').equals(account).delete()
+    await database.statements.where('account').equals(account).delete()
+    await nameAccount(account, '', database)
+  })
+}

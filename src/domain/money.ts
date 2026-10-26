@@ -43,6 +43,9 @@ export function payeeOf(description: string): Payee {
 function movingOf(line: BankLine, payee: Payee, own: ReadonlySet<string>): Moving | null {
   const words = line.description.trim().toLowerCase()
   if (line.account.startsWith('Monzo') && words === 'flex') return 'flex'
+  // The Flex statement itself: a purchase moved to Flex is on the current account already, and paying Flex is the
+  // other side of the current account's "Flex" line. What Flex paid itself, and its refunds, count.
+  if (line.account === 'Monzo Flex' && (/\bmoved to flex$/.test(words) || /^you paid (?:early|extra)\b/.test(words))) return 'flex'
   if (line.account.endsWith(' pot')) return /\binterest\b/.test(words) ? null : 'pot'
   if (/^transfer (?:from|to) pot\b/.test(words)) return 'pot'
   if (own.has(payee.key)) return 'own'
