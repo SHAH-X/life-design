@@ -74,10 +74,11 @@ export function accountNames(accounts: readonly string[], chosen: Readonly<Recor
 /** How far apart (days) the two sides of a transfer between your accounts can be. */
 const TRANSFER_DAYS = 3
 
-/** Each line with its payee, and whether it's money moved (in the order given). */
-export function classify(lines: readonly BankLine[], own: ReadonlySet<string>): MoneyLine[] {
+/** Each line with its payee (by the name you gave it, if any), and whether it's money moved (in the order given). */
+export function classify(lines: readonly BankLine[], own: ReadonlySet<string>, named: Readonly<Record<string, string>> = {}): MoneyLine[] {
   const classed = lines.map((line): MoneyLine => {
-    const payee = payeeOf(line.description)
+    const printed = payeeOf(line.description)
+    const payee = named[printed.key] ? { ...printed, name: named[printed.key]! } : printed
     return { ...line, payee, moving: movingOf(line, payee, own) }
   })
   const apart = (a: MoneyLine, b: MoneyLine) => Math.abs(dayNumber(a.date) - dayNumber(b.date))

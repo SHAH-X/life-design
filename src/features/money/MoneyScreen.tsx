@@ -2,9 +2,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { createContext, type ReactNode, useContext, useId, useState } from 'react'
 import { db } from '../../db/db'
 import { loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
-import { markOwnPayee, OWN_PAYEES, ownPayeesOf } from '../../db/statements'
+import { accountNamesOf, markOwnPayee, namePayee, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES } from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
-import { classify, linkReceipts, mayBeOwn, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type PayeeGroup, type Ranked, regularPayments, type Rise } from '../../domain/money'
+import { classify, linkReceipts, mayBeOwn, payeeOf, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type PayeeGroup, type Ranked, regularPayments, type Rise } from '../../domain/money'
 import { inWords, type KnownReceipt, money, receiptsAndCopies, shiftMonth, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -13,7 +13,7 @@ import { Loading } from '../../ui/Loading'
 import { EntrySheet, type EntrySheetState } from '../today/EntrySheet'
 import { useOwnWords } from '../today/useOwnWords'
 import { usePurposeSettings } from '../today/usePurpose'
-import { Accounts } from './Accounts'
+import { Accounts, RenameSheet } from './Accounts'
 import { ReceiptsMonth, ReceiptsShare, receiptsWord, Section } from './Receipts'
 import { useAccountNames } from './useAccountNames'
 
@@ -50,13 +50,14 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
   const statements = useLiveQuery(() => db.statements.toArray(), [])
   const own = useLiveQuery(async () => ownPayeesOf(await db.settings.get(OWN_PAYEES)), [])
   const names = useAccountNames()
+  const payeeNames = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYEE_NAMES)), [])
   const ownWords = useOwnWords()
   const purpose = usePurposeSettings()
   const suggestions = useLiveQuery(() => loadSuggestions(), [], NO_SUGGESTIONS)
   const [sheet, setSheet] = useState<EntrySheetState>(null)
   const earlierId = useId()
   // Render only once loaded, so nothing jumps under your finger.
-  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || ownWords === undefined || purpose === undefined) return <Loading />
+  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || ownWords === undefined || purpose === undefined) return <Loading />
 
   const byId = new Map(entries.map((e) => [e.id, e]))
   const open = (receipt: KnownReceipt) => {
@@ -64,7 +65,7 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
     if (entry) setSheet({ kind: 'open', entry })
   }
   const { receipts, copies } = receiptsAndCopies(entries)
-  const lines = classify(bankLines, new Set(own))
+  const lines = classify(bankLines, new Set(own), payeeNames)
   const links = linkReceipts(lines, receipts)
   const today = toDateKey(new Date())
   const thisMonth = today.slice(0, 7)
@@ -290,31 +291,49 @@ function PayeeLine({ group }: { group: PayeeGroup }) {
   )
 }
 
-/** Payees you marked as your own, each with a way back. */
+/** Payees you marked as your own, each with a way back, and a name of your own (owner, 2026-10-26: a statement prints
+ *  your name, not which account it went to). Payees you gave one name are one. */
 function OwnLines({ lines }: { lines: readonly MoneyLine[] }) {
-  const payees = [...new Map(lines.map((l) => [l.payee.key, l.payee])).values()]
+  const [naming, setNaming] = useState<{ name: string; keys: string[]; printed: string } | null>(null)
+  const byName = [...new Set(lines.map((l) => l.payee.name))]
   return (
     <>
-      {payees.map((payee) => {
-        const theirs = lines.filter((l) => l.payee.key === payee.key)
+      {byName.map((name) => {
+        const theirs = lines.filter((l) => l.payee.name === name)
+        const keys = [...new Set(theirs.map((l) => l.payee.key))]
+        const printed = [...new Set(theirs.map((l) => payeeOf(l.description).name))].join(', ')
         return (
-          <li key={payee.key}>
+          <li key={name}>
             <details className="week-line">
               <summary>
-                <span>{payee.name}</span>
+                <span>{name}</span>
                 <span className="muted small">
                   {' '}
                   · {MOVED.own} · {paymentsWord(theirs.length)}
                 </span>
               </summary>
               <LineList lines={theirs} />
-              <button type="button" className="small-link" onClick={() => void markOwnPayee(payee.key, false)}>
+              <button type="button" className="small-link" aria-label={`Rename ${name}`} onClick={() => setNaming({ name, keys, printed })}>
+                Rename
+              </button>
+              <button type="button" className="small-link" onClick={() => void Promise.all(keys.map((key) => markOwnPayee(key, false)))}>
                 It’s not me: count it again
               </button>
             </details>
           </li>
         )
       })}
+      {naming ? (
+        <RenameSheet
+          title="Rename where it went"
+          shown={naming.name}
+          hint={`Your statement says ${naming.printed}. Left empty, it’s that again.`}
+          onSave={async (name) => {
+            for (const key of naming.keys) await namePayee(key, name)
+          }}
+          onClose={() => setNaming(null)}
+        />
+      ) : null}
     </>
   )
 }

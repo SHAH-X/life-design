@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
-import { ACCOUNT_NAMES, accountNamesOf, bringInStatement, markOwnPayee, nameAccount, OWN_PAYEES, ownPayeesOf } from '../../src/db/statements'
+import { ACCOUNT_NAMES, accountNamesOf, bringInStatement, markOwnPayee, nameAccount, namePayee, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES } from '../../src/db/statements'
 import { readStatement, type StatementAccount } from '../../src/domain/statements'
 import { piecesOf } from '../fixtures/pdf'
 import { LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
@@ -78,6 +78,8 @@ describe('bringInStatement: a statement’s lines kept on the phone, each once',
     expect(accountNamesOf(await phone.settings.get(ACCOUNT_NAMES))).toEqual({ 'Lloyds ···4321': 'Joint account' })
     expect(accountNamesOf({ value: ['not', 'names'] })).toEqual({})
     expect(accountNamesOf({ value: { a: 'A', b: 2 } })).toEqual({ a: 'A' })
+    await namePayee('a n other', 'Example savings', phone)
+    expect(accountNamesOf(await phone.settings.get(PAYEE_NAMES))).toEqual({ 'a n other': 'Example savings' })
   })
 
   it('counts the lines whose printed balance doesn’t follow, to check', async () => {

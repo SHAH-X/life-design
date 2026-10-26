@@ -74,17 +74,27 @@ export function Accounts() {
         Bring in a statement
       </button>
       {importing ? <StatementImport onClose={() => setImporting(false)} /> : null}
-      {naming && names ? <RenameAccount account={naming} shown={names.get(naming) ?? naming} onClose={() => setNaming(null)} /> : null}
+      {naming && names ? (
+        <RenameSheet
+          title="Rename this account"
+          shown={names.get(naming) ?? naming}
+          hint={`Its statement says ${naming}. Left empty, it’s named by its bank.`}
+          onSave={(name) => nameAccount(naming, name)}
+          onClose={() => setNaming(null)}
+        />
+      ) : null}
     </section>
   )
 }
 
-/** A name of your own for an account ("Joint account"): left empty, it's the bank's name again. */
-function RenameAccount({ account, shown, onClose }: { account: string; shown: string; onClose: () => void }) {
+/** A name of your own for an account ("Joint account") or a payee you move money to ("First Direct"): left empty, it's
+ *  the bank's name again. */
+export function RenameSheet(props: { title: string; shown: string; hint: string; onSave: (name: string) => Promise<void>; onClose: () => void }) {
+  const { title, shown, hint, onSave, onClose } = props
   const [name, setName] = useState(shown)
   const id = useId()
   const save = async () => {
-    await nameAccount(account, name)
+    await onSave(name)
     onClose()
   }
   const footer = (
@@ -93,12 +103,12 @@ function RenameAccount({ account, shown, onClose }: { account: string; shown: st
     </button>
   )
   return (
-    <Dialog title="Rename this account" onClose={onClose} footer={footer} full>
+    <Dialog title={title} onClose={onClose} footer={footer} full>
       <label className="question-text" htmlFor={id}>
         What do you call it?
       </label>
-      <input id={id} data-autofocus value={name} maxLength={40} autoCapitalize="sentences" placeholder={account} onChange={(e) => setName(e.target.value)} />
-      <p className="muted small">Its statement says {account}. Left empty, it’s named by its bank.</p>
+      <input id={id} data-autofocus value={name} maxLength={40} autoCapitalize="sentences" onChange={(e) => setName(e.target.value)} />
+      <p className="muted small">{hint}</p>
     </Dialog>
   )
 }

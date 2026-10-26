@@ -78,3 +78,13 @@ export async function nameAccount(account: string, name: string, database: LifeD
   const { [account]: _, ...rest } = accountNamesOf(await database.settings.get(ACCOUNT_NAMES))
   await setSetting(ACCOUNT_NAMES, name.trim() ? { ...rest, [account]: name.trim() } : rest, database)
 }
+
+/** The names you gave payees you move money to (owner, 2026-10-26: a statement prints your own name, not which account), by the
+ *  payee's key: a setting, so it's in a backup. Read with `accountNamesOf`; shown by `classify`. */
+export const PAYEE_NAMES = 'payeeNames'
+
+/** Gives a payee your name for it; a blank name goes back to the printed one. */
+export async function namePayee(key: string, name: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  const { [key]: _, ...rest } = accountNamesOf(await database.settings.get(PAYEE_NAMES))
+  await setSetting(PAYEE_NAMES, name.trim() ? { ...rest, [key]: name.trim() } : rest, database)
+}

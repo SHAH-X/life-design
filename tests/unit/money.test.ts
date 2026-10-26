@@ -56,6 +56,15 @@ describe('accountNames: an account by its bank’s name, or the name you gave it
   })
 })
 
+describe('classify: a payee by the name you gave it (owner, 2026-10-26)', () => {
+  it('shows your name, keeping the payee as it was for what you said about it', () => {
+    const [named, other] = classify([line(BANK, '2026-10-02', -50, 'A N OTHER', { type: 'FPO' }), line(BANK, '2026-10-03', -9, 'EXAMPLE GYM')], new Set(['a n other']), { 'a n other': 'Example savings' })
+    expect(named!.payee).toEqual({ key: 'a n other', name: 'Example savings' })
+    expect(named!.moving).toBe('own')
+    expect(other!.payee.name).toBe('EXAMPLE GYM')
+  })
+})
+
 describe('mayBeOwn: “It’s me, moving money” is offered only where it could be', () => {
   it('not for a known shop, nor a payee paid by card', () => {
     expect(mayBeOwn(classify([line(CURRENT, '2026-10-02', -18, 'ALDI SOMETOWN GBR')], new Set()))).toBe(false)
