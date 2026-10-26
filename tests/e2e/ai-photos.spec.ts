@@ -30,7 +30,7 @@ async function fakeGemini(page: Page) {
     const request = route.request()
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
     const json = (body: object) => route.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify(body) })
-    if (request.url().endsWith('/models')) return json({ data: [{ id: 'models/gemini-2.5-flash' }] })
+    if (request.url().endsWith('/models')) return json({ data: [{ id: 'models/gemini-2.5-flash' }, { id: 'models/gemini-2.5-flash-lite' }] })
     const body = JSON.parse(request.postData() ?? '{}') as { messages: { content: Part[] }[]; reasoning_effort?: unknown }
     efforts.push(body.reasoning_effort)
     const image = body.messages[0]!.content.find((p) => p.type === 'image_url')!.image_url!.url
@@ -82,7 +82,8 @@ test('a receipt goes to your AI by itself once it’s set up; another photo only
   await page.goto('./#/entries')
   await entryButton(page, 'Photo').click()
   const receipt = page.getByRole('dialog', { name: 'Photo' })
-  await expect(receipt.getByText('Read by Gemini · gemini-2.5-flash')).toBeVisible()
+  // Receipts go to the lighter model the key lists, with a free daily limit of its own (owner, 2026-10-26).
+  await expect(receipt.getByText('Read by Gemini · gemini-2.5-flash-lite')).toBeVisible()
   await expect(receipt.getByRole('button', { name: 'Read with AI' })).toHaveCount(0)
   await receipt.getByText('Text in this photo').click()
   await expect(receipt.locator('.photo-text')).toContainText('ORG OAT MLK')
@@ -224,6 +225,33 @@ test('a tap on Read with AI that Gemini refuses says why, on a receipt waiting t
   const dialog = page.getByRole('dialog', { name: 'Photo' })
   await dialog.getByRole('button', { name: 'Read with AI' }).click()
   await expect(dialog.getByRole('alert')).toHaveText("That's more than the service allows just now. Wait a minute and try again.", { timeout: 20_000 })
+})
+
+// Gemini's limit for the day: said with when it starts again, and nothing goes by itself till then (owner, 2026-10-26:
+// tries every few minutes kept it used up).
+test('a receipt over Gemini’s daily limit says so, and isn’t sent again by itself until the limit starts again', async ({ page }, testInfo) => {
+  await fakeGemini(page)
+  let sent = 0
+  const perDay = [{ error: { code: 429, status: 'RESOURCE_EXHAUSTED', details: [{ violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier' }] }] } }]
+  await page.route('https://generativelanguage.googleapis.com/**/chat/completions', (route) => {
+    if (route.request().method() === 'OPTIONS') return route.fallback()
+    sent++
+    return route.fulfill({ status: 429, headers: CORS, contentType: 'application/json', body: JSON.stringify(perDay) })
+  })
+  await restorePhotos(page, testInfo.outputPath('photos.json'))
+  await setUpGemini(page)
+  await page.goto('./#/more/photos')
+  await page.getByRole('switch', { name: /Read the text in photos/ }).check()
+  await expect.poll(() => sent, { timeout: 30_000 }).toBe(1)
+  await page.goto('./#/entries')
+  await entryButton(page, 'Photo').click()
+  const dialog = page.getByRole('dialog', { name: 'Photo' })
+  await expect(dialog.getByText(/Gemini’s free limit for today is used up\. It starts again at \d{1,2}:\d\d( [AP]M)?\./)).toBeVisible({ timeout: 10_000 })
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+  await page.clock.fastForward('31:00')
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await page.waitForTimeout(3_000)
+  expect(sent).toBe(1)
 })
 
 test('Groq for Ask and reviews, Gemini for photos: a key of its own on Reading photos', async ({ page }, testInfo) => {

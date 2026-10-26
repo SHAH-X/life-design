@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { AiError, chatModels, defaultModel, listModels, PROVIDERS, reviewWithAi } from '../../src/lib/ai'
+import { AiError, chatModels, dailyReset, defaultModel, lighterGemini, listModels, PROVIDERS, reviewWithAi } from '../../src/lib/ai'
 
 // Review with AI (v0.12): our own small client for Groq and OpenAI (both speak the OpenAI chat format). The key is
 // fake: real keys never go into the repo (the privacy scan refuses them).
@@ -133,6 +133,38 @@ describe('reviewWithAi', () => {
       new Promise<Response>((_, reject) => call.init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))))
     const { fn } = fakeFetch(never)
     await expect(reviewWithAi({ provider: 'groq', key: KEY, model: 'm', instructions: 'i', data: 'd' }, fn, 20)).rejects.toMatchObject({ problem: 'timeout' })
+  })
+})
+
+describe('Gemini’s free daily limit (owner, 2026-10-26: retries kept it used up)', () => {
+  // Google's refusal names the quota; read only to tell which problem it is, never shown.
+  const perDay = [{ error: { code: 429, status: 'RESOURCE_EXHAUSTED', details: [{ violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier' }] }] } }]
+  const perMinute = [{ error: { code: 429, status: 'RESOURCE_EXHAUSTED', details: [{ violations: [{ quotaId: 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier' }] }] } }]
+  const problem = async (body: unknown) => {
+    const { fn } = fakeFetch(() => json(body, 429))
+    try {
+      await listModels('gemini', 'AI-test', fn)
+    } catch (error) {
+      return (error as AiError).problem
+    }
+  }
+  it('tells the daily limit from the per-minute one', async () => {
+    expect(await problem(perDay)).toBe('daily')
+    expect(await problem(perMinute)).toBe('limit')
+  })
+  it('resets at midnight Pacific time, which moves with the clocks', () => {
+    // 26 Oct 2026, 10:00 UK (GMT): California is still on summer time, so midnight there is 07:00 here on the 27th.
+    expect(dailyReset(new Date(Date.UTC(2026, 9, 26, 10))).toISOString()).toBe('2026-10-27T07:00:00.000Z')
+    // 10 Nov: both on winter time, 08:00 GMT.
+    expect(dailyReset(new Date(Date.UTC(2026, 10, 10, 10))).toISOString()).toBe('2026-11-11T08:00:00.000Z')
+  })
+  it('reads receipts with the newest flash-lite a key lists, in place of the plain flash picked by default', () => {
+    const list = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash', 'gemini-3.1-flash-lite', 'gemini-3.1-flash-lite-preview', 'gemini-2.5-pro']
+    expect(lighterGemini('gemini-3.1-flash', list)).toBe('gemini-3.1-flash-lite')
+    expect(lighterGemini('gemini-flash-latest', ['gemini-flash-latest', 'gemini-flash-lite-latest'])).toBe('gemini-flash-lite-latest')
+    // One you chose yourself stays; with no lite listed, the one you have.
+    expect(lighterGemini('gemini-2.5-pro', list)).toBe('gemini-2.5-pro')
+    expect(lighterGemini('gemini-3.1-flash', ['gemini-3.1-flash'])).toBe('gemini-3.1-flash')
   })
 })
 

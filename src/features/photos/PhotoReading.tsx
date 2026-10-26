@@ -5,7 +5,7 @@ import { db } from '../../db/db'
 import type { PhotoRef } from '../../db/types'
 import { dueForAi } from '../../domain/aiReading'
 import { AI_PROBLEMS, AiError, PHOTO_KEY_PROBLEM, PROVIDERS } from '../../lib/ai'
-import { photoReader } from './photoReader'
+import { receiptReader } from './photoReader'
 
 /** Problems that need you: a refused key. */
 const KEY_PROBLEMS = new Set<string>([AI_PROBLEMS.key, PHOTO_KEY_PROBLEM])
@@ -45,7 +45,7 @@ export function PhotoReading(props: { photo: PhotoRef; phoneProblem: string | nu
     setBusy(true)
     setProblem(null)
     try {
-      await readOnePhoto(photo.id, photoReader(reader), db)
+      await readOnePhoto(photo.id, await receiptReader(reader), db)
     } catch (error) {
       setProblem(error instanceof AiError ? error.message : AI_PROBLEMS.other)
     } finally {

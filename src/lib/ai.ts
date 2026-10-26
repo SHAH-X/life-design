@@ -47,13 +47,14 @@ export const asProvider = (value: unknown): AiProvider => (value === 'openai' ||
 /** How long to wait for an answer. */
 export const AI_TIMEOUT_MS = 60_000
 
-export type AiProblem = 'offline' | 'key' | 'limit' | 'busy' | 'timeout' | 'other'
+export type AiProblem = 'offline' | 'key' | 'limit' | 'daily' | 'busy' | 'timeout' | 'other'
 
 /** What went wrong, in words, with what to do next (never the service's own message: it can repeat the key). */
 export const AI_PROBLEMS: Record<AiProblem, string> = {
   offline: "Can't reach the service. Check the internet connection and try again.",
   key: "The key wasn't accepted. Check it in More → AI review.",
   limit: "That's more than the service allows just now. Try a shorter period, wait a minute, or copy it to an AI chat instead.",
+  daily: 'The service’s free limit for today is used up. It starts again overnight; try again tomorrow.',
   busy: 'The service is busy. Try again in a minute.',
   timeout: 'No answer within a minute. Try again, or try a shorter period.',
   other: 'The service sent back something unexpected. Try again later.',
@@ -84,8 +85,48 @@ export class AiError extends Error {
 /** Gemini refuses a key with 400 and says so in its message: read only to tell which problem it is, never shown. */
 const REFUSED_KEY = /api[ _]?key/i
 
+/** A refusal for the day's limit, by the quota it names ("…PerDayPerProjectPerModel-FreeTier"). */
+const PER_DAY = /per ?day/i
+
+/** When Gemini's daily limits start again: midnight in California, whatever the clocks there or here say. */
+export function dailyReset(now: Date): Date {
+  const parts = (at: Date) =>
+    Object.fromEntries(
+      new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' })
+        .formatToParts(at)
+        .map((p) => [p.type, Number(p.value)]),
+    ) as Record<string, number>
+  const offset = (at: Date) => {
+    const p = parts(at)
+    return Date.UTC(p.year!, p.month! - 1, p.day!, p.hour!, p.minute!) - Math.floor(at.getTime() / 60_000) * 60_000
+  }
+  const here = parts(now)
+  const midnight = Date.UTC(here.year!, here.month! - 1, here.day! + 1)
+  // The offset at the moment itself (California's clocks may change that night).
+  return new Date(midnight - offset(new Date(midnight - offset(now))))
+}
+
+/** Receipts with Gemini (owner, 2026-10-26): the newest flash-lite your key lists, which has a free daily limit of its
+ *  own, in place of the plain flash picked by default. A model you chose yourself (a pro, a preview) stays. */
+export function lighterGemini(model: string, models: readonly string[]): string {
+  if (model === 'gemini-flash-latest') return models.includes('gemini-flash-lite-latest') ? 'gemini-flash-lite-latest' : model
+  if (!/^gemini-\d+(?:\.\d+)?-flash$/.test(model)) return model
+  const version = (id: string) => id.match(/^gemini-(\d+)(?:\.(\d+))?-flash-lite$/)
+  return (
+    models
+      .filter((id) => version(id))
+      .sort((a, b) => {
+        const [, aMajor, aMinor = '0'] = version(a)!
+        const [, bMajor, bMinor = '0'] = version(b)!
+        return Number(bMajor) - Number(aMajor) || Number(bMinor) - Number(aMinor)
+      })[0] ?? model
+  )
+}
+
 function problemFor(status: number, body: string): AiProblem {
   if (status === 401 || status === 403 || (status === 400 && REFUSED_KEY.test(body))) return 'key'
+  // Gemini's free tier counts by the minute and by the day: its refusal names which (owner, 2026-10-26).
+  if (status === 429 && PER_DAY.test(body)) return 'daily'
   if (status === 413 || status === 429) return 'limit'
   if (status === 408 || status === 504) return 'timeout'
   if (status >= 500) return 'busy'
