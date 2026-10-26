@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
-import { bringInStatement, markOwnPayee, OWN_PAYEES, ownPayeesOf } from '../../src/db/statements'
+import { ACCOUNT_NAMES, accountNamesOf, bringInStatement, markOwnPayee, nameAccount, OWN_PAYEES, ownPayeesOf } from '../../src/db/statements'
 import { readStatement, type StatementAccount } from '../../src/domain/statements'
 import { piecesOf } from '../fixtures/pdf'
 import { LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
@@ -69,6 +69,15 @@ describe('bringInStatement: a statement’s lines kept on the phone, each once',
     await markOwnPayee('a n other', false, phone)
     expect(ownPayeesOf(await phone.settings.get(OWN_PAYEES))).toEqual(['example gym'])
     expect(ownPayeesOf(undefined)).toEqual([])
+  })
+
+  it('keeps the names you give your accounts; a blank one goes back to the bank’s', async () => {
+    await nameAccount('Lloyds ···4321', '  Joint account ', phone)
+    await nameAccount('Monzo ···5678', 'Spending', phone)
+    await nameAccount('Monzo ···5678', ' ', phone)
+    expect(accountNamesOf(await phone.settings.get(ACCOUNT_NAMES))).toEqual({ 'Lloyds ···4321': 'Joint account' })
+    expect(accountNamesOf({ value: ['not', 'names'] })).toEqual({})
+    expect(accountNamesOf({ value: { a: 'A', b: 2 } })).toEqual({ a: 'A' })
   })
 
   it('counts the lines whose printed balance doesn’t follow, to check', async () => {
