@@ -7,7 +7,7 @@ import { MIN_COUNT } from '../analysis/stats'
 import type { BankLine, StatementRecord } from '../db/types'
 import { addDays, addMonths, dayNumber } from '../lib/dates'
 import { chainOf } from './receipts'
-import { groupBy, shiftMonth } from './shopping'
+import { groupBy, type KnownReceipt, paid, shiftMonth, shopKey } from './shopping'
 
 /** Who a line was paid to or from, as one name (a UK chain's names as the chain). */
 export interface Payee {
@@ -227,4 +227,33 @@ export function regularPayments(lines: readonly MoneyLine[], month: string): Reg
     }
   }
   return found.sort(byName)
+}
+
+/** How many days a card payment can be from its receipt's date: it can post a day or two later. */
+const RECEIPT_DAYS = 3
+
+/** Whether a receipt's shop is a payment's payee: the same chain, or the same first word (3 letters or more). */
+function samePlace(shop: string, payee: Payee): boolean {
+  const key = shopKey(shop)
+  if (!key) return false
+  if (key === payee.key) return true
+  const first = key.split(' ')[0]!
+  return first.length >= 3 && payee.key.split(' ')[0] === first
+}
+
+/** Each card payment with the receipt for it, by the payment's id (v0.20.2): the same amount, within RECEIPT_DAYS, its
+ *  shop the payee. Each payment and each receipt once, the nearest day first; a receipt paid another way (a gift card,
+ *  cash) has none. The two are never added together: a payment opens its receipt. */
+export function linkReceipts(lines: readonly MoneyLine[], receipts: readonly KnownReceipt[]): Map<string, KnownReceipt> {
+  const links = new Map<string, KnownReceipt>()
+  for (const receipt of [...receipts].sort((a, b) => a.date.localeCompare(b.date))) {
+    if (receipt.currency && receipt.currency !== '£') continue
+    const amount = paid(receipt)
+    const days = (l: MoneyLine) => Math.abs(dayNumber(l.date) - dayNumber(receipt.date))
+    const payment = lines
+      .filter((l) => !l.moving && !links.has(l.id) && -l.amount === amount && days(l) <= RECEIPT_DAYS && samePlace(receipt.shop, l.payee))
+      .sort((a, b) => days(a) - days(b))[0]
+    if (payment) links.set(payment.id, receipt)
+  }
+  return links
 }

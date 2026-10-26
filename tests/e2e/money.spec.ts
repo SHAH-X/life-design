@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 import { expect, type Page, test } from '@playwright/test'
 import { expectNoScores } from './helpers'
+import { backupWith, freeWriting, restoreBackup } from './seed'
 import { makePdf, type Placed } from '../fixtures/pdf'
 import { LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
 
@@ -92,4 +93,27 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
 
   for (const line of await page.locator('details.week-line > summary').all()) await line.click()
   await expectNoScores(page, 'Money, from statements, opened')
+})
+
+// Step 3 (v0.20.2): a card payment opens the receipt for it.
+test('a card payment with its receipt opens the receipt', async ({ page }, testInfo) => {
+  const now = new Date(2026, 8, 30, 12, 0)
+  await page.clock.setFixedTime(now)
+  const reading = { by: 'Gemini · gemini-test', at: 1, text: '', description: '', receipt: { shop: 'Example Streaming', date: '2026-09-12', currency: '£', items: [{ name: 'Monthly plan', price: 1099, quantity: 1 }], total: 1099 } }
+  const entry = { ...freeWriting('e-stream', '', 18, now), photos: [{ id: 'p-stream', text: null, ai: reading }] }
+  await restoreBackup(page, testInfo.outputPath('receipt.json'), backupWith({ entries: [entry] }, now))
+  await page.goto('./#/money')
+  const sheet = await bringIn(page, await pdf(testInfo.outputPath('lloyds.pdf'), LLOYDS_LIKE))
+  await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+
+  const out = page.getByRole('region', { name: 'Money out' })
+  await out.locator('summary', { hasText: 'EXAMPLE STREAMING' }).click()
+  const payment = out.getByRole('button', { name: /EXAMPLE STREAMING · Lloyds ···4321 · -£10\.99 · receipt/ })
+  await payment.click()
+  await expect(page.getByRole('dialog', { name: 'Photo' })).toBeVisible()
+  // A payment with no receipt is only words.
+  await page.getByRole('dialog', { name: 'Photo' }).getByRole('button', { name: 'Done', exact: true }).click()
+  await out.locator('summary', { hasText: 'EXAMPLE ENERGY' }).click()
+  await expect(out.getByText(/EXAMPLE ENERGY · Lloyds ···4321 · -£45\.00$/)).toBeVisible()
+  await expect(out.getByRole('button', { name: /EXAMPLE ENERGY/ })).toHaveCount(0)
 })
