@@ -4,7 +4,7 @@ import { db } from '../../db/db'
 import { loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
 import { markOwnPayee, OWN_PAYEES, ownPayeesOf } from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
-import { classify, linkReceipts, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type PayeeGroup, type Ranked, regularPayments, type Rise } from '../../domain/money'
+import { classify, linkReceipts, mayBeOwn, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type PayeeGroup, type Ranked, regularPayments, type Rise } from '../../domain/money'
 import { inWords, type KnownReceipt, money, receiptsAndCopies, shiftMonth, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -15,6 +15,7 @@ import { useOwnWords } from '../today/useOwnWords'
 import { usePurposeSettings } from '../today/usePurpose'
 import { Accounts } from './Accounts'
 import { ReceiptsMonth, ReceiptsShare, receiptsWord, Section } from './Receipts'
+import { useAccountNames } from './useAccountNames'
 
 /** The chart shows this many months, the page's own the last. */
 const CHART_MONTHS = 6
@@ -30,8 +31,12 @@ const MOVED: Record<Moving, string> = {
   own: 'Your own account',
 }
 
-/** Card payments linked to their receipts (v0.20.2), and opening one: every list of payments reads it. */
-const Receipts = createContext<{ links: ReadonlyMap<string, KnownReceipt>; open: (r: KnownReceipt) => void }>({ links: new Map(), open: () => {} })
+/** Card payments linked to their receipts (v0.20.2), opening one, and the accounts' names: every list of payments reads it. */
+const Receipts = createContext<{ links: ReadonlyMap<string, KnownReceipt>; open: (r: KnownReceipt) => void; names: ReadonlyMap<string, string> }>({
+  links: new Map(),
+  open: () => {},
+  names: new Map(),
+})
 
 /**
  * Money (v0.20, the Shopping tab before): what came in and went out of your accounts, from the statements you bring in,
@@ -44,13 +49,14 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
   const bankLines = useLiveQuery(() => db.bankLines.toArray(), [])
   const statements = useLiveQuery(() => db.statements.toArray(), [])
   const own = useLiveQuery(async () => ownPayeesOf(await db.settings.get(OWN_PAYEES)), [])
+  const names = useAccountNames()
   const ownWords = useOwnWords()
   const purpose = usePurposeSettings()
   const suggestions = useLiveQuery(() => loadSuggestions(), [], NO_SUGGESTIONS)
   const [sheet, setSheet] = useState<EntrySheetState>(null)
   const earlierId = useId()
   // Render only once loaded, so nothing jumps under your finger.
-  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || ownWords === undefined || purpose === undefined) return <Loading />
+  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || ownWords === undefined || purpose === undefined) return <Loading />
 
   const byId = new Map(entries.map((e) => [e.id, e]))
   const open = (receipt: KnownReceipt) => {
@@ -66,7 +72,7 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
   const earlier = [...new Set([...shoppingMonths(receipts), ...lines.filter((l) => !l.moving).map((l) => l.date.slice(0, 7))])].filter((m) => m < thisMonth).sort().reverse()
 
   return (
-    <Receipts.Provider value={{ links, open }}>
+    <Receipts.Provider value={{ links, open, names }}>
       {month === thisMonth ? (
         <h1>Money</h1>
       ) : (
@@ -115,6 +121,7 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
 /** A month of your accounts: out and in, where it rose, regular payments, by payee, money moved, to check. */
 function AccountsMonth(props: { lines: readonly MoneyLine[]; month: string; today: string; statements: readonly StatementRecord[] }) {
   const { lines, month, today, statements } = props
+  const { names } = useContext(Receipts)
   const its = moneyMonth(lines, month, today, statements)
   const regular = regularPayments(lines, month)
   const current = month === today.slice(0, 7)
@@ -187,7 +194,7 @@ function AccountsMonth(props: { lines: readonly MoneyLine[]; month: string; toda
           <ul className="plain-list compact">
             {its.toCheck.accounts.map((a) => (
               <li key={a.account}>
-                {a.account}
+                {names.get(a.account) ?? a.account}
                 <span className="muted small"> · statements up to {dayMonth(a.until)}</span>
               </li>
             ))}
@@ -259,7 +266,8 @@ function LinesLine({ label, detail, lines }: { label: string; detail?: string; l
   )
 }
 
-/** A payee, opening to its payments, and a way to say it's your own account (its lines then leave the totals). */
+/** A payee, opening to its payments, and, where it could be, a way to say it's you moving money (the payee is remembered:
+ *  its lines leave the totals, in later statements too). */
 function PayeeLine({ group }: { group: PayeeGroup }) {
   return (
     <li>
@@ -272,9 +280,11 @@ function PayeeLine({ group }: { group: PayeeGroup }) {
           </span>
         </summary>
         <LineList lines={group.lines} />
-        <button type="button" className="small-link top-gap" onClick={() => void markOwnPayee(group.payee.key, true)}>
-          It’s my own account
-        </button>
+        {mayBeOwn(group.lines) ? (
+          <button type="button" className="small-link" onClick={() => void markOwnPayee(group.payee.key, true)}>
+            It’s me, moving money
+          </button>
+        ) : null}
       </details>
     </li>
   )
@@ -298,8 +308,8 @@ function OwnLines({ lines }: { lines: readonly MoneyLine[] }) {
                 </span>
               </summary>
               <LineList lines={theirs} />
-              <button type="button" className="small-link top-gap" onClick={() => void markOwnPayee(payee.key, false)}>
-                Not my own account
+              <button type="button" className="small-link" onClick={() => void markOwnPayee(payee.key, false)}>
+                It’s not me: count it again
               </button>
             </details>
           </li>
@@ -309,39 +319,44 @@ function OwnLines({ lines }: { lines: readonly MoneyLine[] }) {
   )
 }
 
-/** Payments, newest first: day, description, account and amount; with why, when it needs a look. One with its
- *  receipt opens it. */
+/** Payments, newest first, one per row: the day on the left and the amount on the right, all one size (owner,
+ *  2026-10-26: the payee's name in a larger size between them read badly). The payee and the account are shown only
+ *  where they differ from row to row; one account for all is said once below. A sign only where money out and in mix.
+ *  A payment with its receipt opens it; with why, when it needs a look. */
 function LineList({ lines, why }: { lines: readonly MoneyLine[]; why?: string }) {
-  const { links, open } = useContext(Receipts)
+  const { links, open, names } = useContext(Receipts)
   const listed = [...lines].sort((a, b) => b.date.localeCompare(a.date))
+  const name = (account: string) => names.get(account) ?? account
+  const payees = new Set(listed.map((l) => l.payee.key)).size > 1
+  const accounts = new Set(listed.map((l) => l.account))
+  const signed = listed.some((l) => l.amount < 0) && listed.some((l) => l.amount > 0)
   return (
-    <ul className="plain-list compact evidence-list">
-      {listed.map((l) => {
-        const receipt = links.get(l.id)
-        const said = (
-          <>
-            <span className="muted small">{shortDayMonth(l.date)} </span>
-            {l.payee.name}
-            <span className="muted small">
-              {' '}
-              · {l.account} · {money(l.amount, '£')}
-              {receipt ? ' · receipt' : ''}
-              {why ? ` · ${why}` : ''}
+    <>
+      <ul className="plain-list compact evidence-list">
+        {listed.map((l) => {
+          const receipt = links.get(l.id)
+          const told = [payees ? l.payee.name : '', accounts.size > 1 ? name(l.account) : '', receipt ? 'receipt ›' : '', why ?? ''].filter(Boolean).join(' · ')
+          const said = (
+            <span className="payment-row">
+              <span className="payment-day">{shortDayMonth(l.date)}</span>
+              <span className="payment-told">{told}</span>
+              <span className="payment-amount">{signed ? money(l.amount, '£') : pounds(Math.abs(l.amount))}</span>
             </span>
-          </>
-        )
-        return (
-          <li key={l.id}>
-            {receipt ? (
-              <button type="button" className="line-button" onClick={() => open(receipt)}>
-                <span>{said}</span>
-              </button>
-            ) : (
-              said
-            )}
-          </li>
-        )
-      })}
-    </ul>
+          )
+          return (
+            <li key={l.id}>
+              {receipt ? (
+                <button type="button" className="line-button" onClick={() => open(receipt)}>
+                  {said}
+                </button>
+              ) : (
+                said
+              )}
+            </li>
+          )
+        })}
+      </ul>
+      {accounts.size === 1 && listed.length ? <p className="muted small">{listed.length === 1 ? 'From' : 'All from'} {name(listed[0]!.account)}</p> : null}
+    </>
   )
 }

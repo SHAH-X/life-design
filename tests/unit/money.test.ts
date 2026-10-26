@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { classify, linkReceipts, moneyMonth, moneyMonthTotals, payeeOf, regularPayments } from '../../src/domain/money'
+import { accountNames, classify, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
@@ -32,6 +32,40 @@ describe('payeeOf: who a line was paid to or from, as one name', () => {
     expect(payeeOf('Example Gym (Faster Payments) Reference: GYM00042')).toEqual({ key: 'example gym', name: 'Example Gym' })
     expect(payeeOf('TESCO SOMETOWN GBR')).toEqual({ key: 'tesco', name: 'Tesco' })
     expect(payeeOf('A N OTHER')).toEqual({ key: 'a n other', name: 'A N OTHER' })
+  })
+})
+
+describe('accountNames: an account by its bank’s name, or the name you gave it (owner, 2026-10-26)', () => {
+  it('drops the last 4 digits unless another account at that bank needs telling apart', () => {
+    const names = accountNames([CURRENT, POT, BANK, 'Example Bank ···1111', 'Example Bank ···2222'])
+    expect(Object.fromEntries(names)).toEqual({
+      [CURRENT]: 'Monzo',
+      [POT]: 'Monzo Savings pot',
+      [BANK]: 'Lloyds',
+      'Example Bank ···1111': 'Example Bank ···1111',
+      'Example Bank ···2222': 'Example Bank ···2222',
+    })
+  })
+  it('takes the name you gave, and a blank one falls back', () => {
+    const names = accountNames([CURRENT, BANK], { [BANK]: '  Joint account ', [CURRENT]: '  ' })
+    expect(names.get(BANK)).toBe('Joint account')
+    expect(names.get(CURRENT)).toBe('Monzo')
+  })
+  it('never gives two accounts the same name', () => {
+    expect(Object.fromEntries(accountNames([CURRENT, BANK], { [BANK]: 'Monzo' }))).toEqual({ [CURRENT]: 'Monzo ···5678', [BANK]: 'Monzo' })
+  })
+})
+
+describe('mayBeOwn: “It’s me, moving money” is offered only where it could be', () => {
+  it('not for a known shop, nor a payee paid by card', () => {
+    expect(mayBeOwn(classify([line(CURRENT, '2026-10-02', -18, 'ALDI SOMETOWN GBR')], new Set()))).toBe(false)
+    expect(mayBeOwn(classify([line(BANK, '2026-10-02', -9, 'EXAMPLE CAFE', { type: 'DEB' })], new Set()))).toBe(false)
+    expect(mayBeOwn(classify([line(BANK, '2026-10-02', -50, 'A N OTHER', { type: 'FPO' })], new Set()))).toBe(true)
+    expect(mayBeOwn(classify([line(CURRENT, '2026-10-02', 100, 'A N OTHER')], new Set()))).toBe(true)
+    // Monzo prints no type: its card payments end in the country, or carry a foreign amount.
+    expect(mayBeOwn(classify([line(CURRENT, '2026-10-02', -9, 'EXAMPLE CAFE SOMETOWN GBR')], new Set()))).toBe(false)
+    expect(mayBeOwn(classify([line(CURRENT, '2026-10-02', -4, 'EXAMPLE SOFTWARE DUBLIN IRL Amount: USD -5.00. Exchange rate: 1.25.')], new Set()))).toBe(false)
+    expect(mayBeOwn(classify([line(CURRENT, '2026-10-02', -200, 'Example Invest (Faster Payments) Reference: ABC123')], new Set()))).toBe(true)
   })
 })
 

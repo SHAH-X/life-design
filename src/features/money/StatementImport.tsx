@@ -4,6 +4,7 @@ import { readStatement, type StatementProblem } from '../../domain/statements'
 import { formatRecentPeriod } from '../../lib/dates'
 import { PdfError, readPdf } from '../../lib/pdfText'
 import { Dialog } from '../../ui/Dialog'
+import { useAccountNames } from './useAccountNames'
 
 // Bringing in a statement (v0.20): its PDF read on the phone (src/lib/pdfText.ts, src/domain/statements.ts) and its
 // lines kept here, each once (src/db/statements.ts). Nothing is sent anywhere. iPhone's share menu can't hand a file
@@ -29,6 +30,7 @@ function told(b: BroughtIn): string {
 }
 
 export function StatementImport({ onClose }: { onClose: () => void }) {
+  const names = useAccountNames()
   const [state, setState] = useState<State>({ kind: 'choose' })
   const choose = async (file: File | undefined) => {
     if (!file) return
@@ -71,7 +73,7 @@ export function StatementImport({ onClose }: { onClose: () => void }) {
           <ul className="plain-list" aria-label="Brought in">
             {state.brought.map((b) => (
               <li key={b.account}>
-                <strong>{b.account}</strong>: {told(b)}
+                <strong>{names?.get(b.account) ?? b.account}</strong>: {told(b)}
               </li>
             ))}
           </ul>

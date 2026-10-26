@@ -49,6 +49,28 @@ function movingOf(line: BankLine, payee: Payee, own: ReadonlySet<string>): Movin
   return null
 }
 
+/** Lloyds' types for a card payment, a cash machine and a direct debit: never money moved to yourself. */
+const NOT_OWN_TYPES = new Set(['DEB', 'CPT', 'DD'])
+
+/** A card payment by its words, where no type is printed (Monzo): a foreign amount, or the country last. */
+const byCard = (description: string) => /\sAmount:\s/i.test(description) || COUNTRY.test(description.trim())
+
+/** Whether a payee's lines could be you moving money (owner, 2026-10-26: it was offered under a supermarket and every
+ *  card payment): not a known shop, and none paid by card, cash machine or direct debit. */
+export const mayBeOwn = (lines: readonly MoneyLine[]): boolean =>
+  lines.length > 0 && !chainOf(lines[0]!.payee.name) && !lines.some((l) => NOT_OWN_TYPES.has(l.type.trim().toUpperCase()) || byCard(l.description))
+
+/** The name each account is shown by (owner, 2026-10-26): the one you gave it, else its bank's ("Monzo"), with the
+ *  account number's last 4 digits only when another account would share the name. */
+export function accountNames(accounts: readonly string[], chosen: Readonly<Record<string, string>> = {}): Map<string, string> {
+  const short = (account: string) => account.replace(/ ···\d{4}$/, '')
+  const given = (account: string) => chosen[account]?.trim() || null
+  const wanted = (account: string) => given(account) ?? short(account)
+  const uses = new Map<string, number>()
+  for (const account of accounts) uses.set(wanted(account), (uses.get(wanted(account)) ?? 0) + 1)
+  return new Map(accounts.map((account) => [account, uses.get(wanted(account))! > 1 && !given(account) ? account : wanted(account)]))
+}
+
 /** How far apart (days) the two sides of a transfer between your accounts can be. */
 const TRANSFER_DAYS = 3
 

@@ -62,3 +62,19 @@ export async function markOwnPayee(key: string, own: boolean, database: LifeDesi
   const now = ownPayeesOf(await database.settings.get(OWN_PAYEES))
   await setSetting(OWN_PAYEES, own ? [...new Set([...now, key])] : now.filter((k) => k !== key), database)
 }
+
+/** The names you gave your accounts (owner, 2026-10-26), by the account as its statement names it: a setting, so it's
+ *  in a backup. Shown by `accountNames` (src/domain/money.ts). */
+export const ACCOUNT_NAMES = 'accountNames'
+
+export const accountNamesOf = (setting: { value: unknown } | undefined): Record<string, string> => {
+  const value = setting?.value
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return Object.fromEntries(Object.entries(value).filter((pair): pair is [string, string] => typeof pair[1] === 'string'))
+}
+
+/** Gives an account your name for it; a blank name goes back to the bank's. */
+export async function nameAccount(account: string, name: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  const { [account]: _, ...rest } = accountNamesOf(await database.settings.get(ACCOUNT_NAMES))
+  await setSetting(ACCOUNT_NAMES, name.trim() ? { ...rest, [account]: name.trim() } : rest, database)
+}

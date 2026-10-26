@@ -1469,6 +1469,39 @@ button.line-button {
   font-weight: 400;
 }
 
+/* A payment in Money's lists (owner, 2026-10-26: the payee's name in a larger size between the day and the amount
+   read badly): the day, what tells it apart, the amount on the right, all one size. */
+.payment-row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.payment-day {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.payment-told {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.payment-amount {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* An account and its Rename button, side by side. */
+.account-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
 button.line-button:active {
   background: var(--viz-hover);
 }
