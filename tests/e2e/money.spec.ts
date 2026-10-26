@@ -91,24 +91,29 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   const summary = page.locator('.card').first().locator('summary')
   await expect(summary).toHaveText(['£1601.25 in', '8 payments out'])
   const moved = page.getByRole('region', { name: 'Moved between your accounts' })
-  await expect(moved.locator('summary')).toHaveText(['Monzo Flex · 2 payments', 'Pots · 2 payments'])
+  await expect(moved.locator('summary')).toHaveText(['Monzo Flex · 2 moves', 'Pots · 1 move'])
 
   // A N OTHER is you, paying yourself: once said, its money leaves the totals; and comes back when unsaid.
   const moneyIn = page.getByRole('region', { name: 'Money in' })
   await moneyIn.locator('summary', { hasText: 'A N OTHER' }).click()
   await moneyIn.getByRole('button', { name: 'It’s me, moving money' }).click()
   await expect(summary).toHaveText(['£1501.25 in', '8 payments out'])
-  await expect(moved.locator('summary')).toHaveText(['Monzo Flex · 2 payments', 'Pots · 2 payments', 'A N OTHER · Your own account · 1 payment'])
+  await expect(moved.locator('summary')).toHaveText(['Monzo Flex · 2 moves', 'Pots · 1 move', 'A N OTHER · Your own account · 1 move'])
   // A statement prints your name, not which account: named your way, it's remembered.
+  // Each row says where the money went; a pot's move is one row (owner, 2026-10-26).
+  await moved.locator('summary', { hasText: 'Pots' }).click()
+  await expect(moved.locator('details', { hasText: 'Pots' }).locator('.evidence-list li')).toHaveText([/^Tue,? 8 Sept? ?Monzo Savings pot → Monzo ?£50\.00$/])
+  await moved.locator('summary', { hasText: 'Monzo Flex' }).click()
+  await expect(moved.locator('details', { hasText: 'Monzo Flex' }).locator('.evidence-list li')).toHaveText([/^Thu,? 10 Sept? ?Paid off, from Monzo ?£12\.40$/, /^Wed,? 2 Sept? ?Spread with Flex ?£12\.40$/])
   await moved.locator('summary', { hasText: 'A N OTHER' }).click()
   await moved.getByRole('button', { name: 'Rename A N OTHER' }).click()
   const naming = page.getByRole('dialog', { name: 'Rename where it went' })
   await naming.getByRole('textbox').fill('Example savings')
   await naming.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(moved.locator('summary').last()).toHaveText('Example savings · Your own account · 1 payment')
+  await expect(moved.locator('summary').last()).toHaveText('Example savings · Your own account · 1 move')
   // Money that came into Lloyds says so (owner, 2026-10-26: "All from Lloyds" read as leaving it).
   await moved.locator('summary', { hasText: 'Example savings' }).click()
-  await expect(moved.getByText('Into Lloyds', { exact: true })).toBeVisible()
+  await expect(moved.locator('details', { hasText: 'Example savings' }).locator('.evidence-list li')).toHaveText([/^Sat,? 5 Sept? ?Example savings → Lloyds ?£100\.00$/])
   await moved.getByRole('button', { name: 'It’s not me: count it again' }).click()
   await expect(summary).toHaveText(['£1601.25 in', '8 payments out'])
   // Paid by card or direct debit: never asked.
@@ -134,14 +139,13 @@ test('a card payment with its receipt opens the receipt', async ({ page }, testI
   const out = page.getByRole('region', { name: 'Money out' })
   await out.locator('summary', { hasText: 'EXAMPLE STREAMING' }).click()
   // One payee, one account: each row is its day and amount, the account said once below.
-  const payment = out.getByRole('button', { name: /^Sat,? 12 Sept? receipt › £10\.99$/ })
+  const payment = out.getByRole('button', { name: /^Sat,? 12 Sept? Out of Lloyds · receipt › £10\.99$/ })
   await payment.click()
   await expect(page.getByRole('dialog', { name: 'Photo' })).toBeVisible()
   // A payment with no receipt is only words.
   await page.getByRole('dialog', { name: 'Photo' }).getByRole('button', { name: 'Done', exact: true }).click()
   await out.locator('summary', { hasText: 'EXAMPLE ENERGY' }).click()
   const energy = out.locator('details', { hasText: 'EXAMPLE ENERGY' })
-  await expect(energy.locator('.evidence-list li')).toHaveText([/^Wed,? 2 Sept? ?£45\.00$/])
-  await expect(energy.getByText('Out of Lloyds', { exact: true })).toBeVisible()
+  await expect(energy.locator('.evidence-list li')).toHaveText([/^Wed,? 2 Sept? ?Out of Lloyds ?£45\.00$/])
   await expect(energy.locator('.evidence-list').getByRole('button')).toHaveCount(0)
 })
