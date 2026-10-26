@@ -1,14 +1,16 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useId, useState } from 'react'
 import { db } from '../../db/db'
-import { nameAccount, removeAccount } from '../../db/statements'
-import { formatRecentPeriod } from '../../lib/dates'
+import { CLOSED_ACCOUNTS, markClosed, nameAccount, ownPayeesOf, removeAccount } from '../../db/statements'
+import type { StatementRecord } from '../../db/types'
+import { notBroughtIn } from '../../domain/money'
+import { formatRecentPeriod, toDateKey } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
 import { StatementImport } from './StatementImport'
 import { useAccountNames } from './useAccountNames'
 
 // Your accounts (v0.20, step 1 of Money): each account a statement was brought in for, its lines and the days they
-// cover, a name of your own for it, and "Bring in a statement".
+// cover and the days still to bring in, a name of your own for it, whether it's closed, and "Bring in a statement".
 
 interface Account {
   name: string
@@ -16,13 +18,17 @@ interface Account {
   from: string
   to: string
   notAdding: number
+  statements: StatementRecord[]
+  closed: boolean
 }
 
 async function accounts(): Promise<Account[]> {
-  const [lines, statements] = await Promise.all([db.bankLines.toArray(), db.statements.toArray()])
+  const [lines, statements, closedSetting] = await Promise.all([db.bankLines.toArray(), db.statements.toArray(), db.settings.get(CLOSED_ACCOUNTS)])
+  const closed = new Set(ownPayeesOf(closedSetting))
   const byName = new Map<string, Account>()
   for (const s of statements) {
-    const a = byName.get(s.account) ?? { name: s.account, lines: 0, from: s.from, to: s.to, notAdding: 0 }
+    const a = byName.get(s.account) ?? { name: s.account, lines: 0, from: s.from, to: s.to, notAdding: 0, statements: [], closed: closed.has(s.account) }
+    a.statements.push(s)
     a.from = s.from < a.from ? s.from : a.from
     a.to = s.to > a.to ? s.to : a.to
     byName.set(s.account, a)
@@ -40,7 +46,8 @@ export function Accounts() {
   const list = useLiveQuery(accounts, [])
   const names = useAccountNames()
   const [importing, setImporting] = useState(false)
-  const [naming, setNaming] = useState<string | null>(null)
+  const [naming, setNaming] = useState<Account | null>(null)
+  const today = toDateKey(new Date())
   const headingId = useId()
   return (
     <section aria-labelledby={headingId}>
@@ -50,21 +57,26 @@ export function Accounts() {
       {list?.length && names ? (
         <div className="card">
           <ul className="plain-list compact">
-            {list.map((a) => (
-              <li key={a.name} className="account-row">
-                <span>
-                  {names.get(a.name) ?? a.name}
-                  <span className="muted small">
-                    {' '}
-                    · {a.lines === 1 ? '1 line' : `${a.lines} lines`} · {formatRecentPeriod(a.from, a.to)}
-                    {a.notAdding ? ` · ${a.notAdding} ${a.notAdding === 1 ? 'doesn’t match its' : 'don’t match their'} printed balance` : ''}
+            {list.map((a) => {
+              const missing = notBroughtIn(a.statements, today, a.closed)
+              return (
+                <li key={a.name} className="account-row">
+                  <span>
+                    {names.get(a.name) ?? a.name}
+                    <span className="muted small">
+                      {' '}
+                      · {a.lines === 1 ? '1 line' : `${a.lines} lines`} · {formatRecentPeriod(a.from, a.to)}
+                      {a.closed ? ' · Closed' : ''}
+                      {a.notAdding ? ` · ${a.notAdding} ${a.notAdding === 1 ? 'doesn’t match its' : 'don’t match their'} printed balance` : ''}
+                    </span>
+                    {missing.length ? <span className="muted small account-missing">Still to bring in: {missing.map((g) => formatRecentPeriod(g.from, g.to)).join('; ')}</span> : null}
                   </span>
-                </span>
-                <button type="button" className="small-link" aria-label={`Rename ${names.get(a.name) ?? a.name}`} onClick={() => setNaming(a.name)}>
-                  Rename
-                </button>
-              </li>
-            ))}
+                  <button type="button" className="small-link" aria-label={`Change ${names.get(a.name) ?? a.name}`} onClick={() => setNaming(a)}>
+                    Change
+                  </button>
+                </li>
+              )
+            })}
           </ul>
         </div>
       ) : list && names ? (
@@ -76,11 +88,15 @@ export function Accounts() {
       {importing ? <StatementImport onClose={() => setImporting(false)} /> : null}
       {naming && names ? (
         <RenameSheet
-          title="Rename this account"
-          shown={names.get(naming) ?? naming}
-          hint={`Its statement says ${naming}. Left empty, it’s named by its bank. Remove takes out the account and all its lines; bringing its statements in again puts them back.`}
-          onSave={(name) => nameAccount(naming, name)}
-          onRemove={() => removeAccount(naming)}
+          title="Change this account"
+          shown={names.get(naming.name) ?? naming.name}
+          hint={`Its statement says ${naming.name}. Left empty, it’s named by its bank. Remove takes out the account and all its lines; bringing its statements in again puts them back.`}
+          closed={naming.closed}
+          onSave={async (name, closed) => {
+            await nameAccount(naming.name, name)
+            await markClosed(naming.name, closed ?? false)
+          }}
+          onRemove={() => removeAccount(naming.name)}
           onClose={() => setNaming(null)}
         />
       ) : null}
@@ -90,13 +106,23 @@ export function Accounts() {
 
 /** A name of your own for an account ("Joint account") or a payee you move money to ("First Direct"): left empty, it's
  *  the bank's name again. */
-export function RenameSheet(props: { title: string; shown: string; hint: string; onSave: (name: string) => Promise<void>; onRemove?: () => Promise<void>; onClose: () => void }) {
+export function RenameSheet(props: {
+  title: string
+  shown: string
+  hint: string
+  /** Whether the account is closed, for a sheet that asks (an account's, not a payee's). */
+  closed?: boolean
+  onSave: (name: string, closed?: boolean) => Promise<void>
+  onRemove?: () => Promise<void>
+  onClose: () => void
+}) {
   const { title, shown, hint, onSave, onRemove, onClose } = props
   const [name, setName] = useState(shown)
+  const [closed, setClosed] = useState(props.closed)
   const [sure, setSure] = useState(false)
   const id = useId()
   const save = async () => {
-    await onSave(name)
+    await onSave(name, closed)
     onClose()
   }
   const remove = async () => {
@@ -124,6 +150,12 @@ export function RenameSheet(props: { title: string; shown: string; hint: string;
         What do you call it?
       </label>
       <input id={id} data-autofocus value={name} maxLength={40} autoCapitalize="sentences" onChange={(e) => setName(e.target.value)} />
+      {closed !== undefined ? (
+        <label className="check top-gap">
+          <input type="checkbox" checked={closed} onChange={(e) => setClosed(e.target.checked)} />
+          This account is closed: nothing to bring in after its last statement
+        </label>
+      ) : null}
       <p className="muted small">{hint}</p>
     </Dialog>
   )

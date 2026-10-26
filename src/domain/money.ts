@@ -74,6 +74,21 @@ export function accountNames(accounts: readonly string[], chosen: Readonly<Recor
   return new Map(accounts.map((account) => [account, uses.get(wanted(account))! > 1 && !given(account) ? account : wanted(account)]))
 }
 
+/** The days an account has no statement for (owner, 2026-10-26: "for which month the data is yet not imported"): gaps
+ *  from its first statement up to `today`, or only up to its last statement when it's closed. Oldest first. */
+export function notBroughtIn(statements: readonly Pick<StatementRecord, 'from' | 'to'>[], today: string, closed = false): { from: string; to: string }[] {
+  const spans = [...statements].sort((a, b) => a.from.localeCompare(b.from))
+  if (!spans.length) return []
+  const gaps: { from: string; to: string }[] = []
+  let covered = spans[0]!.to
+  for (const span of spans.slice(1)) {
+    if (span.from > addDays(covered, 1)) gaps.push({ from: addDays(covered, 1), to: addDays(span.from, -1) })
+    if (span.to > covered) covered = span.to
+  }
+  if (!closed && covered < today) gaps.push({ from: addDays(covered, 1), to: today })
+  return gaps
+}
+
 /** How far apart (days) the two sides of a transfer between your accounts can be. */
 const TRANSFER_DAYS = 3
 
@@ -172,7 +187,7 @@ function groups(lines: readonly MoneyLine[], sign: 1 | -1): Ranked<PayeeGroup> {
 }
 
 /** Everything Money says about one month ("2026-10"), on `today`. */
-export function moneyMonth(lines: readonly MoneyLine[], month: string, today: string, statements: readonly StatementRecord[]): MoneyMonth {
+export function moneyMonth(lines: readonly MoneyLine[], month: string, today: string, statements: readonly StatementRecord[], closed: ReadonlySet<string> = new Set()): MoneyMonth {
   const current = today.slice(0, 7) === month
   const lastMonth = shiftMonth(month, -1)
   const inMonth = counted(lines, month)
@@ -199,6 +214,7 @@ export function moneyMonth(lines: readonly MoneyLine[], month: string, today: st
   const monthEnd = current ? today : addDays(addMonths(`${month}-01`, 1), -1)
   const used = new Set(lines.filter((l) => l.date.slice(0, 7) === month || l.date.slice(0, 7) === lastMonth).map((l) => l.account))
   const accounts = [...used]
+    .filter((account) => !closed.has(account))
     .flatMap((account) => {
       const ends = statements.filter((s) => s.account === account).map((s) => s.to)
       const last = ends.sort().at(-1)

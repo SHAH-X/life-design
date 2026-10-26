@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { accountNames, classify, joinMoves, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments } from '../../src/domain/money'
+import { accountNames, classify, joinMoves, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
@@ -99,6 +99,23 @@ describe('classify: a Monzo Flex statement (owner, 2026-10-26)', () => {
       new Set(),
     ).map((l) => l.moving)
     expect(moving).toEqual(['flex', null, null, 'flex', 'flex'])
+  })
+})
+
+describe('notBroughtIn: the days an account has no statement for, up to today or its last when closed (owner, 2026-10-26)', () => {
+  it('lists the gaps between statements and after the last', () => {
+    const had = [statement(BANK, '2026-07-01', '2026-07-31'), statement(BANK, '2026-09-01', '2026-09-30'), statement(BANK, '2026-09-15', '2026-10-10')]
+    expect(notBroughtIn(had, TODAY)).toEqual([
+      { from: '2026-08-01', to: '2026-08-31' },
+      { from: '2026-10-11', to: TODAY },
+    ])
+    expect(notBroughtIn(had, TODAY, true)).toEqual([{ from: '2026-08-01', to: '2026-08-31' }])
+    expect(notBroughtIn([statement(BANK, '2026-10-01', TODAY)], TODAY)).toEqual([])
+    expect(notBroughtIn([], TODAY)).toEqual([])
+    // A closed account isn't to check for statements after its last.
+    const lines = classify([line(BANK, '2026-10-02', -9, 'EXAMPLE GYM')], new Set())
+    expect(moneyMonth(lines, '2026-10', TODAY, had).toCheck.accounts).toEqual([{ account: BANK, until: '2026-10-10' }])
+    expect(moneyMonth(lines, '2026-10', TODAY, had, new Set([BANK])).toCheck.accounts).toEqual([])
   })
 })
 
