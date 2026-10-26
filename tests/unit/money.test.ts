@@ -136,6 +136,10 @@ describe('refunds take off what was spent there, never money in (owner, 2026-10-
     expect(month.in).toBe(150000)
     expect(month.payees.out.others.find((g) => g.payee.key === 'example petrol sometown')?.total).toBe(6812)
   })
+  it('knows money back from a shop written another way by its first word (owner, 2026-10-26)', () => {
+    const lines = classify([line(CURRENT, '2026-07-10', -60, 'EXAMPLESHOP.CO.UK LONDON GBR'), line(CURRENT, '2026-07-24', 12.14, 'EXAMPLESHOP* 972AB\\1 Some Street\\LONDON')], new Set())
+    expect(lines.map((l) => l.refund)).toEqual([false, true])
+  })
 })
 
 describe('mayBeOwn: “It’s me, moving money” is offered only where it could be', () => {

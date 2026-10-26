@@ -115,8 +115,15 @@ export function classify(lines: readonly BankLine[], own: ReadonlySet<string>, n
     if (into) out.moving = into.moving = 'between'
   }
   // Money in from a payee you've paid, or marked as a refund, is money back.
-  const paidTo = new Set(classed.filter((l) => !l.moving && l.amount < 0).map((l) => l.payee.key))
-  for (const l of classed) l.refund = !l.moving && l.amount > 0 && (paidTo.has(l.payee.key) || REFUND_NOTE.test(l.description) || REFUND.test(l.description.trim()))
+  // An online shop writes its name two ways ("EXAMPLESHOP.CO.UK", "EXAMPLESHOP* 972…"): its name runs into a "." or
+  // "*". Plain first words aren't enough ("British Gas", "British Heart Foundation").
+  const webName = (key: string) => key.match(/^([a-z]{3,})[.*]/)?.[1]
+  const paidTo = new Set(classed.filter((l) => !l.moving && l.amount < 0).flatMap((l) => [l.payee.key, webName(l.payee.key) ?? []].flat()))
+  for (const l of classed) {
+    const web = webName(l.payee.key)
+    const back = paidTo.has(l.payee.key) || (web !== undefined && paidTo.has(web)) || REFUND_NOTE.test(l.description) || REFUND.test(l.description.trim())
+    l.refund = !l.moving && l.amount > 0 && back
+  }
   return classed
 }
 
