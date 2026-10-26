@@ -3,7 +3,7 @@ import { expect, type Page, test } from '@playwright/test'
 import { expectNoScores } from './helpers'
 import { backupWith, freeWriting, restoreBackup } from './seed'
 import { makePdf, type Placed } from '../fixtures/pdf'
-import { LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
+import { FLEX_LIKE, LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
 
 // Bank and card statements (v0.20, step 1) in WebKit at iPhone size: a statement's PDF chosen in the app, read on the
 // phone by PDF.js in its own worker, its lines kept once each. The statements are fictional, laid out like the owner's
@@ -61,6 +61,23 @@ test('a statement’s PDF is read on the phone and its accounts kept, each line 
 
   const site = new URL(baseURL!).origin
   expect(urls.filter((u) => !u.startsWith(site) && !u.startsWith('blob:') && !u.startsWith('data:'))).toEqual([])
+})
+
+// A Monzo Flex statement (owner, 2026-10-26: it came in as "Account", 651 lines not matching): named, every line
+// following, and an account can be taken out again.
+test('a Monzo Flex statement reads as Monzo Flex, every line matching; an account can be removed', async ({ page }, testInfo) => {
+  await page.goto('./#/money')
+  const sheet = await bringIn(page, await pdf(testInfo.outputPath('flex.pdf'), FLEX_LIKE))
+  await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveText([/^Monzo Flex: 5 new · 1 ?– ?30 Sept?$/])
+  await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  const accounts = page.getByRole('region', { name: 'Your accounts', exact: true })
+  await expect(accounts.getByRole('listitem')).toHaveText([/^Monzo Flex · 5 lines · 1 ?– ?30 Sept?Rename$/])
+
+  await accounts.getByRole('button', { name: 'Rename Monzo Flex' }).click()
+  const naming = page.getByRole('dialog', { name: 'Rename this account' })
+  await naming.getByRole('button', { name: 'Remove', exact: true }).click()
+  await naming.getByRole('button', { name: 'Tap again to remove it' }).click()
+  await expect(accounts.getByText('Bring in your bank and card statements to see all your spending.')).toBeVisible()
 })
 
 test('a PDF that isn’t a statement, or isn’t a PDF, is refused saying why, and nothing is kept', async ({ page }, testInfo) => {

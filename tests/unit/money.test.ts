@@ -85,6 +85,23 @@ describe('joinMoves: the two sides of a move between your accounts as one row (o
   })
 })
 
+describe('classify: a Monzo Flex statement (owner, 2026-10-26)', () => {
+  it('leaves out what was moved to Flex (the purchase is on the current account) and paying Flex; counts what Flex paid itself', () => {
+    const flex = 'Monzo Flex'
+    const moving = classify(
+      [
+        line(flex, '2026-09-01', -20, 'EXAMPLE SHOP moved to Flex'),
+        line(flex, '2026-09-03', -15, 'EXAMPLE CINEMA'),
+        line(flex, '2026-09-04', 5, 'Adjustment for EXAMPLE CINEMA'),
+        line(flex, '2026-09-20', 20, 'You paid early'),
+        line(flex, '2026-09-21', 9, 'You paid extra towards EXAMPLE CINEMA'),
+      ],
+      new Set(),
+    ).map((l) => l.moving)
+    expect(moving).toEqual(['flex', null, null, 'flex', 'flex'])
+  })
+})
+
 describe('mayBeOwn: “It’s me, moving money” is offered only where it could be', () => {
   it('not for a known shop, nor a payee paid by card', () => {
     expect(mayBeOwn(classify([line(CURRENT, '2026-10-02', -18, 'ALDI SOMETOWN GBR')], new Set()))).toBe(false)

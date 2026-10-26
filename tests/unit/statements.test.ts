@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readStatement, type TextPiece } from '../../src/domain/statements'
 import { piecesFromPdf } from '../../src/lib/pdfText'
 import { makePdf, type Placed, piecesOf } from '../fixtures/pdf'
-import { LLOYDS_EXPECT, LLOYDS_LIKE, MONZO_EXPECT, MONZO_LIKE } from '../fixtures/statements'
+import { FLEX_EXPECT, FLEX_LIKE, LLOYDS_EXPECT, LLOYDS_LIKE, MONZO_EXPECT, MONZO_LIKE } from '../fixtures/statements'
 
 // Bank statements (v0.20), fictional ones laid out like the owner's real Monzo and Lloyds PDFs (tests/fixtures).
 
@@ -23,6 +23,13 @@ describe('readStatement: a statement read from where its words sit on the page',
 
   it('reads one laid out like Lloyds’: money in and out by their columns, its types, hidden labels skipped', () => {
     expect(asRead(piecesOf(LLOYDS_LIKE))).toEqual(LLOYDS_EXPECT)
+  })
+
+  it('reads one laid out like Monzo Flex’s: both money columns filled, a balance you owe, named from its title (owner, 2026-10-26)', () => {
+    expect(asRead(piecesOf(FLEX_LIKE))).toEqual(FLEX_EXPECT)
+    const read = readStatement(piecesOf(FLEX_LIKE))
+    if ('problem' in read) throw new Error(read.problem)
+    expect(read.accounts[0]!.lines.every((l) => l.adds)).toBe(true)
   })
 
   it('checks every line against the balance printed beside it, and says which don’t follow', () => {

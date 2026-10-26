@@ -205,3 +205,58 @@ export const LLOYDS_EXPECT = [
     ],
   },
 ]
+
+// ---------- Like Monzo Flex's: newest first, Debit and Credit both always filled ("0.00"), left-aligned under their
+// headings; the balance is what you owe, so a purchase raises it; the bank named only in its logo (a picture) ----------
+
+const FLEX_COLUMNS = { date: 68, description: 158, debit: 357, credit: 417, balance: 477 }
+
+/** Oldest first; pence < 0 is a purchase (Debit), > 0 a payment or refund (Credit). */
+const FLEX_LINES: Row[] = [
+  { date: '01/09/2026', text: ['EXAMPLE SHOP moved to Flex'], pence: -2000 },
+  { date: '03/09/2026', text: ['EXAMPLE CINEMA'], pence: -1500 },
+  { date: '04/09/2026', text: ['Adjustment for EXAMPLE CINEMA'], pence: 500 },
+  { date: '10/09/2026', text: ['EXAMPLE SOFTWARE', 'Amount: USD 10.00. Conversion rate:', '1.250000.'], pence: -800 },
+  { date: '20/09/2026', text: ['You paid early'], pence: 2000 },
+]
+/** What you owe after each line: a purchase adds to it. */
+const FLEX_OWED = (() => {
+  let owed = 0
+  return FLEX_LINES.map((row) => (owed -= row.pence))
+})()
+
+export const FLEX_LIKE: Placed[][] = [
+  [
+    { text: 'Flex statement', x: 399, y: 704, size: 16 },
+    { text: 'The amounts you’ll see below are for these dates', x: 313, y: 686 },
+    { text: '01/09/2026 - 30/09/2026', x: 359, y: 653 },
+    { text: 'A N Other', x: 63, y: 621 },
+    { text: '1 Example Road', x: 63, y: 607 },
+    { text: '£0.00', x: 507, y: 512 },
+    { text: 'Balance at start', x: 462, y: 498 },
+    { text: 'Date', x: FLEX_COLUMNS.date, y: 259 },
+    { text: 'Description', x: FLEX_COLUMNS.description, y: 259 },
+    { text: 'Debit', x: FLEX_COLUMNS.debit, y: 259 },
+    { text: 'Credit', x: FLEX_COLUMNS.credit, y: 259 },
+    { text: 'Balance', x: FLEX_COLUMNS.balance, y: 259 },
+    ...[...FLEX_LINES.entries()].reverse().flatMap(([i, row], n): Placed[] => {
+      const y = 234 - n * 30
+      return [
+        { text: row.date, x: FLEX_COLUMNS.date, y },
+        ...row.text.map((line, k): Placed => ({ text: line, x: FLEX_COLUMNS.description, y: y + (row.text.length > 1 ? 9 - k * 9 : 0) })),
+        { text: pounds(row.pence < 0 ? -row.pence : 0), x: FLEX_COLUMNS.debit, y },
+        { text: pounds(row.pence > 0 ? row.pence : 0), x: FLEX_COLUMNS.credit, y },
+        { text: pounds(FLEX_OWED[i]!), x: FLEX_COLUMNS.balance, y },
+      ]
+    }),
+  ],
+]
+
+export const FLEX_EXPECT = [
+  {
+    account: 'Monzo Flex',
+    from: '2026-09-01',
+    to: '2026-09-30',
+    lines: FLEX_LINES.map((row, i) => [row.date.split('/').reverse().join('-'), row.text.join(' '), row.pence, '', FLEX_OWED[i]!] as const),
+  },
+]

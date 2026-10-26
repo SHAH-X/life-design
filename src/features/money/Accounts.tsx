@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useId, useState } from 'react'
 import { db } from '../../db/db'
-import { nameAccount } from '../../db/statements'
+import { nameAccount, removeAccount } from '../../db/statements'
 import { formatRecentPeriod } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
 import { StatementImport } from './StatementImport'
@@ -78,8 +78,9 @@ export function Accounts() {
         <RenameSheet
           title="Rename this account"
           shown={names.get(naming) ?? naming}
-          hint={`Its statement says ${naming}. Left empty, it’s named by its bank.`}
+          hint={`Its statement says ${naming}. Left empty, it’s named by its bank. Remove takes out the account and all its lines; bringing its statements in again puts them back.`}
           onSave={(name) => nameAccount(naming, name)}
+          onRemove={() => removeAccount(naming)}
           onClose={() => setNaming(null)}
         />
       ) : null}
@@ -89,15 +90,30 @@ export function Accounts() {
 
 /** A name of your own for an account ("Joint account") or a payee you move money to ("First Direct"): left empty, it's
  *  the bank's name again. */
-export function RenameSheet(props: { title: string; shown: string; hint: string; onSave: (name: string) => Promise<void>; onClose: () => void }) {
-  const { title, shown, hint, onSave, onClose } = props
+export function RenameSheet(props: { title: string; shown: string; hint: string; onSave: (name: string) => Promise<void>; onRemove?: () => Promise<void>; onClose: () => void }) {
+  const { title, shown, hint, onSave, onRemove, onClose } = props
   const [name, setName] = useState(shown)
+  const [sure, setSure] = useState(false)
   const id = useId()
   const save = async () => {
     await onSave(name)
     onClose()
   }
-  const footer = (
+  const remove = async () => {
+    if (!sure) return setSure(true)
+    await onRemove?.()
+    onClose()
+  }
+  const footer = onRemove ? (
+    <div className="footer-row">
+      <button type="button" className="link" onClick={() => void remove()}>
+        {sure ? 'Tap again to remove it' : 'Remove'}
+      </button>
+      <button type="button" className="primary" onClick={() => void save()}>
+        Save
+      </button>
+    </div>
+  ) : (
     <button type="button" className="primary wide" onClick={() => void save()}>
       Save
     </button>
