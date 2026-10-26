@@ -349,6 +349,10 @@ function LineList({ lines, why }: { lines: readonly MoneyLine[]; why?: string })
   const payees = new Set(listed.map((l) => l.payee.key)).size > 1
   const accounts = new Set(listed.map((l) => l.account))
   const signed = listed.some((l) => l.amount < 0) && listed.some((l) => l.amount > 0)
+  // Which way the money went, said once when it's the same for all (owner, 2026-10-26: "All from Lloyds" over money that
+  // came into Lloyds read as leaving it).
+  const only = accounts.size === 1 ? name(listed[0]!.account) : null
+  const way = !listed.length ? null : signed ? (only ? `On your ${only} statement` : null) : listed[0]!.amount < 0 ? (only ? `Out of ${only}` : 'All money out') : only ? `Into ${only}` : 'All money in'
   return (
     <>
       <ul className="plain-list compact evidence-list">
@@ -375,7 +379,7 @@ function LineList({ lines, why }: { lines: readonly MoneyLine[]; why?: string })
           )
         })}
       </ul>
-      {accounts.size === 1 && listed.length ? <p className="muted small">{listed.length === 1 ? 'From' : 'All from'} {name(listed[0]!.account)}</p> : null}
+      {way ? <p className="muted small">{way}</p> : null}
     </>
   )
 }

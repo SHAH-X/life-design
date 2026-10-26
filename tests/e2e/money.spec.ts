@@ -106,7 +106,9 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   await naming.getByRole('textbox').fill('Example savings')
   await naming.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(moved.locator('summary').last()).toHaveText('Example savings · Your own account · 1 payment')
+  // Money that came into Lloyds says so (owner, 2026-10-26: "All from Lloyds" read as leaving it).
   await moved.locator('summary', { hasText: 'Example savings' }).click()
+  await expect(moved.getByText('Into Lloyds', { exact: true })).toBeVisible()
   await moved.getByRole('button', { name: 'It’s not me: count it again' }).click()
   await expect(summary).toHaveText(['£1601.25 in', '8 payments out'])
   // Paid by card or direct debit: never asked.
@@ -140,6 +142,6 @@ test('a card payment with its receipt opens the receipt', async ({ page }, testI
   await out.locator('summary', { hasText: 'EXAMPLE ENERGY' }).click()
   const energy = out.locator('details', { hasText: 'EXAMPLE ENERGY' })
   await expect(energy.locator('.evidence-list li')).toHaveText([/^Wed,? 2 Sept? ?£45\.00$/])
-  await expect(energy.getByText('From Lloyds', { exact: true })).toBeVisible()
+  await expect(energy.getByText('Out of Lloyds', { exact: true })).toBeVisible()
   await expect(energy.locator('.evidence-list').getByRole('button')).toHaveCount(0)
 })
