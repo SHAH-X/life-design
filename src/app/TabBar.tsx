@@ -45,12 +45,12 @@ const ITEMS: { tab: Tab; label: string; icon: ReactNode }[] = [
     ),
   },
   {
-    tab: 'shopping',
-    label: 'Shopping',
+    tab: 'money',
+    label: 'Money',
     icon: (
       <svg {...ICON_PROPS}>
-        <path d="M3 9h18l-1.8 10.2a1 1 0 0 1-1 .8H5.8a1 1 0 0 1-1-.8Z" />
-        <path d="M8 9l4-5 4 5M9.5 13v3M14.5 13v3" />
+        <path d="M4 7.5A1.5 1.5 0 0 1 5.5 6H19a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H5.5A1.5 1.5 0 0 1 4 17.5Z" />
+        <path d="M4 7.5 15.5 4v2M15 12.5h5M17 12.5h.01" />
       </svg>
     ),
   },

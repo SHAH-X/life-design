@@ -1,8 +1,5 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { type ReactNode, useId, useState } from 'react'
 import { receiptsToCsv, shoppingCsvFileName } from '../../db/csv'
-import { db } from '../../db/db'
-import { loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
 import { itemShown } from '../../domain/receipts'
 import {
   inWords,
@@ -13,132 +10,49 @@ import {
   money,
   monthTotals,
   paid,
-  receiptsAndCopies,
   SMALL_SHOP,
   type ShoppingMonth,
   shoppingMonth,
-  shoppingMonths,
 } from '../../domain/shopping'
-import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth, toDateKey } from '../../lib/dates'
+import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { MonthChart } from '../../ui/charts/MonthChart'
 import { Dialog } from '../../ui/Dialog'
-import { Loading } from '../../ui/Loading'
 import { FileActions } from '../backup/FileActions'
-import { Accounts } from '../money/Accounts'
-import { EntrySheet, type EntrySheetState } from '../today/EntrySheet'
-import { useOwnWords } from '../today/useOwnWords'
-import { usePurposeSettings } from '../today/usePurpose'
+
+// Money's receipts (v0.19 as the Shopping tab; part of Money from v0.20): what you spent, from the receipts in your
+// photos, worked out on the phone with no AI. Counts and amounts only (no averages, ratings or a limit), and every line
+// opens to its receipts, each opening its entry.
 
 /** The chart shows this many months, the page's own the last. */
 const CHART_MONTHS = 6
 /** Bought again and again shows this many; the rest are a tap away. */
 const REPEATS_SHOWN = 10
 
-const receiptsWord = (n: number) => `${n} receipt${n === 1 ? '' : 's'}`
+export const receiptsWord = (n: number) => `${n} receipt${n === 1 ? '' : 's'}`
 const itemsWord = (n: number) => `${n} item${n === 1 ? '' : 's'}`
 
-/**
- * Shopping (v0.19, its own tab): what you spent, from the receipts in your photos, worked out on the phone with no AI.
- * This month at #/shopping, an earlier one at #/shopping/2026-09. Counts and amounts only (no averages, ratings or a
- * limit), and every line opens to its receipts, each opening its entry.
- */
-export function ShoppingScreen({ sub }: { sub: string | null }) {
-  const entries = useLiveQuery(() => db.entries.toArray(), [])
-  const own = useOwnWords()
-  const purpose = usePurposeSettings()
-  const suggestions = useLiveQuery(() => loadSuggestions(), [], NO_SUGGESTIONS)
-  const [sheet, setSheet] = useState<EntrySheetState>(null)
-  // Render only once loaded, so nothing jumps under your finger.
-  if (entries === undefined || own === undefined || purpose === undefined) return <Loading />
-
-  const byId = new Map(entries.map((e) => [e.id, e]))
-  const open = (receipt: KnownReceipt) => {
-    const entry = byId.get(receipt.entryId)
-    if (entry) setSheet({ kind: 'open', entry })
-  }
-  const { receipts, copies } = receiptsAndCopies(entries)
-  const today = toDateKey(new Date())
-  const thisMonth = today.slice(0, 7)
-  const month = sub && /^\d{4}-\d{2}$/.test(sub) ? sub : thisMonth
-
-  return (
-    <>
-      {month === thisMonth ? (
-        <ThisMonth receipts={receipts} copies={copies} today={today} onOpen={open} />
-      ) : (
-        <>
-          <a className="back-link" href={hashFor('shopping')}>
-            ‹ Shopping
-          </a>
-          <h1>{monthYear(month)}</h1>
-          <Month receipts={receipts} copies={copies} month={month} today={today} onOpen={open} />
-        </>
-      )}
-      <Accounts />
-      <EntrySheet state={sheet} onChange={setSheet} suggestions={suggestions} own={own} purpose={purpose} />
-    </>
-  )
-}
-
-function ThisMonth({ receipts, copies, today, onOpen }: { receipts: readonly KnownReceipt[]; copies: readonly ReceiptCopy[]; today: string; onOpen: (r: KnownReceipt) => void }) {
-  const [sharing, setSharing] = useState(false)
+/** A month of your receipts, top to bottom: how much, each month, shops, what changed, what came back, to check. */
+export function ReceiptsMonth(props: { receipts: readonly KnownReceipt[]; copies: readonly ReceiptCopy[]; month: string; today: string; onOpen: (r: KnownReceipt) => void }) {
+  const { receipts, month, today, onOpen } = props
   const headingId = useId()
-  const thisMonth = today.slice(0, 7)
-  const earlier = shoppingMonths(receipts).filter((m) => m < thisMonth)
-  if (receipts.length === 0) {
+  const its = shoppingMonth(receipts, month, today, props.copies)
+  const shops = its.shops.ranked.length + its.shops.others.filter((s) => s.name !== null).length
+  if (its.receipts.length === 0) {
     return (
-      <>
-        <h1>Shopping</h1>
-        <p className="muted">Receipts you photograph show here.</p>
-      </>
+      <section aria-labelledby={headingId}>
+        <h2 id={headingId} className="week-title">
+          From your receipts
+        </h2>
+        <p className="muted">{receipts.length ? `No receipts in ${monthYear(month)}.` : 'Receipts you photograph show here.'}</p>
+      </section>
     )
   }
   return (
-    <>
-      <h1>Shopping</h1>
-      <Month receipts={receipts} copies={copies} month={thisMonth} today={today} onOpen={onOpen} />
-      {earlier.length ? (
-        <section aria-labelledby={headingId}>
-          <h2 id={headingId} className="week-title">
-            Earlier months
-          </h2>
-          <nav className="list" aria-labelledby={headingId}>
-            {earlier.map((m) => {
-              const its = shoppingMonth(receipts, m, today)
-              return (
-                <a key={m} className="list-row" href={hashFor('shopping', m)}>
-                  <span className="list-text">
-                    <span className="list-title">{monthYear(m)}</span>
-                    <span className="list-status">
-                      {inWords(its.spent)} · {receiptsWord(its.receipts.length)}
-                    </span>
-                  </span>
-                  <span className="list-chevron" aria-hidden="true">
-                    ›
-                  </span>
-                </a>
-              )
-            })}
-          </nav>
-        </section>
-      ) : null}
-      <button type="button" className="primary wide top-gap" onClick={() => setSharing(true)}>
-        Share as a spreadsheet
-      </button>
-      {sharing ? <SpreadsheetDialog receipts={receipts} onClose={() => setSharing(false)} /> : null}
-    </>
-  )
-}
-
-/** Everything about one month, top to bottom: how much, each month, where, what changed, what came back, to check. */
-function Month(props: { receipts: readonly KnownReceipt[]; copies: readonly ReceiptCopy[]; month: string; today: string; onOpen: (r: KnownReceipt) => void }) {
-  const { receipts, month, today, onOpen } = props
-  const its = shoppingMonth(receipts, month, today, props.copies)
-  if (its.receipts.length === 0) return <p className="muted">No receipts in {monthYear(month)}.</p>
-  const shops = its.shops.ranked.length + its.shops.others.filter((s) => s.name !== null).length
-  return (
-    <>
+    <section aria-labelledby={headingId}>
+      <h2 id={headingId} className="week-title">
+        From your receipts
+      </h2>
       <div className="card">
         <p className="muted small">{month === today.slice(0, 7) ? `${monthName(month)} so far` : monthYear(month)}</p>
         <p>
@@ -153,7 +67,7 @@ function Month(props: { receipts: readonly KnownReceipt[]; copies: readonly Rece
       <div className="card">
         <Months receipts={receipts} month={month} today={today} />
       </div>
-      <Where its={its} onOpen={onOpen} />
+      <Shops its={its} onOpen={onOpen} />
       {its.kinds ? <ByKind kinds={its.kinds} onOpen={onOpen} /> : null}
       {its.priceChanges.length ? (
         <Section title="Price changes at the same shop">
@@ -176,15 +90,15 @@ function Month(props: { receipts: readonly KnownReceipt[]; copies: readonly Rece
         </Section>
       ) : null}
       {its.toCheck.length ? (
-        <Section title="To check">
+        <Section title="Receipts to check">
           <ReceiptList receipts={its.toCheck.map((c) => c.receipt)} why={new Map(its.toCheck.map((c) => [c.receipt.id, c.why]))} onOpen={onOpen} />
         </Section>
       ) : null}
-    </>
+    </section>
   )
 }
 
-function Section({ title, status, children }: { title: string; status?: string; children: ReactNode }) {
+export function Section({ title, status, children }: { title: string; status?: string; children: ReactNode }) {
   const headingId = useId()
   return (
     <section aria-labelledby={headingId}>
@@ -214,7 +128,7 @@ function Months({ receipts, month, today }: { receipts: readonly KnownReceipt[];
   const tapped = active === null ? undefined : months[active]
   return (
     <MonthChart
-      title={others ? `Spent each month, in ${currency}` : 'Spent each month'}
+      title={others ? `Receipts each month, in ${currency}` : 'Receipts each month'}
       months={columns}
       currency={currency}
       summary="Tap a month"
@@ -223,7 +137,7 @@ function Months({ receipts, month, today }: { receipts: readonly KnownReceipt[];
       labelled={months.length - 1}
       detail={
         tapped && tapped.month !== month && tapped.receipts ? (
-          <a className="small-link" href={hashFor('shopping', tapped.month === thisMonth ? null : tapped.month)}>
+          <a className="small-link" href={hashFor('money', tapped.month === thisMonth ? null : tapped.month)}>
             Open {monthYear(tapped.month)} ›
           </a>
         ) : null
@@ -233,12 +147,12 @@ function Months({ receipts, month, today }: { receipts: readonly KnownReceipt[];
 }
 
 /** Shops: those with 3+ receipts by what was spent, the rest by name; then shops under £10. */
-function Where({ its, onOpen }: { its: ShoppingMonth; onOpen: (r: KnownReceipt) => void }) {
+function Shops({ its, onOpen }: { its: ShoppingMonth; onOpen: (r: KnownReceipt) => void }) {
   const line = (s: ShoppingMonth['shops']['ranked'][number]) => (
     <ReceiptLine key={s.key || 'none'} label={s.name ?? 'No shop read'} detail={`${receiptsWord(s.receipts.length)} · ${inWords(s.spent)}`} receipts={s.receipts} onOpen={onOpen} />
   )
   return (
-    <Section title="Where">
+    <Section title="Shops">
       {its.shops.ranked.length ? <ul className="plain-list compact">{its.shops.ranked.map(line)}</ul> : null}
       {its.shops.ranked.length && its.shops.others.length ? <p className="muted small">Fewer than 3 receipts, by name</p> : null}
       {its.shops.others.length ? <ul className="plain-list compact">{its.shops.others.map(line)}</ul> : null}
@@ -370,12 +284,25 @@ function ReceiptList(props: { receipts: readonly KnownReceipt[]; why?: ReadonlyM
   )
 }
 
+/** "Share as a spreadsheet": every item on your receipts, through the share menu. */
+export function ReceiptsShare({ receipts }: { receipts: readonly KnownReceipt[] }) {
+  const [sharing, setSharing] = useState(false)
+  return (
+    <>
+      <button type="button" className="primary wide top-gap" onClick={() => setSharing(true)}>
+        Share as a spreadsheet
+      </button>
+      {sharing ? <SpreadsheetDialog receipts={receipts} onClose={() => setSharing(false)} /> : null}
+    </>
+  )
+}
+
 /** Every item on your receipts as a spreadsheet, through the share menu. */
 function SpreadsheetDialog({ receipts, onClose }: { receipts: readonly KnownReceipt[]; onClose: () => void }) {
   const [file] = useState(() => new File([receiptsToCsv(receipts)], shoppingCsvFileName(new Date()), { type: 'text/csv' }))
   const items = receipts.reduce((n, r) => n + r.items.length, 0)
   return (
-    <Dialog title="Shopping as a spreadsheet" onClose={onClose}>
+    <Dialog title="Receipts as a spreadsheet" onClose={onClose}>
       <p>Every item on your receipts, a row each (CSV), for Numbers, Excel or Google Sheets.</p>
       <p className="muted small">
         {items} item{items === 1 ? '' : 's'} on {receiptsWord(receipts.length)}

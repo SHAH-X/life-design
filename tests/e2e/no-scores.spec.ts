@@ -28,8 +28,8 @@ test('no screen asks for or shows a rating or score', async ({ page }, testInfo)
   await expectNoScores(page, 'An entry read back')
   await page.getByRole('button', { name: 'Done', exact: true }).click()
 
-  await page.goto('./#/shopping')
-  await expectNoScores(page, 'Shopping') // with receipts and every line opened: shopping.spec.ts
+  await page.goto('./#/money')
+  await expectNoScores(page, 'Money') // with receipts and statements, every line opened: shopping.spec.ts, money.spec.ts
 
   await page.goto('./#/insights')
   await expectNoScores(page, 'Insights')

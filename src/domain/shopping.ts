@@ -1,5 +1,5 @@
 // Shopping (v0.19, 2026-10-25): the receipts in your photos and what was spent, all worked out on the phone. Ask's
-// spend_by_shop gives these totals as they are, so Ask and the Shopping tab can't disagree. Money stays in pence (minor
+// spend_by_shop gives these totals as they are, so Ask and Money’s receipts can’t disagree. Money stays in pence (minor
 // units), so sums are exact, and pounds and euros are never added together. Counts and amounts only: nothing averaged,
 // rated or set as a limit (DECISIONS, "Never").
 import { MIN_COUNT } from '../analysis/stats'
@@ -136,7 +136,7 @@ export function spendByShop(receipts: readonly KnownReceipt[]) {
   }
 }
 
-// ---------- The Shopping tab: a month at a time ----------
+// ---------- Money’s receipts (the Shopping tab until v0.20): a month at a time ----------
 
 /** Money in each currency, in pence, in the order each first comes. */
 export type Amounts = { currency: string; minor: number }[]
@@ -317,7 +317,7 @@ function kindsOf(receipts: readonly KnownReceipt[], currency: string): Kinds | n
   }
 }
 
-/** Everything the Shopping tab says about one month ("2026-10"), on `today`. */
+/** Everything Money’s receipts say about one month ("2026-10"), on `today`. */
 export function shoppingMonth(all: readonly KnownReceipt[], month: string, today: string, copies: readonly ReceiptCopy[] = []): ShoppingMonth {
   const receipts = all.filter((r) => r.date.slice(0, 7) === month)
   const currency = mainCurrency(receipts)

@@ -1,0 +1,230 @@
+// Money (v0.20, step 2 of the owner's plan): what came in and went out of your accounts, from the statements brought in
+// (src/domain/statements.ts), worked out on the phone. Money moved between your own accounts is left out, so nothing
+// counts twice: Monzo Flex (a purchase is given back by a "Flex" line and paid off later: the purchase is the spending),
+// pots, the two sides of a transfer between two accounts brought in, and payees you mark as your own. Counts and amounts
+// only: nothing averaged, rated or set as a limit (DECISIONS, "Never"); groups are ranked only with MIN_COUNT payments.
+import { MIN_COUNT } from '../analysis/stats'
+import type { BankLine, StatementRecord } from '../db/types'
+import { addDays, addMonths, dayNumber } from '../lib/dates'
+import { chainOf } from './receipts'
+import { groupBy, shiftMonth } from './shopping'
+
+/** Who a line was paid to or from, as one name (a UK chain's names as the chain). */
+export interface Payee {
+  key: string
+  name: string
+}
+
+/** Why a line is money moved, not money in or out. */
+export type Moving = 'flex' | 'pot' | 'between' | 'own'
+
+export interface MoneyLine extends BankLine {
+  payee: Payee
+  moving: Moving | null
+}
+
+const COUNTRY = /\s+(?:GBR|GB|IRL|USA|US|FRA|DEU|ESP|ITA|NLD|BEL|PRT)$/i
+
+/** "EXAMPLE SOFTWARE DUBLIN IRL Amount: USD -5.00. …" is EXAMPLE SOFTWARE DUBLIN; "Example Gym (Faster Payments)
+ *  Reference: …" is Example Gym; "TESCO SOMETOWN GBR" is Tesco. */
+export function payeeOf(description: string): Payee {
+  const name = description
+    .replace(/\s*Amount:\s.*$/i, '')
+    .replace(/\s*\(Faster Payments\)/i, '')
+    .replace(/\s*Reference:.*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(COUNTRY, '')
+    .trim()
+  const chain = chainOf(name)
+  return chain ? { key: chain.key, name: chain.name } : { key: name.toLowerCase(), name }
+}
+
+function movingOf(line: BankLine, payee: Payee, own: ReadonlySet<string>): Moving | null {
+  const words = line.description.trim().toLowerCase()
+  if (line.account.startsWith('Monzo') && words === 'flex') return 'flex'
+  if (line.account.endsWith(' pot')) return /\binterest\b/.test(words) ? null : 'pot'
+  if (/^transfer (?:from|to) pot\b/.test(words)) return 'pot'
+  if (own.has(payee.key)) return 'own'
+  return null
+}
+
+/** How far apart (days) the two sides of a transfer between your accounts can be. */
+const TRANSFER_DAYS = 3
+
+/** Each line with its payee, and whether it's money moved (in the order given). */
+export function classify(lines: readonly BankLine[], own: ReadonlySet<string>): MoneyLine[] {
+  const classed = lines.map((line): MoneyLine => {
+    const payee = payeeOf(line.description)
+    return { ...line, payee, moving: movingOf(line, payee, own) }
+  })
+  const apart = (a: MoneyLine, b: MoneyLine) => Math.abs(dayNumber(a.date) - dayNumber(b.date))
+  for (const out of classed.filter((l) => !l.moving && l.amount < 0)) {
+    const into = classed
+      .filter((l) => !l.moving && l.amount === -out.amount && l.account !== out.account && apart(l, out) <= TRANSFER_DAYS)
+      .sort((a, b) => apart(a, out) - apart(b, out))[0]
+    if (into) out.moving = into.moving = 'between'
+  }
+  return classed
+}
+
+export interface PayeeGroup {
+  payee: Payee
+  /** In pence, money out or in as a positive amount. */
+  total: number
+  lines: MoneyLine[]
+}
+
+export interface Rise {
+  payee: Payee
+  now: number
+  before: number
+  lines: MoneyLine[]
+}
+
+export interface Ranked<T> {
+  /** With MIN_COUNT payments or more, most first. */
+  ranked: T[]
+  /** The rest, by name: never ranked. */
+  others: T[]
+}
+
+export interface MoneyMonth {
+  month: string
+  /** Money out and in, in pence, money moved left out. */
+  out: number
+  in: number
+  outLines: MoneyLine[]
+  inLines: MoneyLine[]
+  /** The month before, up to the same day: only for the month you're in, when that month has lines. */
+  before: { until: string; out: number; lines: MoneyLine[] } | null
+  /** Payees with more out than in the month before (by the same day, for the month you're in). */
+  rose: Ranked<Rise>
+  payees: { out: Ranked<PayeeGroup>; in: Ranked<PayeeGroup> }
+  /** Money moved between your own accounts, left out, by why. */
+  moved: { why: Moving; lines: MoneyLine[] }[]
+  toCheck: {
+    /** Lines whose printed balance doesn't follow from the line before. */
+    lines: MoneyLine[]
+    /** Accounts used this month or last whose statements stop before the month's end (or today). */
+    accounts: { account: string; until: string }[]
+  }
+}
+
+const byName = (a: { payee: Payee }, b: { payee: Payee }) => a.payee.name.localeCompare(b.payee.name, 'en', { sensitivity: 'base' })
+const sumOut = (lines: readonly MoneyLine[]) => lines.reduce((s, l) => s - l.amount, 0)
+const counted = (lines: readonly MoneyLine[], month: string) => lines.filter((l) => !l.moving && l.date.slice(0, 7) === month)
+
+function groups(lines: readonly MoneyLine[], sign: 1 | -1): Ranked<PayeeGroup> {
+  const all = groupBy(lines, (l) => l.payee.key).map((same): PayeeGroup => ({ payee: same[0]!.payee, total: sign * same.reduce((s, l) => s + l.amount, 0), lines: same }))
+  return {
+    ranked: all.filter((g) => g.lines.length >= MIN_COUNT).sort((a, b) => b.total - a.total),
+    others: all.filter((g) => g.lines.length < MIN_COUNT).sort(byName),
+  }
+}
+
+/** Everything Money says about one month ("2026-10"), on `today`. */
+export function moneyMonth(lines: readonly MoneyLine[], month: string, today: string, statements: readonly StatementRecord[]): MoneyMonth {
+  const current = today.slice(0, 7) === month
+  const lastMonth = shiftMonth(month, -1)
+  const inMonth = counted(lines, month)
+  const outLines = inMonth.filter((l) => l.amount < 0)
+  const inLines = inMonth.filter((l) => l.amount > 0)
+  const earlier = counted(lines, lastMonth).filter((l) => l.amount < 0)
+  const until = addMonths(today, -1)
+  const beforeLines = current ? earlier.filter((l) => l.date <= until) : earlier
+
+  const hadLastMonth = lines.some((l) => l.date.slice(0, 7) === lastMonth)
+  const rises = hadLastMonth
+    ? groupBy([...outLines, ...beforeLines], (l) => l.payee.key).flatMap((same): Rise[] => {
+        const now = sumOut(same.filter((l) => l.date.slice(0, 7) === month))
+        const before = sumOut(same.filter((l) => l.date.slice(0, 7) === lastMonth))
+        return now > before ? [{ payee: same[0]!.payee, now, before, lines: same }] : []
+      })
+    : []
+
+  const moved = (['flex', 'pot', 'between', 'own'] as const).flatMap((why) => {
+    const these = lines.filter((l) => l.moving === why && l.date.slice(0, 7) === month)
+    return these.length ? [{ why, lines: these }] : []
+  })
+
+  const monthEnd = current ? today : addDays(addMonths(`${month}-01`, 1), -1)
+  const used = new Set(lines.filter((l) => l.date.slice(0, 7) === month || l.date.slice(0, 7) === lastMonth).map((l) => l.account))
+  const accounts = [...used]
+    .flatMap((account) => {
+      const ends = statements.filter((s) => s.account === account).map((s) => s.to)
+      const last = ends.sort().at(-1)
+      return last && last < monthEnd ? [{ account, until: last }] : []
+    })
+    .sort((a, b) => a.account.localeCompare(b.account))
+
+  return {
+    month,
+    out: sumOut(outLines),
+    in: inLines.reduce((s, l) => s + l.amount, 0),
+    outLines,
+    inLines,
+    before: current && hadLastMonth ? { until, out: sumOut(beforeLines), lines: beforeLines } : null,
+    rose: {
+      ranked: rises.filter((r) => r.lines.length >= MIN_COUNT).sort((a, b) => b.now - b.before - (a.now - a.before)),
+      others: rises.filter((r) => r.lines.length < MIN_COUNT).sort(byName),
+    },
+    payees: { out: groups(outLines, -1), in: groups(inLines, 1) },
+    moved,
+    toCheck: { lines: lines.filter((l) => !l.adds && l.date.slice(0, 7) === month), accounts },
+  }
+}
+
+/** The `count` months up to `last`, oldest first: money out and how many payments, money moved left out. */
+export function moneyMonthTotals(lines: readonly MoneyLine[], last: string, count: number): { month: string; out: number; lines: number }[] {
+  return Array.from({ length: count }, (_, i) => shiftMonth(last, i - count + 1)).map((month) => {
+    const out = counted(lines, month).filter((l) => l.amount < 0)
+    return { month, out: sumOut(out), lines: out.length }
+  })
+}
+
+export interface Regular {
+  payee: Payee
+  every: 'month' | 'week'
+  /** The latest payment, in pence. */
+  amount: number
+  last: string
+  /** When the latest payment differs from the one before. */
+  changed: { from: number; to: number; date: string } | null
+  lines: MoneyLine[]
+}
+
+/** Days between payments for each, and how many make it regular. */
+const CADENCE = { week: { least: 4, from: 6, to: 8 }, month: { least: 3, from: 26, to: 35 } } as const
+
+/** Payees paid every week or month, their latest payment in the month or the one before: the latest run of payments
+ *  that far apart, 4 a week or 3 a month at least. A shop paid on many days isn't regular; money moved isn't either. */
+export function regularPayments(lines: readonly MoneyLine[], month: string): Regular[] {
+  const out = lines.filter((l) => !l.moving && l.amount < 0).sort((a, b) => a.date.localeCompare(b.date))
+  const found: Regular[] = []
+  for (const paid of groupBy(out, (l) => l.payee.key)) {
+    for (const every of ['week', 'month'] as const) {
+      const { least, from, to } = CADENCE[every]
+      let start = paid.length - 1
+      while (start > 0) {
+        const gap = dayNumber(paid[start]!.date) - dayNumber(paid[start - 1]!.date)
+        if (gap < from || gap > to) break
+        start--
+      }
+      const run = paid.slice(start)
+      const last = run.at(-1)!
+      if (run.length < least || last.date.slice(0, 7) > month || last.date.slice(0, 7) < shiftMonth(month, -1)) continue
+      const before = run.at(-2)!
+      found.push({
+        payee: last.payee,
+        every,
+        amount: -last.amount,
+        last: last.date,
+        changed: before.amount !== last.amount ? { from: -before.amount, to: -last.amount, date: last.date } : null,
+        lines: run,
+      })
+      break
+    }
+  }
+  return found.sort(byName)
+}

@@ -32,10 +32,20 @@ export function scaleTop(most: number): number {
   return step * magnitude * 100
 }
 
-const receiptsWord = (n: number) => `${n} receipt${n === 1 ? '' : 's'}`
+/** What a month's count counts: receipts, or payments from your accounts (Money, v0.20). */
+export interface Counted {
+  /** The table's heading, "Receipts". */
+  heading: string
+  /** "1 receipt", "3 receipts". */
+  word: (n: number) => string
+  /** "no receipts". */
+  none: string
+}
 
-function describe(month: MonthColumn): string {
-  return month.receipts ? `${month.title}: ${month.amount} · ${receiptsWord(month.receipts)}` : `${month.title}: no receipts`
+const RECEIPTS: Counted = { heading: 'Receipts', word: (n) => `${n} receipt${n === 1 ? '' : 's'}`, none: 'no receipts' }
+
+function describe(month: MonthColumn, counted: Counted): string {
+  return month.receipts ? `${month.title}: ${month.amount} · ${counted.word(month.receipts)}` : `${month.title}: ${counted.none}`
 }
 
 /**
@@ -54,8 +64,10 @@ export function MonthChart(props: {
   /** The month whose amount is written on its cap until another is tapped: the page's own. */
   labelled: number
   detail?: ReactNode
+  /** What the count counts: receipts unless said. */
+  counted?: Counted
 }) {
-  const { title, months, currency, summary, active, onActive, labelled, detail } = props
+  const { title, months, currency, summary, active, onActive, labelled, detail, counted = RECEIPTS } = props
   const titleId = useId()
   const top = scaleTop(Math.max(0, ...months.map((m) => m.value)))
   const height = (value: number) => (value / top) * PLOT_H
@@ -73,7 +85,7 @@ export function MonthChart(props: {
         {title}
       </figcaption>
       <p className="chart-readout" aria-live="polite">
-        {activeMonth ? describe(activeMonth) : summary}
+        {activeMonth ? describe(activeMonth, counted) : summary}
       </p>
       <svg viewBox={`0 0 ${W} ${H}`} className="chart-svg" role="group" aria-labelledby={titleId}>
         <g aria-hidden="true">
@@ -114,7 +126,7 @@ export function MonthChart(props: {
             className="chart-hit"
             role="button"
             tabIndex={0}
-            aria-label={describe(m)}
+            aria-label={describe(m, counted)}
             aria-pressed={active === i}
             onPointerEnter={() => onActive(i)}
             onFocus={() => onActive(i)}
@@ -130,7 +142,7 @@ export function MonthChart(props: {
             <tr>
               <th scope="col">Month</th>
               <th scope="col">Spent</th>
-              <th scope="col">Receipts</th>
+              <th scope="col">{counted.heading}</th>
             </tr>
           </thead>
           <tbody>
