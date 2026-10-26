@@ -91,6 +91,28 @@ export function classify(lines: readonly BankLine[], own: ReadonlySet<string>, n
   return classed
 }
 
+/** A row in a list of payments: one line, or a move between two of your accounts (money out of `line`, into `to`). */
+export interface PaymentRow {
+  line: MoneyLine
+  to?: MoneyLine
+}
+
+/** Lines as rows, newest first, the two sides of a move between your accounts as one (owner, 2026-10-26: a pot's
+ *  move showed twice, once each way): money out of one and the same into another within TRANSFER_DAYS, nearest first. */
+export function joinMoves(lines: readonly MoneyLine[]): PaymentRow[] {
+  const apart = (a: MoneyLine, b: MoneyLine) => Math.abs(dayNumber(a.date) - dayNumber(b.date))
+  const used = new Set<MoneyLine>()
+  const rows: PaymentRow[] = []
+  for (const out of lines.filter((l) => l.amount < 0).sort((a, b) => a.date.localeCompare(b.date))) {
+    const to = lines.filter((l) => !used.has(l) && l.amount === -out.amount && l.account !== out.account && apart(l, out) <= TRANSFER_DAYS).sort((a, b) => apart(a, out) - apart(b, out))[0]
+    if (!to) continue
+    used.add(out).add(to)
+    rows.push({ line: out, to })
+  }
+  for (const single of lines) if (!used.has(single)) rows.push({ line: single })
+  return rows.sort((a, b) => b.line.date.localeCompare(a.line.date))
+}
+
 export interface PayeeGroup {
   payee: Payee
   /** In pence, money out or in as a positive amount. */

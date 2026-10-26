@@ -4,7 +4,7 @@ import { db } from '../../db/db'
 import { loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
 import { accountNamesOf, markOwnPayee, namePayee, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES } from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
-import { classify, linkReceipts, mayBeOwn, payeeOf, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type PayeeGroup, type Ranked, regularPayments, type Rise } from '../../domain/money'
+import { classify, joinMoves, linkReceipts, mayBeOwn, payeeOf, type PaymentRow, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type PayeeGroup, type Ranked, regularPayments, type Rise } from '../../domain/money'
 import { inWords, type KnownReceipt, money, receiptsAndCopies, shiftMonth, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -22,6 +22,7 @@ const CHART_MONTHS = 6
 
 const pounds = (pence: number) => money(pence, '£')
 const paymentsWord = (n: number) => `${n} payment${n === 1 ? '' : 's'}`
+const movesWord = (n: number) => `${n} move${n === 1 ? '' : 's'}`
 
 /** Why money moved is left out, in words. */
 const MOVED: Record<Moving, string> = {
@@ -184,7 +185,7 @@ function AccountsMonth(props: { lines: readonly MoneyLine[]; month: string; toda
               m.why === 'own' ? (
                 <OwnLines key={m.why} lines={m.lines} />
               ) : (
-                <LinesLine key={m.why} label={MOVED[m.why]} detail={paymentsWord(m.lines.length)} lines={m.lines} />
+                <LinesLine key={m.why} label={MOVED[m.why]} detail={movesWord(joinMoves(m.lines).length)} lines={m.lines} moves />
               ),
             )}
           </ul>
@@ -253,7 +254,7 @@ function Chart({ lines, month, today }: { lines: readonly MoneyLine[]; month: st
 }
 
 /** A line that opens to its payments. */
-function LinesLine({ label, detail, lines }: { label: string; detail?: string; lines: readonly MoneyLine[] }) {
+function LinesLine({ label, detail, lines, moves }: { label: string; detail?: string; lines: readonly MoneyLine[]; moves?: boolean }) {
   return (
     <li>
       <details className="week-line">
@@ -261,7 +262,7 @@ function LinesLine({ label, detail, lines }: { label: string; detail?: string; l
           <span>{label}</span>
           {detail ? <span className="muted small"> · {detail}</span> : null}
         </summary>
-        <LineList lines={lines} />
+        <LineList lines={lines} moves={moves} />
       </details>
     </li>
   )
@@ -309,7 +310,7 @@ function OwnLines({ lines }: { lines: readonly MoneyLine[] }) {
                 <span>{name}</span>
                 <span className="muted small">
                   {' '}
-                  · {MOVED.own} · {paymentsWord(theirs.length)}
+                  · {MOVED.own} · {movesWord(theirs.length)}
                 </span>
               </summary>
               <LineList lines={theirs} />
@@ -338,48 +339,46 @@ function OwnLines({ lines }: { lines: readonly MoneyLine[] }) {
   )
 }
 
-/** Payments, newest first, one per row: the day on the left and the amount on the right, all one size (owner,
- *  2026-10-26: the payee's name in a larger size between them read badly). The payee and the account are shown only
- *  where they differ from row to row; one account for all is said once below. A sign only where money out and in mix.
- *  A payment with its receipt opens it; with why, when it needs a look. */
-function LineList({ lines, why }: { lines: readonly MoneyLine[]; why?: string }) {
+/** Payments, newest first, one per row: the day, where the money went in words, the amount (owner, 2026-10-26: the
+ *  same in every section, never a sign that comes and goes). `moves` joins the two sides of a move between your accounts
+ *  ("Savings pot → Monzo"). The payee is named only where the rows' payees differ. A payment with its receipt opens it;
+ *  with why, when it needs a look. */
+function LineList({ lines, why, moves = false }: { lines: readonly MoneyLine[]; why?: string; moves?: boolean }) {
   const { links, open, names } = useContext(Receipts)
-  const listed = [...lines].sort((a, b) => b.date.localeCompare(a.date))
+  const rows = moves ? joinMoves(lines) : [...lines].sort((a, b) => b.date.localeCompare(a.date)).map((line) => ({ line }))
   const name = (account: string) => names.get(account) ?? account
-  const payees = new Set(listed.map((l) => l.payee.key)).size > 1
-  const accounts = new Set(listed.map((l) => l.account))
-  const signed = listed.some((l) => l.amount < 0) && listed.some((l) => l.amount > 0)
-  // Which way the money went, said once when it's the same for all (owner, 2026-10-26: "All from Lloyds" over money that
-  // came into Lloyds read as leaving it).
-  const only = accounts.size === 1 ? name(listed[0]!.account) : null
-  const way = !listed.length ? null : signed ? (only ? `On your ${only} statement` : null) : listed[0]!.amount < 0 ? (only ? `Out of ${only}` : 'All money out') : only ? `Into ${only}` : 'All money in'
+  const payees = new Set(lines.map((l) => l.payee.key)).size > 1
+  const where = ({ line: l, to }: PaymentRow) => {
+    if (to) return `${name(l.account)} → ${name(to.account)}`
+    if (l.moving === 'flex') return l.amount > 0 ? 'Spread with Flex' : `Paid off, from ${name(l.account)}`
+    if (l.moving === 'own') return l.amount < 0 ? `${name(l.account)} → ${l.payee.name}` : `${l.payee.name} → ${name(l.account)}`
+    const way = l.amount < 0 ? `out of ${name(l.account)}` : `into ${name(l.account)}`
+    return payees ? `${l.payee.name} · ${way}` : way[0]!.toUpperCase() + way.slice(1)
+  }
   return (
-    <>
-      <ul className="plain-list compact evidence-list">
-        {listed.map((l) => {
-          const receipt = links.get(l.id)
-          const told = [payees ? l.payee.name : '', accounts.size > 1 ? name(l.account) : '', receipt ? 'receipt ›' : '', why ?? ''].filter(Boolean).join(' · ')
-          const said = (
-            <span className="payment-row">
-              <span className="payment-day">{shortDayMonth(l.date)}</span>
-              <span className="payment-told">{told}</span>
-              <span className="payment-amount">{signed ? money(l.amount, '£') : pounds(Math.abs(l.amount))}</span>
-            </span>
-          )
-          return (
-            <li key={l.id}>
-              {receipt ? (
-                <button type="button" className="line-button" onClick={() => open(receipt)}>
-                  {said}
-                </button>
-              ) : (
-                said
-              )}
-            </li>
-          )
-        })}
-      </ul>
-      {way ? <p className="muted small">{way}</p> : null}
-    </>
+    <ul className="plain-list compact evidence-list">
+      {rows.map((row) => {
+        const receipt = links.get(row.line.id)
+        const told = [where(row), receipt ? 'receipt ›' : '', why ?? ''].filter(Boolean).join(' · ')
+        const said = (
+          <span className="payment-row">
+            <span className="payment-day">{shortDayMonth(row.line.date)}</span>
+            <span className="payment-told">{told}</span>
+            <span className="payment-amount">{pounds(Math.abs(row.line.amount))}</span>
+          </span>
+        )
+        return (
+          <li key={row.line.id}>
+            {receipt ? (
+              <button type="button" className="line-button" onClick={() => open(receipt)}>
+                {said}
+              </button>
+            ) : (
+              said
+            )}
+          </li>
+        )
+      })}
+    </ul>
   )
 }

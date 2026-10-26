@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { accountNames, classify, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments } from '../../src/domain/money'
+import { accountNames, classify, joinMoves, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
@@ -62,6 +62,26 @@ describe('classify: a payee by the name you gave it (owner, 2026-10-26)', () => 
     expect(named!.payee).toEqual({ key: 'a n other', name: 'Example savings' })
     expect(named!.moving).toBe('own')
     expect(other!.payee.name).toBe('EXAMPLE GYM')
+  })
+})
+
+describe('joinMoves: the two sides of a move between your accounts as one row (owner, 2026-10-26)', () => {
+  it('joins money out of one account with the same into another within 3 days, newest first; the rest stay single', () => {
+    const lines = classify(
+      [
+        line(POT, '2026-10-08', -50, 'Withdrawal'),
+        line(CURRENT, '2026-10-08', 50, 'Transfer from Pot'),
+        line(BANK, '2026-10-12', -20, 'MONZO', { type: 'FPO' }),
+        line(CURRENT, '2026-10-11', 20, 'LLOYDS'), // arrived first
+        line(POT, '2026-10-01', 1.25, 'Interest for September 2026'),
+      ],
+      new Set(),
+    )
+    expect(joinMoves(lines).map((r) => [r.line.date, r.line.account, r.to?.account ?? null])).toEqual([
+      ['2026-10-12', BANK, CURRENT],
+      ['2026-10-08', POT, CURRENT],
+      ['2026-10-01', POT, null],
+    ])
   })
 })
 
