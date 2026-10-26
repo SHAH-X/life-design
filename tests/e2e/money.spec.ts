@@ -99,7 +99,14 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   await moneyIn.getByRole('button', { name: 'It’s me, moving money' }).click()
   await expect(summary).toHaveText(['£1501.25 in', '8 payments out'])
   await expect(moved.locator('summary')).toHaveText(['Monzo Flex · 2 payments', 'Pots · 2 payments', 'A N OTHER · Your own account · 1 payment'])
+  // A statement prints your name, not which account: named your way, it's remembered.
   await moved.locator('summary', { hasText: 'A N OTHER' }).click()
+  await moved.getByRole('button', { name: 'Rename A N OTHER' }).click()
+  const naming = page.getByRole('dialog', { name: 'Rename where it went' })
+  await naming.getByRole('textbox').fill('Example savings')
+  await naming.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(moved.locator('summary').last()).toHaveText('Example savings · Your own account · 1 payment')
+  await moved.locator('summary', { hasText: 'Example savings' }).click()
   await moved.getByRole('button', { name: 'It’s not me: count it again' }).click()
   await expect(summary).toHaveText(['£1601.25 in', '8 payments out'])
   // Paid by card or direct debit: never asked.
