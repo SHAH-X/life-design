@@ -2,9 +2,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { createContext, type ReactNode, useContext, useId, useState } from 'react'
 import { db } from '../../db/db'
 import { loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
-import { accountNamesOf, CLOSED_ACCOUNTS, markOwnPayee, namePayee, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES } from '../../db/statements'
+import { accountNamesOf, CLOSED_ACCOUNTS, markOwnPayee, PAYEE_KINDS, PAYMENT_NOTES, namePayee, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES } from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
-import { classify, joinMoves, linkReceipts, mayBeOwn, payeeOf, type PaymentRow, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type PayeeGroup, type Ranked, regularPayments, type Rise } from '../../domain/money'
+import { classify, joinMoves, type KindGroup, kindOf, linkReceipts, mayBeOwn, payeeOf, type PaymentRow, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type PayeeGroup, type Ranked, regularPayments, type Rise } from '../../domain/money'
 import { inWords, type KnownReceipt, money, receiptsAndCopies, shiftMonth, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -15,6 +15,7 @@ import { useOwnWords } from '../today/useOwnWords'
 import { usePurposeSettings } from '../today/usePurpose'
 import { Accounts, RenameSheet } from './Accounts'
 import { ReceiptsMonth, ReceiptsShare, receiptsWord, Section } from './Receipts'
+import { KindSheet, PaymentSheet } from './PaymentSheets'
 import { useAccountNames } from './useAccountNames'
 
 /** The chart shows this many months, the page's own the last. */
@@ -33,10 +34,23 @@ const MOVED: Record<Moving, string> = {
 }
 
 /** Card payments linked to their receipts (v0.20.2), opening one, and the accounts' names: every list of payments reads it. */
-const Receipts = createContext<{ links: ReadonlyMap<string, KnownReceipt>; open: (r: KnownReceipt) => void; names: ReadonlyMap<string, string> }>({
+const Receipts = createContext<{
+  links: ReadonlyMap<string, KnownReceipt>
+  open: (r: KnownReceipt) => void
+  names: ReadonlyMap<string, string>
+  /** What you said payees are for, and your notes on payments, by line id (owner, 2026-10-26). */
+  kinds: Readonly<Record<string, string>>
+  notes: Readonly<Record<string, string>>
+  openPayment: (line: MoneyLine, way: string) => void
+  openKind: (group: PayeeGroup) => void
+}>({
   links: new Map(),
   open: () => {},
   names: new Map(),
+  kinds: {},
+  notes: {},
+  openPayment: () => {},
+  openKind: () => {},
 })
 
 /**
@@ -53,13 +67,17 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
   const names = useAccountNames()
   const closed = useLiveQuery(async () => new Set(ownPayeesOf(await db.settings.get(CLOSED_ACCOUNTS))), [])
   const payeeNames = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYEE_NAMES)), [])
+  const kinds = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYEE_KINDS)), [])
+  const notes = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYMENT_NOTES)), [])
+  const [payment, setPayment] = useState<{ line: MoneyLine; way: string } | null>(null)
+  const [kindFor, setKindFor] = useState<PayeeGroup | null>(null)
   const ownWords = useOwnWords()
   const purpose = usePurposeSettings()
   const suggestions = useLiveQuery(() => loadSuggestions(), [], NO_SUGGESTIONS)
   const [sheet, setSheet] = useState<EntrySheetState>(null)
   const earlierId = useId()
   // Render only once loaded, so nothing jumps under your finger.
-  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
+  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || kinds === undefined || notes === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
 
   const byId = new Map(entries.map((e) => [e.id, e]))
   const open = (receipt: KnownReceipt) => {
@@ -75,7 +93,7 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
   const earlier = [...new Set([...shoppingMonths(receipts), ...lines.filter((l) => !l.moving).map((l) => l.date.slice(0, 7))])].filter((m) => m < thisMonth).sort().reverse()
 
   return (
-    <Receipts.Provider value={{ links, open, names }}>
+    <Receipts.Provider value={{ links, open, names, kinds, notes, openPayment: (line, way) => setPayment({ line, way }), openKind: setKindFor }}>
       {month === thisMonth ? (
         <h1>Money</h1>
       ) : (
@@ -116,6 +134,33 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
       ) : null}
       {month === thisMonth && receipts.length ? <ReceiptsShare receipts={receipts} /> : null}
       <Accounts />
+      {payment ? (
+        <PaymentSheet
+          key={payment.line.id}
+          line={payment.line}
+          way={payment.way}
+          note={notes[payment.line.id] ?? ''}
+          onReceipt={
+            links.get(payment.line.id)
+              ? () => {
+                  const receipt = links.get(payment.line.id)!
+                  setPayment(null)
+                  open(receipt)
+                }
+              : null
+          }
+          onClose={() => setPayment(null)}
+        />
+      ) : null}
+      {kindFor ? (
+        <KindSheet
+          payeeKey={kindFor.payee.key}
+          payee={kindFor.payee.name}
+          chosen={kinds[kindFor.payee.key] ?? null}
+          guess={kindOf(kindFor.lines[0]!, {})}
+          onClose={() => setKindFor(null)}
+        />
+      ) : null}
       <EntrySheet state={sheet} onChange={setSheet} suggestions={suggestions} own={ownWords} purpose={purpose} />
     </Receipts.Provider>
   )
@@ -124,8 +169,8 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
 /** A month of your accounts: out and in, where it rose, regular payments, by payee, money moved, to check. */
 function AccountsMonth(props: { lines: readonly MoneyLine[]; month: string; today: string; statements: readonly StatementRecord[]; closed: ReadonlySet<string> }) {
   const { lines, month, today, statements, closed } = props
-  const { names } = useContext(Receipts)
-  const its = moneyMonth(lines, month, today, statements, closed)
+  const { names, kinds } = useContext(Receipts)
+  const its = moneyMonth(lines, month, today, statements, closed, kinds)
   const regular = regularPayments(lines, month)
   const current = month === today.slice(0, 7)
   const lastMonth = monthName(shiftMonth(month, -1))
@@ -170,8 +215,17 @@ function AccountsMonth(props: { lines: readonly MoneyLine[]; month: string; toda
         </Section>
       ) : null}
       {its.outLines.length ? (
+        <Section title="By what it was for">
+          <Groups
+            of={its.kinds}
+            line={(g: KindGroup) => <LinesLine key={g.kind} label={g.kind} detail={`${paymentsWord(g.lines.filter((l) => !l.refund).length)} · ${pounds(g.total)}`} lines={g.lines} />}
+            fewer="Fewer than 3 payments, by name"
+          />
+        </Section>
+      ) : null}
+      {its.outLines.length ? (
         <Section title="Money out">
-          <Groups of={its.payees.out} line={(g: PayeeGroup) => <PayeeLine key={g.payee.key} group={g} />} fewer="Fewer than 3 payments, by name" />
+          <Groups of={its.payees.out} line={(g: PayeeGroup) => <PayeeLine key={g.payee.key} group={g} out />} fewer="Fewer than 3 payments, by name" />
         </Section>
       ) : null}
       {its.inLines.length ? (
@@ -271,7 +325,9 @@ function LinesLine({ label, detail, lines, moves }: { label: string; detail?: st
 
 /** A payee, opening to its payments, and, where it could be, a way to say it's you moving money (the payee is remembered:
  *  its lines leave the totals, in later statements too). */
-function PayeeLine({ group }: { group: PayeeGroup }) {
+function PayeeLine({ group, out = false }: { group: PayeeGroup; out?: boolean }) {
+  const { kinds, openKind } = useContext(Receipts)
+  const kind = out ? kindOf(group.lines[0]!, kinds) : null
   return (
     <li>
       <details className="week-line">
@@ -279,10 +335,16 @@ function PayeeLine({ group }: { group: PayeeGroup }) {
           <span>{group.payee.name}</span>
           <span className="muted small">
             {' '}
-            · {paymentsWord(group.lines.filter((l) => !l.refund).length)} · {pounds(group.total)}
+            · {kind ? `${kind} · ` : ''}
+            {paymentsWord(group.lines.filter((l) => !l.refund).length)} · {pounds(group.total)}
           </span>
         </summary>
         <LineList lines={group.lines} />
+        {out ? (
+          <button type="button" className="small-link" aria-label={`What ${group.payee.name} is for`} onClick={() => openKind(group)}>
+            {kind ? `For: ${kind} · Change` : 'What is it for?'}
+          </button>
+        ) : null}
         {mayBeOwn(group.lines) ? (
           <button type="button" className="small-link" onClick={() => void markOwnPayee(group.payee.key, true)}>
             It’s me, moving money
@@ -345,7 +407,7 @@ function OwnLines({ lines }: { lines: readonly MoneyLine[] }) {
  *  ("Savings pot → Monzo"). The payee is named only where the rows' payees differ. A payment with its receipt opens it;
  *  with why, when it needs a look. */
 function LineList({ lines, why, moves = false }: { lines: readonly MoneyLine[]; why?: string; moves?: boolean }) {
-  const { links, open, names } = useContext(Receipts)
+  const { links, names, notes, openPayment } = useContext(Receipts)
   const rows = moves ? joinMoves(lines) : [...lines].sort((a, b) => b.date.localeCompare(a.date)).map((line) => ({ line }))
   const name = (account: string) => names.get(account) ?? account
   const payees = new Set(lines.map((l) => l.payee.key)).size > 1
@@ -360,7 +422,8 @@ function LineList({ lines, why, moves = false }: { lines: readonly MoneyLine[]; 
     <ul className="plain-list compact evidence-list">
       {rows.map((row) => {
         const receipt = links.get(row.line.id)
-        const told = [where(row), receipt ? 'receipt ›' : '', why ?? ''].filter(Boolean).join(' · ')
+        const note = notes[row.line.id]
+        const told = [where(row), note ? `“${note}”` : '', receipt ? 'receipt' : '', why ?? ''].filter(Boolean).join(' · ')
         const said = (
           <span className="payment-row">
             <span className="payment-day">{shortDayMonth(row.line.date)}</span>
@@ -370,13 +433,9 @@ function LineList({ lines, why, moves = false }: { lines: readonly MoneyLine[]; 
         )
         return (
           <li key={row.line.id}>
-            {receipt ? (
-              <button type="button" className="line-button" onClick={() => open(receipt)}>
-                {said}
-              </button>
-            ) : (
-              said
-            )}
+            <button type="button" className="line-button" onClick={() => openPayment(row.line, where(row))}>
+              {said}
+            </button>
           </li>
         )
       })}

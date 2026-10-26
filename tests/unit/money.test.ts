@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { accountNames, classify, joinMoves, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments } from '../../src/domain/money'
+import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
@@ -139,6 +139,36 @@ describe('refunds take off what was spent there, never money in (owner, 2026-10-
   it('knows money back from a shop written another way by its first word (owner, 2026-10-26)', () => {
     const lines = classify([line(CURRENT, '2026-07-10', -60, 'EXAMPLESHOP.CO.UK LONDON GBR'), line(CURRENT, '2026-07-24', 12.14, 'EXAMPLESHOP* 972AB\\1 Some Street\\LONDON')], new Set())
     expect(lines.map((l) => l.refund)).toEqual([false, true])
+  })
+})
+
+describe('kindOf: what a payment was for (owner, 2026-10-26: “other transactions … are not very clear”)', () => {
+  const one = (description: string, type = '') => classify([line(BANK, '2026-10-02', -10, description, { type })], new Set())[0]!
+  it('guesses common UK payees from the description, a supermarket’s petrol as fuel', () => {
+    expect(kindOf(one('BRITISH GAS (Direct Debit) Reference: X1'), {})).toBe('Energy')
+    expect(kindOf(one('TESCO STORES 1234 SOMETOWN GBR'), {})).toBe('Groceries')
+    expect(kindOf(one('ASDA PETROL 1234 SOMETOWN GBR'), {})).toBe('Fuel')
+    expect(kindOf(one('EXAMPLE DISTRICT COUNCIL SOMETOWN GBR'), {})).toBe('Council tax')
+    expect(kindOf(one('A N OTHER'), {})).toBeNull()
+  })
+  it('takes the kind you chose for the payee over any guess', () => {
+    expect(kindOf(one('TESCO STORES 1234 SOMETOWN GBR'), { tesco: 'Shopping' })).toBe('Shopping')
+    expect(kindOf(one('A N OTHER'), { 'a n other': 'Rent' })).toBe('Rent')
+  })
+  it('sorts a month’s money out by kind, ranked only with 3 or more payments, the unsorted last', () => {
+    const lines = classify(
+      [
+        line(BANK, '2026-10-02', -20, 'TESCO STORES SOMETOWN GBR'),
+        line(BANK, '2026-10-03', -30, 'ALDI SOMETOWN GBR'),
+        line(BANK, '2026-10-04', -10, 'LIDL SOMETOWN GBR'),
+        line(BANK, '2026-10-05', -500, 'EXAMPLE LETTINGS'),
+        line(BANK, '2026-10-06', -7, 'A N OTHER'),
+      ],
+      new Set(),
+    )
+    const kinds = moneyMonth(lines, '2026-10', TODAY, [], new Set(), { 'example lettings': 'Rent' }).kinds
+    expect(kinds.ranked.map((k) => [k.kind, k.total])).toEqual([['Groceries', 6000]])
+    expect(kinds.others.map((k) => [k.kind, k.total])).toEqual([['Rent', 50000], ['Not sorted yet', 700]])
   })
 })
 

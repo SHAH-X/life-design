@@ -149,6 +149,67 @@ export function joinMoves(lines: readonly MoneyLine[]): PaymentRow[] {
   return rows.sort((a, b) => b.line.date.localeCompare(a.line.date))
 }
 
+/** What a payment was for (owner, 2026-10-26): plain kinds, no order among them. */
+export const PAYMENT_KINDS = [
+  'Rent',
+  'Council tax',
+  'Energy',
+  'Water',
+  'Phone and internet',
+  'Groceries',
+  'Eating out',
+  'Shopping',
+  'Fuel',
+  'Parking',
+  'Transport',
+  'Subscriptions',
+  'Insurance',
+  'Health',
+  'Giving',
+  'Saving and investing',
+  'Other',
+] as const
+export type PaymentKind = (typeof PAYMENT_KINDS)[number]
+
+/** Kinds guessed from a description, for common UK payees; what you choose for a payee always wins. Fuel before a
+ *  supermarket ("ASDA PETROL"). */
+const GUESSES: [PaymentKind, RegExp][] = [
+  ['Fuel', /\b(?:petrol|fuel|esso|shell|texaco|bp)\b/i],
+  ['Parking', /\bcar ?park|\bparking\b|paybyphone|ringgo/i],
+  ['Council tax', /\bcouncil\b/i],
+  ['Energy', /british gas|octopus|\bedf\b|e\.on|\bovo\b|scottish power/i],
+  ['Water', /\bwater\b/i],
+  ['Phone and internet', /virgin media|vodafone|lebara|giffgaff|\bo2\b|\bee\b|three\.co|\bbt\b|talktalk|plusnet|\bsky\b/i],
+  ['Rent', /\brent\b|lettings|goodlord/i],
+  ['Insurance', /insurance|hastings direct|admiral|aviva|direct line/i],
+  ['Saving and investing', /trading ?212|vanguard|freetrade|hargreaves|nutmeg|moneybox/i],
+  ['Subscriptions', /netflix|spotify|disney|anthropic|claude|openai|youtube|icloud|apple\.com|google (?:one|storage)|prime video|audible|github/i],
+  ['Transport', /trainline|national express|flixbus|\bflix\b|transport for london|\btfl\b|\buber\b|stagecoach|arriva|\bbus\b|\brail/i],
+  ['Eating out', /pizza|mcdonald|starbucks|costa|greggs|nando|kfc|subway|tim hortons|domino|deliveroo|just eat|uber eats/i],
+  ['Health', /pharmacy|\bboots\b|dentist|\bnhs\b|optician/i],
+  ['Giving', /charity|foundation|mandir|temple|church|mosque|gurdwara|donation/i],
+  ['Shopping', /amazon|temu|ebay|argos|currys|dunelm|john lewis|\bnext\b|primark|ikea|matalan|tk ?maxx|homesense/i],
+]
+
+/** What a payment was for: the kind you chose for its payee, else a guess (a supermarket chain is groceries), else
+ *  null. */
+export function kindOf(line: MoneyLine, chosen: Readonly<Record<string, string>>): string | null {
+  const yours = chosen[line.payee.key]
+  if (yours) return yours
+  const guess = GUESSES.find(([, words]) => words.test(line.description))?.[0]
+  if (guess) return guess
+  return chainOf(line.payee.name) ? 'Groceries' : null
+}
+
+/** A payment with no kind yet. */
+export const NOT_SORTED = 'Not sorted yet'
+
+export interface KindGroup {
+  kind: string
+  total: number
+  lines: MoneyLine[]
+}
+
 export interface PayeeGroup {
   payee: Payee
   /** In pence, money out or in as a positive amount. */
@@ -182,6 +243,8 @@ export interface MoneyMonth {
   /** Payees with more out than in the month before (by the same day, for the month you're in). */
   rose: Ranked<Rise>
   payees: { out: Ranked<PayeeGroup>; in: Ranked<PayeeGroup> }
+  /** Money out by what it was for (owner, 2026-10-26); payments with no kind last. */
+  kinds: Ranked<KindGroup>
   /** Money moved between your own accounts, left out, by why. */
   moved: { why: Moving; lines: MoneyLine[] }[]
   toCheck: {
@@ -204,8 +267,25 @@ function groups(lines: readonly MoneyLine[], sign: 1 | -1): Ranked<PayeeGroup> {
   }
 }
 
+function kindGroups(lines: readonly MoneyLine[], chosen: Readonly<Record<string, string>>): Ranked<KindGroup> {
+  const all = groupBy(lines, (l) => kindOf(l, chosen) ?? NOT_SORTED).map((same): KindGroup => ({ kind: kindOf(same[0]!, chosen) ?? NOT_SORTED, total: sumOut(same), lines: same }))
+  const payments = (g: KindGroup) => g.lines.filter((l) => !l.refund).length
+  const unsortedLast = (a: KindGroup, b: KindGroup) => Number(a.kind === NOT_SORTED) - Number(b.kind === NOT_SORTED) || a.kind.localeCompare(b.kind)
+  return {
+    ranked: all.filter((g) => g.kind !== NOT_SORTED && payments(g) >= MIN_COUNT).sort((a, b) => b.total - a.total),
+    others: all.filter((g) => g.kind === NOT_SORTED || payments(g) < MIN_COUNT).sort(unsortedLast),
+  }
+}
+
 /** Everything Money says about one month ("2026-10"), on `today`. */
-export function moneyMonth(lines: readonly MoneyLine[], month: string, today: string, statements: readonly StatementRecord[], closed: ReadonlySet<string> = new Set()): MoneyMonth {
+export function moneyMonth(
+  lines: readonly MoneyLine[],
+  month: string,
+  today: string,
+  statements: readonly StatementRecord[],
+  closed: ReadonlySet<string> = new Set(),
+  kinds: Readonly<Record<string, string>> = {},
+): MoneyMonth {
   const current = today.slice(0, 7) === month
   const lastMonth = shiftMonth(month, -1)
   const inMonth = counted(lines, month)
@@ -252,6 +332,7 @@ export function moneyMonth(lines: readonly MoneyLine[], month: string, today: st
       others: rises.filter((r) => r.lines.length < MIN_COUNT).sort(byName),
     },
     payees: { out: groups(outLines, -1), in: groups(inLines, 1) },
+    kinds: kindGroups(outLines, kinds),
     moved,
     toCheck: { lines: lines.filter((l) => !l.adds && l.date.slice(0, 7) === month), accounts },
   }

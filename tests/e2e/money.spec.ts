@@ -161,13 +161,25 @@ test('a card payment with its receipt opens the receipt', async ({ page }, testI
   const out = page.getByRole('region', { name: 'Money out' })
   await out.locator('summary', { hasText: 'EXAMPLE STREAMING' }).click()
   // One payee, one account: each row is its day and amount, the account said once below.
-  const payment = out.getByRole('button', { name: /^Sat,? 12 Sept? Out of Lloyds · receipt › £10\.99$/ })
+  const payment = out.getByRole('button', { name: /^Sat,? 12 Sept? Out of Lloyds · receipt £10\.99$/ })
   await payment.click()
+  await page.getByRole('dialog', { name: 'EXAMPLE STREAMING' }).getByRole('button', { name: 'Open its receipt' }).click()
   await expect(page.getByRole('dialog', { name: 'Photo' })).toBeVisible()
   // A payment with no receipt is only words.
   await page.getByRole('dialog', { name: 'Photo' }).getByRole('button', { name: 'Done', exact: true }).click()
   await out.locator('summary', { hasText: 'EXAMPLE ENERGY' }).click()
   const energy = out.locator('details', { hasText: 'EXAMPLE ENERGY' })
   await expect(energy.locator('.evidence-list li')).toHaveText([/^Wed,? 2 Sept? ?Out of Lloyds ?£45\.00$/])
-  await expect(energy.locator('.evidence-list').getByRole('button')).toHaveCount(0)
+
+  // What a payment was for (owner, 2026-10-26): a kind for its payee, kept for all its payments, and a note on one.
+  await energy.getByRole('button', { name: 'What EXAMPLE ENERGY is for' }).click()
+  await page.getByRole('dialog', { name: 'What is EXAMPLE ENERGY for?' }).getByRole('radio', { name: 'Energy', exact: true }).click()
+  await expect(energy.locator('summary')).toHaveText('EXAMPLE ENERGY · Energy · 1 payment · £45.00')
+  await expect(page.getByRole('region', { name: 'By what it was for' }).locator('summary', { hasText: 'Energy' })).toHaveText('Energy · 1 payment · £45.00')
+  await energy.locator('.evidence-list').getByRole('button').click()
+  const paymentSheet = page.getByRole('dialog', { name: 'EXAMPLE ENERGY' })
+  await expect(paymentSheet.getByRole('textbox', { name: 'What was it for?' })).toBeFocused()
+  await paymentSheet.getByRole('textbox').fill('Winter bill')
+  await paymentSheet.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(energy.locator('.evidence-list li')).toHaveText([/^Wed,? 2 Sept? ?Out of Lloyds · “Winter bill” ?£45\.00$/])
 })
