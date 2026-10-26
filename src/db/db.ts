@@ -4,6 +4,7 @@ import {
   type AiReview,
   type Answer,
   type AreaCentre,
+  type BankLine,
   type Day,
   type Entry,
   entryDefaults,
@@ -16,6 +17,7 @@ import {
   type PlanVersion,
   type Review,
   type Setting,
+  type StatementRecord,
   type Step,
   type Views,
   type Week,
@@ -39,6 +41,8 @@ export type LifeDesignDB = Dexie & {
   loopVectors: EntityTable<LoopVector, 'id'>
   photos: EntityTable<Photo, 'id'>
   questions: EntityTable<Question, 'id'>
+  bankLines: EntityTable<BankLine, 'id'>
+  statements: EntityTable<StatementRecord, 'id'>
 }
 
 export const DB_NAME = 'life-design'
@@ -175,6 +179,11 @@ export function openDb(name = DB_NAME): LifeDesignDB {
   // v0.18: questions asked of the journal (Ask), with their answers: yours, so in a backup. A new, empty table.
   database.version(11).stores({
     questions: 'id, createdAt',
+  })
+  // v0.20: bank and card statements brought in, and their lines: yours, so in a backup. Two new, empty tables.
+  database.version(12).stores({
+    bankLines: 'id, account, date',
+    statements: 'id, account',
   })
   return database
 }

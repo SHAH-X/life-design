@@ -69,8 +69,8 @@ export function seedBackup(now: Date = new Date()) {
 
 /** A backup in today's format (8) with just the records given; every other table empty. */
 export function backupWith(data: Record<string, unknown[]>, now: Date = new Date()) {
-  const tables = ['entries', 'days', 'answers', 'ikigaiItems', 'odysseyPlans', 'planVersions', 'views', 'weeks', 'steps', 'aiReviews', 'reviews', 'settings', 'photos', 'questions']
-  return { app: 'life-design', kind: 'backup', schemaVersion: 10, exportedAt: now.toISOString(), data: Object.fromEntries(tables.map((t) => [t, data[t] ?? []])) }
+  const tables = ['entries', 'days', 'answers', 'ikigaiItems', 'odysseyPlans', 'planVersions', 'views', 'weeks', 'steps', 'aiReviews', 'reviews', 'settings', 'photos', 'questions', 'bankLines', 'statements']
+  return { app: 'life-design', kind: 'backup', schemaVersion: 11, exportedAt: now.toISOString(), data: Object.fromEntries(tables.map((t) => [t, data[t] ?? []])) }
 }
 
 /** Free writing as the box saves it, `daysAgo` days back at noon. */

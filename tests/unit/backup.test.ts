@@ -4,7 +4,7 @@ import { applyImport, BACKUP_SCHEMA_VERSION, createBackup, detectFile, planImpor
 import { lockText, unlockText } from '../../src/db/crypto'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { newReview } from '../../src/db/repo'
-import { isEntry } from '../../src/db/validate'
+import { isBankLine, isEntry } from '../../src/db/validate'
 import { emptyPlan } from '../../src/domain/lifeDesign'
 import { ITEM_KINDS } from '../../src/domain/receipts'
 import { type AiReview, type Answer, type Entry, entryDefaults, type Step, TABLE_NAMES } from '../../src/db/types'
@@ -46,6 +46,8 @@ const emptyRaw = (): RawData => ({
   settings: [],
   photos: [],
   questions: [],
+  bankLines: [],
+  statements: [],
 })
 
 let phone: LifeDesignDB
@@ -258,7 +260,7 @@ describe('backup and restore', () => {
     await phone.steps.put(agenda)
     await phone.weeks.put({ id: '2026-10-19', carry: 'Walk at lunch', createdAt: 2000, updatedAt: 2000 })
     const backup = await createBackup(phone)
-    expect(backup.schemaVersion).toBe(10)
+    expect(backup.schemaVersion).toBe(11)
     const detected = detectFile(JSON.stringify(backup))
     if (detected.format !== 'backup') throw new Error('expected a backup')
     await applyImport(detected.raw, newPhone)
@@ -436,6 +438,21 @@ describe('backup and restore', () => {
     expect(await newPhone.entries.count()).toBe(1)
   })
 
+  it('backs up and restores statements brought in and their lines, and refuses a damaged line (v0.20)', async () => {
+    const line = { id: 'b1', account: 'Lloyds ···4321', date: '2026-09-02', amount: -4500, description: 'EXAMPLE ENERGY', type: 'DD', balance: 15500, adds: true, createdAt: 5, updatedAt: 5 }
+    const statement = { id: 'Lloyds ···4321:2026-09-01:2026-09-30', account: 'Lloyds ···4321', from: '2026-09-01', to: '2026-09-30', lines: 4, createdAt: 5, updatedAt: 5 }
+    await phone.bankLines.put(line)
+    await phone.statements.put(statement)
+    const detected = detectFile(JSON.stringify(await createBackup(phone)))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    await applyImport(detected.raw, newPhone)
+    expect(await newPhone.bankLines.get('b1')).toEqual(line)
+    expect(await newPhone.statements.toArray()).toEqual([statement])
+    expect(isBankLine({ ...line, amount: -45.0001 })).toBe(false)
+    expect(isBankLine({ ...line, date: '2 Sep' })).toBe(false)
+    expect(isBankLine({ ...line, balance: null })).toBe(true)
+  })
+
   it('refuses a backup made by a newer version of the app', () => {
     const text = JSON.stringify({ app: 'life-design', kind: 'backup', schemaVersion: BACKUP_SCHEMA_VERSION + 1, data: {} })
     expect(detectFile(text)).toEqual({ format: 'too-new', schemaVersion: BACKUP_SCHEMA_VERSION + 1 })
@@ -443,7 +460,7 @@ describe('backup and restore', () => {
 
   it('moves to a new backup format with each new item kind: an older version would skip an entry with one, its writing too', () => {
     // v0.19.2 added Clothes and shoes and format 10. A new kind: raise the format, then both numbers here.
-    expect({ format: BACKUP_SCHEMA_VERSION, kinds: ITEM_KINDS.length }).toEqual({ format: 10, kinds: 13 })
+    expect({ format: BACKUP_SCHEMA_VERSION, kinds: ITEM_KINDS.length }).toEqual({ format: 11, kinds: 13 })
   })
 
   it('recognises locked backups, v1 files and everything else', async () => {

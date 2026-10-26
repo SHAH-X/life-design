@@ -7,6 +7,7 @@ import {
   type Answer,
   BALANCE_AREAS,
   type BackupData,
+  type BankLine,
   type Day,
   type Entry,
   type IkigaiItem,
@@ -16,6 +17,7 @@ import {
   type PlanVersion,
   type Review,
   type Setting,
+  type StatementRecord,
   type Step,
   type TableName,
   type Views,
@@ -78,6 +80,28 @@ function isAiReading(x: unknown): boolean {
     Array.isArray(r.items) &&
     r.items.every((i) => isObj(i) && isStr(i.name) && isOptional(i.plain, isStr) && Number.isInteger(i.price) && Number.isInteger(i.quantity) && isOptional(i.kind, isOneOf(ITEM_KINDS)))
   )
+}
+
+/** A line of a statement brought in (v0.20): money in whole pence, a real date. */
+export function isBankLine(x: unknown): x is BankLine {
+  return (
+    isObj(x) &&
+    isNonEmptyStr(x.id) &&
+    isNonEmptyStr(x.account) &&
+    isDateKey(x.date) &&
+    Number.isInteger(x.amount) &&
+    isStr(x.description) &&
+    isStr(x.type) &&
+    (x.balance === null || Number.isInteger(x.balance)) &&
+    typeof x.adds === 'boolean' &&
+    isNum(x.createdAt) &&
+    isNum(x.updatedAt)
+  )
+}
+
+/** A statement brought in (v0.20). */
+export function isStatementRecord(x: unknown): x is StatementRecord {
+  return isObj(x) && isNonEmptyStr(x.id) && isNonEmptyStr(x.account) && isDateKey(x.from) && isDateKey(x.to) && Number.isInteger(x.lines) && isNum(x.createdAt) && isNum(x.updatedAt)
 }
 
 /** A question asked of the journal, with its answer (v0.18). */
@@ -301,6 +325,8 @@ export const VALIDATORS: { [K in TableName]: (x: unknown) => x is BackupData[K][
   settings: isSetting,
   photos: isPhoto,
   questions: isQuestion,
+  bankLines: isBankLine,
+  statements: isStatementRecord,
 }
 
 /** Fills in fields that older files don't have yet, after validation. */

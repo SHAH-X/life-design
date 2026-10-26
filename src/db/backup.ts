@@ -14,11 +14,12 @@ export const APP_ID = 'life-design'
  * Odyssey Plans and Workview & Lifeview; 5 adds purpose journaling (entry purpose, reflections, next steps, free
  * writing, drafts) and weekly notes; 6 moves next steps into their own list (steps); 7 adds reviews by AI; 8 adds
  * photos, and each entry's question and photos (v0.16); 9 adds the questions asked of the journal (v0.18); 10 adds the
- * kind Clothes and shoes (v0.19.2: an older version would skip an entry with one, its writing too). Older files still
+ * kind Clothes and shoes (v0.19.2: an older version would skip an entry with one, its writing too); 11 adds statements
+ * brought in and their lines (v0.20). Older files still
  * restore (their next steps become steps); newer ones are refused by older app versions. The AI key never goes into a
  * backup.
  */
-export const BACKUP_SCHEMA_VERSION = 10
+export const BACKUP_SCHEMA_VERSION = 11
 
 /** Settings that never leave the phone, not even inside a backup: the AI keys (for Ask and reviews, and for photos),
  *  and whether search by meaning and reading photos are on (their downloads are this phone's: a phone restored to
@@ -84,6 +85,8 @@ export async function createBackup(database: LifeDesignDB = defaultDb, now: Date
     settings: (await database.settings.toArray()).filter((s) => !SECRET_SETTING_KEYS.has(s.key)),
     photos: await database.photos.toArray(),
     questions: await database.questions.toArray(),
+    bankLines: await database.bankLines.toArray(),
+    statements: await database.statements.toArray(),
   }))
   return { app: APP_ID, kind: 'backup', schemaVersion: BACKUP_SCHEMA_VERSION, exportedAt: now.toISOString(), data }
 }

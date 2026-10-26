@@ -109,14 +109,15 @@ const shopName = (s: string) => {
 const pad = (n: number) => String(n).padStart(2, '0')
 const valid = (y: number, m: number, d: number) => m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 2000 && y <= 2100
 
-/** A date in one line: "12 Oct 2026", "25-Oct-2026", "28th October 2026", "2026-10-09", "03.10.2026", "14/10/26" (US
- *  order only when it must be, or with a $), or null. */
-function dateIn(line: string, us: boolean): string | null {
+/** A date in one line: "12 Oct 2026", "25-Oct-2026", "28th October 2026", "09 Oct 26" (a bank statement's, v0.20),
+ *  "2026-10-09", "03.10.2026", "14/10/26" (US order only when it must be, or with a $), or null. Statements read their
+ *  dates with it too (src/domain/statements.ts). */
+export function dateIn(line: string, us: boolean): string | null {
   const t = unslip(line)
-  const named = t.match(/\b(\d{1,2})(?:st|nd|rd|th)?[\s-]+([A-Za-z]{3})[a-z]*\.?[\s-]+(\d{4})\b/)
+  const named = t.match(/\b(\d{1,2})(?:st|nd|rd|th)?[\s-]+([A-Za-z]{3})[a-z]*\.?[\s-]+(\d{4}|\d{2})\b/)
   if (named) {
     const m = MONTHS.indexOf(named[2]!.toLowerCase()) + 1
-    const [y, d] = [Number(named[3]), Number(named[1])]
+    const [y, d] = [named[3]!.length === 2 ? 2000 + Number(named[3]) : Number(named[3]), Number(named[1])]
     if (m && valid(y, m, d)) return `${y}-${pad(m)}-${pad(d)}`
   }
   const iso = t.match(/\b(\d{4})-(\d{2})-(\d{2})\b/)
