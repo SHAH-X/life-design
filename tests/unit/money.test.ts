@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { classify, moneyMonth, moneyMonthTotals, payeeOf, regularPayments } from '../../src/domain/money'
+import { classify, linkReceipts, moneyMonth, moneyMonthTotals, payeeOf, regularPayments } from '../../src/domain/money'
+import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
 // Fictional lines only; today is Monday 26 October 2026.
@@ -152,5 +153,46 @@ describe('regularPayments: the same payee paid every month or every week', () =>
       ...['2026-08-17', '2026-09-17', '2026-10-17'].map((d) => line(CURRENT, d, -100, 'Flex')),
     ]
     expect(regularPayments(classify(lines, new Set()), '2026-10')).toEqual([])
+  })
+})
+
+describe('linkReceipts: a card payment and the receipt for it (v0.20.2)', () => {
+  const receipt = (id: string, shop: string, date: string, pence: number): KnownReceipt => ({
+    id,
+    entryId: `e-${id}`,
+    shop,
+    date,
+    currency: '£',
+    items: [{ name: 'Thing', price: pence, quantity: 1 }],
+    total: pence,
+    adds: true,
+    dated: true,
+    readBy: null,
+  })
+  const lines = classify(
+    [
+      line(BANK, '2026-10-02', -25, 'TESCO SOMETOWN GBR'),
+      line(BANK, '2026-10-05', -12.4, 'CORNER SHOP SOMETOWN GBR'),
+      line(BANK, '2026-10-09', -30, 'TESCO EXPRESS GBR'),
+      line(BANK, '2026-10-09', -30, 'TESCO EXPRESS GBR'),
+      line(CURRENT, '2026-10-12', 12.4, 'Flex'),
+    ],
+    new Set(),
+  )
+  const linked = (receipts: KnownReceipt[]) => [...linkReceipts(lines, receipts)].map(([lineId, r]) => [lines.find((l) => l.id === lineId)!.description, r.id])
+
+  it('links a payment to its receipt: the same amount, within 3 days, the shop the payee (a chain’s names as one)', () => {
+    expect(linked([receipt('r1', 'Tesco Stores Ltd', '2026-10-01', 2500), receipt('r2', 'Corner Shop', '2026-10-03', 1240)])).toEqual([
+      ['TESCO SOMETOWN GBR', 'r1'],
+      ['CORNER SHOP SOMETOWN GBR', 'r2'],
+    ])
+  })
+
+  it('links nothing when the amount, the shop or the days differ, or for money moved; each payment to one receipt', () => {
+    expect(linked([receipt('r1', 'Tesco', '2026-10-02', 2499), receipt('r2', 'Aldi', '2026-10-02', 2500), receipt('r3', 'Tesco', '2026-09-25', 2500)])).toEqual([])
+    expect(linked([receipt('r4', 'Corner Shop', '2026-10-12', 1240)])).toEqual([])
+    // Two alike payments, two alike receipts: one each.
+    const two = linked([receipt('r5', 'TESCO', '2026-10-09', 3000), receipt('r6', 'TESCO', '2026-10-09', 3000)])
+    expect(two.map(([, id]) => id).sort()).toEqual(['r5', 'r6'])
   })
 })

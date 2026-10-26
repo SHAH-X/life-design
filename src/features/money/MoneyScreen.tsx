@@ -1,10 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { type ReactNode, useId, useState } from 'react'
+import { createContext, type ReactNode, useContext, useId, useState } from 'react'
 import { db } from '../../db/db'
 import { loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
 import { markOwnPayee, OWN_PAYEES, ownPayeesOf } from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
-import { classify, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type PayeeGroup, type Ranked, regularPayments, type Rise } from '../../domain/money'
+import { classify, linkReceipts, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type PayeeGroup, type Ranked, regularPayments, type Rise } from '../../domain/money'
 import { inWords, type KnownReceipt, money, receiptsAndCopies, shiftMonth, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -29,6 +29,9 @@ const MOVED: Record<Moving, string> = {
   between: 'Between your accounts',
   own: 'Your own account',
 }
+
+/** Card payments linked to their receipts (v0.20.2), and opening one: every list of payments reads it. */
+const Receipts = createContext<{ links: ReadonlyMap<string, KnownReceipt>; open: (r: KnownReceipt) => void }>({ links: new Map(), open: () => {} })
 
 /**
  * Money (v0.20, the Shopping tab before): what came in and went out of your accounts, from the statements you bring in,
@@ -56,13 +59,14 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
   }
   const { receipts, copies } = receiptsAndCopies(entries)
   const lines = classify(bankLines, new Set(own))
+  const links = linkReceipts(lines, receipts)
   const today = toDateKey(new Date())
   const thisMonth = today.slice(0, 7)
   const month = sub && /^\d{4}-\d{2}$/.test(sub) ? sub : thisMonth
   const earlier = [...new Set([...shoppingMonths(receipts), ...lines.filter((l) => !l.moving).map((l) => l.date.slice(0, 7))])].filter((m) => m < thisMonth).sort().reverse()
 
   return (
-    <>
+    <Receipts.Provider value={{ links, open }}>
       {month === thisMonth ? (
         <h1>Money</h1>
       ) : (
@@ -104,7 +108,7 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
       {month === thisMonth && receipts.length ? <ReceiptsShare receipts={receipts} /> : null}
       <Accounts />
       <EntrySheet state={sheet} onChange={setSheet} suggestions={suggestions} own={ownWords} purpose={purpose} />
-    </>
+    </Receipts.Provider>
   )
 }
 
@@ -305,22 +309,39 @@ function OwnLines({ lines }: { lines: readonly MoneyLine[] }) {
   )
 }
 
-/** Payments, newest first: day, description, account and amount; with why, when it needs a look. */
+/** Payments, newest first: day, description, account and amount; with why, when it needs a look. One with its
+ *  receipt opens it. */
 function LineList({ lines, why }: { lines: readonly MoneyLine[]; why?: string }) {
+  const { links, open } = useContext(Receipts)
   const listed = [...lines].sort((a, b) => b.date.localeCompare(a.date))
   return (
     <ul className="plain-list compact evidence-list">
-      {listed.map((l) => (
-        <li key={l.id}>
-          <span className="muted small">{shortDayMonth(l.date)} </span>
-          {l.payee.name}
-          <span className="muted small">
-            {' '}
-            · {l.account} · {money(l.amount, '£')}
-            {why ? ` · ${why}` : ''}
-          </span>
-        </li>
-      ))}
+      {listed.map((l) => {
+        const receipt = links.get(l.id)
+        const said = (
+          <>
+            <span className="muted small">{shortDayMonth(l.date)} </span>
+            {l.payee.name}
+            <span className="muted small">
+              {' '}
+              · {l.account} · {money(l.amount, '£')}
+              {receipt ? ' · receipt' : ''}
+              {why ? ` · ${why}` : ''}
+            </span>
+          </>
+        )
+        return (
+          <li key={l.id}>
+            {receipt ? (
+              <button type="button" className="line-button" onClick={() => open(receipt)}>
+                <span>{said}</span>
+              </button>
+            ) : (
+              said
+            )}
+          </li>
+        )
+      })}
     </ul>
   )
 }
