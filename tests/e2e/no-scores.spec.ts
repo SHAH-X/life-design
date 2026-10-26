@@ -5,8 +5,13 @@ import { restoreSeed } from './seed'
 // The guard for Phase 2.6's rule: nothing asks for or shows a rating, score, average or scale (expectNoScores).
 // Search by meaning's screens are checked in meaning.spec.ts, which has the model.
 
+/** A Thursday, so the seed's entries (yesterday back to 5 days ago) fill this week's chart: on a Monday they'd all be
+ *  last week's, and the chart isn't there to open (it failed so on 26 Oct 2026). */
+const THURSDAY = new Date(2026, 9, 22, 12, 0)
+
 test('no screen asks for or shows a rating or score', async ({ page }, testInfo) => {
-  await restoreSeed(page, testInfo.outputPath('seed.json'))
+  await page.clock.setFixedTime(THURSDAY)
+  await restoreSeed(page, testInfo.outputPath('seed.json'), THURSDAY)
 
   await page.goto('./#/today')
   await page.getByRole('button', { name: 'Previous day' }).click()
