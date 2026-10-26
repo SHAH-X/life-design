@@ -21,7 +21,13 @@ export type Moving = 'flex' | 'pot' | 'between' | 'own'
 export interface MoneyLine extends BankLine {
   payee: Payee
   moving: Moving | null
+  /** Money back from where it was spent: it lowers that spending, never counts as money in (owner, 2026-10-26). */
+  refund: boolean
 }
+
+/** A line that says it's money back: Monzo's note on a petrol hold given back, a refund or an adjustment. */
+const REFUND_NOTE = /\s*This relates to a previous transaction\.?/i
+const REFUND = /^(?:refund|adjustment) for\b/i
 
 const COUNTRY = /\s+(?:GBR|GB|IRL|USA|US|FRA|DEU|ESP|ITA|NLD|BEL|PRT)$/i
 
@@ -29,6 +35,8 @@ const COUNTRY = /\s+(?:GBR|GB|IRL|USA|US|FRA|DEU|ESP|ITA|NLD|BEL|PRT)$/i
  *  Reference: …" is Example Gym; "TESCO SOMETOWN GBR" is Tesco. */
 export function payeeOf(description: string): Payee {
   const name = description
+    .replace(REFUND_NOTE, '')
+    .replace(REFUND, '')
     .replace(/\s*Amount:\s.*$/i, '')
     .replace(/\s*\(Faster Payments\)/i, '')
     .replace(/\s*Reference:.*$/i, '')
@@ -97,7 +105,7 @@ export function classify(lines: readonly BankLine[], own: ReadonlySet<string>, n
   const classed = lines.map((line): MoneyLine => {
     const printed = payeeOf(line.description)
     const payee = named[printed.key] ? { ...printed, name: named[printed.key]! } : printed
-    return { ...line, payee, moving: movingOf(line, payee, own) }
+    return { ...line, payee, moving: movingOf(line, payee, own), refund: false }
   })
   const apart = (a: MoneyLine, b: MoneyLine) => Math.abs(dayNumber(a.date) - dayNumber(b.date))
   for (const out of classed.filter((l) => !l.moving && l.amount < 0)) {
@@ -106,6 +114,9 @@ export function classify(lines: readonly BankLine[], own: ReadonlySet<string>, n
       .sort((a, b) => apart(a, out) - apart(b, out))[0]
     if (into) out.moving = into.moving = 'between'
   }
+  // Money in from a payee you've paid, or marked as a refund, is money back.
+  const paidTo = new Set(classed.filter((l) => !l.moving && l.amount < 0).map((l) => l.payee.key))
+  for (const l of classed) l.refund = !l.moving && l.amount > 0 && (paidTo.has(l.payee.key) || REFUND_NOTE.test(l.description) || REFUND.test(l.description.trim()))
   return classed
 }
 
@@ -191,9 +202,9 @@ export function moneyMonth(lines: readonly MoneyLine[], month: string, today: st
   const current = today.slice(0, 7) === month
   const lastMonth = shiftMonth(month, -1)
   const inMonth = counted(lines, month)
-  const outLines = inMonth.filter((l) => l.amount < 0)
-  const inLines = inMonth.filter((l) => l.amount > 0)
-  const earlier = counted(lines, lastMonth).filter((l) => l.amount < 0)
+  const outLines = inMonth.filter((l) => l.amount < 0 || l.refund)
+  const inLines = inMonth.filter((l) => l.amount > 0 && !l.refund)
+  const earlier = counted(lines, lastMonth).filter((l) => l.amount < 0 || l.refund)
   const until = addMonths(today, -1)
   const beforeLines = current ? earlier.filter((l) => l.date <= until) : earlier
 
@@ -242,8 +253,8 @@ export function moneyMonth(lines: readonly MoneyLine[], month: string, today: st
 /** The `count` months up to `last`, oldest first: money out and how many payments, money moved left out. */
 export function moneyMonthTotals(lines: readonly MoneyLine[], last: string, count: number): { month: string; out: number; lines: number }[] {
   return Array.from({ length: count }, (_, i) => shiftMonth(last, i - count + 1)).map((month) => {
-    const out = counted(lines, month).filter((l) => l.amount < 0)
-    return { month, out: sumOut(out), lines: out.length }
+    const out = counted(lines, month).filter((l) => l.amount < 0 || l.refund)
+    return { month, out: sumOut(out), lines: out.filter((l) => l.amount < 0).length }
   })
 }
 

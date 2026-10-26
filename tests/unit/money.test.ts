@@ -119,6 +119,25 @@ describe('notBroughtIn: the days an account has no statement for, up to today or
   })
 })
 
+describe('refunds take off what was spent there, never money in (owner, 2026-10-26: a petrol hold of £99 less £30.88 back)', () => {
+  it('a refund, or money back from a payee you paid, lowers that payee’s spending', () => {
+    const lines = classify(
+      [
+        line(CURRENT, '2026-10-15', -99, 'EXAMPLE PETROL SOMETOWN GBR'),
+        line(CURRENT, '2026-10-15', 30.88, 'EXAMPLE PETROL SOMETOWN GBR This relates to a previous transaction'),
+        line(CURRENT, '2026-10-16', 12.14, 'Refund for EXAMPLE SHOP'),
+        line(CURRENT, '2026-10-20', 1500, 'EXAMPLE EMPLOYER LTD'),
+      ],
+      new Set(),
+    )
+    expect(lines.map((l) => l.refund)).toEqual([false, true, true, false])
+    const month = moneyMonth(lines, '2026-10', TODAY, [])
+    expect(month.out).toBe(9900 - 3088 - 1214)
+    expect(month.in).toBe(150000)
+    expect(month.payees.out.others.find((g) => g.payee.key === 'example petrol sometown')?.total).toBe(6812)
+  })
+})
+
 describe('mayBeOwn: “It’s me, moving money” is offered only where it could be', () => {
   it('not for a known shop, nor a payee paid by card', () => {
     expect(mayBeOwn(classify([line(CURRENT, '2026-10-02', -18, 'ALDI SOMETOWN GBR')], new Set()))).toBe(false)
