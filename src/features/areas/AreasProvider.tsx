@@ -8,9 +8,9 @@ import { ensurePhotoText } from '../../db/photoText'
 import { isDone } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import { type AreaId, entryTitle } from '../../domain/areas'
-import { AI_PROBLEMS, AiError } from '../../lib/ai'
+import { AI_PROBLEMS, AiError, dailyReset } from '../../lib/ai'
 import { embed, MEANING_PROBLEMS, MeaningError } from '../../lib/embedder'
-import { photoReader } from '../photos/photoReader'
+import { receiptReader } from '../photos/photoReader'
 import { OCR_PROBLEMS, OcrError, readPhoto } from '../../lib/reader'
 import { type MeaningSearch, useMeaningSearch } from '../meaning/useMeaning'
 import { usePhotoText } from '../photos/usePhotoText'
@@ -69,6 +69,7 @@ export function AreasProvider({ children }: { children: ReactNode }) {
   /** Rounds in a row that left receipts unread, and the wait for the next. */
   const unreadRounds = useRef(0)
   const retry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const pausedUntil = useRef(0)
 
   useEffect(() => {
     const back = () => {
@@ -95,18 +96,24 @@ export function AreasProvider({ children }: { children: ReactNode }) {
           }
           // Then what the phone takes for receipts, to your AI (owner's choice, v0.18), when it can read photos.
           const ai = await photoReaderSettings(db).catch(() => null)
-          if (ai?.auto) {
+          // With today's limit used up, nothing goes by itself until it starts again (owner, 2026-10-26: tries every
+          // few minutes kept it used up); a tap still goes.
+          if (ai?.auto && Date.now() >= pausedUntil.current) {
             clearTimeout(retry.current)
             let refused = false
+            let daily = false
             try {
-              await ensureAiReadings(photoReader(ai), db)
+              await ensureAiReadings(await receiptReader(ai), db)
               if (live) setAiProblem(null)
             } catch (error) {
               refused = error instanceof AiError && error.problem === 'key'
+              daily = error instanceof AiError && error.problem === 'daily'
               if (live) setAiProblem(error instanceof AiError ? error.message : AI_PROBLEMS.other)
             }
             const unread = waitingForAi(await db.entries.toArray()).length > 0
-            if (live && unread && !refused) retry.current = setTimeout(() => setRound((n) => n + 1), nextTryIn(unreadRounds.current++))
+            if (daily) pausedUntil.current = dailyReset(new Date()).getTime()
+            const wait = daily ? pausedUntil.current - Date.now() + 60_000 : nextTryIn(unreadRounds.current++)
+            if (live && unread && !refused) retry.current = setTimeout(() => setRound((n) => n + 1), wait)
             else if (!unread) unreadRounds.current = 0
           }
         }
