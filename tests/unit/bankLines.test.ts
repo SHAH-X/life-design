@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
-import { ACCOUNT_NAMES, accountNamesOf, bringInStatement, markOwnPayee, nameAccount, namePayee, removeAccount, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES } from '../../src/db/statements'
+import { ACCOUNT_NAMES, accountNamesOf, bringInStatement, markClosed, markOwnPayee, nameAccount, CLOSED_ACCOUNTS, namePayee, removeAccount, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES } from '../../src/db/statements'
 import { readStatement, type StatementAccount } from '../../src/domain/statements'
 import { piecesOf } from '../fixtures/pdf'
 import { LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
@@ -86,11 +86,14 @@ describe('bringInStatement: a statement’s lines kept on the phone, each once',
     const [lloyds] = accountsOf(LLOYDS_LIKE)
     await bringInStatement([lloyds!, { ...lloyds!, account: 'Other' }], phone, 5)
     await nameAccount(lloyds!.account, 'Joint', phone)
+    await markClosed(lloyds!.account, true, phone)
+    await markClosed('Other', true, phone)
     await removeAccount(lloyds!.account, phone)
     expect(await phone.bankLines.where('account').equals(lloyds!.account).count()).toBe(0)
     expect(await phone.statements.where('account').equals(lloyds!.account).count()).toBe(0)
     expect(await phone.bankLines.where('account').equals('Other').count()).toBe(4)
     expect(accountNamesOf(await phone.settings.get(ACCOUNT_NAMES))).toEqual({})
+    expect(ownPayeesOf(await phone.settings.get(CLOSED_ACCOUNTS))).toEqual(['Other'])
   })
 
   it('counts the lines whose printed balance doesn’t follow, to check', async () => {

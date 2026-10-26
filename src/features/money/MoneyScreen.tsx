@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { createContext, type ReactNode, useContext, useId, useState } from 'react'
 import { db } from '../../db/db'
 import { loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
-import { accountNamesOf, markOwnPayee, namePayee, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES } from '../../db/statements'
+import { accountNamesOf, CLOSED_ACCOUNTS, markOwnPayee, namePayee, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES } from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
 import { classify, joinMoves, linkReceipts, mayBeOwn, payeeOf, type PaymentRow, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type PayeeGroup, type Ranked, regularPayments, type Rise } from '../../domain/money'
 import { inWords, type KnownReceipt, money, receiptsAndCopies, shiftMonth, shoppingMonth, shoppingMonths } from '../../domain/shopping'
@@ -51,6 +51,7 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
   const statements = useLiveQuery(() => db.statements.toArray(), [])
   const own = useLiveQuery(async () => ownPayeesOf(await db.settings.get(OWN_PAYEES)), [])
   const names = useAccountNames()
+  const closed = useLiveQuery(async () => new Set(ownPayeesOf(await db.settings.get(CLOSED_ACCOUNTS))), [])
   const payeeNames = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYEE_NAMES)), [])
   const ownWords = useOwnWords()
   const purpose = usePurposeSettings()
@@ -58,7 +59,7 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
   const [sheet, setSheet] = useState<EntrySheetState>(null)
   const earlierId = useId()
   // Render only once loaded, so nothing jumps under your finger.
-  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || ownWords === undefined || purpose === undefined) return <Loading />
+  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
 
   const byId = new Map(entries.map((e) => [e.id, e]))
   const open = (receipt: KnownReceipt) => {
@@ -86,7 +87,7 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
         </>
       )}
       {/* Keyed by month: a month opened from another starts afresh (a tapped chart column doesn't carry over). */}
-      {lines.length ? <AccountsMonth key={`accounts-${month}`} lines={lines} month={month} today={today} statements={statements} /> : null}
+      {lines.length ? <AccountsMonth key={`accounts-${month}`} lines={lines} month={month} today={today} statements={statements} closed={closed} /> : null}
       <ReceiptsMonth key={`receipts-${month}`} receipts={receipts} copies={copies} month={month} today={today} onOpen={open} />
       {month === thisMonth && earlier.length ? (
         <section aria-labelledby={earlierId}>
@@ -95,7 +96,7 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
           </h2>
           <nav className="list" aria-labelledby={earlierId}>
             {earlier.map((m) => {
-              const out = moneyMonth(lines, m, today, statements).out
+              const out = moneyMonth(lines, m, today, statements, closed).out
               const bought = shoppingMonth(receipts, m, today)
               const said = [out ? `${pounds(out)} out` : '', bought.receipts.length ? `${inWords(bought.spent)} on ${receiptsWord(bought.receipts.length)}` : ''].filter(Boolean).join(' · ')
               return (
@@ -121,10 +122,10 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
 }
 
 /** A month of your accounts: out and in, where it rose, regular payments, by payee, money moved, to check. */
-function AccountsMonth(props: { lines: readonly MoneyLine[]; month: string; today: string; statements: readonly StatementRecord[] }) {
-  const { lines, month, today, statements } = props
+function AccountsMonth(props: { lines: readonly MoneyLine[]; month: string; today: string; statements: readonly StatementRecord[]; closed: ReadonlySet<string> }) {
+  const { lines, month, today, statements, closed } = props
   const { names } = useContext(Receipts)
-  const its = moneyMonth(lines, month, today, statements)
+  const its = moneyMonth(lines, month, today, statements, closed)
   const regular = regularPayments(lines, month)
   const current = month === today.slice(0, 7)
   const lastMonth = monthName(shiftMonth(month, -1))

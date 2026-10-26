@@ -96,5 +96,14 @@ export async function removeAccount(account: string, database: LifeDesignDB = de
     await database.bankLines.where('account').equals(account).delete()
     await database.statements.where('account').equals(account).delete()
     await nameAccount(account, '', database)
+    await markClosed(account, false, database)
   })
+}
+
+/** Accounts you've closed (owner, 2026-10-26): no statement is missing after their last. A setting, so in backups. */
+export const CLOSED_ACCOUNTS = 'closedAccounts'
+
+export async function markClosed(account: string, closed: boolean, database: LifeDesignDB = defaultDb): Promise<void> {
+  const now = ownPayeesOf(await database.settings.get(CLOSED_ACCOUNTS))
+  await setSetting(CLOSED_ACCOUNTS, closed ? [...new Set([...now, account])] : now.filter((a) => a !== account), database)
 }

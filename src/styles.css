@@ -1494,7 +1494,12 @@ button.line-button {
   font-variant-numeric: tabular-nums;
 }
 
-/* An account and its Rename button, side by side. */
+/* An account's days still to bring in, on a line of their own. */
+.account-missing {
+  display: block;
+}
+
+/* An account and its Change button, side by side. */
 .account-row {
   display: flex;
   gap: 8px;

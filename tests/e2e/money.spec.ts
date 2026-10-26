@@ -26,6 +26,8 @@ async function bringIn(page: Page, path: string) {
 test('a statement’s PDF is read on the phone and its accounts kept, each line once; nothing leaves this site', async ({ page, baseURL }, testInfo) => {
   const urls: string[] = []
   page.on('request', (r) => urls.push(r.url()))
+  // The statements are September's and today is 26 October: October is still to bring in.
+  await page.clock.setFixedTime(new Date(2026, 9, 26, 12, 0))
   await page.goto('./#/money')
   const accounts = page.getByRole('region', { name: 'Your accounts' })
   await expect(accounts.getByText('Bring in your bank and card statements to see all your spending.')).toBeVisible()
@@ -34,7 +36,7 @@ test('a statement’s PDF is read on the phone and its accounts kept, each line 
   let sheet = await bringIn(page, lloyds)
   await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveText([/^Lloyds: 4 new · 1 ?– ?30 Sept?$/])
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
-  await expect(accounts.getByRole('listitem')).toHaveText([/^Lloyds · 4 lines · 1 ?– ?30 Sept?Rename$/])
+  await expect(accounts.getByRole('listitem')).toHaveText([/^Lloyds · 4 lines · 1 ?– ?30 Sept?Still to bring in: 1 ?– ?26 OctChange$/])
 
   // The same statement again: nothing new.
   sheet = await bringIn(page, lloyds)
@@ -48,16 +50,18 @@ test('a statement’s PDF is read on the phone and its accounts kept, each line 
   await expect(accounts.getByRole('listitem')).toHaveText([/^Lloyds · 4 lines/, /^Monzo · 9 lines/, /^Monzo Savings pot · 2 lines/])
 
   // An account named your way (owner, 2026-10-26), and back to its bank's name when left empty.
-  await accounts.getByRole('button', { name: 'Rename Lloyds' }).click()
-  const naming = page.getByRole('dialog', { name: 'Rename this account' })
+  await accounts.getByRole('button', { name: 'Change Lloyds' }).click()
+  const naming = page.getByRole('dialog', { name: 'Change this account' })
   await expect(naming.getByRole('textbox', { name: 'What do you call it?' })).toBeFocused()
   await naming.getByRole('textbox').fill('Joint account')
   await naming.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(accounts.getByRole('listitem')).toHaveText([/^Joint account · 4 lines/, /^Monzo · 9 lines/, /^Monzo Savings pot · 2 lines/])
-  await accounts.getByRole('button', { name: 'Rename Joint account' }).click()
+  // Closed: nothing is still to bring in after its last statement.
+  await accounts.getByRole('button', { name: 'Change Joint account' }).click()
   await naming.getByRole('textbox').fill('')
+  await naming.getByRole('checkbox', { name: /This account is closed/ }).check()
   await naming.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(accounts.getByRole('listitem').first()).toHaveText(/^Lloyds · 4 lines/)
+  await expect(accounts.getByRole('listitem').first()).toHaveText(/^Lloyds · 4 lines · 1 ?– ?30 Sept? · ClosedChange$/)
 
   const site = new URL(baseURL!).origin
   expect(urls.filter((u) => !u.startsWith(site) && !u.startsWith('blob:') && !u.startsWith('data:'))).toEqual([])
@@ -66,15 +70,16 @@ test('a statement’s PDF is read on the phone and its accounts kept, each line 
 // A Monzo Flex statement (owner, 2026-10-26: it came in as "Account", 651 lines not matching): named, every line
 // following, and an account can be taken out again.
 test('a Monzo Flex statement reads as Monzo Flex, every line matching; an account can be removed', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date(2026, 8, 30, 12, 0))
   await page.goto('./#/money')
   const sheet = await bringIn(page, await pdf(testInfo.outputPath('flex.pdf'), FLEX_LIKE))
   await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveText([/^Monzo Flex: 5 new · 1 ?– ?30 Sept?$/])
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
   const accounts = page.getByRole('region', { name: 'Your accounts', exact: true })
-  await expect(accounts.getByRole('listitem')).toHaveText([/^Monzo Flex · 5 lines · 1 ?– ?30 Sept?Rename$/])
+  await expect(accounts.getByRole('listitem')).toHaveText([/^Monzo Flex · 5 lines · 1 ?– ?30 Sept?Change$/])
 
-  await accounts.getByRole('button', { name: 'Rename Monzo Flex' }).click()
-  const naming = page.getByRole('dialog', { name: 'Rename this account' })
+  await accounts.getByRole('button', { name: 'Change Monzo Flex' }).click()
+  const naming = page.getByRole('dialog', { name: 'Change this account' })
   await naming.getByRole('button', { name: 'Remove', exact: true }).click()
   await naming.getByRole('button', { name: 'Tap again to remove it' }).click()
   await expect(accounts.getByText('Bring in your bank and card statements to see all your spending.')).toBeVisible()
