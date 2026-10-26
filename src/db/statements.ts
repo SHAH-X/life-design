@@ -107,3 +107,22 @@ export async function markClosed(account: string, closed: boolean, database: Lif
   const now = ownPayeesOf(await database.settings.get(CLOSED_ACCOUNTS))
   await setSetting(CLOSED_ACCOUNTS, closed ? [...new Set([...now, account])] : now.filter((a) => a !== account), database)
 }
+
+/** What each payee is for, as you chose it (owner, 2026-10-26), by the payee's key: a setting, so in backups. Read with
+ *  `accountNamesOf`; used by `kindOf` (src/domain/money.ts). */
+export const PAYEE_KINDS = 'payeeKinds'
+
+/** Sets what a payee is for; null goes back to the guess. */
+export async function setPayeeKind(key: string, kind: string | null, database: LifeDesignDB = defaultDb): Promise<void> {
+  const { [key]: _, ...rest } = accountNamesOf(await database.settings.get(PAYEE_KINDS))
+  await setSetting(PAYEE_KINDS, kind ? { ...rest, [key]: kind } : rest, database)
+}
+
+/** Your note on one payment ("Birthday present"), by the line's id (owner, 2026-10-26): a setting, so in backups. */
+export const PAYMENT_NOTES = 'paymentNotes'
+
+/** Keeps a payment's note; an empty one is taken away. */
+export async function notePayment(lineId: string, note: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  const { [lineId]: _, ...rest } = accountNamesOf(await database.settings.get(PAYMENT_NOTES))
+  await setSetting(PAYMENT_NOTES, note.trim() ? { ...rest, [lineId]: note.trim() } : rest, database)
+}

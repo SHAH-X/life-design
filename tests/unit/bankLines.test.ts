@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
-import { ACCOUNT_NAMES, accountNamesOf, bringInStatement, markClosed, markOwnPayee, nameAccount, CLOSED_ACCOUNTS, namePayee, removeAccount, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES } from '../../src/db/statements'
+import { ACCOUNT_NAMES, accountNamesOf, bringInStatement, markClosed, markOwnPayee, nameAccount, CLOSED_ACCOUNTS, notePayment, PAYEE_KINDS, PAYMENT_NOTES, setPayeeKind, namePayee, removeAccount, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES } from '../../src/db/statements'
 import { readStatement, type StatementAccount } from '../../src/domain/statements'
 import { piecesOf } from '../fixtures/pdf'
 import { LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
@@ -94,6 +94,17 @@ describe('bringInStatement: a statement’s lines kept on the phone, each once',
     expect(await phone.bankLines.where('account').equals('Other').count()).toBe(4)
     expect(accountNamesOf(await phone.settings.get(ACCOUNT_NAMES))).toEqual({})
     expect(ownPayeesOf(await phone.settings.get(CLOSED_ACCOUNTS))).toEqual(['Other'])
+  })
+
+  it('keeps what a payee is for and a note on one payment; empty takes them away (owner, 2026-10-26)', async () => {
+    await setPayeeKind('a n other', 'Rent', phone)
+    await setPayeeKind('example gym', 'Health', phone)
+    await setPayeeKind('example gym', null, phone)
+    expect(accountNamesOf(await phone.settings.get(PAYEE_KINDS))).toEqual({ 'a n other': 'Rent' })
+    await notePayment('l1', '  Birthday present ', phone)
+    await notePayment('l2', 'Gone', phone)
+    await notePayment('l2', '', phone)
+    expect(accountNamesOf(await phone.settings.get(PAYMENT_NOTES))).toEqual({ l1: 'Birthday present' })
   })
 
   it('counts the lines whose printed balance doesn’t follow, to check', async () => {
