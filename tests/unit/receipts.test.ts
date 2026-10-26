@@ -37,6 +37,8 @@ describe('readReceipt: a receipt in the text read from a photo', () => {
   it('reads a month named between hyphens or after a day with its ending ("25-Oct-2026", "28th October 2026")', () => {
     expect(receiptDate('Order Date: 25-0ct-2026', false)).toBe('2026-10-25')
     expect(receiptDate('Paid 28th October 2026', false)).toBe('2026-10-28')
+    // A bank statement's two-digit year after a month's name (Lloyds, v0.20).
+    expect(receiptDate('09 Oct 26', false)).toBe('2026-10-09')
   })
 
   it('never takes a collection or delivery day, or a card’s expiry, for when it was bought', () => {

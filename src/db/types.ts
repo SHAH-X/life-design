@@ -400,6 +400,37 @@ export interface AreaCentre {
   vector: Float32Array
 }
 
+/** A line of a bank or card statement you brought in (v0.20): read on the phone from its PDF, never sent anywhere. */
+export interface BankLine {
+  id: string
+  /** As its statement names it: "Lloyds ···4321", "Monzo Savings pot". */
+  account: string
+  date: string
+  /** In pence; money out is negative. */
+  amount: number
+  description: string
+  /** The bank's own type ("DD", "FPO"), or ''. */
+  type: string
+  /** The balance printed beside it, in pence; null when there was none. */
+  balance: number | null
+  /** Whether that balance follows from the line before: false is a misread, to check. */
+  adds: boolean
+  createdAt: number
+  updatedAt: number
+}
+
+/** A statement brought in (v0.20): its account, the days it covers, how many lines it had. */
+export interface StatementRecord {
+  /** Its account and days, so the same statement brought in again is one record. */
+  id: string
+  account: string
+  from: string
+  to: string
+  lines: number
+  createdAt: number
+  updatedAt: number
+}
+
 export interface BackupData {
   entries: Entry[]
   days: Day[]
@@ -415,6 +446,8 @@ export interface BackupData {
   settings: Setting[]
   photos: Photo[]
   questions: Question[]
+  bankLines: BankLine[]
+  statements: StatementRecord[]
 }
 
 export type TableName = keyof BackupData
@@ -434,6 +467,8 @@ export const TABLE_NAMES: readonly TableName[] = [
   'settings',
   'photos',
   'questions',
+  'bankLines',
+  'statements',
 ]
 
 export const TABLE_LABELS: Record<TableName, string> = {
@@ -451,4 +486,6 @@ export const TABLE_LABELS: Record<TableName, string> = {
   settings: 'Settings',
   photos: 'Photos',
   questions: 'Questions asked',
+  bankLines: 'Bank and card lines',
+  statements: 'Statements brought in',
 }

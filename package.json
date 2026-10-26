@@ -1,11 +1,11 @@
 {
   "name": "life-design",
   "private": true,
-  "version": "0.19.5",
+  "version": "0.20.0",
   "description": "A private, phone-only daily journal built on Designing Your Life and Ikigai.",
   "type": "module",
   "engines": {
-    "node": ">=22.12"
+    "node": ">=22.13"
   },
   "scripts": {
     "dev": "vite",
@@ -27,6 +27,7 @@
     "dexie-react-hooks": "^4.4.0",
     "onnxruntime-web": "^1.30.0",
     "paddleocr": "1.2.0",
+    "pdfjs-dist": "6.4.299",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "workbox-window": "^7.4.1"

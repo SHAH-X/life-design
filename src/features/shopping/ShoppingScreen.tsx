@@ -25,6 +25,7 @@ import { MonthChart } from '../../ui/charts/MonthChart'
 import { Dialog } from '../../ui/Dialog'
 import { Loading } from '../../ui/Loading'
 import { FileActions } from '../backup/FileActions'
+import { Accounts } from '../money/Accounts'
 import { EntrySheet, type EntrySheetState } from '../today/EntrySheet'
 import { useOwnWords } from '../today/useOwnWords'
 import { usePurposeSettings } from '../today/usePurpose'
@@ -74,6 +75,7 @@ export function ShoppingScreen({ sub }: { sub: string | null }) {
           <Month receipts={receipts} copies={copies} month={month} today={today} onOpen={open} />
         </>
       )}
+      <Accounts />
       <EntrySheet state={sheet} onChange={setSheet} suggestions={suggestions} own={own} purpose={purpose} />
     </>
   )

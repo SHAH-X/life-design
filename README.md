@@ -27,7 +27,7 @@ A private daily journal for iPhone, built on *Designing Your Life* (Burnett & Ev
 
 ## Development
 
-Requires Node 22.12 or newer.
+Requires Node 22.13 or newer.
 
 ```sh
 npm install

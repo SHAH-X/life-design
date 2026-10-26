@@ -81,7 +81,7 @@ describe('keeping photos', () => {
     await savePhoto(photo('p1', 'e1', 'jpeg-bytes'), phone)
     await phone.settings.put({ key: 'photoText', value: true, updatedAt: 1 })
     const backup = await createBackup(phone)
-    expect(backup.schemaVersion).toBe(10)
+    expect(backup.schemaVersion).toBe(11)
     expect(backup.data.settings.map((s) => s.key)).not.toContain('photoText') // its download is this phone's
     const detected = detectFile(JSON.stringify(backup))
     if (detected.format !== 'backup') throw new Error('expected a backup')
