@@ -2,7 +2,8 @@ import { expect, type Page, test } from '@playwright/test'
 import { captureShareSheet, expectNoScores, sharedFile } from './helpers'
 import { backupWith, freeWriting, restoreBackup } from './seed'
 
-// The Shopping tab (v0.19) in WebKit: what was spent, from the receipts in photos, worked out on the phone with no AI.
+// Money's receipts (v0.19 as the Shopping tab, part of Money from v0.20) in WebKit: what was spent, from the receipts in
+// photos, worked out on the phone with no AI.
 // Fictional receipts, as an AI read them (so every shop, date and price is exact). No AI is called.
 
 const SATURDAY = new Date(2026, 9, 24, 20, 0)
@@ -42,11 +43,11 @@ test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(SATURDAY)
 })
 
-test('Shopping has its own tab: the month so far, next to last month by the same day, every line opening its receipts', async ({ page }, testInfo) => {
+test('Money has its own tab, receipts and all: the month so far, next to last month by the same day, every line opening its receipts', async ({ page }, testInfo) => {
   await restoreReceipts(page, testInfo.outputPath('receipts.json'))
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Shopping' }).click()
-  await expect(page).toHaveURL(/#\/shopping$/)
-  await expect(page.getByRole('heading', { level: 1, name: 'Shopping' })).toBeVisible()
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Money' }).click()
+  await expect(page).toHaveURL(/#\/money$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Money' })).toBeVisible()
 
   // £3.60 + £9.99 (what Aldi's printed, though its items don't add up) + £1.25 + £2.45 + £42.10, added up in pence.
   await expect(page.getByRole('paragraph').filter({ hasText: /^October so far$/ })).toBeVisible()
@@ -56,7 +57,7 @@ test('Shopping has its own tab: the month so far, next to last month by the same
   await expect(line(page, '£0.50 off with offers')).toBeVisible()
 
   // Where: Tesco's three names as one shop, ranked with 3 receipts; the rest by name.
-  const where = page.getByRole('region', { name: 'Where' })
+  const where = page.getByRole('region', { name: 'Shops' })
   await expect(where.locator('summary').first()).toHaveText('TESCO · 3 receipts · £7.30')
   await expect(where.getByText('Fewer than 3 receipts, by name')).toBeVisible()
   await expect(where.locator('summary', { hasText: 'ALDI' })).toHaveText('ALDI · 1 receipt · £9.99')
@@ -93,42 +94,43 @@ test('Shopping has its own tab: the month so far, next to last month by the same
   await expect(again).toHaveText([`${MILK} · on 3 receipts · £4.55`, 'Bananas · on 3 receipts · £2.85'])
 
   // To check: the receipt that doesn't add up, and the one with no date read.
-  const check = page.getByRole('region', { name: 'To check' }).locator('li')
+  const check = page.getByRole('region', { name: 'Receipts to check' }).locator('li')
   await expect(check).toHaveText([/J Sainsbury plc · £42\.10 · no date read/, /ALDI · £9\.99 · its items don't add up to its total/])
 
   for (const summary of await page.locator('details.week-line > summary').all()) await summary.click()
-  await expectNoScores(page, 'Shopping, opened')
+  await expectNoScores(page, 'Money, opened')
 })
 
 test('the chart has a table and a readout, and an earlier month has its own page', async ({ page }, testInfo) => {
   await restoreReceipts(page, testInfo.outputPath('receipts.json'))
+  // An old link to Shopping opens Money.
   await page.goto('./#/shopping')
 
-  const chart = page.locator('figure.chart', { hasText: 'Spent each month' })
+  const chart = page.locator('figure.chart', { hasText: 'Receipts each month' })
   await chart.getByText('Show as table').click()
   await expect(chart.locator('tbody tr')).toHaveText([/^May 2026–0$/, /^June 2026–0$/, /^July 2026–0$/, /^August 2026–0$/, /^September 2026£2\.401$/, /^October so far£59\.395$/])
   // A tapped month says what it came to, and opens.
   await chart.locator('.chart-hit').nth(4).click()
   await expect(chart.locator('.chart-readout')).toHaveText('September 2026: £2.40 · 1 receipt')
   await chart.getByRole('link', { name: 'Open September 2026 ›' }).click()
-  await expect(page).toHaveURL(/#\/shopping\/2026-09$/)
+  await expect(page).toHaveURL(/#\/money\/2026-09$/)
   await expect(page.getByRole('heading', { level: 1, name: 'September 2026' })).toBeVisible()
   await expect(page.getByRole('strong')).toHaveText('£2.40')
   // The page's month has its amount on its column's cap, in pounds and pence.
   await expect(page.locator('figure.chart svg text', { hasText: '£2.' })).toHaveText('£2.40')
-  await expectNoScores(page, 'Shopping → September')
+  await expectNoScores(page, 'Money → September')
 
   // From this month, Earlier months lists it too.
-  await page.getByRole('link', { name: '‹ Shopping' }).click()
-  await expect(page.getByRole('region', { name: 'Earlier months' }).getByRole('link')).toHaveText([/September 2026\s*£2\.40 · 1 receipt/])
+  await page.getByRole('link', { name: '‹ Money' }).click()
+  await expect(page.getByRole('region', { name: 'Earlier months' }).getByRole('link')).toHaveText([/September 2026\s*£2\.40 on 1 receipt/])
 })
 
 test('Share as a spreadsheet gives every item, a row each, through the share menu', async ({ page }, testInfo) => {
   await captureShareSheet(page)
   await restoreReceipts(page, testInfo.outputPath('receipts.json'))
-  await page.goto('./#/shopping')
+  await page.goto('./#/money')
   await page.getByRole('button', { name: 'Share as a spreadsheet' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Shopping as a spreadsheet' })
+  const dialog = page.getByRole('dialog', { name: 'Receipts as a spreadsheet' })
   await expect(dialog.getByText('12 items on 6 receipts')).toBeVisible()
   await dialog.getByRole('button', { name: 'Save or share…' }).click()
   const file = await sharedFile(page)
@@ -146,16 +148,16 @@ test('the same receipt added twice is counted once; the copy is listed to check 
   const first = receiptEntry('first', '2026-10-20', tea)
   const again = receiptEntry('again', '2026-10-22', tea) // the same photo, added two days later
   await restoreBackup(page, testInfo.outputPath('receipts.json'), backupWith({ entries: [first, again] }, SATURDAY))
-  await page.goto('./#/shopping')
+  await page.goto('./#/money')
   await expect(page.getByRole('strong')).toHaveText('£4.20')
-  const check = page.getByRole('region', { name: 'To check' }).locator('li')
+  const check = page.getByRole('region', { name: 'Receipts to check' }).locator('li')
   await expect(check).toHaveText([/Corner Shop · £4\.20 · already added: counted once/])
   await check.getByRole('button').click()
-  await expect(page.getByRole('dialog', { name: 'Photo' }).getByText('Already in Shopping from an earlier photo: counted once.')).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Photo' }).getByText('Already in Money from an earlier photo: counted once.')).toBeVisible()
 })
 
-test('with no receipts, Shopping says where they come from', async ({ page }) => {
-  await page.goto('./#/shopping')
-  await expect(page.getByRole('heading', { level: 1, name: 'Shopping' })).toBeVisible()
+test('with no receipts, Money says where they come from', async ({ page }) => {
+  await page.goto('./#/money')
+  await expect(page.getByRole('heading', { level: 1, name: 'Money' })).toBeVisible()
   await expect(page.getByText('Receipts you photograph show here.')).toBeVisible()
 })

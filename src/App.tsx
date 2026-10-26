@@ -8,8 +8,8 @@ import { useRoute } from './app/useRoute'
 import { AskScreen } from './features/ask/AskScreen'
 import { EntriesScreen } from './features/entries/EntriesScreen'
 import { InsightsScreen } from './features/insights/InsightsScreen'
+import { MoneyScreen } from './features/money/MoneyScreen'
 import { MoreScreen } from './features/more/MoreScreen'
-import { ShoppingScreen } from './features/shopping/ShoppingScreen'
 import { TodayScreen } from './features/today/TodayScreen'
 import { AreasProvider } from './features/areas/AreasProvider'
 import { useWelcome, Welcome } from './features/welcome/Welcome'
@@ -25,8 +25,8 @@ function Screen({ route }: { route: Route }) {
       return <EntriesScreen />
     case 'ask':
       return <AskScreen />
-    case 'shopping':
-      return <ShoppingScreen sub={route.sub} />
+    case 'money':
+      return <MoneyScreen sub={route.sub} />
     case 'insights':
       return <InsightsScreen sub={route.sub} />
     case 'more':

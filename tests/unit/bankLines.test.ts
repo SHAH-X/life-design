@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
-import { bringInStatement } from '../../src/db/statements'
+import { bringInStatement, markOwnPayee, OWN_PAYEES, ownPayeesOf } from '../../src/db/statements'
 import { readStatement, type StatementAccount } from '../../src/domain/statements'
 import { piecesOf } from '../fixtures/pdf'
 import { LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
@@ -59,6 +59,16 @@ describe('bringInStatement: a statement’s lines kept on the phone, each once',
     const plain = { account: 'Card', from: '2026-09-01', to: '2026-09-30', lines: [0, 1].map(() => ({ date: '2026-09-03', amount: -250, description: 'BUS FARE', type: '', balance: null, adds: true })) }
     expect(await bringInStatement([plain], phone, 5)).toMatchObject([{ added: 2, already: 0 }])
     expect(await bringInStatement([plain], phone, 9)).toMatchObject([{ added: 0, already: 2 }])
+  })
+
+  it('keeps the payees you mark as your own account, and lets one go again', async () => {
+    await markOwnPayee('a n other', true, phone)
+    await markOwnPayee('example gym', true, phone)
+    await markOwnPayee('a n other', true, phone)
+    expect(ownPayeesOf(await phone.settings.get(OWN_PAYEES))).toEqual(['a n other', 'example gym'])
+    await markOwnPayee('a n other', false, phone)
+    expect(ownPayeesOf(await phone.settings.get(OWN_PAYEES))).toEqual(['example gym'])
+    expect(ownPayeesOf(undefined)).toEqual([])
   })
 
   it('counts the lines whose printed balance doesn’t follow, to check', async () => {

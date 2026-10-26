@@ -1,6 +1,6 @@
 // Hash-based routes (#/today, #/review/<id>) keep GitHub Pages happy (no 404 on reload) and work offline.
 
-export const TABS = ['today', 'entries', 'ask', 'shopping', 'insights', 'more'] as const
+export const TABS = ['today', 'entries', 'ask', 'money', 'insights', 'more'] as const
 export type Tab = (typeof TABS)[number]
 export const DEFAULT_TAB: Tab = 'today'
 
@@ -10,9 +10,13 @@ export interface Route {
   sub: string | null
 }
 
+/** Old addresses that still open a tab: Shopping became Money (v0.20). */
+const RENAMED: Record<string, Tab> = { shopping: 'money' }
+
 export function parseRoute(hash: string): Route {
   const path = hash.replace(/^#\/?/, '').split('?')[0] ?? ''
-  const [name = '', second] = path.split('/')
+  const [given = '', second] = path.split('/')
+  const name = RENAMED[given] ?? given
   if (!(TABS as readonly string[]).includes(name)) return { tab: DEFAULT_TAB, sub: null }
   return { tab: name as Tab, sub: second ? decodeURIComponent(second) : null }
 }

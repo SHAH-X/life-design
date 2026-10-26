@@ -4,6 +4,7 @@
 // with none printed, as many as one statement has).
 import type { StatementAccount, StatementLine } from '../domain/statements'
 import { db as defaultDb, type LifeDesignDB } from './db'
+import { setSetting } from './repo'
 import type { BankLine } from './types'
 
 /** What a statement brought in, account by account. */
@@ -48,4 +49,16 @@ export async function bringInStatement(accounts: readonly StatementAccount[], da
     }
     return brought
   })
+}
+
+/** Payees you marked as your own account (v0.20): their lines are money moved, left out of money in and out
+ *  (src/domain/money.ts). A setting, so it's in a backup. */
+export const OWN_PAYEES = 'ownPayees'
+
+export const ownPayeesOf = (setting: { value: unknown } | undefined): string[] =>
+  Array.isArray(setting?.value) ? setting.value.filter((key): key is string => typeof key === 'string') : []
+
+export async function markOwnPayee(key: string, own: boolean, database: LifeDesignDB = defaultDb): Promise<void> {
+  const now = ownPayeesOf(await database.settings.get(OWN_PAYEES))
+  await setSetting(OWN_PAYEES, own ? [...new Set([...now, key])] : now.filter((k) => k !== key), database)
 }

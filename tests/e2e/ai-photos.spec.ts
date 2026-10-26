@@ -112,7 +112,7 @@ test('a receipt goes to your AI by itself once it’s set up; another photo only
 
   // Its items came sorted into kinds, from the fixed list, in the same reading.
   expect(instructions[0]).toContain('Give each item the kind it most likely is, written exactly as one of: Fruit and veg,')
-  await page.goto('./#/shopping')
+  await page.goto('./#/money')
   const byKind = page.getByRole('region', { name: 'By kind' })
   await expect(byKind.locator('summary')).toHaveText(['Dairy and eggs · 1 item · £1.45'])
   await byKind.locator('summary').click()
@@ -126,13 +126,13 @@ test('a receipt your AI read before items had kinds or plain names is read again
   const receipt = { ...freeWriting('e1', '', 12, SATURDAY), photos: [{ id: 'p1', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text, ai: before }] }
   await restoreBackup(page, testInfo.outputPath('photos.json'), backupWith({ entries: [receipt], photos: [photo('p1', 'e1', RECEIPT_JPEG)] }, SATURDAY))
   await setUpGemini(page)
-  await page.goto('./#/shopping')
+  await page.goto('./#/money')
   await expect(page.getByRole('region', { name: 'By kind' })).toHaveCount(0)
 
   await page.goto('./#/more/photos')
   await page.getByRole('switch', { name: /Read the text in photos/ }).check()
   await expect.poll(() => photos.length, { timeout: 15_000 }).toBe(1)
-  await page.goto('./#/shopping')
+  await page.goto('./#/money')
   const byKind = page.getByRole('region', { name: 'By kind' })
   await expect(byKind.locator('summary')).toHaveText(['Dairy and eggs · 1 item · £1.45'])
   await byKind.locator('summary').click()
@@ -166,7 +166,7 @@ test('with "Read receipts with AI" off, a receipt read before plain names is rea
   expect(photos).toHaveLength(1)
   await dialog.getByRole('button', { name: 'Done', exact: true }).click()
 
-  await page.goto('./#/shopping')
+  await page.goto('./#/money')
   const byKind = page.getByRole('region', { name: 'By kind' })
   await byKind.locator('summary').click()
   await expect(byKind.getByRole('button', { name: /Organic oat milk/ })).toBeVisible()

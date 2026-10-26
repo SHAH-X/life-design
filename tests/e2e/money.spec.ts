@@ -1,5 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 import { expect, type Page, test } from '@playwright/test'
+import { expectNoScores } from './helpers'
 import { makePdf, type Placed } from '../fixtures/pdf'
 import { LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
 
@@ -24,7 +25,7 @@ async function bringIn(page: Page, path: string) {
 test('a statement’s PDF is read on the phone and its accounts kept, each line once; nothing leaves this site', async ({ page, baseURL }, testInfo) => {
   const urls: string[] = []
   page.on('request', (r) => urls.push(r.url()))
-  await page.goto('./#/shopping')
+  await page.goto('./#/money')
   const accounts = page.getByRole('region', { name: 'Your accounts' })
   await expect(accounts.getByText('Bring in your bank and card statements to see all your spending.')).toBeVisible()
 
@@ -50,7 +51,7 @@ test('a statement’s PDF is read on the phone and its accounts kept, each line 
 })
 
 test('a PDF that isn’t a statement, or isn’t a PDF, is refused saying why, and nothing is kept', async ({ page }, testInfo) => {
-  await page.goto('./#/shopping')
+  await page.goto('./#/money')
   const letter = await pdf(testInfo.outputPath('letter.pdf'), [[{ text: 'Dear customer, your new card is on its way.', x: 57, y: 700 }]])
   const sheet = await bringIn(page, letter)
   await expect(sheet.getByRole('alert')).toHaveText('No transactions were found in this PDF. Choose the statement itself, not a letter or a summary.')
@@ -60,4 +61,35 @@ test('a PDF that isn’t a statement, or isn’t a PDF, is refused saying why, a
   await expect(sheet.getByRole('alert')).toHaveText('This file couldn’t be opened as a PDF. Save the statement from your bank’s app as a PDF and try again.')
   await sheet.getByRole('button', { name: 'Close' }).click()
   await expect(page.getByRole('region', { name: 'Your accounts' }).getByRole('listitem')).toHaveCount(0)
+})
+
+// Step 2 (v0.20): what came in and went out, money moved between your own accounts left out. The made-up statements are
+// September's, so the clock is the 30th.
+test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you say is your own', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date(2026, 8, 30, 12, 0))
+  await page.goto('./#/money')
+  for (const [name, layout] of [['lloyds.pdf', LLOYDS_LIKE], ['monzo.pdf', MONZO_LIKE]] as const) {
+    const sheet = await bringIn(page, await pdf(testInfo.outputPath(name), layout))
+    await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  }
+  // Out: energy 45.00, streaming 10.99, corner shop 12.40, supermarket 23.10, software 4.00, gym 25.00, two coffees 3.00.
+  // In: A N Other 100.00, the employer 1,500.00, the pot's interest 1.25. Flex and the pot's moves are left out.
+  await expect(page.getByRole('strong')).toHaveText('£126.49 out')
+  const summary = page.locator('.card').first().locator('summary')
+  await expect(summary).toHaveText(['£1601.25 in', '8 payments out'])
+  const moved = page.getByRole('region', { name: 'Moved between your accounts' })
+  await expect(moved.locator('summary')).toHaveText(['Monzo Flex · 2 payments', 'Pots · 2 payments'])
+
+  // A N OTHER is you, paying yourself: once said, its money leaves the totals; and comes back when unsaid.
+  const moneyIn = page.getByRole('region', { name: 'Money in' })
+  await moneyIn.locator('summary', { hasText: 'A N OTHER' }).click()
+  await moneyIn.getByRole('button', { name: 'It’s my own account' }).click()
+  await expect(summary).toHaveText(['£1501.25 in', '8 payments out'])
+  await expect(moved.locator('summary')).toHaveText(['Monzo Flex · 2 payments', 'Pots · 2 payments', 'A N OTHER · Your own account · 1 payment'])
+  await moved.locator('summary', { hasText: 'A N OTHER' }).click()
+  await moved.getByRole('button', { name: 'Not my own account' }).click()
+  await expect(summary).toHaveText(['£1601.25 in', '8 payments out'])
+
+  for (const line of await page.locator('details.week-line > summary').all()) await line.click()
+  await expectNoScores(page, 'Money, from statements, opened')
 })
