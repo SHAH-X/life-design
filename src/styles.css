@@ -2,7 +2,7 @@
   /* Light only (owner, 2026-10-24: no dark mode, no Appearance choice). tests/unit/palette.test.ts keeps it so. */
   color-scheme: light;
   --radius: 14px;
-  --tabbar-height: 60px;
+  --tabbar-height: 68px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -72,9 +72,10 @@ body {
 }
 
 h1 {
-  font-size: 1.75rem;
-  letter-spacing: -0.01em;
-  margin: 8px 0 16px;
+  font-size: clamp(1.75rem, 7vw, 2.15rem);
+  letter-spacing: -0.025em;
+  line-height: 1.12;
+  margin: 4px 0 20px;
 }
 
 h2 {
@@ -618,7 +619,8 @@ dialog.sheet.full .sheet-header {
   display: flex;
   align-items: center;
   gap: 4px;
-  margin: 4px 0 12px;
+  min-height: 52px;
+  margin: 0 0 18px;
 }
 
 .day-title {
@@ -1719,10 +1721,20 @@ details.more-ways summary {
   left: 0;
   right: 0;
   bottom: 0;
-  display: flex;
-  background: var(--surface);
+  z-index: 20;
+  background: rgb(255 255 255 / 0.88);
   border-top: 1px solid var(--border);
-  padding-bottom: env(safe-area-inset-bottom);
+  padding: 6px max(8px, var(--safe-right)) calc(6px + var(--safe-bottom)) max(8px, var(--safe-left));
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+}
+
+.tabbar-inner {
+  display: flex;
+  width: min(100%, 640px);
+  min-height: var(--tabbar-height);
+  margin: 0 auto;
+  gap: 2px;
 }
 
 .tabbar a {
@@ -1731,22 +1743,27 @@ details.more-ways summary {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 3px;
   min-height: var(--tabbar-height);
+  padding: 5px 2px;
+  border-radius: 14px;
   color: var(--muted);
   text-decoration: none;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
+  font-weight: 550;
+  line-height: 1;
   -webkit-tap-highlight-color: transparent;
 }
 
 .tabbar a[aria-current='page'] {
+  background: var(--accent-soft);
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .tabbar svg {
-  width: 24px;
-  height: 24px;
+  width: 23px;
+  height: 23px;
 }
 
 /* Never a blank screen: a screen still waiting for its data says so, and a failure says what to do. */
@@ -2094,10 +2111,15 @@ details.more-ways summary {
 .back-link {
   display: inline-flex;
   align-items: center;
+  gap: 3px;
   min-height: 44px;
+  margin: -4px 0 2px -8px;
+  padding: 0 8px;
+  border-radius: 10px;
   color: var(--accent);
   font-weight: 600;
   text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ---------- Feeling words ---------- */
