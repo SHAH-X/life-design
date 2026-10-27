@@ -11,6 +11,8 @@ import { chainOf, ITEM_KINDS, type ItemKind, itemShown, type ReceiptItem, readRe
 export interface KnownReceipt extends Omit<Receipt, 'date'> {
   id: string
   entryId: string
+  /** Entry's own date, which can differ from the date printed on the receipt. */
+  entryDate?: string
   date: string
   /** False when no date was read on it, so it counts on its entry's day. */
   dated: boolean
@@ -48,7 +50,7 @@ export function receiptsAndCopies(entries: readonly Entry[]): { receipts: KnownR
         if (!receipt) return []
         const readBy = photo.ai?.receipt ? photo.ai.by : null
         const time = receiptTime(photo.ai?.text || photo.text || '', receipt.currency === '$')
-        return [{ receipt: { ...receipt, id: photo.id, entryId: entry.id, date: receipt.date ?? entry.date, dated: receipt.date !== null, readBy }, time }]
+        return [{ receipt: { ...receipt, id: photo.id, entryId: entry.id, entryDate: entry.date, date: receipt.date ?? entry.date, dated: receipt.date !== null, readBy }, time }]
       }),
     )
   const counted: typeof added = []
@@ -200,6 +202,8 @@ export interface Repeat {
 export interface ToCheck {
   receipt: KnownReceipt
   why: string[]
+  /** The earlier receipt retained in totals when this receipt is a duplicate. */
+  copyOf?: KnownReceipt
 }
 
 /** The month's items of one kind, at their prices: before offers, which have a line of their own. */
@@ -360,7 +364,7 @@ export function shoppingMonth(all: readonly KnownReceipt[], month: string, today
         ].filter(Boolean),
       }))
       .filter((c) => c.why.length > 0)
-      .concat(copies.filter((c) => c.copy.date.slice(0, 7) === month).map((c) => ({ receipt: c.copy, why: ['already added: counted once'] }))),
+      .concat(copies.filter((c) => c.copy.date.slice(0, 7) === month).map((c) => ({ receipt: c.copy, why: ['already added: counted once'], copyOf: c.of }))),
     kinds: kindsOf(receipts, currency),
   }
 }

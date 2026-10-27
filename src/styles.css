@@ -1890,6 +1890,14 @@ button.line-button {
   overflow-wrap: anywhere;
 }
 
+.money-screen .receipt-copy-help {
+  display: block;
+  margin: 4px 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
 button.line-button:active {
   background: var(--viz-hover);
 }

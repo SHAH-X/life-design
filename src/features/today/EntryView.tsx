@@ -86,7 +86,7 @@ export function EntryView(props: { entryId: string; fresh?: boolean; onPart: (en
   // One row, as everywhere: Delete asks first.
   const footer = confirmDelete ? (
     <div className="row">
-      <span className="grow">Delete this entry?</span>
+      <span className="grow">Delete this entry and its photos?</span>
       <button type="button" className="danger" onClick={() => void deleteEntry(entry.id).then(onClose)}>
         Yes, delete
       </button>

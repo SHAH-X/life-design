@@ -146,7 +146,7 @@ test('Share as a spreadsheet gives every item, a row each, through the share men
 })
 
 // Owner, 2026-10-25: "if i upload the same receipt twice, it counts it twice".
-test('the same receipt added twice is counted once; the copy is listed to check and says so under its photo', async ({ page }, testInfo) => {
+test('a duplicate receipt identifies the extra entry, explains deletion, and leaves the original counted', async ({ page }, testInfo) => {
   const tea = reading('Corner Shop', '2026-10-20', [['Tea', 300, 'Drinks'], ['Milk', 120, 'Dairy and eggs']])
   const first = receiptEntry('first', '2026-10-20', tea)
   const again = receiptEntry('again', '2026-10-22', tea) // the same photo, added two days later
@@ -155,9 +155,30 @@ test('the same receipt added twice is counted once; the copy is listed to check 
   await page.getByRole('button', { name: 'Receipts', exact: true }).click()
   await expect(page.getByRole('strong')).toHaveText('£4.20')
   const check = page.getByRole('region', { name: 'Receipts to check' }).locator('li')
-  await expect(check).toHaveText([/Corner Shop · £4\.20 · already added: counted once/])
-  await check.getByRole('button').click()
-  await expect(page.getByRole('dialog', { name: 'Photo' }).getByText('Already in Money from an earlier photo: counted once.')).toBeVisible()
+  await expect(check).toContainText('Corner Shop · £4.20 · already added: counted once')
+  await expect(check).toContainText('Extra entry logged Thu 22 Oct. Original kept: Tue 20 Oct.')
+  await expect(check).toContainText('Tap to open this entry, then choose Delete and confirm.')
+  await expect(check).toContainText('This deletes the whole entry and all its photos, so keep it if there’s anything else you want.')
+  await check.getByRole('button', { name: 'Open the extra duplicate entry to review or delete it' }).click()
+  const duplicate = page.getByRole('dialog', { name: 'Photo' })
+  await expect(duplicate.getByText('Already in Money from an earlier photo: counted once.')).toBeVisible()
+  await duplicate.getByRole('button', { name: 'Delete', exact: true }).click()
+  await expect(duplicate.getByText('Delete this entry and its photos?')).toBeVisible()
+  await duplicate.getByRole('button', { name: 'Yes, delete' }).click()
+  await expect(page.getByRole('strong')).toHaveText('£4.20')
+  await expect(page.getByRole('region', { name: 'Receipts to check' })).toHaveCount(0)
+})
+
+test('a duplicate photo in the same entry says no action is needed', async ({ page }, testInfo) => {
+  const tea = reading('Corner Shop', '2026-10-20', [['Tea', 300, 'Drinks'], ['Milk', 120, 'Dairy and eggs']])
+  const first = receiptEntry('same-entry', '2026-10-20', tea)
+  const sameEntry = { ...first, photos: [...first.photos!, { ...first.photos![0]!, id: 'same-entry-copy' }] }
+  await restoreBackup(page, testInfo.outputPath('same-entry.json'), backupWith({ entries: [sameEntry] }, SATURDAY))
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  const sameEntryCopy = page.getByRole('region', { name: 'Receipts to check' })
+  await expect(sameEntryCopy).toContainText('The original is in this same entry. No action needed: this photo is counted once.')
+  await expect(sameEntryCopy).toContainText('Don’t delete the entry, or the original will go too.')
 })
 
 test('with no receipts, Money says where they come from', async ({ page }) => {
