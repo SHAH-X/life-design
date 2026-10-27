@@ -205,6 +205,30 @@ for (const scheme of ['light'] as const) {
       await look(page, at('money-accounts'))
     })
 
+    test(`a duplicate receipt says which entry is extra and how to remove it, ${scheme}`, async ({ page }, testInfo) => {
+      await page.clock.setFixedTime(EVENING)
+      const receipt = {
+        by: 'Gemini · gemini-2.5-flash',
+        at: EVENING.getTime(),
+        text: '',
+        description: '',
+        receipt: {
+          shop: 'Example Market',
+          date: '2026-10-20',
+          currency: '£',
+          items: [{ name: 'Tea', price: 300, quantity: 1 }],
+          total: 300,
+        },
+      }
+      const original = { ...freeWriting('money-original', '', 5, EVENING), photos: [{ id: 'money-original-photo', text: null, ai: receipt }] }
+      const extra = { ...freeWriting('money-extra', '', 1, EVENING), photos: [{ id: 'money-extra-photo', text: null, ai: receipt }] }
+      await restoreBackup(page, testInfo.outputPath('money-duplicate.json'), backupWith({ entries: [original, extra] }, EVENING))
+      await page.goto('./#/money')
+      await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+      await expect(page.getByText(/Extra entry logged/)).toBeVisible()
+      await look(page, `${scheme}-money-duplicate`)
+    })
+
     // v0.16: life areas, the provoker's question and photos, on fictional writing of their own (the seed is activities).
     test(`life areas, the provoker and photos, ${scheme}`, async ({ page }, testInfo) => {
       test.setTimeout(240_000)

@@ -91,7 +91,12 @@ export function ReceiptsMonth(props: { receipts: readonly KnownReceipt[]; copies
       ) : null}
       {its.toCheck.length ? (
         <Section title="Receipts to check">
-          <ReceiptList receipts={its.toCheck.map((c) => c.receipt)} why={new Map(its.toCheck.map((c) => [c.receipt.id, c.why]))} onOpen={onOpen} />
+          <ReceiptList
+            receipts={its.toCheck.map((c) => c.receipt)}
+            why={new Map(its.toCheck.map((c) => [c.receipt.id, c.why]))}
+            copyOf={new Map(its.toCheck.flatMap((c) => (c.copyOf ? [[c.receipt.id, c.copyOf] as const] : [])))}
+            onOpen={onOpen}
+          />
         </Section>
       ) : null}
     </section>
@@ -260,21 +265,38 @@ function ReceiptLine(props: { label: string; detail?: string; receipts: readonly
 }
 
 /** Receipts, newest first: day, shop and what it came to, each opening its entry; with why, when it needs a look. */
-function ReceiptList(props: { receipts: readonly KnownReceipt[]; why?: ReadonlyMap<string, string[]>; onOpen: (r: KnownReceipt) => void }) {
-  const { receipts, why, onOpen } = props
+function ReceiptList(props: { receipts: readonly KnownReceipt[]; why?: ReadonlyMap<string, string[]>; copyOf?: ReadonlyMap<string, KnownReceipt>; onOpen: (r: KnownReceipt) => void }) {
+  const { receipts, why, copyOf, onOpen } = props
   const listed = [...receipts].sort((a, b) => b.date.localeCompare(a.date))
   return (
     <ul className="plain-list compact evidence-list">
       {listed.map((r) => {
         const reasons = why?.get(r.id)
+        const duplicateOf = copyOf?.get(r.id)
         return (
           <li key={r.id}>
-            <button type="button" className="line-button" onClick={() => onOpen(r)}>
+            <button
+              type="button"
+              className="line-button"
+              aria-label={duplicateOf ? 'Open the extra duplicate entry to review or delete it' : undefined}
+              onClick={() => onOpen(r)}
+            >
               <span>
                 <span className="muted small">{shortDayMonth(r.date)} </span>
                 {r.shop || 'No shop read'}
                 <span className="muted small"> · {money(paid(r), r.currency)}</span>
                 {reasons ? <span className="muted small"> · {reasons.join('; ')}</span> : null}
+                {duplicateOf ? (
+                  <span className="receipt-copy-help">
+                    {duplicateOf.entryId === r.entryId ? (
+                      <>The original is in this same entry. No action needed: this photo is counted once. Don’t delete the entry, or the original will go too.</>
+                    ) : (
+                      <>
+                        Extra entry logged {shortDayMonth(r.entryDate ?? r.date)}. Original kept: {shortDayMonth(duplicateOf.date)}. Tap to open this entry, then choose Delete and confirm. This deletes the whole entry and all its photos, so keep it if there’s anything else you want.
+                      </>
+                    )}
+                  </span>
+                ) : null}
               </span>
             </button>
           </li>
