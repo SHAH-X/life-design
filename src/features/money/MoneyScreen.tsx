@@ -259,14 +259,17 @@ function AccountsMonth(props: { lines: readonly MoneyLine[]; month: string; toda
   return (
     <>
       <div className="card money-overview">
-        <p className="muted small">{current ? `${monthName(month)} so far, from your accounts` : `${monthYear(month)}, from your accounts`}</p>
-        <p>
-          <strong>{pounds(its.out)} out</strong>
+        <div className="money-overview-heading">
+          <p className="muted small">{current ? `${monthName(month)} so far` : monthYear(month)}</p>
+          <p className="muted small">From your accounts</p>
+        </div>
+        <p className="money-overview-total">
+          <strong>{pounds(its.out)} <span>out</span></strong>
         </p>
-        <ul className="plain-list compact">
-          {its.before ? <LinesLine label={`By ${dayMonthLong(its.before.until)}`} detail={`${pounds(its.before.out)} out`} lines={its.before.lines} /> : null}
-          <LinesLine label={`${pounds(its.in)} in`} lines={its.inLines} />
-          <LinesLine label={`${paymentsWord(its.outLines.length)} out`} lines={its.outLines} />
+        <ul className="plain-list compact money-overview-breakdown">
+          {its.before ? <LinesLine className="money-overview-comparison" overview label={`By ${dayMonthLong(its.before.until)}`} detail={`${pounds(its.before.out)} out`} lines={its.before.lines} /> : null}
+          <LinesLine className="money-overview-stat" overview label="Money in" detail={pounds(its.in)} lines={its.inLines} />
+          <LinesLine className="money-overview-stat" overview label="Payments out" detail={paymentsWord(its.outLines.length)} lines={its.outLines} />
         </ul>
       </div>
       <div className="card">
@@ -426,13 +429,27 @@ function Chart({ lines, month, today }: { lines: readonly MoneyLine[]; month: st
 }
 
 /** A line that opens to its payments. */
-function LinesLine({ label, detail, lines, moves }: { label: string; detail?: string; lines: readonly MoneyLine[]; moves?: boolean }) {
+function LinesLine({
+  label,
+  detail,
+  lines,
+  moves,
+  className,
+  overview = false,
+}: {
+  label: string
+  detail?: string
+  lines: readonly MoneyLine[]
+  moves?: boolean
+  className?: string
+  overview?: boolean
+}) {
   return (
-    <li>
+    <li className={className}>
       <details className="week-line">
-        <summary>
+        <summary className={overview ? 'money-overview-summary' : undefined}>
           <span>{label}</span>
-          {detail ? <span className="muted small"> · {detail}</span> : null}
+          {detail ? <span className={overview ? 'money-overview-value' : 'muted small'}>{overview ? ` ${detail}` : ` · ${detail}`}</span> : null}
         </summary>
         <LineList lines={lines} moves={moves} />
       </details>

@@ -135,7 +135,7 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   // In: A N Other 100.00, the employer 1,500.00, the pot's interest 1.25. Flex and the pot's moves are left out.
   await expect(page.getByRole('strong')).toHaveText('£126.49 out')
   const summary = page.locator('.card').first().locator('summary')
-  await expect(summary).toHaveText(['£1601.25 in', '8 payments out'])
+  await expect(summary).toHaveText(['Money in £1601.25', 'Payments out 8 payments'])
   const moved = page.getByRole('region', { name: 'Moved between your accounts' })
   await expect(moved.locator('summary')).toHaveText(['Monzo Flex · 2 moves', 'Pots · 1 move'])
 
@@ -143,7 +143,7 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   const moneyIn = page.getByRole('region', { name: 'Money in' })
   await moneyIn.locator('summary', { hasText: 'A N OTHER' }).click()
   await moneyIn.getByRole('button', { name: 'It’s me, moving money' }).click()
-  await expect(summary).toHaveText(['£1501.25 in', '8 payments out'])
+  await expect(summary).toHaveText(['Money in £1501.25', 'Payments out 8 payments'])
   await expect(moved.locator('summary')).toHaveText(['Monzo Flex · 2 moves', 'Pots · 1 move', 'A N OTHER · Your own account · 1 move'])
   // A statement prints your name, not which account: named your way, it's remembered.
   // Each row says where the money went; a pot's move is one row (owner, 2026-10-26).
@@ -161,7 +161,7 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   await moved.locator('summary', { hasText: 'Example savings' }).click()
   await expect(moved.locator('details', { hasText: 'Example savings' }).locator('.evidence-list li')).toHaveText([/^Sat,? 5 Sept? ?Example savings → Lloyds ?£100\.00$/])
   await moved.getByRole('button', { name: 'It’s not me: count it again' }).click()
-  await expect(summary).toHaveText(['£1601.25 in', '8 payments out'])
+  await expect(summary).toHaveText(['Money in £1601.25', 'Payments out 8 payments'])
   // Paid by card or direct debit: never asked.
   const moneyOut = page.getByRole('region', { name: 'Money out' })
   await moneyOut.locator('summary', { hasText: 'EXAMPLE STREAMING' }).click()

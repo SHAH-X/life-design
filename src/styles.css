@@ -1813,23 +1813,102 @@ button.line-button {
   padding: 20px;
 }
 
-.money-screen .money-overview > p:first-child {
-  margin-bottom: 12px;
+.money-screen .money-overview-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.money-screen .money-overview-heading p {
+  margin: 0;
   font-size: 0.72rem;
   font-weight: 650;
+}
+
+.money-screen .money-overview-heading p:first-child {
   letter-spacing: 0.045em;
   text-transform: uppercase;
 }
 
-.money-screen .money-overview > p strong {
+.money-screen .money-overview-heading p:last-child {
+  text-align: right;
+}
+
+.money-screen .money-overview-total {
+  margin: 12px 0 16px;
+}
+
+.money-screen .money-overview-total strong {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   font-size: clamp(1.7rem, 8vw, 2.2rem);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.04em;
   line-height: 1.08;
 }
 
+.money-screen .money-overview-total strong span {
+  color: var(--muted);
+  font-size: 0.55em;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.money-screen .money-overview-breakdown {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+}
+
 .money-screen .card .plain-list.compact > li + li {
   border-top: 1px solid var(--border);
+}
+
+.money-screen .card .plain-list.compact.money-overview-breakdown > li + li {
+  border-top: 0;
+}
+
+.money-screen .money-overview-breakdown .money-overview-comparison {
+  grid-column: 1 / -1;
+  border-block: 1px solid var(--border);
+}
+
+.money-screen details.week-line > summary.money-overview-summary {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  min-height: 56px;
+  padding: 8px 20px 8px 2px;
+}
+
+.money-screen .money-overview-stat details.week-line > summary.money-overview-summary {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  min-height: 64px;
+}
+
+.money-screen .money-overview-summary > span:first-child {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.money-screen .money-overview-summary .money-overview-value {
+  color: var(--text);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.money-screen .money-overview-summary::after {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  transform: translateY(-50%);
 }
 
 .money-screen details.week-line > summary {
