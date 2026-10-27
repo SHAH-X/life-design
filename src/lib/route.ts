@@ -8,6 +8,8 @@ export interface Route {
   tab: Tab
   /** Optional second part, e.g. a review id in #/review/<id>. */
   sub: string | null
+  /** Shopping's old address opens Money's receipts view. */
+  moneyView?: 'receipts'
 }
 
 /** Old addresses that still open a tab: Shopping became Money (v0.20). */
@@ -18,7 +20,7 @@ export function parseRoute(hash: string): Route {
   const [given = '', second] = path.split('/')
   const name = RENAMED[given] ?? given
   if (!(TABS as readonly string[]).includes(name)) return { tab: DEFAULT_TAB, sub: null }
-  return { tab: name as Tab, sub: second ? decodeURIComponent(second) : null }
+  return { tab: name as Tab, sub: second ? decodeURIComponent(second) : null, ...(given === 'shopping' ? { moneyView: 'receipts' as const } : {}) }
 }
 
 /** Reads the tab from a location hash such as "#/review/2026-10-19"; unknown or empty → today. */

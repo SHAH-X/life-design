@@ -114,6 +114,7 @@ test('a receipt goes to your AI by itself once it’s set up; another photo only
   // Its items came sorted into kinds, from the fixed list, in the same reading.
   expect(instructions[0]).toContain('Give each item the kind it most likely is, written exactly as one of: Fruit and veg,')
   await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
   const byKind = page.getByRole('region', { name: 'By kind' })
   await expect(byKind.locator('summary')).toHaveText(['Dairy and eggs · 1 item · £1.45'])
   await byKind.locator('summary').click()
@@ -134,6 +135,7 @@ test('a receipt your AI read before items had kinds or plain names is read again
   await page.getByRole('switch', { name: /Read the text in photos/ }).check()
   await expect.poll(() => photos.length, { timeout: 15_000 }).toBe(1)
   await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
   const byKind = page.getByRole('region', { name: 'By kind' })
   await expect(byKind.locator('summary')).toHaveText(['Dairy and eggs · 1 item · £1.45'])
   await byKind.locator('summary').click()
@@ -168,6 +170,7 @@ test('with "Read receipts with AI" off, a receipt read before plain names is rea
   await dialog.getByRole('button', { name: 'Done', exact: true }).click()
 
   await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
   const byKind = page.getByRole('region', { name: 'By kind' })
   await byKind.locator('summary').click()
   await expect(byKind.getByRole('button', { name: /Organic oat milk/ })).toBeVisible()

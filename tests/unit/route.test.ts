@@ -30,7 +30,8 @@ describe('parseRoute', () => {
     expect(parseRoute('#/insights')).toEqual({ tab: 'insights', sub: null })
     expect(parseRoute('#/money/2026-09')).toEqual({ tab: 'money', sub: '2026-09' })
     // Shopping became Money (v0.20): old links still open it.
-    expect(parseRoute('#/shopping/2026-09')).toEqual({ tab: 'money', sub: '2026-09' })
+    expect(parseRoute('#/shopping/2026-09')).toEqual({ tab: 'money', sub: '2026-09', moneyView: 'receipts' })
+    expect(parseRoute('#/shopping')).toEqual({ tab: 'money', sub: null, moneyView: 'receipts' })
     expect(parseRoute('#/nope/abc')).toEqual({ tab: 'today', sub: null })
     expect(hashFor('insights', 'a b')).toBe('#/insights/a%20b')
     expect(parseRoute(hashFor('insights', 'a b'))).toEqual({ tab: 'insights', sub: 'a b' })
