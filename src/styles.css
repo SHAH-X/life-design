@@ -35,6 +35,7 @@
   --card-shadow: 0 1px 2px rgb(31 30 28 / 0.03), 0 8px 24px rgb(31 30 28 / 0.035);
   --list-shadow: 0 1px 2px rgb(31 30 28 / 0.03), 0 6px 18px rgb(31 30 28 / 0.025);
   --capture-shadow: 0 8px 20px rgb(47 95 179 / 0.08);
+  --sheet-shadow: 0 -12px 36px rgb(31 30 28 / 0.14);
 }
 
 * {
@@ -250,16 +251,24 @@ textarea {
   font: inherit;
   font-size: max(16px, 1rem); /* below 16px, iOS zooms the page on focus */
   width: 100%;
-  padding: 10px 12px;
-  border-radius: 10px;
+  min-height: 48px;
+  padding: 12px 14px;
+  border-radius: 14px;
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
+  line-height: 1.35;
 }
 
 textarea {
-  min-height: 72px;
+  min-height: 96px;
   resize: vertical;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.8;
 }
 
 input:focus-visible,
@@ -269,6 +278,13 @@ button:focus-visible,
 .button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .field {
@@ -515,13 +531,14 @@ dialog.sheet {
   max-height: var(--sheet-max);
   margin: auto auto var(--keyboard-inset, 0px);
   padding: 0;
-  border: 0;
-  border-radius: 18px 18px 0 0;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 24px 24px 0 0;
   background: var(--surface);
   color: var(--text);
   /* Down to the keyboard, the sheet's own surface, never the page behind: iOS 27 leaves a gap below the visible
      area for Safari's address pill and the keyboard's floating toolbar (seen in the iOS Simulator, v0.12.2). */
-  box-shadow: 0 var(--below-sheet, 0px) 0 0 var(--surface);
+  box-shadow: var(--sheet-shadow), 0 var(--below-sheet, 0px) 0 0 var(--surface);
 }
 
 dialog.sheet:focus {
@@ -535,7 +552,8 @@ dialog.sheet::backdrop {
 @media (min-width: 700px) {
   dialog.sheet {
     margin: auto;
-    border-radius: 18px;
+    border: 1px solid var(--border);
+    border-radius: 24px;
   }
 }
 
@@ -543,19 +561,32 @@ dialog.sheet::backdrop {
   display: flex;
   flex-direction: column;
   max-height: var(--sheet-max);
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.sheet-handle {
+  flex: none;
+  width: 38px;
+  height: 5px;
+  margin: 10px auto 2px;
+  border-radius: 999px;
+  background: var(--border);
 }
 
 .sheet-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 6px 6px 16px;
+  min-height: 52px;
+  padding: 4px 8px 8px 20px;
   border-bottom: 1px solid var(--border);
 }
 
 .sheet-header h2 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
 }
 
 .sheet-header .icon-button {
@@ -566,7 +597,7 @@ dialog.sheet::backdrop {
   overflow-y: auto;
   /* A scroll that reaches the end of the sheet stays in the sheet. */
   overscroll-behavior: contain;
-  padding: 8px 16px 20px;
+  padding: 14px 20px 24px;
 }
 
 .sheet-body > :first-child {
@@ -581,6 +612,10 @@ dialog.sheet.full {
   border-radius: 0;
 }
 
+dialog.sheet.full .sheet-handle {
+  display: none;
+}
+
 dialog.sheet.full .sheet-inner {
   height: 100%;
   max-height: none;
@@ -591,7 +626,7 @@ dialog.sheet.full .sheet-body {
 }
 
 dialog.sheet.full .sheet-header {
-  padding-top: calc(6px + env(safe-area-inset-top, 0px));
+  padding-top: calc(8px + var(--safe-top));
 }
 
 /* One box takes the body's spare height (Write freely), so it shrinks with the keyboard instead of running under
@@ -613,8 +648,9 @@ dialog.sheet.full .sheet-header {
   gap: 8px;
   /* The home bar's space isn't needed while the keyboard covers it. */
   /* In a Safari tab, iOS 27's floating keyboard toolbar can lie over the bottom of the visible area. */
-  padding: 12px 16px calc(12px + max(0px, env(safe-area-inset-bottom) - var(--keyboard-inset, 0px)) + var(--keyboard-toolbar, 0px));
+  padding: 14px 20px calc(14px + max(0px, var(--safe-bottom) - var(--keyboard-inset, 0px)) + var(--keyboard-toolbar, 0px));
   border-top: 1px solid var(--border);
+  background: var(--surface);
 }
 
 /* ---------- Today ---------- */
