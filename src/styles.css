@@ -1854,6 +1854,11 @@ button.line-button {
   line-height: 1.45;
 }
 
+.money-screen .account-name,
+.money-screen .account-period {
+  display: block;
+}
+
 .money-screen .account-empty {
   margin: 0 0 12px;
   padding: 14px 16px;

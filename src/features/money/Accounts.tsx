@@ -4,7 +4,7 @@ import { db } from '../../db/db'
 import { CLOSED_ACCOUNTS, markClosed, nameAccount, ownPayeesOf, removeAccount } from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
 import { notBroughtIn } from '../../domain/money'
-import { formatRecentPeriod, toDateKey } from '../../lib/dates'
+import { formatPeriod, toDateKey } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
 import { StatementImport } from './StatementImport'
 import { useAccountNames } from './useAccountNames'
@@ -62,14 +62,13 @@ export function Accounts() {
               return (
                 <li key={a.name} className="account-row">
                   <span>
-                    {names.get(a.name) ?? a.name}
-                    <span className="muted small">
-                      {' '}
-                      · {a.lines === 1 ? '1 line' : `${a.lines} lines`} · {formatRecentPeriod(a.from, a.to)}
+                    <span className="account-name">{names.get(a.name) ?? a.name}</span>
+                    <span className="muted small account-period">
+                      {formatPeriod(a.from, a.to)}
                       {a.closed ? ' · Closed' : ''}
                       {a.notAdding ? ` · ${a.notAdding} ${a.notAdding === 1 ? 'doesn’t match its' : 'don’t match their'} printed balance` : ''}
                     </span>
-                    {missing.length ? <span className="muted small account-missing">Still to bring in: {missing.map((g) => formatRecentPeriod(g.from, g.to)).join('; ')}</span> : null}
+                    {missing.length ? <span className="muted small account-missing">Missing: {missing.map((g) => formatPeriod(g.from, g.to)).join('; ')}</span> : null}
                   </span>
                   <button type="button" className="small-link" aria-label={`Change ${names.get(a.name) ?? a.name}`} onClick={() => setNaming(a)}>
                     Change
