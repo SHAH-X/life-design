@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { expect, test, type Page } from '@playwright/test'
-import { captureBox, entryButton, fakeKeyboard, LONG_WRITING, showKeyboard } from './helpers'
+import { captureBox, entryButton, expectInSheetView, fakeKeyboard, LONG_WRITING, showKeyboard } from './helpers'
 import { expectCleanLayout } from './layout'
 import { backupWith, freeWriting, restoreBackup, restoreSeed } from './seed'
 import { makePdf } from '../fixtures/pdf'
@@ -203,6 +203,34 @@ for (const scheme of ['light'] as const) {
       await expect(statementSheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveCount(2)
       await statementSheet.getByRole('button', { name: 'Done', exact: true }).click()
       await look(page, at('money-accounts'))
+    })
+
+    test(`Money regular payment rename, ${scheme}`, async ({ page }, testInfo) => {
+      await fakeKeyboard(page)
+      await page.clock.setFixedTime(EVENING)
+      const bankLines = ['2026-07-14', '2026-08-13', '2026-09-12'].map((date, index) => ({
+        id: `regular-${index}`,
+        account: 'Lloyds ···4321',
+        date,
+        amount: -1099,
+        description: 'EXAMPLE STREAMING',
+        type: 'DD',
+        balance: null,
+        adds: true,
+        createdAt: index + 1,
+        updatedAt: index + 1,
+      }))
+      await restoreBackup(page, testInfo.outputPath('money-regular-rename.json'), backupWith({ bankLines }, EVENING))
+      await page.goto('./#/money')
+      const regularPayments = page.getByRole('region', { name: 'Regular payments' })
+      const regular = regularPayments.locator('li.regular-payment-line')
+      await look(page, `${scheme}-money-regular-payment`)
+      await regular.getByRole('button', { name: 'Rename EXAMPLE STREAMING' }).click()
+      const sheet = page.getByRole('dialog', { name: 'Rename regular payment' })
+      const field = sheet.getByRole('textbox', { name: 'What do you call it?' })
+      await expectInSheetView(sheet, field)
+      await showKeyboard(page)
+      await look(page, `${scheme}-money-regular-payment-rename`)
     })
 
     test(`a duplicate receipt says which entry is extra and how to remove it, ${scheme}`, async ({ page }, testInfo) => {

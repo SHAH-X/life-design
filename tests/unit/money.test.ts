@@ -63,6 +63,18 @@ describe('classify: a payee by the name you gave it (owner, 2026-10-26)', () => 
     expect(named!.moving).toBe('own')
     expect(other!.payee.name).toBe('EXAMPLE GYM')
   })
+
+  it('uses the same saved name for old and newly imported lines with that payee key', () => {
+    const lines = classify(
+      [line(BANK, '2026-07-14', -9, 'EXAMPLE STREAMING'), line(BANK, '2026-10-14', -11, 'EXAMPLE STREAMING')],
+      new Set(),
+      { 'example streaming': 'Example streaming' },
+    )
+    expect(lines.map((item) => item.payee)).toEqual([
+      { key: 'example streaming', name: 'Example streaming' },
+      { key: 'example streaming', name: 'Example streaming' },
+    ])
+  })
 })
 
 describe('joinMoves: the two sides of a move between your accounts as one row (owner, 2026-10-26)', () => {
