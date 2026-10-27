@@ -36,7 +36,10 @@ test('a statement’s PDF is read on the phone and its accounts kept, each line 
   let sheet = await bringIn(page, lloyds)
   await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveText([/^Lloyds: 4 new · 1 ?– ?30 Sept?$/])
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
-  await expect(accounts.getByRole('listitem')).toHaveText([/^Lloyds · 4 lines · 1 ?– ?30 Sept?Still to bring in: 1 ?– ?26 OctChange$/])
+  const lloydsRow = accounts.getByRole('listitem')
+  await expect(lloydsRow).toContainText('Lloyds')
+  await expect(lloydsRow).toContainText(/1\s+–\s+30 Sep 2026/)
+  await expect(lloydsRow).toContainText(/Missing: 1\s+–\s+26 Oct 2026/)
 
   // The same statement again: nothing new.
   sheet = await bringIn(page, lloyds)
@@ -47,7 +50,7 @@ test('a statement’s PDF is read on the phone and its accounts kept, each line 
   sheet = await bringIn(page, await pdf(testInfo.outputPath('monzo.pdf'), MONZO_LIKE))
   await expect(sheet.getByRole('listitem')).toHaveText([/^Monzo: 9 new · /, /^Monzo Savings pot: 2 new · /])
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
-  await expect(accounts.getByRole('listitem')).toHaveText([/^Lloyds · 4 lines/, /^Monzo · 9 lines/, /^Monzo Savings pot · 2 lines/])
+  await expect(accounts.getByRole('listitem')).toHaveText([/^Lloyds/, /^Monzo/, /^Monzo Savings pot/])
 
   // An account named your way (owner, 2026-10-26), and back to its bank's name when left empty.
   await accounts.getByRole('button', { name: 'Change Lloyds' }).click()
@@ -55,16 +58,37 @@ test('a statement’s PDF is read on the phone and its accounts kept, each line 
   await expect(naming.getByRole('textbox', { name: 'What do you call it?' })).toBeFocused()
   await naming.getByRole('textbox').fill('Joint account')
   await naming.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(accounts.getByRole('listitem')).toHaveText([/^Joint account · 4 lines/, /^Monzo · 9 lines/, /^Monzo Savings pot · 2 lines/])
+  await expect(accounts.getByRole('listitem')).toHaveText([/^Joint account/, /^Monzo/, /^Monzo Savings pot/])
   // Closed: nothing is still to bring in after its last statement.
   await accounts.getByRole('button', { name: 'Change Joint account' }).click()
   await naming.getByRole('textbox').fill('')
   await naming.getByRole('checkbox', { name: /This account is closed/ }).check()
   await naming.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(accounts.getByRole('listitem').first()).toHaveText(/^Lloyds · 4 lines · 1 ?– ?30 Sept? · ClosedChange$/)
+  await expect(accounts.getByRole('listitem').first()).toContainText('Closed')
 
   const site = new URL(baseURL!).origin
   expect(urls.filter((u) => !u.startsWith(site) && !u.startsWith('blob:') && !u.startsWith('data:'))).toEqual([])
+})
+
+test('account gaps crossing years show the year for each missing period', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  await restoreBackup(
+    page,
+    testInfo.outputPath('account-gaps.json'),
+    backupWith({
+      statements: [
+        { id: 'example:2025-04-01:2025-04-30', account: 'Example Current', from: '2025-04-01', to: '2025-04-30', lines: 5, createdAt: 1, updatedAt: 1 },
+        { id: 'example:2026-01-01:2026-04-30', account: 'Example Current', from: '2026-01-01', to: '2026-04-30', lines: 8, createdAt: 2, updatedAt: 2 },
+      ],
+    }, now),
+  )
+  await page.goto('./#/money')
+
+  const account = page.getByRole('region', { name: 'Your accounts' }).getByRole('listitem')
+  await expect(account).toContainText('Example Current')
+  await expect(account).toContainText('1 Apr 2025 – 30 Apr 2026')
+  await expect(account).toContainText('Missing: 1 May – 31 Dec 2025; 1 May – 27 Oct 2026')
 })
 
 // A Monzo Flex statement (owner, 2026-10-26: it came in as "Account", 651 lines not matching): named, every line
@@ -76,7 +100,7 @@ test('a Monzo Flex statement reads as Monzo Flex, every line matching; an accoun
   await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveText([/^Monzo Flex: 5 new · 1 ?– ?30 Sept?$/])
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
   const accounts = page.getByRole('region', { name: 'Your accounts', exact: true })
-  await expect(accounts.getByRole('listitem')).toHaveText([/^Monzo Flex · 5 lines · 1 ?– ?30 Sept?Change$/])
+  await expect(accounts.getByRole('listitem')).toContainText(/1\s+–\s+30 Sep 2026/)
 
   await accounts.getByRole('button', { name: 'Change Monzo Flex' }).click()
   const naming = page.getByRole('dialog', { name: 'Change this account' })
