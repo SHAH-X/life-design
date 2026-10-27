@@ -258,11 +258,11 @@ export async function swipe(page: Page, target: Locator, dx: number, dy = 0) {
   await page.mouse.up()
 }
 
-/** Phase 2.6's rule: nothing shows a rating, score, average or scale. Plain counts ("5 times", "on 4 days") and dates
- *  are fine; a sign before a number, a decimal, "x/5" or "x/10", or the word "average" is not. */
+/** Phase 2.6's rule: no screen shows a rating, score or scale. Money may opt into its requested monthly spend average. */
 export const SCORE = /[+−-]\d|\d\s*\/\s*(?:5|10)\b|\b\d\.\d\b|\baverage\b/i
 
-export async function expectNoScores(page: Page, where: string) {
-  const text = await page.locator('body').innerText()
+export async function expectNoScores(page: Page, where: string, allowMoneyAverage = false) {
+  let text = await page.locator('body').innerText()
+  if (allowMoneyAverage) text = text.replace(/Average over these 6 months: £[\d,]+\.\d{2} per month/g, '')
   expect(text.match(SCORE)?.[0] ?? null, `a score on ${where}`).toBeNull()
 }

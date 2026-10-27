@@ -358,34 +358,70 @@ function Groups<T>({ of, line, fewer }: { of: Ranked<T>; line: (item: T) => Reac
 /** Money out each month, from your accounts. */
 function Chart({ lines, month, today }: { lines: readonly MoneyLine[]; month: string; today: string }) {
   const [active, setActive] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
   const thisMonth = today.slice(0, 7)
-  const months = moneyMonthTotals(lines, month, CHART_MONTHS)
+  const last = shiftMonth(month, -page * CHART_MONTHS)
+  const months = moneyMonthTotals(lines, last, CHART_MONTHS)
+  const average = Math.round(months.reduce((sum, item) => sum + item.out, 0) / months.length)
+  const hasEarlier = lines.some((line) => !line.moving && (line.amount < 0 || line.refund) && line.date.slice(0, 7) < months[0]!.month)
   const tapped = active === null ? undefined : months[active]
+  const firstMonth = months[0]!.month
+  const lastMonth = months[months.length - 1]!.month
+  const range =
+    firstMonth.slice(0, 4) === lastMonth.slice(0, 4)
+      ? `${monthName(firstMonth, 'short')}–${monthName(lastMonth, 'short')} ${lastMonth.slice(0, 4)}`
+      : `${monthName(firstMonth, 'short')} ${firstMonth.slice(0, 4)}–${monthName(lastMonth, 'short')} ${lastMonth.slice(0, 4)}`
   return (
-    <MonthChart
-      title="Spent each month"
-      months={months.map((m) => ({
-        key: m.month,
-        axisLabel: monthName(m.month, 'short'),
-        title: m.month === thisMonth ? `${monthName(m.month)} so far` : monthYear(m.month),
-        value: m.out,
-        amount: pounds(m.out),
-        receipts: m.lines,
-      }))}
-      currency="£"
-      summary="Tap a month"
-      active={active}
-      onActive={setActive}
-      labelled={months.length - 1}
-      counted={{ heading: 'Payments', word: paymentsWord, none: 'no payments' }}
-      detail={
-        tapped && tapped.month !== month && tapped.lines ? (
-          <a className="small-link" href={hashFor('money', tapped.month === thisMonth ? null : tapped.month)}>
-            Open {monthYear(tapped.month)} ›
-          </a>
-        ) : null
-      }
-    />
+    <>
+      <MonthChart
+        title="Spent each month"
+        months={months.map((m) => ({
+          key: m.month,
+          axisLabel: monthName(m.month, 'short'),
+          title: m.month === thisMonth ? `${monthName(m.month)} so far` : monthYear(m.month),
+          value: m.out,
+          amount: pounds(m.out),
+          receipts: m.lines,
+        }))}
+        currency="£"
+        summary="Tap a month"
+        active={active}
+        onActive={setActive}
+        labelled={months.length - 1}
+        counted={{ heading: 'Payments', word: paymentsWord, none: 'no payments' }}
+        average={{ value: average, label: `Average over these ${months.length} months: ${pounds(average)} per month`, amount: pounds(average) }}
+        detail={
+          tapped && tapped.month !== month && tapped.lines ? (
+            <a className="small-link" href={hashFor('money', tapped.month === thisMonth ? null : tapped.month)}>
+              Open {monthYear(tapped.month)} ›
+            </a>
+          ) : null
+        }
+      />
+      <nav className="chart-range" aria-label="Spending chart months">
+        <button
+          type="button"
+          onClick={() => {
+            setPage((value) => value + 1)
+            setActive(null)
+          }}
+          disabled={!hasEarlier}
+        >
+          Earlier months
+        </button>
+        <span>{range}</span>
+        <button
+          type="button"
+          onClick={() => {
+            setPage((value) => Math.max(0, value - 1))
+            setActive(null)
+          }}
+          disabled={page === 0}
+        >
+          Later months
+        </button>
+      </nav>
+    </>
   )
 }
 

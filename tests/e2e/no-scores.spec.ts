@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { addEntry, captureBox, expectNoScores } from './helpers'
 import { restoreSeed } from './seed'
 
-// The guard for Phase 2.6's rule: nothing asks for or shows a rating, score, average or scale (expectNoScores).
+// The guard for Phase 2.6's rule: nothing asks for or shows a rating, score or scale (expectNoScores).
 // Search by meaning's screens are checked in meaning.spec.ts, which has the model.
 
 /** A Thursday, so the seed's entries (yesterday back to 5 days ago) fill this week's chart: on a Monday they'd all be
@@ -29,7 +29,7 @@ test('no screen asks for or shows a rating or score', async ({ page }, testInfo)
   await page.getByRole('button', { name: 'Done', exact: true }).click()
 
   await page.goto('./#/money')
-  await expectNoScores(page, 'Money') // with receipts and statements, every line opened: shopping.spec.ts, money.spec.ts
+  await expectNoScores(page, 'Money', true) // Its requested six-month spending average is allowed; ratings and scores are not.
 
   await page.goto('./#/insights')
   await expectNoScores(page, 'Insights')
