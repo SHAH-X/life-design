@@ -206,8 +206,9 @@ test('an undated receipt can be accepted or matched to a statement payment, then
   await expect(check).toContainText('Using the day this entry was added.')
   await check.getByRole('button', { name: 'Match a payment' }).click()
   const match = page.getByRole('dialog', { name: 'Match a payment' })
-  await expect(match.getByRole('button', { name: /24 Oct · CORNER SHOP · £4\.20/ })).toBeVisible()
-  await match.getByRole('button', { name: /24 Oct · CORNER SHOP · £4\.20/ }).click()
+  await expect(match.getByRole('radio', { name: /CORNER SHOP · Sat 24 Oct/ })).toBeVisible()
+  await match.getByRole('radio', { name: /CORNER SHOP · Sat 24 Oct/ }).check()
+  await match.getByRole('button', { name: 'Match receipt' }).click()
   await expect(check).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Accounts', exact: true }).click()
@@ -227,6 +228,71 @@ test('an undated receipt can be accepted or matched to a statement payment, then
   await page.reload()
   await page.getByRole('button', { name: 'Receipts', exact: true }).click()
   await expect(page.getByRole('region', { name: 'Receipts to check' })).toHaveCount(0)
+})
+
+test('a dated receipt can be matched to a smaller debit with an owner-recorded reason', async ({ page }, testInfo) => {
+  const datedReceipt = receiptEntry('dated-mismatch', '2026-10-10', reading('Corner Shop', '2026-10-10', [['Groceries', 9650]]))
+  const payment = {
+    id: 'discounted-card-payment',
+    account: 'Example Current',
+    date: '2026-10-11',
+    amount: -9071,
+    description: 'CORNER SHOP',
+    type: 'DEB',
+    balance: 10000,
+    adds: true,
+    createdAt: SATURDAY.getTime(),
+    updatedAt: SATURDAY.getTime(),
+  }
+  await restoreBackup(page, testInfo.outputPath('dated-receipt-mismatch.json'), backupWith({ entries: [datedReceipt], bankLines: [payment] }, SATURDAY))
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+
+  await expect(page.getByRole('strong')).toHaveText('£96.50')
+  const check = page.getByRole('region', { name: 'Receipts to check' })
+  await expect(check.locator('details > summary')).toContainText('Payment differs')
+  await check.locator('summary').click()
+  await expect(check).toContainText('receipt £96.50 · debit £90.71 · difference £5.79')
+  await check.getByRole('button', { name: 'Review payment' }).click()
+
+  const match = page.getByRole('dialog', { name: 'Match a payment' })
+  await expect(match).toContainText('Receipt total: £96.50')
+  await expect(match).toContainText('Debit £90.71')
+  await expect(match).toContainText('difference £5.79')
+  await expect(match.getByRole('button', { name: 'Match receipt' })).toBeDisabled()
+  await match.getByRole('radio', { name: /CORNER SHOP/ }).check()
+  await expect(match.getByRole('button', { name: 'Match receipt' })).toBeDisabled()
+  await match.getByRole('radio', { name: 'Gift-card discount' }).check()
+  await expect(match.getByRole('button', { name: 'Match receipt' })).toBeEnabled()
+  await match.getByRole('button', { name: 'Match receipt' }).click()
+  await expect(check).toHaveCount(0)
+
+  await expect(page.getByRole('strong')).toHaveText('£96.50')
+  await page.getByRole('button', { name: 'Accounts', exact: true }).click()
+  await expect(page.getByRole('strong')).toHaveText('£90.71 out')
+  const moneyOut = page.getByRole('region', { name: 'Money out' })
+  await moneyOut.locator('summary', { hasText: 'Corner Shop' }).click()
+  await expect(moneyOut.getByRole('button', { name: /receipt £96\.50 · Gift-card discount/ })).toBeVisible()
+  await moneyOut.getByRole('button', { name: /receipt £96\.50 · Gift-card discount/ }).click()
+  const paymentSheet = page.getByRole('dialog', { name: 'CORNER SHOP' })
+  await expect(paymentSheet).toContainText('Receipt £96.50 · debit £90.71 · difference £5.79 · Gift-card discount')
+  await paymentSheet.getByRole('button', { name: 'Unlink receipt' }).click()
+  await expect(paymentSheet).toHaveCount(0)
+  await expect(moneyOut).toContainText('£90.71')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  await expect(check).toContainText('Payment differs')
+  await check.locator('summary').click()
+  await check.getByRole('button', { name: 'Review payment' }).click()
+  const secondMatch = page.getByRole('dialog', { name: 'Match a payment' })
+  await secondMatch.getByRole('radio', { name: /CORNER SHOP/ }).check()
+  await secondMatch.getByRole('radio', { name: 'Another reason' }).check()
+  const reason = secondMatch.getByRole('textbox', { name: 'Explain the difference' })
+  await expect(reason).toBeFocused()
+  await reason.fill('Part paid with a stored-value card')
+  await secondMatch.getByRole('button', { name: 'Match receipt' }).click()
+  await page.getByRole('button', { name: 'Accounts', exact: true }).click()
+  await moneyOut.locator('summary', { hasText: 'Corner Shop' }).click()
+  await expect(moneyOut.getByRole('button', { name: /receipt £96\.50 · Part paid with a stored-value card/ })).toBeVisible()
 })
 
 test('with no receipts, Money says where they come from', async ({ page }) => {

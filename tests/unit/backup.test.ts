@@ -70,7 +70,7 @@ describe('backup and restore', () => {
     await phone.settings.bulkPut([
       { key: 'reminderDailyTime', value: '21:30', updatedAt: 1000 },
       { key: 'aiKey', value: 'gsk_test_secret', updatedAt: 1000 },
-      { key: 'receiptReviews', value: { acceptedDates: ['fictional-photo'], paymentLinks: { 'fictional-photo': 'fictional-payment' } }, updatedAt: 1000 },
+      { key: 'receiptReviews', value: { acceptedDates: ['fictional-photo'], paymentLinks: { 'fictional-photo': 'fictional-payment' }, paymentReasons: { 'fictional-photo': 'Gift-card discount' } }, updatedAt: 1000 },
     ])
 
     const text = JSON.stringify(await createBackup(phone, new Date('2026-10-21T12:00:00Z')))
@@ -90,7 +90,7 @@ describe('backup and restore', () => {
     expect(await newPhone.settings.get('reminderDailyTime')).toMatchObject({ value: '21:30' })
     expect(await newPhone.settings.get('aiKey')).toBeUndefined()
     expect(await newPhone.settings.get('receiptReviews')).toMatchObject({
-      value: { acceptedDates: ['fictional-photo'], paymentLinks: { 'fictional-photo': 'fictional-payment' } },
+      value: { acceptedDates: ['fictional-photo'], paymentLinks: { 'fictional-photo': 'fictional-payment' }, paymentReasons: { 'fictional-photo': 'Gift-card discount' } },
     })
   })
 

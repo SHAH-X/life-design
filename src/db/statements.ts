@@ -134,17 +134,29 @@ export const RECEIPT_REVIEWS = 'receiptReviews'
 export interface ReceiptReviewState {
   acceptedDates: string[]
   paymentLinks: Record<string, string>
+  paymentReasons: Record<string, string>
 }
 
 export function receiptReviewState(value: unknown): ReceiptReviewState {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return { acceptedDates: [], paymentLinks: {} }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { acceptedDates: [], paymentLinks: {}, paymentReasons: {} }
   const record = value as Record<string, unknown>
   const payments = record.paymentLinks
+  const reasons = record.paymentReasons
+  const paymentLinks: Record<string, string> = {}
+  const usedPayments = new Set<string>()
+  if (payments && typeof payments === 'object' && !Array.isArray(payments)) {
+    for (const [receiptId, paymentId] of Object.entries(payments)) {
+      if (typeof paymentId !== 'string' || usedPayments.has(paymentId)) continue
+      paymentLinks[receiptId] = paymentId
+      usedPayments.add(paymentId)
+    }
+  }
   return {
     acceptedDates: Array.isArray(record.acceptedDates) ? record.acceptedDates.filter((id): id is string => typeof id === 'string') : [],
-    paymentLinks:
-      payments && typeof payments === 'object' && !Array.isArray(payments)
-        ? Object.fromEntries(Object.entries(payments).filter((pair): pair is [string, string] => typeof pair[1] === 'string'))
+    paymentLinks,
+    paymentReasons:
+      reasons && typeof reasons === 'object' && !Array.isArray(reasons)
+        ? Object.fromEntries(Object.entries(reasons).filter((pair): pair is [string, string] => typeof pair[1] === 'string'))
         : {},
   }
 }
@@ -169,20 +181,37 @@ export async function acceptReceiptDate(receiptId: string, database: LifeDesignD
 export async function matchReceiptPayment(
   receiptId: string,
   paymentId: string,
+  reason: string,
   validReceiptIds: ReadonlySet<string>,
   database: LifeDesignDB = defaultDb,
 ): Promise<void> {
-  await updateReceiptReviews((state) => {
-    const currentLinks = Object.fromEntries(Object.entries(state.paymentLinks).filter(([id]) => validReceiptIds.has(id)))
-    const alreadyUsed = Object.entries(currentLinks).find(([id, linked]) => linked === paymentId && id !== receiptId)
-    if (alreadyUsed) throw new Error('This payment is already linked to another receipt.')
-    return { ...state, paymentLinks: { ...currentLinks, [receiptId]: paymentId } }
-  }, database)
+  await guardWrite(() =>
+    database.transaction('rw', database.settings, database.bankLines, async () => {
+      if (!validReceiptIds.has(receiptId)) throw new Error('This receipt is no longer available.')
+      const line = await database.bankLines.get(paymentId)
+      if (!line || line.amount >= 0) throw new Error('This debit is no longer available.')
+      const state = receiptReviewState((await database.settings.get(RECEIPT_REVIEWS))?.value)
+      const validPaymentIds = new Set((await database.bankLines.toArray()).filter((candidate) => candidate.amount < 0).map((candidate) => candidate.id))
+      const currentLinks = Object.fromEntries(
+        Object.entries(state.paymentLinks).filter(([id, linked]) => validReceiptIds.has(id) && validPaymentIds.has(linked)),
+      )
+      const alreadyUsed = Object.entries(currentLinks).find(([id, linked]) => linked === paymentId && id !== receiptId)
+      if (alreadyUsed) throw new Error('This payment is already linked to another receipt.')
+      const paymentReasons = Object.fromEntries(Object.entries(state.paymentReasons).filter(([id]) => id !== receiptId && validReceiptIds.has(id)))
+      if (reason.trim()) paymentReasons[receiptId] = reason.trim()
+      await database.settings.put({
+        key: RECEIPT_REVIEWS,
+        value: { ...state, paymentLinks: { ...currentLinks, [receiptId]: paymentId }, paymentReasons },
+        updatedAt: Date.now(),
+      })
+    }),
+  )
 }
 
 export async function unmatchReceiptPayment(receiptId: string, database: LifeDesignDB = defaultDb): Promise<void> {
   await updateReceiptReviews((state) => {
     const { [receiptId]: _, ...paymentLinks } = state.paymentLinks
-    return { ...state, paymentLinks }
+    const { [receiptId]: __, ...paymentReasons } = state.paymentReasons
+    return { ...state, paymentLinks, paymentReasons }
   }, database)
 }

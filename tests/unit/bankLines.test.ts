@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
-import { ACCOUNT_NAMES, accountNamesOf, bringInStatement, markClosed, markOwnPayee, nameAccount, CLOSED_ACCOUNTS, notePayment, PAYEE_KINDS, PAYMENT_NOTES, setPayeeKind, namePayee, removeAccount, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES } from '../../src/db/statements'
+import { ACCOUNT_NAMES, accountNamesOf, bringInStatement, markClosed, markOwnPayee, nameAccount, CLOSED_ACCOUNTS, matchReceiptPayment, notePayment, PAYEE_KINDS, PAYMENT_NOTES, RECEIPT_REVIEWS, receiptReviewState, setPayeeKind, namePayee, removeAccount, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES, unmatchReceiptPayment } from '../../src/db/statements'
 import { readStatement, type StatementAccount } from '../../src/domain/statements'
 import { piecesOf } from '../fixtures/pdf'
 import { LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
@@ -18,6 +18,49 @@ describe('bringInStatement: a statement’s lines kept on the phone, each once',
   let phone: LifeDesignDB
   beforeEach(() => {
     phone = openDb(`phone-${crypto.randomUUID()}`)
+  })
+
+  describe('receipt payment review state', () => {
+    let phone: LifeDesignDB
+    beforeEach(() => {
+      phone = openDb(`receipt-reviews-${crypto.randomUUID()}`)
+    })
+    afterEach(async () => {
+      await phone.delete()
+    })
+
+    it('keeps an owner’s explanation with a unique payment link, and removes both on unlink', async () => {
+      await phone.bankLines.put({
+        id: 'fictional-debit',
+        account: 'Example Current',
+        date: '2026-10-11',
+        amount: -9071,
+        description: 'CORNER SHOP',
+        type: 'DEB',
+        balance: null,
+        adds: true,
+        createdAt: 1,
+        updatedAt: 1,
+      })
+      await matchReceiptPayment('fictional-receipt', 'fictional-debit', 'Gift-card discount', new Set(['fictional-receipt', 'other-receipt']), phone)
+      expect(receiptReviewState((await phone.settings.get(RECEIPT_REVIEWS))?.value)).toMatchObject({
+        paymentLinks: { 'fictional-receipt': 'fictional-debit' },
+        paymentReasons: { 'fictional-receipt': 'Gift-card discount' },
+      })
+      await expect(matchReceiptPayment('other-receipt', 'fictional-debit', 'Other reason', new Set(['fictional-receipt', 'other-receipt']), phone)).rejects.toThrow(
+        'This payment is already linked to another receipt.',
+      )
+      await unmatchReceiptPayment('fictional-receipt', phone)
+      expect(receiptReviewState((await phone.settings.get(RECEIPT_REVIEWS))?.value)).toMatchObject({ paymentLinks: {}, paymentReasons: {} })
+    })
+
+    it('reads older review state without payment explanations', () => {
+      expect(receiptReviewState({ acceptedDates: ['photo'], paymentLinks: { photo: 'debit' } })).toEqual({
+        acceptedDates: ['photo'],
+        paymentLinks: { photo: 'debit' },
+        paymentReasons: {},
+      })
+    })
   })
   afterEach(async () => {
     await phone.delete()

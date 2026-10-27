@@ -45,11 +45,12 @@ export function PaymentSheet(props: {
   line: MoneyLine
   way: string
   note: string
+  receiptSummary: string | null
   onReceipt: (() => void) | null
   onUnlinkReceipt: (() => Promise<void>) | null
   onClose: () => void
 }) {
-  const { line, way, onReceipt, onUnlinkReceipt, onClose } = props
+  const { line, way, receiptSummary, onReceipt, onUnlinkReceipt, onClose } = props
   const [note, setNote] = useState(props.note)
   const id = useId()
   const save = async () => {
@@ -66,6 +67,7 @@ export function PaymentSheet(props: {
       <p>
         {dayMonthLong(line.date)} · {way} · {money(Math.abs(line.amount), '£')}
       </p>
+      {receiptSummary ? <p className="muted small receipt-payment-summary">{receiptSummary}</p> : null}
       <label className="question-text" htmlFor={id}>
         What was it for?
       </label>
