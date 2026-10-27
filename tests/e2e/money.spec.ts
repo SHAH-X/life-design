@@ -171,6 +171,56 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   await expectNoScores(page, 'Money, from statements, opened', true)
 })
 
+test('a regular payment can be renamed across existing transactions and a later statement', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const bankLines = ['2026-07-14', '2026-08-13', '2026-09-12'].map((date, index) => ({
+    id: `regular-${index}`,
+    account: 'Lloyds ···4321',
+    date,
+    amount: -1099,
+    description: 'EXAMPLE STREAMING',
+    type: 'DD',
+    balance: null,
+    adds: true,
+    createdAt: index + 1,
+    updatedAt: index + 1,
+  }))
+  await restoreBackup(page, testInfo.outputPath('regular-payments.json'), backupWith({ bankLines }, now))
+  await page.goto('./#/money')
+
+  const regularPayments = page.getByRole('region', { name: 'Regular payments' })
+  const regular = regularPayments.locator('li.regular-payment-line')
+  await expect(regular.locator('summary')).toContainText('EXAMPLE STREAMING')
+  await regular.getByRole('button', { name: 'Rename EXAMPLE STREAMING' }).click()
+  const naming = page.getByRole('dialog', { name: 'Rename regular payment' })
+  await naming.getByRole('textbox').fill('Example streaming')
+  await naming.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(regular.locator('summary')).toContainText('Example streaming')
+
+  for (const month of ['2026-07', '2026-08', '2026-09']) {
+    await page.goto(`./#/money/${month}`)
+    const monthOut = page.getByRole('region', { name: 'Money out' })
+    await expect(monthOut.locator('details.week-line summary').filter({ hasText: 'Example streaming' })).toContainText('Example streaming')
+  }
+
+  const octoberPages = LLOYDS_LIKE.map((page) =>
+    page.map((piece) => ({
+      ...piece,
+      text: piece.text.replaceAll('September 2026', 'October 2026').replaceAll('Sep 26', 'Oct 26'),
+    })),
+  )
+  const statement = await pdf(testInfo.outputPath('october-lloyds.pdf'), octoberPages)
+  const sheet = await bringIn(page, statement)
+  await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveCount(1)
+  await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+
+  await page.goto('./#/money')
+  const octoberOut = page.getByRole('region', { name: 'Money out' })
+  await expect(octoberOut.locator('details.week-line summary').filter({ hasText: 'Example streaming' })).toContainText('Example streaming')
+  await expect(octoberOut.locator('details.week-line summary').filter({ hasText: 'Example streaming' })).toContainText('1 payment')
+})
+
 test('the accounts spending chart shows its six-month average and pages through earlier months', async ({ page }, testInfo) => {
   const now = new Date(2026, 9, 26, 12, 0)
   await page.clock.setFixedTime(now)

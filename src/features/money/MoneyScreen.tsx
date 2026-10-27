@@ -19,7 +19,7 @@ import {
   unmatchReceiptPayment,
 } from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
-import { classify, joinMoves, type KindGroup, kindOf, linkReceipts, mayBeOwn, payeeOf, type PaymentRow, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type PayeeGroup, type Ranked, regularPayments, receiptPaymentCandidates, type Rise } from '../../domain/money'
+import { classify, joinMoves, type KindGroup, kindOf, linkReceipts, mayBeOwn, payeeOf, type PaymentRow, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type Payee, type PayeeGroup, type Ranked, regularPayments, receiptPaymentCandidates, type Rise } from '../../domain/money'
 import { inWords, type KnownReceipt, money, paid, receiptsAndCopies, shiftMonth, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -290,9 +290,11 @@ function AccountsMonth(props: { lines: readonly MoneyLine[]; month: string; toda
             {regular.map((r) => (
               <LinesLine
                 key={r.payee.key}
+                className="regular-payment-line"
                 label={r.payee.name}
                 detail={[`every ${r.every}`, pounds(r.amount), r.changed ? `was ${pounds(r.changed.from)} until ${dayMonth(r.changed.date)}` : ''].filter(Boolean).join(' · ')}
                 lines={r.lines}
+                action={<RenameRegularPayment payee={r.payee} />}
               />
             ))}
           </ul>
@@ -436,6 +438,7 @@ function LinesLine({
   moves,
   className,
   overview = false,
+  action,
 }: {
   label: string
   detail?: string
@@ -443,6 +446,7 @@ function LinesLine({
   moves?: boolean
   className?: string
   overview?: boolean
+  action?: ReactNode
 }) {
   return (
     <li className={className}>
@@ -453,7 +457,28 @@ function LinesLine({
         </summary>
         <LineList lines={lines} moves={moves} />
       </details>
+      {action}
     </li>
+  )
+}
+
+function RenameRegularPayment({ payee }: { payee: Payee }) {
+  const [naming, setNaming] = useState(false)
+  return (
+    <>
+      <button type="button" className="small-link" aria-label={`Rename ${payee.name}`} onClick={() => setNaming(true)}>
+        Rename
+      </button>
+      {naming ? (
+        <RenameSheet
+          title="Rename regular payment"
+          shown={payee.name}
+          hint="Applies to existing and future matching payments."
+          onSave={(name) => namePayee(payee.key, name)}
+          onClose={() => setNaming(false)}
+        />
+      ) : null}
+    </>
   )
 }
 

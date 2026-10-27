@@ -1928,6 +1928,21 @@ button.line-button {
   padding: 8px 0;
 }
 
+.money-screen .regular-payment-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+}
+
+.money-screen .regular-payment-line > details {
+  min-width: 0;
+}
+
+.money-screen .regular-payment-line > button.small-link {
+  margin: 0;
+}
+
 .money-screen .account-row > span:first-child {
   min-width: 0;
   line-height: 1.45;
