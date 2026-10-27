@@ -222,10 +222,19 @@ for (const scheme of ['light'] as const) {
       }
       const original = { ...freeWriting('money-original', '', 5, EVENING), photos: [{ id: 'money-original-photo', text: null, ai: receipt }] }
       const extra = { ...freeWriting('money-extra', '', 1, EVENING), photos: [{ id: 'money-extra-photo', text: null, ai: receipt }] }
-      await restoreBackup(page, testInfo.outputPath('money-duplicate.json'), backupWith({ entries: [original, extra] }, EVENING))
+      const noDate = {
+        ...freeWriting('money-undated', '', 2, EVENING),
+        photos: [{
+          id: 'money-undated-photo',
+          text: null,
+          ai: { ...receipt, by: 'Gemini · gemini-2.5-flash', receipt: { ...receipt.receipt, shop: 'Another Market', date: null, items: [{ name: 'Milk', price: 420, quantity: 1 }], total: 420 } },
+        }],
+      }
+      await restoreBackup(page, testInfo.outputPath('money-duplicate.json'), backupWith({ entries: [original, extra, noDate] }, EVENING))
       await page.goto('./#/money')
       await page.getByRole('button', { name: 'Receipts', exact: true }).click()
-      await expect(page.getByText(/Extra entry logged/)).toBeVisible()
+      await expect(page.getByText(/Duplicate · counted once/)).toBeVisible()
+      await expect(page.getByText(/Date not read · using Wed, Oct 21/)).toBeVisible()
       await look(page, `${scheme}-money-duplicate`)
     })
 

@@ -41,8 +41,15 @@ export function KindSheet(props: { payeeKey: string; payee: string; chosen: stri
 }
 
 /** One payment: when, who, which way, and your note on what it was for; its receipt, when there's one. */
-export function PaymentSheet(props: { line: MoneyLine; way: string; note: string; onReceipt: (() => void) | null; onClose: () => void }) {
-  const { line, way, onReceipt, onClose } = props
+export function PaymentSheet(props: {
+  line: MoneyLine
+  way: string
+  note: string
+  onReceipt: (() => void) | null
+  onUnlinkReceipt: (() => Promise<void>) | null
+  onClose: () => void
+}) {
+  const { line, way, onReceipt, onUnlinkReceipt, onClose } = props
   const [note, setNote] = useState(props.note)
   const id = useId()
   const save = async () => {
@@ -66,6 +73,11 @@ export function PaymentSheet(props: { line: MoneyLine; way: string; note: string
       {onReceipt ? (
         <button type="button" className="wide top-gap" onClick={onReceipt}>
           Open its receipt
+        </button>
+      ) : null}
+      {onUnlinkReceipt ? (
+        <button type="button" className="wide top-gap" onClick={() => void onUnlinkReceipt()}>
+          Unlink receipt
         </button>
       ) : null}
     </Dialog>

@@ -96,7 +96,11 @@ test('Money has its own tab, receipts and all: the month so far, next to last mo
 
   // To check: the receipt that doesn't add up, and the one with no date read.
   const check = page.getByRole('region', { name: 'Receipts to check' }).locator('li')
-  await expect(check).toHaveText([/J Sainsbury plc · £42\.10 · no date read/, /ALDI · £9\.99 · its items don't add up to its total/])
+  await expect(check.locator('details > summary')).toHaveText([
+    /Date not read · using Fri 23 Oct.*J Sainsbury plc · £42\.10/,
+    /Total doesn't add up.*ALDI · £9\.99/,
+  ])
+  await expect(check.locator('details[open]')).toHaveCount(0)
 
   for (const summary of await page.locator('details.week-line > summary').all()) await summary.click()
   await expectNoScores(page, 'Money, opened')
@@ -155,11 +159,11 @@ test('a duplicate receipt identifies the extra entry, explains deletion, and lea
   await page.getByRole('button', { name: 'Receipts', exact: true }).click()
   await expect(page.getByRole('strong')).toHaveText('£4.20')
   const check = page.getByRole('region', { name: 'Receipts to check' }).locator('li')
-  await expect(check).toContainText('Corner Shop · £4.20 · already added: counted once')
-  await expect(check).toContainText('Extra entry logged Thu 22 Oct. Original kept: Tue 20 Oct.')
-  await expect(check).toContainText('Tap to open this entry, then choose Delete and confirm.')
-  await expect(check).toContainText('This deletes the whole entry and all its photos, so keep it if there’s anything else you want.')
-  await check.getByRole('button', { name: 'Open the extra duplicate entry to review or delete it' }).click()
+  await expect(check.locator('details > summary')).toContainText('Duplicate · counted once')
+  await expect(check).not.toContainText('This deletes the whole entry')
+  await check.locator('summary').click()
+  await expect(check).toContainText('Extra entry Thu 22 Oct · kept Tue 20 Oct.')
+  await check.getByRole('button', { name: 'Open extra entry' }).click()
   const duplicate = page.getByRole('dialog', { name: 'Photo' })
   await expect(duplicate.getByText('Already in Money from an earlier photo: counted once.')).toBeVisible()
   await duplicate.getByRole('button', { name: 'Delete', exact: true }).click()
@@ -176,9 +180,53 @@ test('a duplicate photo in the same entry says no action is needed', async ({ pa
   await restoreBackup(page, testInfo.outputPath('same-entry.json'), backupWith({ entries: [sameEntry] }, SATURDAY))
   await page.goto('./#/money')
   await page.getByRole('button', { name: 'Receipts', exact: true }).click()
-  const sameEntryCopy = page.getByRole('region', { name: 'Receipts to check' })
-  await expect(sameEntryCopy).toContainText('The original is in this same entry. No action needed: this photo is counted once.')
-  await expect(sameEntryCopy).toContainText('Don’t delete the entry, or the original will go too.')
+  await expect(page.getByRole('region', { name: 'Receipts to check' })).toHaveCount(0)
+})
+
+test('an undated receipt can be accepted or matched to a statement payment, then unlinked', async ({ page }, testInfo) => {
+  const undated = receiptEntry('undated', '2026-10-23', reading('Corner Shop', null, [['Tea and milk', 420]]))
+  const payment = {
+    id: 'statement-payment',
+    account: 'Example Current',
+    date: '2026-10-24',
+    amount: -420,
+    description: 'CORNER SHOP',
+    type: 'DEB',
+    balance: 10000,
+    adds: true,
+    createdAt: SATURDAY.getTime(),
+    updatedAt: SATURDAY.getTime(),
+  }
+  await restoreBackup(page, testInfo.outputPath('undated-receipt.json'), backupWith({ entries: [undated], bankLines: [payment] }, SATURDAY))
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  const check = page.getByRole('region', { name: 'Receipts to check' })
+  await expect(check.locator('details > summary')).toHaveText(/Date not read · using Fri 23 Oct.*Corner Shop · £4\.20/)
+  await check.locator('summary').click()
+  await expect(check).toContainText('Using the day this entry was added.')
+  await check.getByRole('button', { name: 'Match a payment' }).click()
+  const match = page.getByRole('dialog', { name: 'Match a payment' })
+  await expect(match.getByRole('button', { name: /24 Oct · CORNER SHOP · £4\.20/ })).toBeVisible()
+  await match.getByRole('button', { name: /24 Oct · CORNER SHOP · £4\.20/ }).click()
+  await expect(check).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Accounts', exact: true }).click()
+  const moneyOut = page.getByRole('region', { name: 'Money out' })
+  await moneyOut.locator('summary', { hasText: 'Corner Shop' }).click()
+  const statementPayment = moneyOut.getByRole('button', { name: /Out of Example Current · receipt.*£4\.20/ })
+  await statementPayment.click()
+  const paymentSheet = page.getByRole('dialog', { name: 'CORNER SHOP' })
+  await paymentSheet.getByRole('button', { name: 'Unlink receipt' }).click()
+  await expect(page.getByRole('dialog', { name: 'CORNER SHOP' })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  const needsDate = page.getByRole('region', { name: 'Receipts to check' })
+  await needsDate.locator('summary').click()
+  await needsDate.getByRole('button', { name: 'Use Fri 23 Oct' }).click()
+  await expect(needsDate).toHaveCount(0)
+  await page.reload()
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'Receipts to check' })).toHaveCount(0)
 })
 
 test('with no receipts, Money says where they come from', async ({ page }) => {

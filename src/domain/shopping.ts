@@ -322,7 +322,13 @@ function kindsOf(receipts: readonly KnownReceipt[], currency: string): Kinds | n
 }
 
 /** Everything Money’s receipts say about one month ("2026-10"), on `today`. */
-export function shoppingMonth(all: readonly KnownReceipt[], month: string, today: string, copies: readonly ReceiptCopy[] = []): ShoppingMonth {
+export function shoppingMonth(
+  all: readonly KnownReceipt[],
+  month: string,
+  today: string,
+  copies: readonly ReceiptCopy[] = [],
+  reviewedDates: ReadonlySet<string> = new Set(),
+): ShoppingMonth {
   const receipts = all.filter((r) => r.date.slice(0, 7) === month)
   const currency = mainCurrency(receipts)
   const lastMonth = shiftMonth(month, -1)
@@ -360,11 +366,15 @@ export function shoppingMonth(all: readonly KnownReceipt[], month: string, today
         why: [
           receipt.adds ? '' : "its items don't add up to its total",
           shopKey(receipt.shop) ? '' : 'no shop read',
-          receipt.dated ? '' : 'no date read, so it counts on the day you added it',
+          receipt.dated || reviewedDates.has(receipt.id) ? '' : 'no date read',
         ].filter(Boolean),
       }))
       .filter((c) => c.why.length > 0)
-      .concat(copies.filter((c) => c.copy.date.slice(0, 7) === month).map((c) => ({ receipt: c.copy, why: ['already added: counted once'], copyOf: c.of }))),
+      .concat(
+        copies
+          .filter((c) => c.copy.date.slice(0, 7) === month && c.copy.entryId !== c.of.entryId)
+          .map((c) => ({ receipt: c.copy, why: ['duplicate'], copyOf: c.of })),
+      ),
     kinds: kindsOf(receipts, currency),
   }
 }
