@@ -668,9 +668,21 @@ dialog.sheet.full .sheet-header {
 .day-header {
   display: flex;
   align-items: center;
-  gap: 4px;
-  min-height: 52px;
+  gap: 8px;
+  min-height: 60px;
   margin: 0 0 18px;
+}
+
+.day-header .icon-button {
+  flex: none;
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  font-family: ui-serif, 'New York', Georgia, serif;
+  font-size: 2rem;
+  box-shadow: var(--list-shadow);
 }
 
 .day-title {
@@ -680,6 +692,15 @@ dialog.sheet.full .sheet-header {
 
 .day-title h1 {
   margin: 0;
+}
+
+.day-title p {
+  display: inline-flex;
+  margin: 4px 0 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.78rem;
 }
 
 /* The day's activities: one rounded list with thin lines between them, like iPhone Settings. */
@@ -984,20 +1005,33 @@ button.entry-row:focus-visible {
 /* Today's one way in (v0.15): looks like a text box; a tap opens the writer, full screen above the keyboard. */
 .capture-box {
   display: grid;
-  align-content: start;
-  /* The base button centres its content; the box reads from the left, like a text box. */
-  justify-content: start;
-  justify-items: start;
-  gap: 2px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
   width: 100%;
-  min-height: 100px;
+  min-height: 116px;
   margin-bottom: 16px;
-  padding: 16px;
-  border-color: var(--accent);
-  border-radius: 20px;
-  background: var(--surface);
+  padding: 20px;
+  border-color: transparent;
+  border-radius: 24px;
+  background: var(--accent-soft);
   box-shadow: var(--capture-shadow);
   text-align: left;
+}
+
+.capture-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.capture-prompt {
+  color: var(--accent);
+  font-family: ui-serif, 'New York', Georgia, serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
 }
 
 .capture-hint {
@@ -1006,16 +1040,32 @@ button.entry-row:focus-visible {
   font-weight: 400;
 }
 
+.capture-mark {
+  display: grid;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 1.7rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
 /* Today's question from your writing (v0.16), above the box: the question opens the writer; two quiet links below.
    Its final look waits for the layout pass. */
 .provoker {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .provoker-ask {
   width: 100%;
-  padding: 12px 14px;
-  border-radius: var(--radius);
+  min-height: 72px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--surface);
   text-align: left;
   font-weight: 400;
   line-height: 1.4;

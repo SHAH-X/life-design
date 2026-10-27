@@ -93,8 +93,13 @@ export function TodayScreen() {
         {/* One way in (v0.15, owner: "If I have to think about where a thought belongs, I won't record it"): no title,
             no category, no questions. It comes first, always in the same place: a long day never pushes it out of sight. */}
         <button type="button" className="capture-box" onClick={() => setSheet({ kind: 'free', date })}>
-          <span className="capture-prompt">What's on your mind?</span>
-          <span className="capture-hint">A thought, a worry, a plan…</span>
+          <span className="capture-copy">
+            <span className="capture-prompt">What's on your mind?</span>
+            <span className="capture-hint">A thought, a worry, a plan…</span>
+          </span>
+          <span className="capture-mark" aria-hidden="true">
+            +
+          </span>
         </button>
         {sorted.length === 0 ? null : (
           <ul className="entry-list">
