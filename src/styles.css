@@ -1875,6 +1875,18 @@ button.line-button {
   border-block: 1px solid var(--border);
 }
 
+.money-screen .receipt-overview .money-overview-breakdown {
+  grid-template-columns: 1fr;
+}
+
+.money-screen .receipt-overview .money-overview-breakdown > li + li {
+  border-top: 1px solid var(--border);
+}
+
+.money-screen .receipt-overview .money-overview-total strong {
+  color: var(--accent);
+}
+
 .money-screen details.week-line > summary.money-overview-summary {
   position: relative;
   display: grid;
