@@ -32,6 +32,9 @@
   --viz-hover: rgb(11 11 11 / 0.05);
   --evening-bg: #f8eedb;
   --evening-border: #e8d9b8;
+  --card-shadow: 0 1px 2px rgb(31 30 28 / 0.03), 0 8px 24px rgb(31 30 28 / 0.035);
+  --list-shadow: 0 1px 2px rgb(31 30 28 / 0.03), 0 6px 18px rgb(31 30 28 / 0.025);
+  --capture-shadow: 0 8px 20px rgb(47 95 179 / 0.08);
 }
 
 * {
@@ -165,9 +168,10 @@ p:last-child {
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-  margin-bottom: 12px;
+  border-radius: 20px;
+  padding: 18px;
+  margin-bottom: 16px;
+  box-shadow: var(--card-shadow);
 }
 
 /* ---------- Buttons ---------- */
@@ -635,12 +639,13 @@ dialog.sheet.full .sheet-header {
 /* The day's activities: one rounded list with thin lines between them, like iPhone Settings. */
 .entry-list {
   list-style: none;
-  margin: 0 0 12px;
+  margin: 0 0 16px;
   padding: 0;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 18px;
   overflow: hidden;
+  box-shadow: var(--list-shadow);
 }
 
 .entry-list li + li {
@@ -651,9 +656,9 @@ dialog.sheet.full .sheet-header {
   display: flex;
   width: 100%;
   justify-content: flex-start;
-  gap: 12px;
-  padding: 12px 14px 12px 10px;
-  min-height: 60px;
+  gap: 14px;
+  padding: 14px 16px 14px 12px;
+  min-height: 68px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -675,7 +680,7 @@ button.entry-row:focus-visible {
   content: '';
   flex: none;
   align-self: stretch;
-  width: 4px;
+  width: 5px;
   border-radius: 2px;
 }
 
@@ -820,7 +825,7 @@ button.entry-row:focus-visible {
 }
 
 .entry-activity {
-  font-weight: 600;
+  font-weight: 650;
   overflow-wrap: anywhere;
 }
 
@@ -840,20 +845,22 @@ button.entry-row:focus-visible {
 }
 
 .empty {
-  padding: 16px 8px 20px;
+  padding: 24px 16px 28px;
   text-align: center;
   color: var(--muted);
 }
 
 .notice {
-  margin-bottom: 12px;
-  padding: 12px 14px;
-  border-radius: var(--radius);
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid transparent;
+  border-radius: 18px;
   background: var(--accent-soft);
 }
 
 .notice.warn {
   background: var(--warn-bg);
+  border-color: var(--evening-border);
 }
 
 .notice {
@@ -871,9 +878,10 @@ button.entry-row:focus-visible {
 /* The evening card: small joy and the changing question */
 
 .evening {
-  margin-top: 20px;
+  margin-top: 24px;
   background: var(--evening-bg);
   border-color: var(--evening-border);
+  box-shadow: none;
 }
 
 .evening textarea {
@@ -936,10 +944,13 @@ button.entry-row:focus-visible {
   justify-items: start;
   gap: 2px;
   width: 100%;
-  min-height: 88px;
-  margin-bottom: 12px;
-  padding: 12px 14px;
-  border-radius: var(--radius);
+  min-height: 100px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border-color: var(--accent);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--capture-shadow);
   text-align: left;
 }
 
@@ -1224,11 +1235,11 @@ button.entry-row:focus-visible {
 
 /* A titled list on a page: a heading, then the rounded list (as on Today). */
 .list-section {
-  margin: 18px 0 12px;
+  margin: 24px 0 16px;
 }
 
 .list-section h2 {
-  margin: 0 0 8px;
+  margin: 0 4px 10px;
 }
 
 input[type='search'] {
@@ -1408,7 +1419,7 @@ a.small-link {
 
 /* The week (v0.9): its energy by day on top, then one card per section, each line opening to its entries. */
 .week-title {
-  margin: 4px 0 0;
+  margin: 8px 4px 4px;
   font-size: 1.35rem;
 }
 
@@ -1469,8 +1480,8 @@ details.week-line > summary {
 }
 
 .evidence-list {
-  margin: 2px 0 8px 12px;
-  padding-left: 8px;
+  margin: 6px 0 10px 14px;
+  padding-left: 10px;
   border-left: 2px solid var(--border);
 }
 
@@ -2063,17 +2074,18 @@ details.more-ways summary {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 18px;
   background: var(--surface);
   overflow: hidden;
+  box-shadow: var(--list-shadow);
 }
 
 .list-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 56px;
-  padding: 10px 16px;
+  min-height: 62px;
+  padding: 12px 16px;
   color: var(--text);
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
@@ -2095,7 +2107,7 @@ details.more-ways summary {
 }
 
 .list-title {
-  font-weight: 600;
+  font-weight: 650;
 }
 
 .list-status {
