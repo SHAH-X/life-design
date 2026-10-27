@@ -144,7 +144,72 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   await expect(moneyOut.getByRole('button', { name: 'It’s me, moving money' })).toHaveCount(0)
 
   for (const line of await page.locator('details.week-line > summary').all()) await line.click()
-  await expectNoScores(page, 'Money, from statements, opened')
+  await expectNoScores(page, 'Money, from statements, opened', true)
+})
+
+test('the accounts spending chart shows its six-month average and pages through earlier months', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 26, 12, 0)
+  await page.clock.setFixedTime(now)
+  const payments = [
+    ['2025-04-10', 50],
+    ['2025-05-10', 700],
+    ['2025-06-10', 800],
+    ['2025-07-10', 900],
+    ['2025-08-10', 1000],
+    ['2025-09-10', 1100],
+    ['2025-10-10', 1200],
+    ['2025-11-10', 100],
+    ['2025-12-10', 200],
+    ['2026-01-10', 300],
+    ['2026-02-10', 400],
+    ['2026-03-10', 500],
+    ['2026-04-10', 600],
+    ['2026-05-10', 1000],
+    ['2026-06-10', 2000],
+    ['2026-07-10', 3000],
+    ['2026-08-10', 4000],
+    ['2026-09-10', 5000],
+    ['2026-10-10', 6000],
+  ].map(([date, amount], index) => ({
+    id: `chart-payment-${index}`,
+    account: 'Example Current',
+    date: String(date),
+    amount: -Number(amount),
+    description: 'EXAMPLE SHOP',
+    type: 'DEB',
+    balance: 100000 - index * 100,
+    adds: true,
+    createdAt: now.getTime(),
+    updatedAt: now.getTime(),
+  }))
+  await restoreBackup(page, testInfo.outputPath('chart-history.json'), backupWith({ bankLines: payments }, now))
+  await page.goto('./#/money')
+
+  const chart = page.locator('figure.chart', { hasText: 'Spent each month' })
+  const navigation = page.getByRole('navigation', { name: 'Spending chart months' })
+  await expect(chart.locator('.chart-average')).toHaveCount(1)
+  await expect(chart.locator('.chart-average-label')).toHaveText('Average over these 6 months: £35.00 per month')
+  await chart.getByText('Show as table').click()
+  await expect(chart.locator('tfoot tr')).toHaveText('Average£35.00–')
+  await expect(navigation).toContainText('May–Oct 2026')
+  await expect(navigation.getByRole('button', { name: 'Earlier months' })).toBeEnabled()
+  await expect(navigation.getByRole('button', { name: 'Later months' })).toBeDisabled()
+
+  await navigation.getByRole('button', { name: 'Earlier months' }).click()
+  await expect(navigation).toContainText('Nov 2025–Apr 2026')
+  await expect(chart.locator('.chart-average-label')).toHaveText('Average over these 6 months: £3.50 per month')
+  await navigation.getByRole('button', { name: 'Earlier months' }).click()
+  await expect(navigation).toContainText('May–Oct 2025')
+  await expect(chart.locator('.chart-average-label')).toHaveText('Average over these 6 months: £9.50 per month')
+  await navigation.getByRole('button', { name: 'Earlier months' }).click()
+  await expect(navigation).toContainText('Nov 2024–Apr 2025')
+  await expect(chart.locator('.chart-average-label')).toHaveText('Average over these 6 months: £0.08 per month')
+  await expect(navigation.getByRole('button', { name: 'Earlier months' })).toBeDisabled()
+
+  await navigation.getByRole('button', { name: 'Later months' }).click()
+  await navigation.getByRole('button', { name: 'Later months' }).click()
+  await navigation.getByRole('button', { name: 'Later months' }).click()
+  await expect(navigation).toContainText('May–Oct 2026')
 })
 
 // Step 3 (v0.20.2): a card payment opens the receipt for it.

@@ -66,8 +66,10 @@ export function MonthChart(props: {
   detail?: ReactNode
   /** What the count counts: receipts unless said. */
   counted?: Counted
+  /** A horizontal reference line for charts whose comparison uses an average. */
+  average?: { value: number; label: string; amount: string }
 }) {
-  const { title, months, currency, summary, active, onActive, labelled, detail, counted = RECEIPTS } = props
+  const { title, months, currency, summary, active, onActive, labelled, detail, counted = RECEIPTS, average } = props
   const titleId = useId()
   const top = scaleTop(Math.max(0, ...months.map((m) => m.value)))
   const height = (value: number) => (value / top) * PLOT_H
@@ -105,6 +107,16 @@ export function MonthChart(props: {
           if (m.value <= 0) return <circle key={m.key} cx={x + barW / 2} cy={BASE} r={1.5} className="chart-empty" aria-hidden="true" />
           return <path key={m.key} d={endPath(x, barW, BASE, BASE - Math.max(height(m.value), 1))} className="chart-col seq" aria-hidden="true" />
         })}
+        {average ? (
+          <line
+            x1={LEFT}
+            x2={W - RIGHT}
+            y1={BASE - height(Math.max(0, average.value))}
+            y2={BASE - height(Math.max(0, average.value))}
+            className="chart-average"
+            aria-hidden="true"
+          />
+        ) : null}
         {months[shown] && months[shown]!.value > 0 ? (
           <text x={LEFT + shown * band + band / 2} y={BASE - height(months[shown]!.value) - 4} textAnchor="middle" className="chart-tick" aria-hidden="true">
             {cap(months[shown]!.value)}
@@ -134,6 +146,12 @@ export function MonthChart(props: {
           />
         ))}
       </svg>
+      {average ? (
+        <p className="chart-average-label">
+          <span className="chart-average-key" aria-hidden="true" />
+          {average.label}
+        </p>
+      ) : null}
       {detail}
       <details className="chart-table">
         <summary>Show as table</summary>
@@ -154,6 +172,15 @@ export function MonthChart(props: {
               </tr>
             ))}
           </tbody>
+          {average ? (
+            <tfoot>
+              <tr>
+                <th scope="row">Average</th>
+                <td>{average.amount}</td>
+                <td>–</td>
+              </tr>
+            </tfoot>
+          ) : null}
         </table>
       </details>
     </figure>

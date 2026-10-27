@@ -2377,6 +2377,67 @@ details.more-ways summary {
   vector-effect: non-scaling-stroke;
 }
 
+.chart-average {
+  stroke: var(--viz-pos);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-average-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 1.5em;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-average-key {
+  width: 18px;
+  flex: 0 0 18px;
+  border-top: 2px dashed var(--viz-pos);
+}
+
+.chart-range {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  text-align: center;
+}
+
+.chart-range button {
+  min-height: 44px;
+  padding: 6px 2px;
+  border: 0;
+  color: var(--accent);
+  font-size: 0.82rem;
+}
+
+.chart-range button:first-child {
+  text-align: left;
+}
+
+.chart-range button:last-child {
+  text-align: right;
+}
+
+.chart-range button:disabled {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.chart-range span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .chart-empty {
   fill: var(--viz-muted);
 }
