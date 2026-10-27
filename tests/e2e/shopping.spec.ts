@@ -48,6 +48,7 @@ test('Money has its own tab, receipts and all: the month so far, next to last mo
   await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Money' }).click()
   await expect(page).toHaveURL(/#\/money$/)
   await expect(page.getByRole('heading', { level: 1, name: 'Money' })).toBeVisible()
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
 
   // £3.60 + £9.99 (what Aldi's printed, though its items don't add up) + £1.25 + £2.45 + £42.10, added up in pence.
   await expect(page.getByRole('paragraph').filter({ hasText: /^October so far$/ })).toBeVisible()
@@ -105,6 +106,7 @@ test('the chart has a table and a readout, and an earlier month has its own page
   await restoreReceipts(page, testInfo.outputPath('receipts.json'))
   // An old link to Shopping opens Money.
   await page.goto('./#/shopping')
+  await expect(page.getByRole('button', { name: 'Receipts', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
   const chart = page.locator('figure.chart', { hasText: 'Receipts each month' })
   await chart.getByText('Show as table').click()
@@ -129,6 +131,7 @@ test('Share as a spreadsheet gives every item, a row each, through the share men
   await captureShareSheet(page)
   await restoreReceipts(page, testInfo.outputPath('receipts.json'))
   await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
   await page.getByRole('button', { name: 'Share as a spreadsheet' }).click()
   const dialog = page.getByRole('dialog', { name: 'Receipts as a spreadsheet' })
   await expect(dialog.getByText('12 items on 6 receipts')).toBeVisible()
@@ -149,6 +152,7 @@ test('the same receipt added twice is counted once; the copy is listed to check 
   const again = receiptEntry('again', '2026-10-22', tea) // the same photo, added two days later
   await restoreBackup(page, testInfo.outputPath('receipts.json'), backupWith({ entries: [first, again] }, SATURDAY))
   await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
   await expect(page.getByRole('strong')).toHaveText('£4.20')
   const check = page.getByRole('region', { name: 'Receipts to check' }).locator('li')
   await expect(check).toHaveText([/Corner Shop · £4\.20 · already added: counted once/])
@@ -159,5 +163,6 @@ test('the same receipt added twice is counted once; the copy is listed to check 
 test('with no receipts, Money says where they come from', async ({ page }) => {
   await page.goto('./#/money')
   await expect(page.getByRole('heading', { level: 1, name: 'Money' })).toBeVisible()
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
   await expect(page.getByText('Receipts you photograph show here.')).toBeVisible()
 })

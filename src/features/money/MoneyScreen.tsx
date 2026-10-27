@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { createContext, type ReactNode, useContext, useId, useState } from 'react'
+import { createContext, type ReactNode, useContext, useEffect, useId, useState } from 'react'
 import { db } from '../../db/db'
 import { loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
 import { accountNamesOf, CLOSED_ACCOUNTS, markOwnPayee, PAYEE_KINDS, PAYMENT_NOTES, namePayee, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES } from '../../db/statements'
@@ -59,7 +59,7 @@ const Receipts = createContext<{
  * accounts is left out. This month at #/money (#/shopping still opens it), an earlier one at #/money/2026-09. Counts and
  * amounts only (no averages, ratings or a limit); every line opens to what it counts.
  */
-export function MoneyScreen({ sub }: { sub: string | null }) {
+export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyView?: 'receipts' }) {
   const entries = useLiveQuery(() => db.entries.toArray(), [])
   const bankLines = useLiveQuery(() => db.bankLines.toArray(), [])
   const statements = useLiveQuery(() => db.statements.toArray(), [])
@@ -75,7 +75,11 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
   const purpose = usePurposeSettings()
   const suggestions = useLiveQuery(() => loadSuggestions(), [], NO_SUGGESTIONS)
   const [sheet, setSheet] = useState<EntrySheetState>(null)
+  const [view, setView] = useState<'accounts' | 'receipts'>(legacyView ?? 'accounts')
   const earlierId = useId()
+  useEffect(() => {
+    if (legacyView) setView(legacyView)
+  }, [legacyView])
   // Render only once loaded, so nothing jumps under your finger.
   if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || kinds === undefined || notes === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
 
@@ -90,7 +94,10 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
   const today = toDateKey(new Date())
   const thisMonth = today.slice(0, 7)
   const month = sub && /^\d{4}-\d{2}$/.test(sub) ? sub : thisMonth
-  const earlier = [...new Set([...shoppingMonths(receipts), ...lines.filter((l) => !l.moving).map((l) => l.date.slice(0, 7))])].filter((m) => m < thisMonth).sort().reverse()
+  const earlier =
+    view === 'accounts'
+      ? [...new Set(lines.filter((l) => !l.moving).map((l) => l.date.slice(0, 7)))].filter((m) => m < thisMonth).sort().reverse()
+      : shoppingMonths(receipts).filter((m) => m < thisMonth).sort().reverse()
 
   return (
     <Receipts.Provider value={{ links, open, names, kinds, notes, openPayment: (line, way) => setPayment({ line, way }), openKind: setKindFor }}>
@@ -105,9 +112,20 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
             <h1>{monthYear(month)}</h1>
           </>
         )}
-        {/* Keyed by month: a month opened from another starts afresh (a tapped chart column doesn't carry over). */}
-        {lines.length ? <AccountsMonth key={`accounts-${month}`} lines={lines} month={month} today={today} statements={statements} closed={closed} /> : null}
-        <ReceiptsMonth key={`receipts-${month}`} receipts={receipts} copies={copies} month={month} today={today} onOpen={open} />
+        <div className="money-switch" role="group" aria-label="Money sections">
+          <button type="button" aria-pressed={view === 'accounts'} onClick={() => setView('accounts')}>
+            Accounts
+          </button>
+          <button type="button" aria-pressed={view === 'receipts'} onClick={() => setView('receipts')}>
+            Receipts
+          </button>
+        </div>
+        {view === 'accounts' && lines.length ? (
+          // Keyed by month: a month opened from another starts afresh (a tapped chart column doesn't carry over).
+          <AccountsMonth key={`accounts-${month}`} lines={lines} month={month} today={today} statements={statements} closed={closed} />
+        ) : view === 'receipts' ? (
+          <ReceiptsMonth key={`receipts-${month}`} receipts={receipts} copies={copies} month={month} today={today} onOpen={open} />
+        ) : null}
         {month === thisMonth && earlier.length ? (
           <section aria-labelledby={earlierId}>
             <h2 id={earlierId} className="week-title">
@@ -115,9 +133,12 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
             </h2>
             <nav className="list" aria-labelledby={earlierId}>
               {earlier.map((m) => {
-                const out = moneyMonth(lines, m, today, statements, closed).out
-                const bought = shoppingMonth(receipts, m, today)
-                const said = [out ? `${pounds(out)} out` : '', bought.receipts.length ? `${inWords(bought.spent)} on ${receiptsWord(bought.receipts.length)}` : ''].filter(Boolean).join(' · ')
+                let said: string
+                if (view === 'accounts') said = `${pounds(moneyMonth(lines, m, today, statements, closed).out)} out`
+                else {
+                  const bought = shoppingMonth(receipts, m, today)
+                  said = `${inWords(bought.spent)} on ${receiptsWord(bought.receipts.length)}`
+                }
                 return (
                   <a key={m} className="list-row" href={hashFor('money', m)}>
                     <span className="list-text">
@@ -133,8 +154,8 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
             </nav>
           </section>
         ) : null}
-        {month === thisMonth && receipts.length ? <ReceiptsShare receipts={receipts} /> : null}
-        <Accounts />
+        {view === 'receipts' && month === thisMonth && receipts.length ? <ReceiptsShare receipts={receipts} /> : null}
+        {view === 'accounts' ? <Accounts /> : null}
         {payment ? (
           <PaymentSheet
             key={payment.line.id}

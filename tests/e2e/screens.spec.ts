@@ -191,6 +191,9 @@ for (const scheme of ['light'] as const) {
       await page.goto('./#/money')
       await expect(page.getByRole('heading', { level: 1, name: 'Money' })).toBeVisible()
       await look(page, at('money'))
+      await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+      await look(page, at('money-receipts'))
+      await page.getByRole('button', { name: 'Accounts' }).click()
 
       const statementPath = testInfo.outputPath('money-statement.pdf')
       await writeFile(statementPath, makePdf(MONZO_LIKE))

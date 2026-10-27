@@ -1770,6 +1770,35 @@ button.line-button {
   margin-bottom: 24px;
 }
 
+.money-screen .money-switch {
+  position: sticky;
+  top: var(--safe-top);
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin: -8px 0 14px;
+  padding: 6px 4px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg);
+}
+
+.money-screen .money-switch button {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.money-screen .money-switch button[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--list-shadow);
+}
+
 .money-screen .week-title {
   margin: 22px 4px 8px;
   font-size: 1.22rem;

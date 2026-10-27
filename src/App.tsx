@@ -26,7 +26,7 @@ function Screen({ route }: { route: Route }) {
     case 'ask':
       return <AskScreen />
     case 'money':
-      return <MoneyScreen sub={route.sub} />
+      return <MoneyScreen sub={route.sub} legacyView={route.moneyView} />
     case 'insights':
       return <InsightsScreen sub={route.sub} />
     case 'more':
