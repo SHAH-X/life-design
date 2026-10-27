@@ -67,12 +67,15 @@ export function ReceiptsMonth(props: {
       <h2 id={headingId} className="week-title">
         From your receipts
       </h2>
-      <div className="card money-overview">
-        <p className="muted small">{month === today.slice(0, 7) ? `${monthName(month)} so far` : monthYear(month)}</p>
-        <p>
-          <strong>{inWords(its.spent)}</strong>
+      <div className="card money-overview receipt-overview">
+        <div className="money-overview-heading">
+          <p className="muted small">{month === today.slice(0, 7) ? `${monthName(month)} so far` : monthYear(month)}</p>
+          <p className="muted small">From your photos</p>
+        </div>
+        <p className="money-overview-total">
+          <strong>{inWords(its.spent)} <span>spent</span></strong>
         </p>
-        <ul className="plain-list compact">
+        <ul className="plain-list compact money-overview-breakdown">
           {its.before ? <ReceiptLine label={`By ${dayMonthLong(its.before.until)}`} detail={inWords(its.before.spent)} receipts={its.before.receipts} onOpen={onOpen} /> : null}
           <ReceiptLine label={`${receiptsWord(its.receipts.length)} from ${shops} shop${shops === 1 ? '' : 's'}`} receipts={its.receipts} onOpen={onOpen} />
           {its.offers.saved.length ? <ReceiptLine label={`${inWords(its.offers.saved)} off with offers`} receipts={its.offers.receipts} onOpen={onOpen} /> : null}
