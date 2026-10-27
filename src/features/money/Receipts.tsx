@@ -10,10 +10,12 @@ import {
   money,
   monthTotals,
   paid,
+  shopKey,
   SMALL_SHOP,
   type ShoppingMonth,
   shoppingMonth,
 } from '../../domain/shopping'
+import type { MoneyLine } from '../../domain/money'
 import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { MonthChart } from '../../ui/charts/MonthChart'
@@ -33,10 +35,20 @@ export const receiptsWord = (n: number) => `${n} receipt${n === 1 ? '' : 's'}`
 const itemsWord = (n: number) => `${n} item${n === 1 ? '' : 's'}`
 
 /** A month of your receipts, top to bottom: how much, each month, shops, what changed, what came back, to check. */
-export function ReceiptsMonth(props: { receipts: readonly KnownReceipt[]; copies: readonly ReceiptCopy[]; month: string; today: string; onOpen: (r: KnownReceipt) => void }) {
+export function ReceiptsMonth(props: {
+  receipts: readonly KnownReceipt[]
+  copies: readonly ReceiptCopy[]
+  month: string
+  today: string
+  reviewedDates: ReadonlySet<string>
+  matchCandidates: ReadonlyMap<string, readonly MoneyLine[]>
+  onAcceptDate: (receiptId: string) => Promise<void>
+  onMatchPayment: (receiptId: string, paymentId: string) => Promise<void>
+  onOpen: (r: KnownReceipt) => void
+}) {
   const { receipts, month, today, onOpen } = props
   const headingId = useId()
-  const its = shoppingMonth(receipts, month, today, props.copies)
+  const its = shoppingMonth(receipts, month, today, props.copies, props.reviewedDates)
   const shops = its.shops.ranked.length + its.shops.others.filter((s) => s.name !== null).length
   if (its.receipts.length === 0) {
     return (
@@ -95,6 +107,10 @@ export function ReceiptsMonth(props: { receipts: readonly KnownReceipt[]; copies
             receipts={its.toCheck.map((c) => c.receipt)}
             why={new Map(its.toCheck.map((c) => [c.receipt.id, c.why]))}
             copyOf={new Map(its.toCheck.flatMap((c) => (c.copyOf ? [[c.receipt.id, c.copyOf] as const] : [])))}
+            reviewedDates={props.reviewedDates}
+            matchCandidates={props.matchCandidates}
+            onAcceptDate={props.onAcceptDate}
+            onMatchPayment={props.onMatchPayment}
             onOpen={onOpen}
           />
         </Section>
@@ -265,44 +281,125 @@ function ReceiptLine(props: { label: string; detail?: string; receipts: readonly
 }
 
 /** Receipts, newest first: day, shop and what it came to, each opening its entry; with why, when it needs a look. */
-function ReceiptList(props: { receipts: readonly KnownReceipt[]; why?: ReadonlyMap<string, string[]>; copyOf?: ReadonlyMap<string, KnownReceipt>; onOpen: (r: KnownReceipt) => void }) {
+function ReceiptList(props: {
+  receipts: readonly KnownReceipt[]
+  why?: ReadonlyMap<string, string[]>
+  copyOf?: ReadonlyMap<string, KnownReceipt>
+  reviewedDates?: ReadonlySet<string>
+  matchCandidates?: ReadonlyMap<string, readonly MoneyLine[]>
+  onAcceptDate?: (receiptId: string) => Promise<void>
+  onMatchPayment?: (receiptId: string, paymentId: string) => Promise<void>
+  onOpen: (r: KnownReceipt) => void
+}) {
   const { receipts, why, copyOf, onOpen } = props
   const listed = [...receipts].sort((a, b) => b.date.localeCompare(a.date))
+  const [matching, setMatching] = useState<KnownReceipt | null>(null)
   return (
     <ul className="plain-list compact evidence-list">
       {listed.map((r) => {
         const reasons = why?.get(r.id)
         const duplicateOf = copyOf?.get(r.id)
+        const needsReview = reasons !== undefined || duplicateOf !== undefined
+        const missingDate = !duplicateOf && !r.dated && !props.reviewedDates?.has(r.id)
+        const title = duplicateOf
+          ? 'Duplicate · counted once'
+          : missingDate
+            ? `Date not read · using ${shortDayMonth(r.date)}`
+            : !r.adds
+              ? "Total doesn't add up"
+              : 'Shop not read'
         return (
           <li key={r.id}>
-            <button
-              type="button"
-              className="line-button"
-              aria-label={duplicateOf ? 'Open the extra duplicate entry to review or delete it' : undefined}
-              onClick={() => onOpen(r)}
-            >
-              <span>
-                <span className="muted small">{shortDayMonth(r.date)} </span>
-                {r.shop || 'No shop read'}
-                <span className="muted small"> · {money(paid(r), r.currency)}</span>
-                {reasons ? <span className="muted small"> · {reasons.join('; ')}</span> : null}
-                {duplicateOf ? (
-                  <span className="receipt-copy-help">
-                    {duplicateOf.entryId === r.entryId ? (
-                      <>The original is in this same entry. No action needed: this photo is counted once. Don’t delete the entry, or the original will go too.</>
-                    ) : (
-                      <>
-                        Extra entry logged {shortDayMonth(r.entryDate ?? r.date)}. Original kept: {shortDayMonth(duplicateOf.date)}. Tap to open this entry, then choose Delete and confirm. This deletes the whole entry and all its photos, so keep it if there’s anything else you want.
-                      </>
-                    )}
-                  </span>
-                ) : null}
-              </span>
-            </button>
+            {needsReview ? (
+              <details className="week-line receipt-check">
+                <summary>
+                  <span className="receipt-check-title">{title}</span>
+                  <span className="muted small">{r.shop || 'Unknown shop'} · {money(paid(r), r.currency)}</span>
+                </summary>
+                <div className="receipt-check-body">
+                  {duplicateOf ? (
+                    <>
+                      <p>Extra entry {shortDayMonth(r.entryDate ?? r.date)} · kept {shortDayMonth(duplicateOf.date)}.</p>
+                      <button type="button" className="link" onClick={() => onOpen(r)}>
+                        Open extra entry
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {!r.adds ? <p>Items and total differ.</p> : null}
+                      {!shopKey(r.shop) ? <p>Shop not read.</p> : null}
+                      {missingDate ? (
+                        <>
+                          <p>Using the day this entry was added.</p>
+                          <div className="receipt-check-actions">
+                            <button type="button" onClick={() => void props.onAcceptDate?.(r.id)}>
+                              Use {shortDayMonth(r.date)}
+                            </button>
+                            <button type="button" onClick={() => setMatching(r)}>
+                              Match a payment
+                            </button>
+                          </div>
+                        </>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+              </details>
+            ) : (
+              <button type="button" className="line-button" onClick={() => onOpen(r)}>
+                <span>
+                  <span className="muted small">{shortDayMonth(r.date)} </span>
+                  {r.shop || 'No shop read'}
+                  <span className="muted small"> · {money(paid(r), r.currency)}</span>
+                </span>
+              </button>
+            )}
           </li>
         )
       })}
+      {matching ? (
+        <MatchPaymentDialog
+          receipt={matching}
+          candidates={props.matchCandidates?.get(matching.id) ?? []}
+          onMatch={async (paymentId) => {
+            await props.onMatchPayment?.(matching.id, paymentId)
+            setMatching(null)
+          }}
+          onClose={() => setMatching(null)}
+        />
+      ) : null}
     </ul>
+  )
+}
+
+function MatchPaymentDialog(props: {
+  receipt: KnownReceipt
+  candidates: readonly MoneyLine[]
+  onMatch: (paymentId: string) => Promise<void>
+  onClose: () => void
+}) {
+  const { receipt, candidates, onMatch, onClose } = props
+  const addedDate = receipt.entryDate ?? receipt.date
+  return (
+    <Dialog title="Match a payment" onClose={onClose}>
+      <p className="muted small">Choose the debit that paid for this receipt. Only likely matches from statements on this phone are shown.</p>
+      {candidates.length ? (
+        <ul className="plain-list compact receipt-match-list">
+          {candidates.map((line) => (
+            <li key={line.id}>
+              <button type="button" className="line-button" onClick={() => void onMatch(line.id)}>
+                <span>
+                  {shortDayMonth(line.date)} · {line.payee.name} · {money(Math.abs(line.amount), '£')}
+                  <span className="muted small receipt-match-account">{line.account}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No likely payment near {shortDayMonth(addedDate)}. Bring in a statement or keep this date instead.</p>
+      )}
+    </Dialog>
   )
 }
 

@@ -407,15 +407,37 @@ function samePlace(shop: string, payee: Payee): boolean {
 /** Each card payment with the receipt for it, by the payment's id (v0.20.2): the same amount, within RECEIPT_DAYS, its
  *  shop the payee. Each payment and each receipt once, the nearest day first; a receipt paid another way (a gift card,
  *  cash) has none. The two are never added together: a payment opens its receipt. */
-export function linkReceipts(lines: readonly MoneyLine[], receipts: readonly KnownReceipt[]): Map<string, KnownReceipt> {
+export function receiptPaymentCandidates(
+  lines: readonly MoneyLine[],
+  receipt: KnownReceipt,
+  occupied: ReadonlySet<string> = new Set(),
+): MoneyLine[] {
+  if (receipt.currency && receipt.currency !== '£') return []
+  const date = receipt.dated ? receipt.date : (receipt.entryDate ?? receipt.date)
+  const days = (line: MoneyLine) => Math.abs(dayNumber(line.date) - dayNumber(date))
+  return lines
+    .filter((line) => !line.moving && line.amount < 0 && !occupied.has(line.id) && -line.amount === paid(receipt) && days(line) <= RECEIPT_DAYS && samePlace(receipt.shop, line.payee))
+    .sort((a, b) => days(a) - days(b) || b.date.localeCompare(a.date))
+}
+
+/** Owner-chosen links take precedence; receipts without a printed date are never linked automatically. */
+export function linkReceipts(
+  lines: readonly MoneyLine[],
+  receipts: readonly KnownReceipt[],
+  chosen: Readonly<Record<string, string>> = {},
+): Map<string, KnownReceipt> {
   const links = new Map<string, KnownReceipt>()
-  for (const receipt of [...receipts].sort((a, b) => a.date.localeCompare(b.date))) {
+  const byLine = new Map(lines.map((line) => [line.id, line]))
+  const chosenReceipts = new Set<string>()
+  for (const receipt of receipts) {
+    const line = byLine.get(chosen[receipt.id] ?? '')
+    if (!line || line.amount >= 0 || line.moving || links.has(line.id)) continue
+    links.set(line.id, receipt)
+    chosenReceipts.add(receipt.id)
+  }
+  for (const receipt of [...receipts].filter((r) => r.dated && !chosenReceipts.has(r.id)).sort((a, b) => a.date.localeCompare(b.date))) {
     if (receipt.currency && receipt.currency !== '£') continue
-    const amount = paid(receipt)
-    const days = (l: MoneyLine) => Math.abs(dayNumber(l.date) - dayNumber(receipt.date))
-    const payment = lines
-      .filter((l) => !l.moving && !links.has(l.id) && -l.amount === amount && days(l) <= RECEIPT_DAYS && samePlace(receipt.shop, l.payee))
-      .sort((a, b) => days(a) - days(b))[0]
+    const payment = receiptPaymentCandidates(lines, receipt, new Set(links.keys()))[0]
     if (payment) links.set(payment.id, receipt)
   }
   return links

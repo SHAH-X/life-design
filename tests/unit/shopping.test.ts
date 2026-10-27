@@ -115,7 +115,15 @@ describe('the same receipt added twice is counted once (v0.19.5)', () => {
     expect(copies.map((c) => [c.copy.id, c.of.id])).toEqual([['again', 'first']])
     const month = shoppingMonth(receipts, '2026-10', TODAY, copies)
     expect(inWords(month.spent)).toBe('£4.20')
-    expect(month.toCheck.map((c) => [c.receipt.id, c.why])).toEqual([['again', ['already added: counted once']]])
+    expect(month.toCheck.map((c) => [c.receipt.id, c.why])).toEqual([['again', ['duplicate']]])
+  })
+
+  it('does not ask for action when both copies are in one entry', () => {
+    const together = added('e1', 1, { id: 'first', text: null, ai: TEA })
+    together.photos.push({ id: 'copy', text: null, ai: TEA })
+    const { receipts, copies } = receiptsAndCopies([together])
+    expect(copies).toHaveLength(1)
+    expect(shoppingMonth(receipts, '2026-10', TODAY, copies).toCheck).toEqual([])
   })
 
   it('knows a new photo of it read by the phone, its names printed in capitals', () => {
@@ -197,7 +205,15 @@ describe('shoppingMonth: a month, worked out on the phone', () => {
     expect(october.toCheck.map((c) => [c.receipt.id, c.why])).toEqual([
       ['a2', ["its items don't add up to its total"]],
       ['x1', ['no shop read']],
-      ['j1', ['no date read, so it counts on the day you added it']],
+      ['j1', ['no date read']],
+    ])
+  })
+
+  it('lets a reviewed fallback date leave To check, while other issues remain', () => {
+    const october = shoppingMonth(RECEIPTS, '2026-10', TODAY, [], new Set(['j1']))
+    expect(october.toCheck.map((c) => [c.receipt.id, c.why])).toEqual([
+      ['a2', ["its items don't add up to its total"]],
+      ['x1', ['no shop read']],
     ])
   })
 })

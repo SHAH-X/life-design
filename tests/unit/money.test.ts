@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments } from '../../src/domain/money'
+import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, receiptPaymentCandidates } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
@@ -344,5 +344,23 @@ describe('linkReceipts: a card payment and the receipt for it (v0.20.2)', () => 
     // Two alike payments, two alike receipts: one each.
     const two = linked([receipt('r5', 'TESCO', '2026-10-09', 3000), receipt('r6', 'TESCO', '2026-10-09', 3000)])
     expect(two.map(([, id]) => id).sort()).toEqual(['r5', 'r6'])
+  })
+
+  it('offers likely payments for an undated receipt but links only after the owner chooses one', () => {
+    const undated = { ...receipt('r7', 'Corner Shop', '2026-10-04', 1240), dated: false, entryDate: '2026-10-04' }
+    expect(linkReceipts(lines, [undated])).toEqual(new Map())
+    const candidate = receiptPaymentCandidates(lines, undated)
+    expect(candidate.map((line) => [line.description, line.date])).toEqual([['CORNER SHOP SOMETOWN GBR', '2026-10-05']])
+    expect(linkReceipts(lines, [undated], { [undated.id]: candidate[0]!.id })).toEqual(new Map([[candidate[0]!.id, undated]]))
+  })
+
+  it('keeps owner-selected matches unique and takes them before automatic matches', () => {
+    const first = receipt('r8', 'Tesco', '2026-10-09', 3000)
+    const second = receipt('r9', 'Tesco', '2026-10-09', 3000)
+    const paymentId = lines.find((line) => line.description === 'TESCO EXPRESS GBR')!.id
+    const links = linkReceipts(lines, [first, second], { [second.id]: paymentId })
+    expect(links.get(paymentId)?.id).toBe(second.id)
+    expect([...links.values()].map((item) => item.id)).toHaveLength(2)
+    expect(new Set(links.keys()).size).toBe(2)
   })
 })

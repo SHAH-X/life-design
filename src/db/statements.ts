@@ -6,6 +6,7 @@ import type { StatementAccount, StatementLine } from '../domain/statements'
 import { db as defaultDb, type LifeDesignDB } from './db'
 import { setSetting } from './repo'
 import type { BankLine } from './types'
+import { guardWrite } from './saveErrors'
 
 /** What a statement brought in, account by account. */
 export interface BroughtIn {
@@ -125,4 +126,63 @@ export const PAYMENT_NOTES = 'paymentNotes'
 export async function notePayment(lineId: string, note: string, database: LifeDesignDB = defaultDb): Promise<void> {
   const { [lineId]: _, ...rest } = accountNamesOf(await database.settings.get(PAYMENT_NOTES))
   await setSetting(PAYMENT_NOTES, note.trim() ? { ...rest, [lineId]: note.trim() } : rest, database)
+}
+
+/** Owner-reviewed receipt dates and payment links, kept on the phone and included in a backup. */
+export const RECEIPT_REVIEWS = 'receiptReviews'
+
+export interface ReceiptReviewState {
+  acceptedDates: string[]
+  paymentLinks: Record<string, string>
+}
+
+export function receiptReviewState(value: unknown): ReceiptReviewState {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { acceptedDates: [], paymentLinks: {} }
+  const record = value as Record<string, unknown>
+  const payments = record.paymentLinks
+  return {
+    acceptedDates: Array.isArray(record.acceptedDates) ? record.acceptedDates.filter((id): id is string => typeof id === 'string') : [],
+    paymentLinks:
+      payments && typeof payments === 'object' && !Array.isArray(payments)
+        ? Object.fromEntries(Object.entries(payments).filter((pair): pair is [string, string] => typeof pair[1] === 'string'))
+        : {},
+  }
+}
+
+async function updateReceiptReviews(update: (state: ReceiptReviewState) => ReceiptReviewState, database: LifeDesignDB): Promise<void> {
+  await guardWrite(() =>
+    database.transaction('rw', database.settings, async () => {
+      const state = receiptReviewState((await database.settings.get(RECEIPT_REVIEWS))?.value)
+      const value = update(state)
+      await database.settings.put({ key: RECEIPT_REVIEWS, value, updatedAt: Date.now() })
+    }),
+  )
+}
+
+export async function acceptReceiptDate(receiptId: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  await updateReceiptReviews(
+    (state) => ({ ...state, acceptedDates: [...new Set([...state.acceptedDates, receiptId])] }),
+    database,
+  )
+}
+
+export async function matchReceiptPayment(
+  receiptId: string,
+  paymentId: string,
+  validReceiptIds: ReadonlySet<string>,
+  database: LifeDesignDB = defaultDb,
+): Promise<void> {
+  await updateReceiptReviews((state) => {
+    const currentLinks = Object.fromEntries(Object.entries(state.paymentLinks).filter(([id]) => validReceiptIds.has(id)))
+    const alreadyUsed = Object.entries(currentLinks).find(([id, linked]) => linked === paymentId && id !== receiptId)
+    if (alreadyUsed) throw new Error('This payment is already linked to another receipt.')
+    return { ...state, paymentLinks: { ...currentLinks, [receiptId]: paymentId } }
+  }, database)
+}
+
+export async function unmatchReceiptPayment(receiptId: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  await updateReceiptReviews((state) => {
+    const { [receiptId]: _, ...paymentLinks } = state.paymentLinks
+    return { ...state, paymentLinks }
+  }, database)
 }

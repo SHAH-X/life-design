@@ -1890,12 +1890,48 @@ button.line-button {
   overflow-wrap: anywhere;
 }
 
-.money-screen .receipt-copy-help {
-  display: block;
-  margin: 4px 0;
+.money-screen .receipt-check > summary {
+  justify-content: space-between;
+}
+
+.money-screen .receipt-check-title {
+  font-weight: 600;
+}
+
+.money-screen .receipt-check-body {
+  padding: 0 4px 8px;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   line-height: 1.4;
+}
+
+.money-screen .receipt-check-body p {
+  margin: 2px 0 8px;
+}
+
+.money-screen .receipt-check-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.money-screen .receipt-check-actions button {
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.money-screen .receipt-check-actions button:active {
+  background: var(--viz-hover);
+}
+
+.money-screen .receipt-match-list {
+  margin-top: 8px;
+}
+
+.money-screen .receipt-match-account {
+  display: block;
 }
 
 button.line-button:active {

@@ -2,9 +2,24 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { createContext, type ReactNode, useContext, useEffect, useId, useState } from 'react'
 import { db } from '../../db/db'
 import { loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
-import { accountNamesOf, CLOSED_ACCOUNTS, markOwnPayee, PAYEE_KINDS, PAYMENT_NOTES, namePayee, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES } from '../../db/statements'
+import {
+  acceptReceiptDate,
+  accountNamesOf,
+  CLOSED_ACCOUNTS,
+  markOwnPayee,
+  matchReceiptPayment,
+  PAYEE_KINDS,
+  PAYMENT_NOTES,
+  namePayee,
+  OWN_PAYEES,
+  ownPayeesOf,
+  PAYEE_NAMES,
+  RECEIPT_REVIEWS,
+  receiptReviewState,
+  unmatchReceiptPayment,
+} from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
-import { classify, joinMoves, type KindGroup, kindOf, linkReceipts, mayBeOwn, payeeOf, type PaymentRow, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type PayeeGroup, type Ranked, regularPayments, type Rise } from '../../domain/money'
+import { classify, joinMoves, type KindGroup, kindOf, linkReceipts, mayBeOwn, payeeOf, type PaymentRow, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type PayeeGroup, type Ranked, regularPayments, receiptPaymentCandidates, type Rise } from '../../domain/money'
 import { inWords, type KnownReceipt, money, receiptsAndCopies, shiftMonth, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -69,6 +84,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const payeeNames = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYEE_NAMES)), [])
   const kinds = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYEE_KINDS)), [])
   const notes = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYMENT_NOTES)), [])
+  const receiptReviews = useLiveQuery(async () => receiptReviewState((await db.settings.get(RECEIPT_REVIEWS))?.value), [])
   const [payment, setPayment] = useState<{ line: MoneyLine; way: string } | null>(null)
   const [kindFor, setKindFor] = useState<PayeeGroup | null>(null)
   const ownWords = useOwnWords()
@@ -81,7 +97,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
     if (legacyView) setView(legacyView)
   }, [legacyView])
   // Render only once loaded, so nothing jumps under your finger.
-  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || kinds === undefined || notes === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
+  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || kinds === undefined || notes === undefined || receiptReviews === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
 
   const byId = new Map(entries.map((e) => [e.id, e]))
   const open = (receipt: KnownReceipt) => {
@@ -90,7 +106,14 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   }
   const { receipts, copies } = receiptsAndCopies(entries)
   const lines = classify(bankLines, new Set(own), payeeNames)
-  const links = linkReceipts(lines, receipts)
+  const links = linkReceipts(lines, receipts, receiptReviews.paymentLinks)
+  const manualReceiptByPayment = new Map(Object.entries(receiptReviews.paymentLinks).map(([receiptId, paymentId]) => [paymentId, receiptId]))
+  const reviewedDates = new Set([...receiptReviews.acceptedDates, ...Object.keys(receiptReviews.paymentLinks)])
+  const matchCandidates = new Map(
+    receipts
+      .filter((receipt) => !receipt.dated && !reviewedDates.has(receipt.id))
+      .map((receipt) => [receipt.id, receiptPaymentCandidates(lines, receipt, new Set(links.keys()))]),
+  )
   const today = toDateKey(new Date())
   const thisMonth = today.slice(0, 7)
   const month = sub && /^\d{4}-\d{2}$/.test(sub) ? sub : thisMonth
@@ -98,6 +121,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
     view === 'accounts'
       ? [...new Set(lines.filter((l) => !l.moving).map((l) => l.date.slice(0, 7)))].filter((m) => m < thisMonth).sort().reverse()
       : shoppingMonths(receipts).filter((m) => m < thisMonth).sort().reverse()
+  const manualReceiptId = payment ? manualReceiptByPayment.get(payment.line.id) : undefined
 
   return (
     <Receipts.Provider value={{ links, open, names, kinds, notes, openPayment: (line, way) => setPayment({ line, way }), openKind: setKindFor }}>
@@ -124,7 +148,18 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
           // Keyed by month: a month opened from another starts afresh (a tapped chart column doesn't carry over).
           <AccountsMonth key={`accounts-${month}`} lines={lines} month={month} today={today} statements={statements} closed={closed} />
         ) : view === 'receipts' ? (
-          <ReceiptsMonth key={`receipts-${month}`} receipts={receipts} copies={copies} month={month} today={today} onOpen={open} />
+          <ReceiptsMonth
+            key={`receipts-${month}`}
+            receipts={receipts}
+            copies={copies}
+            month={month}
+            today={today}
+            reviewedDates={reviewedDates}
+            matchCandidates={matchCandidates}
+            onAcceptDate={acceptReceiptDate}
+            onMatchPayment={(receiptId, paymentId) => matchReceiptPayment(receiptId, paymentId, new Set(receipts.map((r) => r.id)))}
+            onOpen={open}
+          />
         ) : null}
         {month === thisMonth && earlier.length ? (
           <section aria-labelledby={earlierId}>
@@ -170,6 +205,13 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
                     open(receipt)
                   }
                 : null
+            }
+            onUnlinkReceipt={manualReceiptId
+              ? async () => {
+                    await unmatchReceiptPayment(manualReceiptId)
+                    setPayment(null)
+                  }
+              : null
             }
             onClose={() => setPayment(null)}
           />
