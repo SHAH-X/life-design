@@ -94,74 +94,76 @@ export function MoneyScreen({ sub }: { sub: string | null }) {
 
   return (
     <Receipts.Provider value={{ links, open, names, kinds, notes, openPayment: (line, way) => setPayment({ line, way }), openKind: setKindFor }}>
-      {month === thisMonth ? (
-        <h1>Money</h1>
-      ) : (
-        <>
-          <a className="back-link" href={hashFor('money')}>
-            ‹ Money
-          </a>
-          <h1>{monthYear(month)}</h1>
-        </>
-      )}
-      {/* Keyed by month: a month opened from another starts afresh (a tapped chart column doesn't carry over). */}
-      {lines.length ? <AccountsMonth key={`accounts-${month}`} lines={lines} month={month} today={today} statements={statements} closed={closed} /> : null}
-      <ReceiptsMonth key={`receipts-${month}`} receipts={receipts} copies={copies} month={month} today={today} onOpen={open} />
-      {month === thisMonth && earlier.length ? (
-        <section aria-labelledby={earlierId}>
-          <h2 id={earlierId} className="week-title">
-            Earlier months
-          </h2>
-          <nav className="list" aria-labelledby={earlierId}>
-            {earlier.map((m) => {
-              const out = moneyMonth(lines, m, today, statements, closed).out
-              const bought = shoppingMonth(receipts, m, today)
-              const said = [out ? `${pounds(out)} out` : '', bought.receipts.length ? `${inWords(bought.spent)} on ${receiptsWord(bought.receipts.length)}` : ''].filter(Boolean).join(' · ')
-              return (
-                <a key={m} className="list-row" href={hashFor('money', m)}>
-                  <span className="list-text">
-                    <span className="list-title">{monthYear(m)}</span>
-                    <span className="list-status">{said}</span>
-                  </span>
-                  <span className="list-chevron" aria-hidden="true">
-                    ›
-                  </span>
-                </a>
-              )
-            })}
-          </nav>
-        </section>
-      ) : null}
-      {month === thisMonth && receipts.length ? <ReceiptsShare receipts={receipts} /> : null}
-      <Accounts />
-      {payment ? (
-        <PaymentSheet
-          key={payment.line.id}
-          line={payment.line}
-          way={payment.way}
-          note={notes[payment.line.id] ?? ''}
-          onReceipt={
-            links.get(payment.line.id)
-              ? () => {
-                  const receipt = links.get(payment.line.id)!
-                  setPayment(null)
-                  open(receipt)
-                }
-              : null
-          }
-          onClose={() => setPayment(null)}
-        />
-      ) : null}
-      {kindFor ? (
-        <KindSheet
-          payeeKey={kindFor.payee.key}
-          payee={kindFor.payee.name}
-          chosen={kinds[kindFor.payee.key] ?? null}
-          guess={kindOf(kindFor.lines[0]!, {})}
-          onClose={() => setKindFor(null)}
-        />
-      ) : null}
-      <EntrySheet state={sheet} onChange={setSheet} suggestions={suggestions} own={ownWords} purpose={purpose} />
+      <div className="money-screen">
+        {month === thisMonth ? (
+          <h1>Money</h1>
+        ) : (
+          <>
+            <a className="back-link" href={hashFor('money')}>
+              ‹ Money
+            </a>
+            <h1>{monthYear(month)}</h1>
+          </>
+        )}
+        {/* Keyed by month: a month opened from another starts afresh (a tapped chart column doesn't carry over). */}
+        {lines.length ? <AccountsMonth key={`accounts-${month}`} lines={lines} month={month} today={today} statements={statements} closed={closed} /> : null}
+        <ReceiptsMonth key={`receipts-${month}`} receipts={receipts} copies={copies} month={month} today={today} onOpen={open} />
+        {month === thisMonth && earlier.length ? (
+          <section aria-labelledby={earlierId}>
+            <h2 id={earlierId} className="week-title">
+              Earlier months
+            </h2>
+            <nav className="list" aria-labelledby={earlierId}>
+              {earlier.map((m) => {
+                const out = moneyMonth(lines, m, today, statements, closed).out
+                const bought = shoppingMonth(receipts, m, today)
+                const said = [out ? `${pounds(out)} out` : '', bought.receipts.length ? `${inWords(bought.spent)} on ${receiptsWord(bought.receipts.length)}` : ''].filter(Boolean).join(' · ')
+                return (
+                  <a key={m} className="list-row" href={hashFor('money', m)}>
+                    <span className="list-text">
+                      <span className="list-title">{monthYear(m)}</span>
+                      <span className="list-status">{said}</span>
+                    </span>
+                    <span className="list-chevron" aria-hidden="true">
+                      ›
+                    </span>
+                  </a>
+                )
+              })}
+            </nav>
+          </section>
+        ) : null}
+        {month === thisMonth && receipts.length ? <ReceiptsShare receipts={receipts} /> : null}
+        <Accounts />
+        {payment ? (
+          <PaymentSheet
+            key={payment.line.id}
+            line={payment.line}
+            way={payment.way}
+            note={notes[payment.line.id] ?? ''}
+            onReceipt={
+              links.get(payment.line.id)
+                ? () => {
+                    const receipt = links.get(payment.line.id)!
+                    setPayment(null)
+                    open(receipt)
+                  }
+                : null
+            }
+            onClose={() => setPayment(null)}
+          />
+        ) : null}
+        {kindFor ? (
+          <KindSheet
+            payeeKey={kindFor.payee.key}
+            payee={kindFor.payee.name}
+            chosen={kinds[kindFor.payee.key] ?? null}
+            guess={kindOf(kindFor.lines[0]!, {})}
+            onClose={() => setKindFor(null)}
+          />
+        ) : null}
+        <EntrySheet state={sheet} onChange={setSheet} suggestions={suggestions} own={ownWords} purpose={purpose} />
+      </div>
     </Receipts.Provider>
   )
 }
@@ -177,7 +179,7 @@ function AccountsMonth(props: { lines: readonly MoneyLine[]; month: string; toda
   const anyRose = its.rose.ranked.length + its.rose.others.length > 0
   return (
     <>
-      <div className="card">
+      <div className="card money-overview">
         <p className="muted small">{current ? `${monthName(month)} so far, from your accounts` : `${monthYear(month)}, from your accounts`}</p>
         <p>
           <strong>{pounds(its.out)} out</strong>

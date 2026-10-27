@@ -1,8 +1,11 @@
+import { writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { expect, test, type Page } from '@playwright/test'
 import { captureBox, entryButton, fakeKeyboard, LONG_WRITING, showKeyboard } from './helpers'
 import { expectCleanLayout } from './layout'
 import { backupWith, freeWriting, restoreBackup, restoreSeed } from './seed'
+import { makePdf } from '../fixtures/pdf'
+import { MONZO_LIKE } from '../fixtures/statements'
 
 // Every main screen and sheet (light only: no dark mode since v0.14.1, owner's choice), with the fictional seed at a fixed evening: the general layout
 // check on each, plus a reference screenshot. A changed screenshot fails until it's looked at and accepted with
@@ -178,6 +181,25 @@ for (const scheme of ['light'] as const) {
         await expect(page.getByRole('link', { name: '‹ More' })).toBeVisible()
         await look(page, at(`more-${sub}`))
       }
+    })
+
+    test(`Money, ${scheme}`, async ({ page }, testInfo) => {
+      await fakeKeyboard(page)
+      await page.clock.setFixedTime(EVENING)
+      await restoreSeed(page, testInfo.outputPath('money-seed.json'), EVENING)
+      const at = (s: string) => `${scheme}-${s}`
+      await page.goto('./#/money')
+      await expect(page.getByRole('heading', { level: 1, name: 'Money' })).toBeVisible()
+      await look(page, at('money'))
+
+      const statementPath = testInfo.outputPath('money-statement.pdf')
+      await writeFile(statementPath, makePdf(MONZO_LIKE))
+      await page.getByRole('button', { name: 'Bring in a statement' }).click()
+      const statementSheet = page.getByRole('dialog', { name: 'Bring in a statement' })
+      await statementSheet.locator('input[type="file"]').setInputFiles(statementPath)
+      await expect(statementSheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveCount(2)
+      await statementSheet.getByRole('button', { name: 'Done', exact: true }).click()
+      await look(page, at('money-accounts'))
     })
 
     // v0.16: life areas, the provoker's question and photos, on fictional writing of their own (the seed is activities).

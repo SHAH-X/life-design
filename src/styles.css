@@ -1766,6 +1766,101 @@ button.line-button {
   justify-content: space-between;
 }
 
+.money-screen h1 {
+  margin-bottom: 24px;
+}
+
+.money-screen .week-title {
+  margin: 22px 4px 8px;
+  font-size: 1.22rem;
+}
+
+.money-screen .card {
+  padding: 18px;
+  border-radius: 22px;
+}
+
+.money-screen .money-overview {
+  padding: 20px;
+}
+
+.money-screen .money-overview > p:first-child {
+  margin-bottom: 12px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.money-screen .money-overview > p strong {
+  font-size: clamp(1.7rem, 8vw, 2.2rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+}
+
+.money-screen .card .plain-list.compact > li + li {
+  border-top: 1px solid var(--border);
+}
+
+.money-screen details.week-line > summary {
+  min-height: 44px;
+  gap: 0 6px;
+  padding: 7px 2px;
+  border-radius: 10px;
+  transition: background-color 0.15s ease;
+}
+
+.money-screen details.week-line > summary:active {
+  background: var(--viz-hover);
+}
+
+.money-screen .account-row {
+  align-items: flex-start;
+  padding: 8px 0;
+}
+
+.money-screen .account-row > span:first-child {
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.money-screen .account-empty {
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.money-screen button.wide,
+.money-screen .button.wide {
+  min-height: 50px;
+  border-radius: 14px;
+}
+
+.money-screen button.line-button {
+  min-height: 44px;
+  padding: 8px 4px;
+  border-radius: 10px;
+  transition: background-color 0.15s ease;
+}
+
+.money-screen button.line-button:active {
+  background: var(--viz-hover);
+}
+
+.money-screen .payment-row {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  align-items: start;
+  gap: 8px;
+}
+
+.money-screen .payment-told {
+  overflow-wrap: anywhere;
+}
+
 button.line-button:active {
   background: var(--viz-hover);
 }
