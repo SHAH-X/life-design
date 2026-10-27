@@ -79,12 +79,14 @@ const ITEMS: { tab: Tab; label: string; icon: ReactNode }[] = [
 export function TabBar({ current }: { current: Tab }) {
   return (
     <nav className="tabbar" aria-label="Main">
-      {ITEMS.map(({ tab, label, icon }) => (
-        <a key={tab} href={hashFor(tab)} aria-current={tab === current ? 'page' : undefined}>
-          {icon}
-          <span>{label}</span>
-        </a>
-      ))}
+      <div className="tabbar-inner">
+        {ITEMS.map(({ tab, label, icon }) => (
+          <a key={tab} href={hashFor(tab)} aria-current={tab === current ? 'page' : undefined}>
+            {icon}
+            <span>{label}</span>
+          </a>
+        ))}
+      </div>
     </nav>
   )
 }
