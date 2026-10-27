@@ -23,7 +23,21 @@ export function Loading() {
             Reload
           </button>
         </div>
-      ) : null}
+      ) : (
+        <div className="loading-skeleton" aria-hidden="true">
+          <span className="skeleton-line skeleton-title" />
+          <span className="skeleton-line skeleton-subtitle" />
+          <div className="skeleton-card">
+            <span className="skeleton-line skeleton-wide" />
+            <span className="skeleton-line skeleton-medium" />
+          </div>
+          <div className="skeleton-list">
+            <span className="skeleton-line skeleton-wide" />
+            <span className="skeleton-line skeleton-wide" />
+            <span className="skeleton-line skeleton-short" />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

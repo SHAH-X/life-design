@@ -195,6 +195,16 @@ button,
   text-align: center;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease, opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+button:not(:disabled):active,
+.button:active,
+.tabbar a:active,
+.back-link:active,
+.list-row:active {
+  opacity: 0.8;
+  transform: scale(0.98);
 }
 
 button.primary,
@@ -1800,6 +1810,7 @@ details.more-ways summary {
   font-weight: 550;
   line-height: 1;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease, opacity 0.15s ease, background-color 0.15s ease;
 }
 
 .tabbar a[aria-current='page'] {
@@ -1813,7 +1824,79 @@ details.more-ways summary {
   height: 23px;
 }
 
-/* Never a blank screen: a screen still waiting for its data says so, and a failure says what to do. */
+/* A screen opens into its eventual title, card and list shape instead of a blank pane. After four seconds, it gives
+   the spoken explanation and reload action below. */
+.loading {
+  min-height: 52dvh;
+  padding-top: 8px;
+}
+
+.loading-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeleton-line,
+.skeleton-card,
+.skeleton-list {
+  background: linear-gradient(100deg, var(--surface) 30%, var(--bg) 46%, var(--surface) 62%);
+  background-size: 220% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-line {
+  display: block;
+  height: 14px;
+  border-radius: 999px;
+}
+
+.skeleton-title {
+  width: 38%;
+  height: 32px;
+  margin-top: 4px;
+}
+
+.skeleton-subtitle {
+  width: 55%;
+  margin-bottom: 12px;
+}
+
+.skeleton-card,
+.skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--card-shadow);
+}
+
+.skeleton-list {
+  gap: 20px;
+  border-radius: 18px;
+  box-shadow: var(--list-shadow);
+}
+
+.skeleton-wide {
+  width: 100%;
+}
+
+.skeleton-medium {
+  width: 64%;
+}
+
+.skeleton-short {
+  width: 42%;
+}
+
+@keyframes skeleton-shimmer {
+  to {
+    background-position: -220% 0;
+  }
+}
+
 .loading .slow {
   margin-top: 25vh;
   text-align: center;
@@ -2081,8 +2164,17 @@ details.more-ways summary {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .step {
+  .step,
+  .skeleton-line,
+  .skeleton-card,
+  .skeleton-list {
     animation: none;
+  }
+
+  button,
+  .button,
+  .tabbar a {
+    transition: none;
   }
 }
 
