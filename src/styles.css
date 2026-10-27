@@ -1342,6 +1342,71 @@ input[type='search'] {
   margin-bottom: 4px;
 }
 
+/* ---------- Logs ---------- */
+
+.logs-header h1 {
+  margin-bottom: 16px;
+}
+
+.logs-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  margin-bottom: 4px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--list-shadow);
+}
+
+.logs-search > span {
+  flex: none;
+  color: var(--muted);
+  font-family: ui-serif, Georgia, serif;
+  font-size: 1.8rem;
+  line-height: 1;
+  transform: rotate(-20deg);
+}
+
+.logs-search input[type='search'] {
+  min-width: 0;
+  min-height: 50px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.logs-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft), var(--list-shadow);
+}
+
+.logs-screen .list-section {
+  margin-top: 28px;
+}
+
+.logs-screen .list-section h2 {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.logs-screen .entry-list {
+  margin-bottom: 0;
+}
+
 /* An entry read back (v0.9): your entry first (the words you tapped, then what you wrote), then a possible
    insight in its own card, then a next step. */
 .saved-line {

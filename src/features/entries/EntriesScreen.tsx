@@ -65,12 +65,17 @@ export function EntriesScreen() {
   const empty = searching ? 'Nothing matches that yet.' : 'Everything you write will be listed here.'
 
   return (
-    <>
-      <h1>Logs</h1>
-      <label className="visually-hidden" htmlFor={searchId}>
-        Search your logs
-      </label>
-      <input id={searchId} type="search" placeholder="Search your logs" value={query} onChange={(e) => setQuery(e.target.value)} />
+    <div className="logs-screen">
+      <header className="logs-header">
+        <h1>Logs</h1>
+      </header>
+      <div className="logs-search">
+        <span aria-hidden="true">⌕</span>
+        <label className="visually-hidden" htmlFor={searchId}>
+          Search your logs
+        </label>
+        <input id={searchId} type="search" placeholder="Search your logs" value={query} onChange={(e) => setQuery(e.target.value)} />
+      </div>
       {searching && meaning === 'unasked' ? <MeaningOffer /> : null}
 
       {drafts.length ? (
@@ -99,7 +104,7 @@ export function EntriesScreen() {
       {byMeaning ? <AlsoAboutThis found={found} byId={byId} matched={matched} row={row} alone={matches.length === 0} empty={empty} /> : null}
 
       <EntrySheet state={sheet} onChange={setSheet} suggestions={suggestions} own={own} purpose={purpose} />
-    </>
+    </div>
   )
 }
 
