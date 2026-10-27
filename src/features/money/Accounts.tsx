@@ -80,7 +80,7 @@ export function Accounts() {
           </ul>
         </div>
       ) : list && names ? (
-        <p className="muted small">Bring in your bank and card statements to see all your spending.</p>
+        <p className="muted small account-empty">Bring in your bank and card statements to see all your spending.</p>
       ) : null}
       <button type="button" className="wide top-gap" onClick={() => setImporting(true)}>
         Bring in a statement

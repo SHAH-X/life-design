@@ -53,7 +53,7 @@ export function ReceiptsMonth(props: { receipts: readonly KnownReceipt[]; copies
       <h2 id={headingId} className="week-title">
         From your receipts
       </h2>
-      <div className="card">
+      <div className="card money-overview">
         <p className="muted small">{month === today.slice(0, 7) ? `${monthName(month)} so far` : monthYear(month)}</p>
         <p>
           <strong>{inWords(its.spent)}</strong>
