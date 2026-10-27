@@ -1862,6 +1862,20 @@ button.line-button {
   column-gap: 16px;
 }
 
+/* The two summary statistics share a row while closed. A tapped statistic must take the whole card: otherwise its
+   payment list inherits half a column and long account names wrap one letter at a time. */
+.money-screen .money-overview-breakdown > li {
+  min-width: 0;
+}
+
+.money-screen .money-overview-breakdown > li:has(> details[open]) {
+  grid-column: 1 / -1;
+}
+
+.money-screen .money-overview-breakdown > li > details {
+  min-width: 0;
+}
+
 .money-screen .card .plain-list.compact > li + li {
   border-top: 1px solid var(--border);
 }
