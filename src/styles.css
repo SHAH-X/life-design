@@ -3,6 +3,10 @@
   color-scheme: light;
   --radius: 14px;
   --tabbar-height: 60px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
 
   /* Chart and energy colours (documented palette, validated with the dataviz checks): blue = gives energy, red =
      drains, aqua = engagement; blue/red stays distinguishable with colour blindness. The evening's pale sand
@@ -39,20 +43,32 @@ html {
   font: -apple-system-body;
   font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   -webkit-text-size-adjust: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
+  background: var(--bg);
 }
 
 body {
+  min-height: 100%;
+  min-height: 100dvh;
   margin: 0;
   background: var(--bg);
   color: var(--text);
   line-height: 1.45;
+  overscroll-behavior-y: none;
+}
+
+#root {
+  min-height: 100%;
+  min-height: 100dvh;
+  isolation: isolate;
 }
 
 .app {
   max-width: 640px;
   min-height: 100dvh;
   margin: 0 auto;
-  padding: calc(env(safe-area-inset-top) + 12px) 16px calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 24px);
+  padding: calc(var(--safe-top) + 16px) max(16px, var(--safe-right)) calc(var(--tabbar-height) + var(--safe-bottom) + 24px) max(16px, var(--safe-left));
 }
 
 h1 {
