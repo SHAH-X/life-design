@@ -1381,6 +1381,10 @@ input[type='search'] {
   box-shadow: none;
 }
 
+.logs-search input[type='search']:focus-visible {
+  outline: none;
+}
+
 .logs-search:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft), var(--list-shadow);
@@ -1405,6 +1409,71 @@ input[type='search'] {
 
 .logs-screen .entry-list {
   margin-bottom: 0;
+}
+
+/* ---------- Ask ---------- */
+
+.ask-header h1 {
+  margin-bottom: 16px;
+}
+
+.ask-composer {
+  padding: 20px;
+  border-color: transparent;
+  background: var(--accent-soft);
+  box-shadow: none;
+}
+
+.ask-composer .question-text {
+  margin-top: 0;
+  color: var(--accent);
+}
+
+.ask-composer textarea {
+  min-height: 112px;
+  margin-bottom: 12px;
+  background: var(--surface);
+}
+
+.ask-submit {
+  width: 100%;
+  min-height: 50px;
+  border-radius: 14px;
+}
+
+.ask-composer-note {
+  margin: 12px 2px 0;
+  line-height: 1.4;
+}
+
+.ask-answer {
+  border-color: var(--accent-soft);
+}
+
+.ask-answer .question-text {
+  margin-top: 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ask-earlier {
+  margin-top: 28px;
+}
+
+.ask-earlier .week-title {
+  margin-bottom: 10px;
+}
+
+.ask-earlier .plain-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 0;
+}
+
+.ask-earlier .plain-list li.card {
+  margin: 0;
+  padding: 16px 18px;
 }
 
 /* An entry read back (v0.9): your entry first (the words you tapped, then what you wrote), then a possible

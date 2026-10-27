@@ -69,18 +69,20 @@ export function AskScreen() {
   const earlier = questions.filter((q) => q.id !== latest)
 
   return (
-    <>
-      <h1>Ask</h1>
+    <div className="ask-screen">
+      <header className="ask-header">
+        <h1>Ask</h1>
+      </header>
       {ready ? (
-        <section className="card" aria-label="Ask your journal">
+        <section className="card ask-composer" aria-label="Ask your journal">
           <label className="question-text" htmlFor={boxId}>
             What would you like to know?
           </label>
           <textarea id={boxId} rows={2} maxLength={500} placeholder="e.g. What groceries did I buy this month?" value={text} onChange={(e) => setText(e.target.value)} />
-          <button type="button" className="primary" disabled={!text.trim() || state.kind === 'asking'} onClick={() => void ask()}>
+          <button type="button" className="primary ask-submit" disabled={!text.trim() || state.kind === 'asking'} onClick={() => void ask()}>
             {state.kind === 'asking' ? 'Asking…' : 'Ask'}
           </button>
-          <p className="muted small">Sends your question, and the receipts and entries it needs, to {PROVIDERS[provider].label}.</p>
+          <p className="muted small ask-composer-note">Sends your question, and the receipts and entries it needs, to {PROVIDERS[provider].label}.</p>
           {state.kind === 'problem' ? (
             <p className="error small" role="alert">
               {state.message}
@@ -94,14 +96,14 @@ export function AskScreen() {
       )}
 
       {answered ? (
-        <section className="card" aria-label="Answer">
+        <section className="card ask-answer" aria-label="Answer">
           <h2 className="question-text">{answered.question}</h2>
           <Answer question={answered} entries={byId} onOpen={open} />
         </section>
       ) : null}
 
       {earlier.length ? (
-        <section aria-label="Earlier questions">
+        <section className="ask-earlier" aria-label="Earlier questions">
           <h2 className="week-title">Earlier</h2>
           <ul className="plain-list">
             {earlier.map((q) => (
@@ -119,6 +121,6 @@ export function AskScreen() {
       ) : null}
 
       <EntrySheet state={sheet} onChange={setSheet} suggestions={suggestions} own={own} purpose={purpose} />
-    </>
+    </div>
   )
 }
