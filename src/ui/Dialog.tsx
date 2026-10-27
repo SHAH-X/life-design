@@ -70,6 +70,7 @@ export function Dialog({ title, titleHidden = false, toolbar, onClose, children,
       }}
     >
       <div className="sheet-inner">
+        <div className="sheet-handle" aria-hidden="true" />
         <header className="sheet-header">
           <h2 id={titleId} className={titleHidden ? 'visually-hidden' : undefined}>
             {title}
