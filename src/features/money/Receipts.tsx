@@ -1,4 +1,5 @@
-import { type ReactNode, useId, useState } from 'react'
+import { type ReactNode, useId, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { receiptsToCsv, shoppingCsvFileName } from '../../db/csv'
 import { itemShown } from '../../domain/receipts'
 import {
@@ -42,13 +43,14 @@ export function ReceiptsMonth(props: {
   today: string
   reviewedDates: ReadonlySet<string>
   matchCandidates: ReadonlyMap<string, readonly MoneyLine[]>
+  possiblePaymentIds: ReadonlySet<string>
   onAcceptDate: (receiptId: string) => Promise<void>
-  onMatchPayment: (receiptId: string, paymentId: string) => Promise<void>
+  onMatchPayment: (receiptId: string, paymentId: string, reason: string) => Promise<void>
   onOpen: (r: KnownReceipt) => void
 }) {
   const { receipts, month, today, onOpen } = props
   const headingId = useId()
-  const its = shoppingMonth(receipts, month, today, props.copies, props.reviewedDates)
+  const its = shoppingMonth(receipts, month, today, props.copies, props.reviewedDates, props.possiblePaymentIds)
   const shops = its.shops.ranked.length + its.shops.others.filter((s) => s.name !== null).length
   if (its.receipts.length === 0) {
     return (
@@ -288,7 +290,7 @@ function ReceiptList(props: {
   reviewedDates?: ReadonlySet<string>
   matchCandidates?: ReadonlyMap<string, readonly MoneyLine[]>
   onAcceptDate?: (receiptId: string) => Promise<void>
-  onMatchPayment?: (receiptId: string, paymentId: string) => Promise<void>
+  onMatchPayment?: (receiptId: string, paymentId: string, reason: string) => Promise<void>
   onOpen: (r: KnownReceipt) => void
 }) {
   const { receipts, why, copyOf, onOpen } = props
@@ -301,13 +303,20 @@ function ReceiptList(props: {
         const duplicateOf = copyOf?.get(r.id)
         const needsReview = reasons !== undefined || duplicateOf !== undefined
         const missingDate = !duplicateOf && !r.dated && !props.reviewedDates?.has(r.id)
+        const candidates = props.matchCandidates?.get(r.id) ?? []
+        const hasPaymentCandidates = candidates.length > 0
+        const hasAmountDifference = candidates.some((line) => Math.abs(line.amount) !== paid(r))
         const title = duplicateOf
           ? 'Duplicate · counted once'
           : missingDate
             ? `Date not read · using ${shortDayMonth(r.date)}`
             : !r.adds
               ? "Total doesn't add up"
-              : 'Shop not read'
+              : !shopKey(r.shop)
+                ? 'Shop not read'
+                : hasAmountDifference
+                  ? 'Payment differs'
+                  : 'Payment to check'
         return (
           <li key={r.id}>
             {needsReview ? (
@@ -331,15 +340,35 @@ function ReceiptList(props: {
                       {missingDate ? (
                         <>
                           <p>Using the day this entry was added.</p>
-                          <div className="receipt-check-actions">
+                        </>
+                      ) : null}
+                      {hasPaymentCandidates ? (
+                        <ul className="plain-list compact receipt-check-candidates">
+                          {candidates.map((line) => {
+                            const debit = Math.abs(line.amount)
+                            const difference = Math.abs(paid(r) - debit)
+                            return (
+                              <li key={line.id}>
+                                <span>
+                                  {line.payee.name} · {shortDayMonth(line.date)} · receipt {money(paid(r), r.currency)} · debit {money(debit, '£')}
+                                  {difference ? ` · difference ${money(difference, r.currency)}` : ''}
+                                </span>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      ) : null}
+                      {!duplicateOf && (missingDate || hasPaymentCandidates) ? (
+                        <div className="receipt-check-actions">
+                          {missingDate ? (
                             <button type="button" onClick={() => void props.onAcceptDate?.(r.id)}>
                               Use {shortDayMonth(r.date)}
                             </button>
-                            <button type="button" onClick={() => setMatching(r)}>
-                              Match a payment
-                            </button>
-                          </div>
-                        </>
+                          ) : null}
+                          <button type="button" onClick={() => setMatching(r)}>
+                            {missingDate ? 'Match a payment' : 'Review payment'}
+                          </button>
+                        </div>
                       ) : null}
                     </>
                   )}
@@ -361,8 +390,8 @@ function ReceiptList(props: {
         <MatchPaymentDialog
           receipt={matching}
           candidates={props.matchCandidates?.get(matching.id) ?? []}
-          onMatch={async (paymentId) => {
-            await props.onMatchPayment?.(matching.id, paymentId)
+          onMatch={async (paymentId, reason) => {
+            await props.onMatchPayment?.(matching.id, paymentId, reason)
             setMatching(null)
           }}
           onClose={() => setMatching(null)}
@@ -375,27 +404,71 @@ function ReceiptList(props: {
 function MatchPaymentDialog(props: {
   receipt: KnownReceipt
   candidates: readonly MoneyLine[]
-  onMatch: (paymentId: string) => Promise<void>
+  onMatch: (paymentId: string, reason: string) => Promise<void>
   onClose: () => void
 }) {
   const { receipt, candidates, onMatch, onClose } = props
   const addedDate = receipt.entryDate ?? receipt.date
+  const [paymentId, setPaymentId] = useState('')
+  const [reasonChoice, setReasonChoice] = useState('')
+  const [otherReason, setOtherReason] = useState('')
+  const otherReasonInput = useRef<HTMLInputElement>(null)
+  const selected = candidates.find((candidate) => candidate.id === paymentId)
+  const amountDiffers = selected !== undefined && Math.abs(selected.amount) !== paid(receipt)
+  const reason = amountDiffers ? (reasonChoice === 'other' ? otherReason.trim() : reasonChoice) : ''
+  const canMatch = selected !== undefined && (!amountDiffers || (reasonChoice !== '' && (reasonChoice !== 'other' || reason.length > 0)))
+  const footer = (
+    <button type="button" className="primary wide" disabled={!canMatch} onClick={() => selected && void onMatch(selected.id, reason)}>
+      Match receipt
+    </button>
+  )
   return (
-    <Dialog title="Match a payment" onClose={onClose}>
-      <p className="muted small">Choose the debit that paid for this receipt. Only likely matches from statements on this phone are shown.</p>
+    <Dialog title="Match a payment" onClose={onClose} footer={footer}>
+      <p className="muted small">Choose a debit. The receipt and account amounts stay separate; matching never changes what Money counts.</p>
+      <p>Receipt total: {money(paid(receipt), receipt.currency)}</p>
       {candidates.length ? (
-        <ul className="plain-list compact receipt-match-list">
-          {candidates.map((line) => (
-            <li key={line.id}>
-              <button type="button" className="line-button" onClick={() => void onMatch(line.id)}>
-                <span>
-                  {shortDayMonth(line.date)} · {line.payee.name} · {money(Math.abs(line.amount), '£')}
-                  <span className="muted small receipt-match-account">{line.account}</span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="purpose-list receipt-match-list" role="radiogroup" aria-label="Statement debit">
+            {candidates.map((line) => {
+              const debit = Math.abs(line.amount)
+              const difference = Math.abs(paid(receipt) - debit)
+              return (
+                <label key={line.id} className="purpose-option">
+                  <input type="radio" name="receipt-payment" value={line.id} checked={paymentId === line.id} onChange={() => setPaymentId(line.id)} />
+                  <span className="purpose-text">
+                    <span className="purpose-label">{line.payee.name} · {shortDayMonth(line.date)}</span>
+                    <span className="muted small">Debit {money(debit, '£')} · {line.account}{difference ? ` · difference ${money(difference, receipt.currency)}` : ''}</span>
+                  </span>
+                </label>
+              )
+            })}
+          </div>
+          {amountDiffers ? (
+            <fieldset className="receipt-match-reasons">
+              <legend className="question-text">Why is the amount different?</legend>
+              <label className="purpose-option">
+                <input type="radio" name="receipt-reason" value="Gift-card discount" checked={reasonChoice === 'Gift-card discount'} onChange={() => setReasonChoice('Gift-card discount')} />
+                <span className="purpose-text"><span className="purpose-label">Gift-card discount</span></span>
+              </label>
+              <label className="purpose-option">
+                <input
+                  type="radio"
+                  name="receipt-reason"
+                  value="other"
+                  checked={reasonChoice === 'other'}
+                  onChange={() => {
+                    flushSync(() => setReasonChoice('other'))
+                    otherReasonInput.current?.focus()
+                  }}
+                />
+                <span className="purpose-text"><span className="purpose-label">Another reason</span></span>
+              </label>
+              {reasonChoice === 'other' ? (
+                <input ref={otherReasonInput} value={otherReason} maxLength={120} autoCapitalize="sentences" aria-label="Explain the difference" placeholder="What explains the difference?" onChange={(event) => setOtherReason(event.target.value)} />
+              ) : null}
+            </fieldset>
+          ) : null}
+        </>
       ) : (
         <p>No likely payment near {shortDayMonth(addedDate)}. Bring in a statement or keep this date instead.</p>
       )}

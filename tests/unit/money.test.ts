@@ -354,6 +354,16 @@ describe('linkReceipts: a card payment and the receipt for it (v0.20.2)', () => 
     expect(linkReceipts(lines, [undated], { [undated.id]: candidate[0]!.id })).toEqual(new Map([[candidate[0]!.id, undated]]))
   })
 
+  it('suggests a nearby debit despite a different amount, but never links it automatically', () => {
+    const receiptWithOtherTender = receipt('r10', 'Corner Shop', '2026-10-05', 2000)
+    const candidates = receiptPaymentCandidates(lines, receiptWithOtherTender)
+    expect(candidates.map((candidate) => [candidate.description, candidate.amount])).toEqual([['CORNER SHOP SOMETOWN GBR', -1240]])
+    expect(linkReceipts(lines, [receiptWithOtherTender])).toEqual(new Map())
+    expect(linkReceipts(lines, [receiptWithOtherTender], { [receiptWithOtherTender.id]: candidates[0]!.id })).toEqual(
+      new Map([[candidates[0]!.id, receiptWithOtherTender]]),
+    )
+  })
+
   it('keeps owner-selected matches unique and takes them before automatic matches', () => {
     const first = receipt('r8', 'Tesco', '2026-10-09', 3000)
     const second = receipt('r9', 'Tesco', '2026-10-09', 3000)

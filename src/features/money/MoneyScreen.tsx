@@ -20,7 +20,7 @@ import {
 } from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
 import { classify, joinMoves, type KindGroup, kindOf, linkReceipts, mayBeOwn, payeeOf, type PaymentRow, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type PayeeGroup, type Ranked, regularPayments, receiptPaymentCandidates, type Rise } from '../../domain/money'
-import { inWords, type KnownReceipt, money, receiptsAndCopies, shiftMonth, shoppingMonth, shoppingMonths } from '../../domain/shopping'
+import { inWords, type KnownReceipt, money, paid, receiptsAndCopies, shiftMonth, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { MonthChart } from '../../ui/charts/MonthChart'
@@ -51,6 +51,7 @@ const MOVED: Record<Moving, string> = {
 /** Card payments linked to their receipts (v0.20.2), opening one, and the accounts' names: every list of payments reads it. */
 const Receipts = createContext<{
   links: ReadonlyMap<string, KnownReceipt>
+  receiptReasons: Readonly<Record<string, string>>
   open: (r: KnownReceipt) => void
   names: ReadonlyMap<string, string>
   /** What you said payees are for, and your notes on payments, by line id (owner, 2026-10-26). */
@@ -60,6 +61,7 @@ const Receipts = createContext<{
   openKind: (group: PayeeGroup) => void
 }>({
   links: new Map(),
+  receiptReasons: {},
   open: () => {},
   names: new Map(),
   kinds: {},
@@ -107,13 +109,19 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const { receipts, copies } = receiptsAndCopies(entries)
   const lines = classify(bankLines, new Set(own), payeeNames)
   const links = linkReceipts(lines, receipts, receiptReviews.paymentLinks)
-  const manualReceiptByPayment = new Map(Object.entries(receiptReviews.paymentLinks).map(([receiptId, paymentId]) => [paymentId, receiptId]))
-  const reviewedDates = new Set([...receiptReviews.acceptedDates, ...Object.keys(receiptReviews.paymentLinks)])
-  const matchCandidates = new Map(
-    receipts
-      .filter((receipt) => !receipt.dated && !reviewedDates.has(receipt.id))
-      .map((receipt) => [receipt.id, receiptPaymentCandidates(lines, receipt, new Set(links.keys()))]),
+  const receiptReasons = receiptReviews.paymentReasons
+  const manualReceiptByPayment = new Map(
+    [...links].flatMap(([paymentId, receipt]) => (receiptReviews.paymentLinks[receipt.id] === paymentId ? [[paymentId, receipt.id] as const] : [])),
   )
+  const reviewedDates = new Set([...receiptReviews.acceptedDates, ...Object.keys(receiptReviews.paymentLinks)])
+  const linkedReceiptIds = new Set([...links.values()].map((receipt) => receipt.id))
+  const matchCandidates = new Map<string, MoneyLine[]>(
+    receipts
+      .filter((receipt) => !linkedReceiptIds.has(receipt.id) && !receiptReviews.acceptedDates.includes(receipt.id))
+      .map((receipt): [string, MoneyLine[]] => [receipt.id, receiptPaymentCandidates(lines, receipt, new Set(links.keys()))])
+      .filter(([, candidates]) => candidates.length > 0),
+  )
+  const possiblePaymentIds = new Set<string>(matchCandidates.keys())
   const today = toDateKey(new Date())
   const thisMonth = today.slice(0, 7)
   const month = sub && /^\d{4}-\d{2}$/.test(sub) ? sub : thisMonth
@@ -122,9 +130,15 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
       ? [...new Set(lines.filter((l) => !l.moving).map((l) => l.date.slice(0, 7)))].filter((m) => m < thisMonth).sort().reverse()
       : shoppingMonths(receipts).filter((m) => m < thisMonth).sort().reverse()
   const manualReceiptId = payment ? manualReceiptByPayment.get(payment.line.id) : undefined
+  const paymentReceipt = payment ? links.get(payment.line.id) : undefined
+  const paymentReceiptDifference = payment && paymentReceipt ? paid(paymentReceipt) - Math.abs(payment.line.amount) : 0
+  const paymentReceiptSummary =
+    payment && paymentReceipt && paymentReceiptDifference
+      ? `Receipt ${money(paid(paymentReceipt), paymentReceipt.currency)} · debit ${money(Math.abs(payment.line.amount), '£')} · difference ${money(Math.abs(paymentReceiptDifference), paymentReceipt.currency)}${receiptReasons[paymentReceipt.id] ? ` · ${receiptReasons[paymentReceipt.id]}` : ''}`
+      : null
 
   return (
-    <Receipts.Provider value={{ links, open, names, kinds, notes, openPayment: (line, way) => setPayment({ line, way }), openKind: setKindFor }}>
+    <Receipts.Provider value={{ links, receiptReasons, open, names, kinds, notes, openPayment: (line, way) => setPayment({ line, way }), openKind: setKindFor }}>
       <div className="money-screen">
         {month === thisMonth ? (
           <h1>Money</h1>
@@ -156,8 +170,9 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             today={today}
             reviewedDates={reviewedDates}
             matchCandidates={matchCandidates}
+            possiblePaymentIds={possiblePaymentIds}
             onAcceptDate={acceptReceiptDate}
-            onMatchPayment={(receiptId, paymentId) => matchReceiptPayment(receiptId, paymentId, new Set(receipts.map((r) => r.id)))}
+            onMatchPayment={(receiptId, paymentId, reason) => matchReceiptPayment(receiptId, paymentId, reason, new Set(receipts.map((r) => r.id)))}
             onOpen={open}
           />
         ) : null}
@@ -197,6 +212,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             line={payment.line}
             way={payment.way}
             note={notes[payment.line.id] ?? ''}
+            receiptSummary={paymentReceiptSummary}
             onReceipt={
               links.get(payment.line.id)
                 ? () => {
@@ -472,7 +488,7 @@ function OwnLines({ lines }: { lines: readonly MoneyLine[] }) {
  *  ("Savings pot → Monzo"). The payee is named only where the rows' payees differ. A payment with its receipt opens it;
  *  with why, when it needs a look. */
 function LineList({ lines, why, moves = false }: { lines: readonly MoneyLine[]; why?: string; moves?: boolean }) {
-  const { links, names, notes, openPayment } = useContext(Receipts)
+  const { links, receiptReasons, names, notes, openPayment } = useContext(Receipts)
   const rows = moves ? joinMoves(lines) : [...lines].sort((a, b) => b.date.localeCompare(a.date)).map((line) => ({ line }))
   const name = (account: string) => names.get(account) ?? account
   const payees = new Set(lines.map((l) => l.payee.key)).size > 1
@@ -488,7 +504,12 @@ function LineList({ lines, why, moves = false }: { lines: readonly MoneyLine[]; 
       {rows.map((row) => {
         const receipt = links.get(row.line.id)
         const note = notes[row.line.id]
-        const told = [where(row), note ? `“${note}”` : '', receipt ? 'receipt' : '', why ?? ''].filter(Boolean).join(' · ')
+        const receiptDetail = receipt
+          ? receiptReasons[receipt.id]
+            ? `receipt ${money(paid(receipt), receipt.currency)} · ${receiptReasons[receipt.id]}`
+            : 'receipt'
+          : ''
+        const told = [where(row), note ? `“${note}”` : '', receiptDetail, why ?? ''].filter(Boolean).join(' · ')
         const said = (
           <span className="payment-row">
             <span className="payment-day">{shortDayMonth(row.line.date)}</span>

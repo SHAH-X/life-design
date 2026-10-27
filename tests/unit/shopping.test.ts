@@ -216,6 +216,11 @@ describe('shoppingMonth: a month, worked out on the phone', () => {
       ['x1', ['no shop read']],
     ])
   })
+
+  it('lists a receipt with a possible statement payment even when its date and total were read', () => {
+    const october = shoppingMonth(RECEIPTS, '2026-10', TODAY, [], new Set(), new Set(['t2']))
+    expect(october.toCheck.map((item) => [item.receipt.id, item.why, item.possiblePayment])).toContainEqual(['t2', [], true])
+  })
 })
 
 describe('kinds: what was bought, by the kind your AI gave each item', () => {

@@ -416,8 +416,8 @@ export function receiptPaymentCandidates(
   const date = receipt.dated ? receipt.date : (receipt.entryDate ?? receipt.date)
   const days = (line: MoneyLine) => Math.abs(dayNumber(line.date) - dayNumber(date))
   return lines
-    .filter((line) => !line.moving && line.amount < 0 && !occupied.has(line.id) && -line.amount === paid(receipt) && days(line) <= RECEIPT_DAYS && samePlace(receipt.shop, line.payee))
-    .sort((a, b) => days(a) - days(b) || b.date.localeCompare(a.date))
+    .filter((line) => !line.moving && line.amount < 0 && !occupied.has(line.id) && days(line) <= RECEIPT_DAYS && samePlace(receipt.shop, line.payee))
+    .sort((a, b) => Number(-a.amount !== paid(receipt)) - Number(-b.amount !== paid(receipt)) || days(a) - days(b) || b.date.localeCompare(a.date))
 }
 
 /** Owner-chosen links take precedence; receipts without a printed date are never linked automatically. */
@@ -437,7 +437,7 @@ export function linkReceipts(
   }
   for (const receipt of [...receipts].filter((r) => r.dated && !chosenReceipts.has(r.id)).sort((a, b) => a.date.localeCompare(b.date))) {
     if (receipt.currency && receipt.currency !== '£') continue
-    const payment = receiptPaymentCandidates(lines, receipt, new Set(links.keys()))[0]
+    const payment = receiptPaymentCandidates(lines, receipt, new Set(links.keys())).find((line) => -line.amount === paid(receipt))
     if (payment) links.set(payment.id, receipt)
   }
   return links

@@ -1930,6 +1930,24 @@ button.line-button {
   margin-top: 8px;
 }
 
+.money-screen .receipt-check-candidates {
+  margin: 4px 0 8px;
+  overflow-wrap: anywhere;
+}
+
+.money-screen .receipt-match-reasons {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 16px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.money-screen .receipt-match-reasons legend {
+  margin-bottom: 8px;
+}
+
 .money-screen .receipt-match-account {
   display: block;
 }

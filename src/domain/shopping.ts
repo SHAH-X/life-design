@@ -204,6 +204,7 @@ export interface ToCheck {
   why: string[]
   /** The earlier receipt retained in totals when this receipt is a duplicate. */
   copyOf?: KnownReceipt
+  possiblePayment?: boolean
 }
 
 /** The month's items of one kind, at their prices: before offers, which have a line of their own. */
@@ -328,6 +329,7 @@ export function shoppingMonth(
   today: string,
   copies: readonly ReceiptCopy[] = [],
   reviewedDates: ReadonlySet<string> = new Set(),
+  possiblePaymentIds: ReadonlySet<string> = new Set(),
 ): ShoppingMonth {
   const receipts = all.filter((r) => r.date.slice(0, 7) === month)
   const currency = mainCurrency(receipts)
@@ -369,7 +371,8 @@ export function shoppingMonth(
           receipt.dated || reviewedDates.has(receipt.id) ? '' : 'no date read',
         ].filter(Boolean),
       }))
-      .filter((c) => c.why.length > 0)
+      .filter((c) => c.why.length > 0 || possiblePaymentIds.has(c.receipt.id))
+      .map((c) => (possiblePaymentIds.has(c.receipt.id) ? { ...c, possiblePayment: true } : c))
       .concat(
         copies
           .filter((c) => c.copy.date.slice(0, 7) === month && c.copy.entryId !== c.of.entryId)
