@@ -46,12 +46,16 @@ export function PaymentSheet(props: {
   way: string
   note: string
   receiptSummary: string | null
+  kind?: string | null
+  onKind?: (() => void) | null
+  onRename?: (() => void) | null
   onReceipt: (() => void) | null
   onUnlinkReceipt: (() => Promise<void>) | null
   onClose: () => void
 }) {
-  const { line, way, receiptSummary, onReceipt, onUnlinkReceipt, onClose } = props
+  const { line, way, receiptSummary, kind, onKind, onRename, onReceipt, onUnlinkReceipt, onClose } = props
   const [note, setNote] = useState(props.note)
+  const isRenamed = Boolean(line.payee.original && line.payee.original !== line.payee.name)
   const id = useId()
   const save = async () => {
     await notePayment(line.id, note)
@@ -64,10 +68,23 @@ export function PaymentSheet(props: {
   )
   return (
     <Dialog title={line.payee.name} onClose={onClose} footer={footer} full>
+      {isRenamed ? <p className="muted small">Original: {line.payee.original}</p> : null}
       <p>
         {dayMonthLong(line.date)} · {way} · {money(Math.abs(line.amount), '£')}
       </p>
       {receiptSummary ? <p className="muted small receipt-payment-summary">{receiptSummary}</p> : null}
+      <div className="button-row" style={{ display: 'flex', gap: '8px', margin: '8px 0 16px', flexWrap: 'wrap' }}>
+        {onRename ? (
+          <button type="button" className="small-link" onClick={onRename}>
+            Rename transaction
+          </button>
+        ) : null}
+        {onKind ? (
+          <button type="button" className="small-link" onClick={onKind}>
+            {kind ? `Category: ${kind}` : '+ Assign category'}
+          </button>
+        ) : null}
+      </div>
       <label className="question-text" htmlFor={id}>
         What was it for?
       </label>

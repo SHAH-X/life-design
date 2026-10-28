@@ -57,9 +57,9 @@ describe('accountNames: an account by its bank’s name, or the name you gave it
 })
 
 describe('classify: a payee by the name you gave it (owner, 2026-10-26)', () => {
-  it('shows your name, keeping the payee as it was for what you said about it', () => {
+  it('shows your name, keeping the payee as it was for what you said about it and recording its original name', () => {
     const [named, other] = classify([line(BANK, '2026-10-02', -50, 'A N OTHER', { type: 'FPO' }), line(BANK, '2026-10-03', -9, 'EXAMPLE GYM')], new Set(['a n other']), { 'a n other': 'Example savings' })
-    expect(named!.payee).toEqual({ key: 'a n other', name: 'Example savings' })
+    expect(named!.payee).toEqual({ key: 'a n other', name: 'Example savings', original: 'A N OTHER' })
     expect(named!.moving).toBe('own')
     expect(other!.payee.name).toBe('EXAMPLE GYM')
   })
@@ -71,8 +71,8 @@ describe('classify: a payee by the name you gave it (owner, 2026-10-26)', () => 
       { 'example streaming': 'Example streaming' },
     )
     expect(lines.map((item) => item.payee)).toEqual([
-      { key: 'example streaming', name: 'Example streaming' },
-      { key: 'example streaming', name: 'Example streaming' },
+      { key: 'example streaming', name: 'Example streaming', original: 'EXAMPLE STREAMING' },
+      { key: 'example streaming', name: 'Example streaming', original: 'EXAMPLE STREAMING' },
     ])
   })
 })

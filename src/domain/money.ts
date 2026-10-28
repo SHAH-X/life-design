@@ -13,6 +13,8 @@ import { groupBy, type KnownReceipt, paid, shiftMonth, shopKey } from './shoppin
 export interface Payee {
   key: string
   name: string
+  /** Original printed name before any owner renaming. */
+  original?: string
 }
 
 /** Why a line is money moved, not money in or out. */
@@ -104,7 +106,8 @@ const TRANSFER_DAYS = 3
 export function classify(lines: readonly BankLine[], own: ReadonlySet<string>, named: Readonly<Record<string, string>> = {}): MoneyLine[] {
   const classed = lines.map((line): MoneyLine => {
     const printed = payeeOf(line.description)
-    const payee = named[printed.key] ? { ...printed, name: named[printed.key]! } : printed
+    const isRenamed = Boolean(named[printed.key] && named[printed.key] !== printed.name)
+    const payee: Payee = isRenamed ? { ...printed, name: named[printed.key]!, original: printed.name } : printed
     return { ...line, payee, moving: movingOf(line, payee, own), refund: false }
   })
   const apart = (a: MoneyLine, b: MoneyLine) => Math.abs(dayNumber(a.date) - dayNumber(b.date))
