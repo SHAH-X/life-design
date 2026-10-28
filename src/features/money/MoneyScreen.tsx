@@ -181,7 +181,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             <h2 id={earlierId} className="week-title">
               Earlier months
             </h2>
-            <nav className="list" aria-labelledby={earlierId}>
+            <nav className="money-month-history" aria-labelledby={earlierId}>
               {earlier.map((m) => {
                 let said: string
                 if (view === 'accounts') said = `${pounds(moneyMonth(lines, m, today, statements, closed).out)} out`
@@ -190,7 +190,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
                   said = `${inWords(bought.spent)} on ${receiptsWord(bought.receipts.length)}`
                 }
                 return (
-                  <a key={m} className="list-row" href={hashFor('money', m)}>
+                  <a key={m} className="money-month-card" href={hashFor('money', m)}>
                     <span className="list-text">
                       <span className="list-title">{monthYear(m)}</span>
                       <span className="list-status">{said}</span>

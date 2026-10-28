@@ -1834,6 +1834,54 @@ button.line-button {
   font-size: 1.22rem;
 }
 
+/* Earlier months are a history to browse, not a long settings list. A horizontal rail keeps the current month’s
+   analysis on screen while every month remains a full-sized link. */
+.money-screen .money-month-history {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(148px, 72%);
+  gap: 10px;
+  margin: 0 -16px 20px;
+  padding: 2px 16px 10px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: inline mandatory;
+  scrollbar-width: none;
+}
+
+.money-screen .money-month-history::-webkit-scrollbar {
+  display: none;
+}
+
+.money-screen .money-month-card {
+  display: flex;
+  align-items: center;
+  min-height: 82px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--text);
+  scroll-snap-align: start;
+  text-decoration: none;
+  box-shadow: var(--list-shadow);
+}
+
+.money-screen .money-month-card .list-title {
+  font-family: ui-serif, 'New York', Georgia, serif;
+  font-size: 1.05rem;
+}
+
+.money-screen .money-month-card .list-status {
+  margin-top: 3px;
+}
+
+.money-screen .money-month-card .list-chevron {
+  margin-left: auto;
+  color: var(--accent);
+  font-size: 1.5rem;
+}
+
 .money-screen .card {
   padding: 18px;
   border-radius: 22px;
