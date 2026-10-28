@@ -1799,6 +1799,36 @@ button.line-button {
   box-shadow: var(--list-shadow);
 }
 
+/* Accounts has three distinct jobs. Keeping one job on screen at a time gives the totals room to breathe and puts
+   statement management where people expect it, without burying any calculation behind a new page. */
+.money-screen .money-detail-switch {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin: 4px 0 18px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--accent-soft);
+}
+
+.money-screen .money-detail-switch button {
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.money-screen .money-detail-switch button[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgb(31 30 28 / 0.1);
+}
+
 .money-screen .week-title {
   margin: 22px 4px 8px;
   font-size: 1.22rem;

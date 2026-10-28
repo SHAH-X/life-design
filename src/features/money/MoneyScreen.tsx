@@ -205,7 +205,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
           </section>
         ) : null}
         {view === 'receipts' && month === thisMonth && receipts.length ? <ReceiptsShare receipts={receipts} /> : null}
-        {view === 'accounts' ? <Accounts /> : null}
+        {view === 'accounts' && !lines.length ? <Accounts /> : null}
         {payment ? (
           <PaymentSheet
             key={payment.line.id}
@@ -251,6 +251,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
 function AccountsMonth(props: { lines: readonly MoneyLine[]; month: string; today: string; statements: readonly StatementRecord[]; closed: ReadonlySet<string> }) {
   const { lines, month, today, statements, closed } = props
   const { names, kinds } = useContext(Receipts)
+  const [section, setSection] = useState<'overview' | 'spending' | 'accounts'>('overview')
   const its = moneyMonth(lines, month, today, statements, closed, kinds)
   const regular = regularPayments(lines, month)
   const current = month === today.slice(0, 7)
@@ -272,78 +273,31 @@ function AccountsMonth(props: { lines: readonly MoneyLine[]; month: string; toda
           <LinesLine className="money-overview-stat" overview label="Payments out" detail={paymentsWord(its.outLines.length)} lines={its.outLines} />
         </ul>
       </div>
-      <div className="card">
-        <Chart lines={lines} month={month} today={today} />
-      </div>
-      {anyRose ? (
-        <Section title="Where it rose" status={current ? `Next to ${lastMonth} by the same day` : `Next to ${lastMonth}`}>
-          <Groups
-            of={its.rose}
-            line={(r: Rise) => <LinesLine key={r.payee.key} label={r.payee.name} detail={`${pounds(r.now)}, up from ${pounds(r.before)}`} lines={r.lines} />}
-            fewer="Fewer than 3 payments, by name"
-          />
-        </Section>
+      <nav className="money-detail-switch" aria-label="Account details">
+        <button type="button" aria-pressed={section === 'overview'} onClick={() => setSection('overview')}>Overview</button>
+        <button type="button" aria-pressed={section === 'spending'} onClick={() => setSection('spending')}>Spending</button>
+        <button type="button" aria-pressed={section === 'accounts'} onClick={() => setSection('accounts')}>Accounts</button>
+      </nav>
+      {section === 'overview' ? (
+        <>
+          <div className="card"><Chart lines={lines} month={month} today={today} /></div>
+          {anyRose ? <Section title="Where it rose" status={current ? `Next to ${lastMonth} by the same day` : `Next to ${lastMonth}`}><Groups of={its.rose} line={(r: Rise) => <LinesLine key={r.payee.key} label={r.payee.name} detail={`${pounds(r.now)}, up from ${pounds(r.before)}`} lines={r.lines} />} fewer="Fewer than 3 payments, by name" /></Section> : null}
+          {regular.length ? <Section title="Regular payments"><ul className="plain-list compact">{regular.map((r) => <LinesLine key={r.payee.key} className="regular-payment-line" label={r.payee.name} detail={[`every ${r.every}`, pounds(r.amount), r.changed ? `was ${pounds(r.changed.from)} until ${dayMonth(r.changed.date)}` : ''].filter(Boolean).join(' · ')} lines={r.lines} action={<RenameRegularPayment payee={r.payee} />} />)}</ul></Section> : null}
+        </>
       ) : null}
-      {regular.length ? (
-        <Section title="Regular payments">
-          <ul className="plain-list compact">
-            {regular.map((r) => (
-              <LinesLine
-                key={r.payee.key}
-                className="regular-payment-line"
-                label={r.payee.name}
-                detail={[`every ${r.every}`, pounds(r.amount), r.changed ? `was ${pounds(r.changed.from)} until ${dayMonth(r.changed.date)}` : ''].filter(Boolean).join(' · ')}
-                lines={r.lines}
-                action={<RenameRegularPayment payee={r.payee} />}
-              />
-            ))}
-          </ul>
-        </Section>
+      {section === 'spending' ? (
+        <>
+          {its.outLines.length ? <Section title="By what it was for"><Groups of={its.kinds} line={(g: KindGroup) => <LinesLine key={g.kind} label={g.kind} detail={`${paymentsWord(g.lines.filter((l) => !l.refund).length)} · ${pounds(g.total)}`} lines={g.lines} />} fewer="Fewer than 3 payments, by name" /></Section> : null}
+          {its.outLines.length ? <Section title="Money out"><Groups of={its.payees.out} line={(g: PayeeGroup) => <PayeeLine key={g.payee.key} group={g} out />} fewer="Fewer than 3 payments, by name" /></Section> : null}
+          {its.inLines.length ? <Section title="Money in"><Groups of={its.payees.in} line={(g: PayeeGroup) => <PayeeLine key={g.payee.key} group={g} />} fewer="Fewer than 3 payments, by name" /></Section> : null}
+        </>
       ) : null}
-      {its.outLines.length ? (
-        <Section title="By what it was for">
-          <Groups
-            of={its.kinds}
-            line={(g: KindGroup) => <LinesLine key={g.kind} label={g.kind} detail={`${paymentsWord(g.lines.filter((l) => !l.refund).length)} · ${pounds(g.total)}`} lines={g.lines} />}
-            fewer="Fewer than 3 payments, by name"
-          />
-        </Section>
-      ) : null}
-      {its.outLines.length ? (
-        <Section title="Money out">
-          <Groups of={its.payees.out} line={(g: PayeeGroup) => <PayeeLine key={g.payee.key} group={g} out />} fewer="Fewer than 3 payments, by name" />
-        </Section>
-      ) : null}
-      {its.inLines.length ? (
-        <Section title="Money in">
-          <Groups of={its.payees.in} line={(g: PayeeGroup) => <PayeeLine key={g.payee.key} group={g} />} fewer="Fewer than 3 payments, by name" />
-        </Section>
-      ) : null}
-      {its.moved.length ? (
-        <Section title="Moved between your accounts" status="Left out of money in and out">
-          <ul className="plain-list compact">
-            {its.moved.map((m) =>
-              m.why === 'own' ? (
-                <OwnLines key={m.why} lines={m.lines} />
-              ) : (
-                <LinesLine key={m.why} label={MOVED[m.why]} detail={movesWord(joinMoves(m.lines).length)} lines={m.lines} moves />
-              ),
-            )}
-          </ul>
-        </Section>
-      ) : null}
-      {its.toCheck.lines.length || its.toCheck.accounts.length ? (
-        <Section title="To check">
-          <ul className="plain-list compact">
-            {its.toCheck.accounts.map((a) => (
-              <li key={a.account}>
-                {names.get(a.account) ?? a.account}
-                <span className="muted small"> · statements up to {dayMonth(a.until)}</span>
-              </li>
-            ))}
-          </ul>
-          {its.toCheck.lines.length ? <LineList lines={its.toCheck.lines} why="doesn’t match its printed balance" /> : null}
-        </Section>
+      {section === 'accounts' ? (
+        <>
+          {its.moved.length ? <Section title="Moved between your accounts" status="Left out of money in and out"><ul className="plain-list compact">{its.moved.map((m) => m.why === 'own' ? <OwnLines key={m.why} lines={m.lines} /> : <LinesLine key={m.why} label={MOVED[m.why]} detail={movesWord(joinMoves(m.lines).length)} lines={m.lines} moves />)}</ul></Section> : null}
+          {its.toCheck.lines.length || its.toCheck.accounts.length ? <Section title="To check"><ul className="plain-list compact">{its.toCheck.accounts.map((a) => <li key={a.account}>{names.get(a.account) ?? a.account}<span className="muted small"> · statements up to {dayMonth(a.until)}</span></li>)}</ul>{its.toCheck.lines.length ? <LineList lines={its.toCheck.lines} why="doesn’t match its printed balance" /> : null}</Section> : null}
+          <Accounts />
+        </>
       ) : null}
     </>
   )

@@ -23,6 +23,10 @@ async function bringIn(page: Page, path: string) {
   return sheet
 }
 
+async function accountView(page: Page, name: 'Overview' | 'Spending' | 'Accounts') {
+  await page.locator('.money-detail-switch').getByRole('button', { name, exact: true }).click()
+}
+
 test('a statement’s PDF is read on the phone and its accounts kept, each line once; nothing leaves this site', async ({ page, baseURL }, testInfo) => {
   const urls: string[] = []
   page.on('request', (r) => urls.push(r.url()))
@@ -36,6 +40,7 @@ test('a statement’s PDF is read on the phone and its accounts kept, each line 
   let sheet = await bringIn(page, lloyds)
   await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveText([/^Lloyds: 4 new · 1 ?– ?30 Sept?$/])
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  await accountView(page, 'Accounts')
   const lloydsRow = accounts.getByRole('listitem')
   await expect(lloydsRow).toContainText('Lloyds')
   await expect(lloydsRow).toContainText(/1\s+–\s+30 Sep 2026/)
@@ -99,6 +104,7 @@ test('a Monzo Flex statement reads as Monzo Flex, every line matching; an accoun
   const sheet = await bringIn(page, await pdf(testInfo.outputPath('flex.pdf'), FLEX_LIKE))
   await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveText([/^Monzo Flex: 5 new · 1 ?– ?30 Sept?$/])
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  await accountView(page, 'Accounts')
   const accounts = page.getByRole('region', { name: 'Your accounts', exact: true })
   await expect(accounts.getByRole('listitem')).toContainText(/1\s+–\s+30 Sep 2026/)
 
@@ -136,14 +142,15 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   await expect(page.getByRole('strong')).toHaveText('£126.49 out')
   const summary = page.locator('.card').first().locator('summary')
   await expect(summary).toHaveText(['Money in £1601.25', 'Payments out 8 payments'])
-  const moved = page.getByRole('region', { name: 'Moved between your accounts' })
-  await expect(moved.locator('summary')).toHaveText(['Monzo Flex · 2 moves', 'Pots · 1 move'])
+  await accountView(page, 'Spending')
 
   // A N OTHER is you, paying yourself: once said, its money leaves the totals; and comes back when unsaid.
   const moneyIn = page.getByRole('region', { name: 'Money in' })
   await moneyIn.locator('summary', { hasText: 'A N OTHER' }).click()
   await moneyIn.getByRole('button', { name: 'It’s me, moving money' }).click()
   await expect(summary).toHaveText(['Money in £1501.25', 'Payments out 8 payments'])
+  await accountView(page, 'Accounts')
+  const moved = page.getByRole('region', { name: 'Moved between your accounts' })
   await expect(moved.locator('summary')).toHaveText(['Monzo Flex · 2 moves', 'Pots · 1 move', 'A N OTHER · Your own account · 1 move'])
   // A statement prints your name, not which account: named your way, it's remembered.
   // Each row says where the money went; a pot's move is one row (owner, 2026-10-26).
@@ -163,6 +170,7 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   await moved.getByRole('button', { name: 'It’s not me: count it again' }).click()
   await expect(summary).toHaveText(['Money in £1601.25', 'Payments out 8 payments'])
   // Paid by card or direct debit: never asked.
+  await accountView(page, 'Spending')
   const moneyOut = page.getByRole('region', { name: 'Money out' })
   await moneyOut.locator('summary', { hasText: 'EXAMPLE STREAMING' }).click()
   await expect(moneyOut.getByRole('button', { name: 'It’s me, moving money' })).toHaveCount(0)
@@ -200,6 +208,7 @@ test('a regular payment can be renamed across existing transactions and a later 
 
   for (const month of ['2026-07', '2026-08', '2026-09']) {
     await page.goto(`./#/money/${month}`)
+    await accountView(page, 'Spending')
     const monthOut = page.getByRole('region', { name: 'Money out' })
     await expect(monthOut.locator('details.week-line summary').filter({ hasText: 'Example streaming' })).toContainText('Example streaming')
   }
@@ -216,6 +225,7 @@ test('a regular payment can be renamed across existing transactions and a later 
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
 
   await page.goto('./#/money')
+  await accountView(page, 'Spending')
   const octoberOut = page.getByRole('region', { name: 'Money out' })
   await expect(octoberOut.locator('details.week-line summary').filter({ hasText: 'Example streaming' })).toContainText('Example streaming')
   await expect(octoberOut.locator('details.week-line summary').filter({ hasText: 'Example streaming' })).toContainText('1 payment')
