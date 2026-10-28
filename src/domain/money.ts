@@ -394,7 +394,29 @@ export function regularPayments(lines: readonly MoneyLine[], month: string): Reg
       break
     }
   }
-  return found.sort(byName)
+  return found.sort((a, b) => b.amount - a.amount || byName(a, b))
+}
+
+export interface RegularTotals {
+  /** Sum of regular payment amounts, in pence. */
+  total: number
+  /** Sum of monthly regular payment amounts, in pence. */
+  monthly: number
+  /** Sum of weekly regular payment amounts, in pence. */
+  weekly: number
+  count: number
+}
+
+/** Calculates total regular commitments separately, split by cadence. */
+export function regularPaymentsTotal(regular: readonly Regular[]): RegularTotals {
+  const monthly = regular.filter((r) => r.every === 'month').reduce((s, r) => s + r.amount, 0)
+  const weekly = regular.filter((r) => r.every === 'week').reduce((s, r) => s + r.amount, 0)
+  return {
+    total: monthly + weekly,
+    monthly,
+    weekly,
+    count: regular.length,
+  }
 }
 
 /** How many days a card payment can be from its receipt's date: it can post a day or two later. */

@@ -19,7 +19,7 @@ import {
   unmatchReceiptPayment,
 } from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
-import { classify, joinMoves, type KindGroup, kindOf, linkReceipts, mayBeOwn, payeeOf, type PaymentRow, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type Payee, type PayeeGroup, type Ranked, regularPayments, receiptPaymentCandidates, type Rise, type Regular } from '../../domain/money'
+import { classify, joinMoves, type KindGroup, kindOf, linkReceipts, mayBeOwn, payeeOf, type PaymentRow, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type Payee, type PayeeGroup, type Ranked, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, type Rise, type Regular } from '../../domain/money'
 import { inWords, type KnownReceipt, money, paid, receiptsAndCopies, shiftMonth, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -254,6 +254,13 @@ function AccountsMonth(props: { lines: readonly MoneyLine[]; month: string; toda
   const [section, setSection] = useState<'overview' | 'spending' | 'accounts'>('overview')
   const its = moneyMonth(lines, month, today, statements, closed, kinds)
   const regular = regularPayments(lines, month)
+  const regularTotals = regularPaymentsTotal(regular)
+  const regularStatus =
+    regularTotals.weekly > 0 && regularTotals.monthly > 0
+      ? `${pounds(regularTotals.monthly)}/mo + ${pounds(regularTotals.weekly)}/wk · ${paymentsWord(regular.length)}`
+      : regularTotals.weekly > 0
+        ? `${pounds(regularTotals.weekly)} a week · ${paymentsWord(regular.length)}`
+        : `${pounds(regularTotals.monthly)} a month · ${paymentsWord(regular.length)}`
   const current = month === today.slice(0, 7)
   const lastMonth = monthName(shiftMonth(month, -1))
   const anyRose = its.rose.ranked.length + its.rose.others.length > 0
@@ -282,7 +289,24 @@ function AccountsMonth(props: { lines: readonly MoneyLine[]; month: string; toda
         <>
           <div className="card"><Chart lines={lines} month={month} today={today} /></div>
           {anyRose ? <Section title="Where it rose" status={current ? `Next to ${lastMonth} by the same day` : `Next to ${lastMonth}`}><Groups of={its.rose} line={(r: Rise) => <RiseLine key={r.payee.key} rise={r} />} fewer="Fewer than 3 payments, by name" /></Section> : null}
-          {regular.length ? <Section title="Regular payments"><ul className="plain-list compact">{regular.map((r) => <RegularPaymentLine key={r.payee.key} item={r} />)}</ul></Section> : null}
+          {regular.length ? (
+            <Section title="Regular payments" status={regularStatus}>
+              <div className="regular-payments-total-card">
+                <div className="regular-payments-total-info">
+                  <span className="regular-payments-total-label">Total regular payments</span>
+                  <span className="muted small">
+                    {regularTotals.weekly > 0 && regularTotals.monthly > 0
+                      ? `${pounds(regularTotals.monthly)} monthly · ${pounds(regularTotals.weekly)} weekly`
+                      : regularTotals.weekly > 0
+                        ? `${paymentsWord(regular.length)}, all weekly`
+                        : `${paymentsWord(regular.length)}, all monthly`}
+                  </span>
+                </div>
+                <span className="regular-payments-total-figure">{pounds(regularTotals.total)}</span>
+              </div>
+              <ul className="plain-list compact">{regular.map((r) => <RegularPaymentLine key={r.payee.key} item={r} />)}</ul>
+            </Section>
+          ) : null}
         </>
       ) : null}
       {section === 'spending' ? (
@@ -481,19 +505,21 @@ function RiseLine({ rise }: { rise: Rise }) {
 }
 
 function RegularPaymentLine({ item }: { item: Regular }) {
-  const detailParts = [`every ${item.every}`, pounds(item.amount), item.changed ? `was ${pounds(item.changed.from)} until ${dayMonth(item.changed.date)}` : ''].filter(Boolean)
+  const detailParts = [`every ${item.every}`, item.changed ? `was ${pounds(item.changed.from)} until ${dayMonth(item.changed.date)}` : ''].filter(Boolean)
   return (
     <li className="regular-payment-line">
       <details className="week-line">
         <summary className="regular-payment-summary">
-          <span className="regular-payment-header">
-            <span className="regular-payment-name">{item.payee.name}</span>
-            <span className="regular-payment-pill" aria-hidden="true">
-              {item.every === 'week' ? 'Weekly' : 'Monthly'}
+          <span className="regular-payment-top">
+            <span className="regular-payment-header">
+              <span className="regular-payment-name">{item.payee.name}</span>
+              <span className="regular-payment-pill" aria-hidden="true">
+                {item.every === 'week' ? 'Weekly' : 'Monthly'}
+              </span>
             </span>
+            <span className="regular-payment-amount">{pounds(item.amount)}</span>
           </span>
           <span className="muted small">
-            {' · '}
             {detailParts.join(' · ')}
           </span>
         </summary>

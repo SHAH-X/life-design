@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, receiptPaymentCandidates } from '../../src/domain/money'
+import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
@@ -316,6 +316,35 @@ describe('regularPayments: the same payee paid every month or every week', () =>
       ...['2026-08-17', '2026-09-17', '2026-10-17'].map((d) => line(CURRENT, d, -100, 'Flex')),
     ]
     expect(regularPayments(classify(lines, new Set()), '2026-10')).toEqual([])
+  })
+
+  it('arranges regular payments in decreasing order of value, highest at the top', () => {
+    const lines = [
+      ...monthly(['2026-08-10', '2026-09-10', '2026-10-10'], [9.99, 9.99, 9.99], 'CHEAPER STREAMING'),
+      ...monthly(['2026-08-01', '2026-09-01', '2026-10-01'], [120, 120, 120], 'EXPENSIVE GYM'),
+      ...monthly(['2026-08-15', '2026-09-15', '2026-10-15'], [35, 35, 35], 'MEDIUM INTERNET'),
+    ]
+    const result = regularPayments(classify(lines, new Set()), '2026-10')
+    expect(result.map((r) => [r.payee.name, r.amount])).toEqual([
+      ['EXPENSIVE GYM', 12000],
+      ['MEDIUM INTERNET', 3500],
+      ['CHEAPER STREAMING', 999],
+    ])
+  })
+
+  it('calculates regular payments total separately, including monthly and weekly split', () => {
+    const lines = [
+      ...monthly(['2026-08-10', '2026-09-10', '2026-10-10'], [10, 10, 10], 'STREAMING'),
+      ...['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22'].map((d) => line(BANK, d, -5, 'WEEKLY BOX')),
+    ]
+    const regular = regularPayments(classify(lines, new Set()), '2026-10')
+    const totals = regularPaymentsTotal(regular)
+    expect(totals).toEqual({
+      total: 1500,
+      monthly: 1000,
+      weekly: 500,
+      count: 2,
+    })
   })
 })
 
