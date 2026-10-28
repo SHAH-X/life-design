@@ -19,7 +19,7 @@ import {
   unmatchReceiptPayment,
 } from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
-import { classify, joinMoves, type KindGroup, kindOf, linkReceipts, mayBeOwn, payeeOf, type PaymentRow, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type Payee, type PayeeGroup, type Ranked, regularPayments, receiptPaymentCandidates, type Rise } from '../../domain/money'
+import { classify, joinMoves, type KindGroup, kindOf, linkReceipts, mayBeOwn, payeeOf, type PaymentRow, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type Payee, type PayeeGroup, type Ranked, regularPayments, receiptPaymentCandidates, type Rise, type Regular } from '../../domain/money'
 import { inWords, type KnownReceipt, money, paid, receiptsAndCopies, shiftMonth, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -281,13 +281,13 @@ function AccountsMonth(props: { lines: readonly MoneyLine[]; month: string; toda
       {section === 'overview' ? (
         <>
           <div className="card"><Chart lines={lines} month={month} today={today} /></div>
-          {anyRose ? <Section title="Where it rose" status={current ? `Next to ${lastMonth} by the same day` : `Next to ${lastMonth}`}><Groups of={its.rose} line={(r: Rise) => <LinesLine key={r.payee.key} label={r.payee.name} detail={`${pounds(r.now)}, up from ${pounds(r.before)}`} lines={r.lines} />} fewer="Fewer than 3 payments, by name" /></Section> : null}
-          {regular.length ? <Section title="Regular payments"><ul className="plain-list compact">{regular.map((r) => <LinesLine key={r.payee.key} className="regular-payment-line" label={r.payee.name} detail={[`every ${r.every}`, pounds(r.amount), r.changed ? `was ${pounds(r.changed.from)} until ${dayMonth(r.changed.date)}` : ''].filter(Boolean).join(' · ')} lines={r.lines} action={<RenameRegularPayment payee={r.payee} />} />)}</ul></Section> : null}
+          {anyRose ? <Section title="Where it rose" status={current ? `Next to ${lastMonth} by the same day` : `Next to ${lastMonth}`}><Groups of={its.rose} line={(r: Rise) => <RiseLine key={r.payee.key} rise={r} />} fewer="Fewer than 3 payments, by name" /></Section> : null}
+          {regular.length ? <Section title="Regular payments"><ul className="plain-list compact">{regular.map((r) => <RegularPaymentLine key={r.payee.key} item={r} />)}</ul></Section> : null}
         </>
       ) : null}
       {section === 'spending' ? (
         <>
-          {its.outLines.length ? <Section title="By what it was for"><Groups of={its.kinds} line={(g: KindGroup) => <LinesLine key={g.kind} label={g.kind} detail={`${paymentsWord(g.lines.filter((l) => !l.refund).length)} · ${pounds(g.total)}`} lines={g.lines} />} fewer="Fewer than 3 payments, by name" /></Section> : null}
+          {its.outLines.length ? <Section title="By what it was for"><Groups of={its.kinds} line={(g: KindGroup) => <KindMeterLine key={g.kind} group={g} totalOut={its.out} />} fewer="Fewer than 3 payments, by name" /></Section> : null}
           {its.outLines.length ? <Section title="Money out"><Groups of={its.payees.out} line={(g: PayeeGroup) => <PayeeLine key={g.payee.key} group={g} out />} fewer="Fewer than 3 payments, by name" /></Section> : null}
           {its.inLines.length ? <Section title="Money in"><Groups of={its.payees.in} line={(g: PayeeGroup) => <PayeeLine key={g.payee.key} group={g} />} fewer="Fewer than 3 payments, by name" /></Section> : null}
         </>
@@ -436,30 +436,110 @@ function RenameRegularPayment({ payee }: { payee: Payee }) {
   )
 }
 
+function KindMeterLine({ group, totalOut }: { group: KindGroup; totalOut: number }) {
+  const count = group.lines.filter((l) => !l.refund).length
+  const pct = totalOut > 0 ? Math.min(100, Math.max(2, Math.round((group.total / totalOut) * 100))) : 0
+  return (
+    <li className="money-kind-row">
+      <details className="week-line">
+        <summary className="money-kind-summary">
+          <span className="money-kind-header">
+            <span className="money-kind-label">{group.kind}</span>
+            <span className="muted small">
+              {' · '}
+              {paymentsWord(count)} · {pounds(group.total)}
+            </span>
+          </span>
+          <span className="money-kind-meter" aria-hidden="true">
+            <span className="money-kind-meter-fill" style={{ width: `${pct}%` }} />
+          </span>
+        </summary>
+        <LineList lines={group.lines} />
+      </details>
+    </li>
+  )
+}
+
+function RiseLine({ rise }: { rise: Rise }) {
+  const diff = rise.now - rise.before
+  return (
+    <li className="money-rise-row">
+      <details className="week-line">
+        <summary className="money-rise-summary">
+          <span className="money-rise-header">
+            <span className="money-rise-label">{rise.payee.name}</span>
+            <span className="money-rise-badge" aria-hidden="true">
+              +{pounds(diff)}
+            </span>
+          </span>
+          <span className="muted small">
+            {' · '}
+            {pounds(rise.now)}, up from {pounds(rise.before)}
+          </span>
+        </summary>
+        <LineList lines={rise.lines} />
+      </details>
+    </li>
+  )
+}
+
+function RegularPaymentLine({ item }: { item: Regular }) {
+  const detailParts = [`every ${item.every}`, pounds(item.amount), item.changed ? `was ${pounds(item.changed.from)} until ${dayMonth(item.changed.date)}` : ''].filter(Boolean)
+  return (
+    <li className="regular-payment-line">
+      <details className="week-line">
+        <summary className="regular-payment-summary">
+          <span className="regular-payment-header">
+            <span className="regular-payment-name">{item.payee.name}</span>
+            <span className="regular-payment-pill" aria-hidden="true">
+              {item.every === 'week' ? 'Weekly' : 'Monthly'}
+            </span>
+          </span>
+          <span className="muted small">
+            {' · '}
+            {detailParts.join(' · ')}
+          </span>
+        </summary>
+        <LineList lines={item.lines} />
+      </details>
+      <RenameRegularPayment payee={item.payee} />
+    </li>
+  )
+}
+
 /** A payee, opening to its payments, and, where it could be, a way to say it's you moving money (the payee is remembered:
  *  its lines leave the totals, in later statements too). */
 function PayeeLine({ group, out = false }: { group: PayeeGroup; out?: boolean }) {
   const { kinds, links, names, notes, openKind, openPayment } = useContext(Receipts)
   const kind = out ? kindOf(group.lines[0]!, kinds) : null
   const line = group.lines[0]!
-  // A single payment is already the detail: open it directly. A disclosure only earns its place when it contains a
-  // choice of payments.
-  if (group.lines.length === 1) {
-    const account = names.get(line.account) ?? line.account
-    const way = line.amount < 0 ? `Out of ${account}` : line.refund ? `Back into ${account}` : `Into ${account}`
-    const receipt = links.get(line.id)
-    const note = notes[line.id]
+  const account = names.get(line.account) ?? line.account
+  const way = line.amount < 0 ? `Out of ${account}` : line.refund ? `Back into ${account}` : `Into ${account}`
+  const receipt = links.get(line.id)
+  const note = notes[line.id]
+  const single = group.lines.length === 1
+  if (single) {
     return (
       <li className="payee-single">
-        <button type="button" className="payee-single-payment" onClick={() => openPayment(line, way)}>
-          <span className="payee-single-copy">
-            <span className="payee-single-name">{group.payee.name}</span>
-            <span className="payee-single-detail">{shortDayMonth(line.date)} · {way}{receipt ? ' · Receipt' : ''}{note ? ` · “${note}”` : ''}</span>
-          </span>
-          <span className="payee-single-amount">{pounds(Math.abs(line.amount))}</span>
-        </button>
-        {out ? <button type="button" className="payee-kind-action" aria-label={`What ${group.payee.name} is for`} onClick={() => openKind(group)}>{kind ? `${kind} · Change` : 'What is it for?'}</button> : null}
-        {mayBeOwn(group.lines) ? <button type="button" className="small-link payee-own-action" onClick={() => void markOwnPayee(group.payee.key, true)}>It’s me, moving money</button> : null}
+        <details className="week-line" open>
+          <summary>
+            <span>{group.payee.name}</span>
+            <span className="muted small">
+              {' '}
+              · {kind ? `${kind} · ` : ''}
+              {paymentsWord(group.lines.filter((l) => !l.refund).length)} · {pounds(group.total)}
+            </span>
+          </summary>
+          <button type="button" className="payee-single-payment" onClick={() => openPayment(line, way)}>
+            <span className="payee-single-copy">
+              <span className="payee-single-name">{group.payee.name}</span>
+              <span className="payee-single-detail">{shortDayMonth(line.date)} · {way}{receipt ? ' · Receipt' : ''}{note ? ` · “${note}”` : ''}</span>
+            </span>
+            <span className="payee-single-amount">{pounds(Math.abs(line.amount))}</span>
+          </button>
+          {out ? <button type="button" className="payee-kind-action" aria-label={`What ${group.payee.name} is for`} onClick={() => openKind(group)}>{kind ? `${kind} · Change` : 'What is it for?'}</button> : null}
+          {mayBeOwn(group.lines) ? <button type="button" className="small-link payee-own-action" onClick={() => void markOwnPayee(group.payee.key, true)}>It’s me, moving money</button> : null}
+        </details>
       </li>
     )
   }
