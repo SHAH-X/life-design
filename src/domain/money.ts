@@ -255,6 +255,9 @@ export interface MoneyMonth {
   }
 }
 
+/** A spending rise needs at least £1.00 (in pence) and spending before (owner, 2026-10-28: new payees and penny FX changes left out). */
+export const MIN_RISE = 100
+
 const byName = (a: { payee: Payee }, b: { payee: Payee }) => a.payee.name.localeCompare(b.payee.name, 'en', { sensitivity: 'base' })
 const sumOut = (lines: readonly MoneyLine[]) => lines.reduce((s, l) => s - l.amount, 0)
 const counted = (lines: readonly MoneyLine[], month: string) => lines.filter((l) => !l.moving && l.date.slice(0, 7) === month)
@@ -300,7 +303,7 @@ export function moneyMonth(
     ? groupBy([...outLines, ...beforeLines], (l) => l.payee.key).flatMap((same): Rise[] => {
         const now = sumOut(same.filter((l) => l.date.slice(0, 7) === month))
         const before = sumOut(same.filter((l) => l.date.slice(0, 7) === lastMonth))
-        return now > before ? [{ payee: same[0]!.payee, now, before, lines: same }] : []
+        return before > 0 && now - before >= MIN_RISE ? [{ payee: same[0]!.payee, now, before, lines: same }] : []
       })
     : []
 

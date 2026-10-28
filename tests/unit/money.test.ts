@@ -256,13 +256,9 @@ describe('moneyMonth: a month of your accounts, worked out on the phone', () => 
     expect(october.before).toMatchObject({ until: '2026-09-26', out: 3099 })
   })
 
-  it('says where spending rose: payees with more out than by this day last month, a chain’s names as one; ranked by how much more only with 3+ payments', () => {
+  it('says where spending rose by at least £1 and had spending before, a chain’s names as one; ranked by how much more only with 3+ payments', () => {
     expect(october.rose.ranked.map((r) => [r.payee.name, r.now, r.before])).toEqual([['Tesco', 5500, 2000]])
-    expect(october.rose.others.map((r) => [r.payee.name, r.now, r.before])).toEqual([
-      ['BUS FARE', 500, 0],
-      ['CORNER SHOP', 1500, 0],
-      ['EXAMPLE STREAMING', 1299, 1099],
-    ])
+    expect(october.rose.others.map((r) => [r.payee.name, r.now, r.before])).toEqual([['EXAMPLE STREAMING', 1299, 1099]])
   })
 
   it('groups money out and in by payee (ranked only with 3+ payments, the rest by name), and lists money moved apart', () => {

@@ -2127,34 +2127,40 @@ button.line-button {
 
 .money-screen .money-rise-summary {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
+  flex-direction: column;
+  gap: 2px;
   padding: 9px 4px;
 }
 
-.money-screen .money-rise-header {
-  display: inline-flex;
-  align-items: center;
+.money-screen .money-rise-top {
+  display: flex;
+  align-items: baseline;
   gap: 8px;
 }
 
 .money-screen .money-rise-label {
   font-weight: 650;
   color: var(--text);
+  flex: 1;
+  min-width: 0;
 }
 
-.money-screen .money-rise-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--warn-bg);
-  color: #7c4a00;
-  font-size: 0.76rem;
-  font-weight: 700;
+.money-screen .money-rise-amount {
+  font-weight: 650;
   font-variant-numeric: tabular-nums;
-  border: 1px solid var(--border);
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.money-screen .money-rise-delta {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #7c4a00;
+}
+
+.money-screen .money-rise-prev {
+  font-size: 0.82rem;
+  color: var(--muted);
 }
 
 /* Regular payment card row */
