@@ -439,8 +439,30 @@ function RenameRegularPayment({ payee }: { payee: Payee }) {
 /** A payee, opening to its payments, and, where it could be, a way to say it's you moving money (the payee is remembered:
  *  its lines leave the totals, in later statements too). */
 function PayeeLine({ group, out = false }: { group: PayeeGroup; out?: boolean }) {
-  const { kinds, openKind } = useContext(Receipts)
+  const { kinds, links, names, notes, openKind, openPayment } = useContext(Receipts)
   const kind = out ? kindOf(group.lines[0]!, kinds) : null
+  const line = group.lines[0]!
+  // A single payment is already the detail: open it directly. A disclosure only earns its place when it contains a
+  // choice of payments.
+  if (group.lines.length === 1) {
+    const account = names.get(line.account) ?? line.account
+    const way = line.amount < 0 ? `Out of ${account}` : line.refund ? `Back into ${account}` : `Into ${account}`
+    const receipt = links.get(line.id)
+    const note = notes[line.id]
+    return (
+      <li className="payee-single">
+        <button type="button" className="payee-single-payment" onClick={() => openPayment(line, way)}>
+          <span className="payee-single-copy">
+            <span className="payee-single-name">{group.payee.name}</span>
+            <span className="payee-single-detail">{shortDayMonth(line.date)} · {way}{receipt ? ' · Receipt' : ''}{note ? ` · “${note}”` : ''}</span>
+          </span>
+          <span className="payee-single-amount">{pounds(Math.abs(line.amount))}</span>
+        </button>
+        {out ? <button type="button" className="payee-kind-action" aria-label={`What ${group.payee.name} is for`} onClick={() => openKind(group)}>{kind ? `${kind} · Change` : 'What is it for?'}</button> : null}
+        {mayBeOwn(group.lines) ? <button type="button" className="small-link payee-own-action" onClick={() => void markOwnPayee(group.payee.key, true)}>It’s me, moving money</button> : null}
+      </li>
+    )
+  }
   return (
     <li>
       <details className="week-line">
