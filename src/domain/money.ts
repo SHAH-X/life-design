@@ -363,7 +363,9 @@ const CADENCE = { week: { least: 4, from: 6, to: 8 }, month: { least: 3, from: 2
 /** Payees paid every week or month, their latest payment in the month or the one before: the latest run of payments
  *  that far apart, 4 a week or 3 a month at least. A shop paid on many days isn't regular; money moved isn't either. */
 export function regularPayments(lines: readonly MoneyLine[], month: string): Regular[] {
-  const out = lines.filter((l) => !l.moving && l.amount < 0).sort((a, b) => a.date.localeCompare(b.date))
+  // An older Money page describes what was regular at that time. Payments from later statements must not make its
+  // latest run look too new and disappear (for example, viewing September after importing October).
+  const out = lines.filter((l) => !l.moving && l.amount < 0 && l.date.slice(0, 7) <= month).sort((a, b) => a.date.localeCompare(b.date))
   const found: Regular[] = []
   for (const paid of groupBy(out, (l) => l.payee.key)) {
     for (const every of ['week', 'month'] as const) {
@@ -376,7 +378,7 @@ export function regularPayments(lines: readonly MoneyLine[], month: string): Reg
       }
       const run = paid.slice(start)
       const last = run.at(-1)!
-      if (run.length < least || last.date.slice(0, 7) > month || last.date.slice(0, 7) < shiftMonth(month, -1)) continue
+      if (run.length < least || last.date.slice(0, 7) < shiftMonth(month, -1)) continue
       const before = run.at(-2)!
       found.push({
         payee: last.payee,

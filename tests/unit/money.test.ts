@@ -308,6 +308,11 @@ describe('regularPayments: the same payee paid every month or every week', () =>
     expect(regularPayments(classify(lines, new Set()), '2026-10').map((r) => [r.payee.name, r.every, r.amount, r.changed])).toEqual([['WEEKLY BOX', 'week', 350, null]])
   })
 
+  it('keeps a series regular when an earlier month is opened after later statements arrived', () => {
+    const lines = monthly(['2026-07-10', '2026-08-10', '2026-09-10', '2026-10-10'], [9.99, 9.99, 9.99, 9.99])
+    expect(regularPayments(classify(lines, new Set()), '2026-09').map((r) => [r.payee.name, r.last])).toEqual([['EXAMPLE STREAMING', '2026-09-10']])
+  })
+
   it('finds none from 2 months, from a shop paid on many days, or from money moved', () => {
     const lines = [
       ...monthly(['2026-09-10', '2026-10-10'], [5, 5], 'TWO MONTHS'),
