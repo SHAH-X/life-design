@@ -306,29 +306,28 @@ test('a card payment with its receipt opens the receipt', async ({ page }, testI
   await page.goto('./#/money')
   const sheet = await bringIn(page, await pdf(testInfo.outputPath('lloyds.pdf'), LLOYDS_LIKE))
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  await accountView(page, 'Spending')
 
   const out = page.getByRole('region', { name: 'Money out' })
-  await out.locator('summary', { hasText: 'EXAMPLE STREAMING' }).click()
-  // One payee, one account: each row is its day and amount, the account said once below.
-  const payment = out.getByRole('button', { name: /^Sat,? 12 Sept? Out of Lloyds · receipt £10\.99$/ })
+  // One payment is already its complete row: it opens directly, with no empty disclosure to expand.
+  const payment = out.getByRole('button', { name: /^EXAMPLE STREAMING Sat,? 12 Sept? Out of Lloyds · Receipt £10\.99$/ })
   await payment.click()
   await page.getByRole('dialog', { name: 'EXAMPLE STREAMING' }).getByRole('button', { name: 'Open its receipt' }).click()
   await expect(page.getByRole('dialog', { name: 'Photo' })).toBeVisible()
-  // A payment with no receipt is only words.
+  // A payment with no receipt is still a direct row.
   await page.getByRole('dialog', { name: 'Photo' }).getByRole('button', { name: 'Done', exact: true }).click()
-  await out.locator('summary', { hasText: 'EXAMPLE ENERGY' }).click()
-  const energy = out.locator('details', { hasText: 'EXAMPLE ENERGY' })
-  await expect(energy.locator('.evidence-list li')).toHaveText([/^Wed,? 2 Sept? ?Out of Lloyds ?£45\.00$/])
+  const energy = out.locator('.payee-single', { hasText: 'EXAMPLE ENERGY' })
+  await expect(energy.getByRole('button', { name: /^EXAMPLE ENERGY Wed,? 2 Sept? Out of Lloyds £45\.00$/ })).toBeVisible()
 
   // What a payment was for (owner, 2026-10-26): a kind for its payee, kept for all its payments, and a note on one.
   await energy.getByRole('button', { name: 'What EXAMPLE ENERGY is for' }).click()
   await page.getByRole('dialog', { name: 'What is EXAMPLE ENERGY for?' }).getByRole('radio', { name: 'Energy', exact: true }).click()
-  await expect(energy.locator('summary')).toHaveText('EXAMPLE ENERGY · Energy · 1 payment · £45.00')
+  await expect(energy.getByRole('button', { name: 'What EXAMPLE ENERGY is for' })).toHaveText('Energy · Change')
   await expect(page.getByRole('region', { name: 'By what it was for' }).locator('summary', { hasText: 'Energy' })).toHaveText('Energy · 1 payment · £45.00')
-  await energy.locator('.evidence-list').getByRole('button').click()
+  await energy.locator('.payee-single-payment').click()
   const paymentSheet = page.getByRole('dialog', { name: 'EXAMPLE ENERGY' })
   await expect(paymentSheet.getByRole('textbox', { name: 'What was it for?' })).toBeFocused()
   await paymentSheet.getByRole('textbox').fill('Winter bill')
   await paymentSheet.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(energy.locator('.evidence-list li')).toHaveText([/^Wed,? 2 Sept? ?Out of Lloyds · “Winter bill” ?£45\.00$/])
+  await expect(energy.getByRole('button', { name: /Winter bill/ })).toBeVisible()
 })

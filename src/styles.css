@@ -2047,6 +2047,70 @@ button.line-button {
   margin: 0;
 }
 
+/* One payment is shown as a complete, tappable record. Accordion rows are reserved for payees with a real choice of
+   payments underneath, avoiding an empty-feeling disclosure for a single line. */
+.money-screen .payee-single {
+  padding: 0 0 12px;
+}
+
+.money-screen .payee-single-payment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  width: 100%;
+  min-height: 76px;
+  padding: 12px 4px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  text-align: left;
+}
+
+.money-screen .payee-single-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.money-screen .payee-single-name {
+  overflow: hidden;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.money-screen .payee-single-detail {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.money-screen .payee-single-amount {
+  align-self: center;
+  padding-left: 12px;
+  font-size: 1.12rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.money-screen .payee-kind-action {
+  min-height: 34px;
+  padding: 0 10px;
+  border-color: var(--border);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.money-screen .payee-own-action {
+  margin-left: 4px;
+}
+
 .money-screen .account-row > span:first-child {
   min-width: 0;
   line-height: 1.45;
