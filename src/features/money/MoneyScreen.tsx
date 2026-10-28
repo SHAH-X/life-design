@@ -466,16 +466,13 @@ function RiseLine({ rise }: { rise: Rise }) {
     <li className="money-rise-row">
       <details className="week-line">
         <summary className="money-rise-summary">
-          <span className="money-rise-header">
+          <span className="money-rise-top">
             <span className="money-rise-label">{rise.payee.name}</span>
-            <span className="money-rise-badge" aria-hidden="true">
-              +{pounds(diff)}
+            <span className="money-rise-amount">
+              {pounds(rise.now)} <span className="money-rise-delta">+{pounds(diff)}</span>
             </span>
           </span>
-          <span className="muted small">
-            {' · '}
-            {pounds(rise.now)}, up from {pounds(rise.before)}
-          </span>
+          <span className="money-rise-prev">was {pounds(rise.before)} last month</span>
         </summary>
         <LineList lines={rise.lines} />
       </details>
