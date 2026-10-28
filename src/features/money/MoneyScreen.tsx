@@ -21,7 +21,7 @@ import {
 import type { StatementRecord } from '../../db/types'
 import { classify, joinMoves, type KindGroup, kindOf, linkReceipts, mayBeOwn, payeeOf, type PaymentRow, type MoneyLine, moneyMonth, moneyMonthTotals, type Moving, type Payee, type PayeeGroup, type Ranked, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, type Rise, type Regular } from '../../domain/money'
 import { inWords, type KnownReceipt, money, paid, receiptsAndCopies, shiftMonth, shoppingMonth, shoppingMonths } from '../../domain/shopping'
-import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth, toDateKey } from '../../lib/dates'
+import { dayMonth, monthName, monthYear, shortDayMonth, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { MonthChart } from '../../ui/charts/MonthChart'
 import { Loading } from '../../ui/Loading'
@@ -59,6 +59,7 @@ const Receipts = createContext<{
   notes: Readonly<Record<string, string>>
   openPayment: (line: MoneyLine, way: string) => void
   openKind: (group: PayeeGroup) => void
+  openRename: (payee: Payee) => void
 }>({
   links: new Map(),
   receiptReasons: {},
@@ -68,6 +69,7 @@ const Receipts = createContext<{
   notes: {},
   openPayment: () => {},
   openKind: () => {},
+  openRename: () => {},
 })
 
 /**
@@ -89,6 +91,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const receiptReviews = useLiveQuery(async () => receiptReviewState((await db.settings.get(RECEIPT_REVIEWS))?.value), [])
   const [payment, setPayment] = useState<{ line: MoneyLine; way: string } | null>(null)
   const [kindFor, setKindFor] = useState<PayeeGroup | null>(null)
+  const [renaming, setRenaming] = useState<Payee | null>(null)
   const ownWords = useOwnWords()
   const purpose = usePurposeSettings()
   const suggestions = useLiveQuery(() => loadSuggestions(), [], NO_SUGGESTIONS)
@@ -138,7 +141,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
       : null
 
   return (
-    <Receipts.Provider value={{ links, receiptReasons, open, names, kinds, notes, openPayment: (line, way) => setPayment({ line, way }), openKind: setKindFor }}>
+    <Receipts.Provider value={{ links, receiptReasons, open, names, kinds, notes, openPayment: (line, way) => setPayment({ line, way }), openKind: setKindFor, openRename: setRenaming }}>
       <div className="money-screen">
         {month === thisMonth ? (
           <h1>Money</h1>
@@ -213,6 +216,13 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             way={payment.way}
             note={notes[payment.line.id] ?? ''}
             receiptSummary={paymentReceiptSummary}
+            kind={kindOf(payment.line, kinds)}
+            onKind={() => {
+              setKindFor({ payee: payment.line.payee, total: Math.abs(payment.line.amount), lines: [payment.line] })
+            }}
+            onRename={() => {
+              setRenaming(payment.line.payee)
+            }}
             onReceipt={
               links.get(payment.line.id)
                 ? () => {
@@ -239,6 +249,17 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             chosen={kinds[kindFor.payee.key] ?? null}
             guess={kindOf(kindFor.lines[0]!, {})}
             onClose={() => setKindFor(null)}
+          />
+        ) : null}
+        {renaming ? (
+          <RenameSheet
+            title="Rename transaction"
+            shown={renaming.name}
+            hint={renaming.original ? `Statement says “${renaming.original}”. Left empty, it restores it.` : 'Applies to existing and future matching transactions.'}
+            onSave={async (name) => {
+              await namePayee(renaming.key, name)
+            }}
+            onClose={() => setRenaming(null)}
           />
         ) : null}
         <EntrySheet state={sheet} onChange={setSheet} suggestions={suggestions} own={ownWords} purpose={purpose} />
@@ -275,9 +296,22 @@ function AccountsMonth(props: { lines: readonly MoneyLine[]; month: string; toda
           <strong>{pounds(its.out)} <span>out</span></strong>
         </p>
         <ul className="plain-list compact money-overview-breakdown">
-          {its.before ? <LinesLine className="money-overview-comparison" overview label={`By ${dayMonthLong(its.before.until)}`} detail={`${pounds(its.before.out)} out`} lines={its.before.lines} /> : null}
-          <LinesLine className="money-overview-stat" overview label="Money in" detail={pounds(its.in)} lines={its.inLines} />
-          <LinesLine className="money-overview-stat" overview label="Payments out" detail={paymentsWord(its.outLines.length)} lines={its.outLines} />
+          <li className="money-overview-stat">
+            <details className="week-line">
+              <summary className="money-overview-summary" onClick={(e) => { e.preventDefault(); setSection('spending') }}>
+                <span>Money in</span>
+                <span className="money-overview-value"> {pounds(its.in)}</span>
+              </summary>
+            </details>
+          </li>
+          <li className="money-overview-stat">
+            <details className="week-line">
+              <summary className="money-overview-summary" onClick={(e) => { e.preventDefault(); setSection('spending') }}>
+                <span>Payments out</span>
+                <span className="money-overview-value"> {paymentsWord(its.outLines.length)}</span>
+              </summary>
+            </details>
+          </li>
         </ul>
       </div>
       <nav className="money-detail-switch" aria-label="Account details">
@@ -533,7 +567,7 @@ function RegularPaymentLine({ item }: { item: Regular }) {
 /** A payee, opening to its payments, and, where it could be, a way to say it's you moving money (the payee is remembered:
  *  its lines leave the totals, in later statements too). */
 function PayeeLine({ group, out = false }: { group: PayeeGroup; out?: boolean }) {
-  const { kinds, links, names, notes, openKind, openPayment } = useContext(Receipts)
+  const { kinds, links, names, notes, openKind, openPayment, openRename } = useContext(Receipts)
   const kind = out ? kindOf(group.lines[0]!, kinds) : null
   const line = group.lines[0]!
   const account = names.get(line.account) ?? line.account
@@ -541,6 +575,8 @@ function PayeeLine({ group, out = false }: { group: PayeeGroup; out?: boolean })
   const receipt = links.get(line.id)
   const note = notes[line.id]
   const single = group.lines.length === 1
+  const isRenamed = Boolean(group.payee.original && group.payee.original !== group.payee.name)
+
   if (single) {
     return (
       <li className="payee-single">
@@ -548,46 +584,64 @@ function PayeeLine({ group, out = false }: { group: PayeeGroup; out?: boolean })
           <summary>
             <span>{group.payee.name}</span>
             <span className="muted small">
-              {' '}
-              · {kind ? `${kind} · ` : ''}
-              {paymentsWord(group.lines.filter((l) => !l.refund).length)} · {pounds(group.total)}
+              {' · '}
+              {paymentsWord(1)} · {pounds(group.total)}
             </span>
           </summary>
-          <button type="button" className="payee-single-payment" onClick={() => openPayment(line, way)}>
-            <span className="payee-single-copy">
-              <span className="payee-single-name">{group.payee.name}</span>
-              <span className="payee-single-detail">{shortDayMonth(line.date)} · {way}{receipt ? ' · Receipt' : ''}{note ? ` · “${note}”` : ''}</span>
-            </span>
-            <span className="payee-single-amount">{pounds(Math.abs(line.amount))}</span>
-          </button>
-          {out ? <button type="button" className="payee-kind-action" aria-label={`What ${group.payee.name} is for`} onClick={() => openKind(group)}>{kind ? `${kind} · Change` : 'What is it for?'}</button> : null}
-          {mayBeOwn(group.lines) ? <button type="button" className="small-link payee-own-action" onClick={() => void markOwnPayee(group.payee.key, true)}>It’s me, moving money</button> : null}
+          <div className="payee-single-body">
+            <button type="button" className="payee-single-payment" onClick={() => openPayment(line, way)}>
+              <span className="payee-single-copy">
+                <span className="payee-single-name">{group.payee.name}</span>
+                {isRenamed ? <span className="muted small payee-original">Original: {group.payee.original}</span> : null}
+                <span className="payee-single-detail">{shortDayMonth(line.date)} · {way}{receipt ? ' · Receipt' : ''}{note ? ` · “${note}”` : ''}</span>
+              </span>
+              <span className="payee-single-amount">{pounds(Math.abs(line.amount))}</span>
+            </button>
+            <div className="payee-actions">
+              {out ? (
+                <button type="button" className="payee-action-chip" aria-label={`What ${group.payee.name} is for`} onClick={() => openKind(group)}>
+                  {kind ? kind : '+ Category'}
+                </button>
+              ) : null}
+              <button type="button" className="payee-action-chip" aria-label={`Rename ${group.payee.name}`} onClick={() => openRename(group.payee)}>
+                Rename
+              </button>
+              {mayBeOwn(group.lines) ? <button type="button" className="small-link payee-own-action" onClick={() => void markOwnPayee(group.payee.key, true)}>It’s me, moving money</button> : null}
+            </div>
+          </div>
         </details>
       </li>
     )
   }
   return (
-    <li>
+    <li className="payee-multi">
       <details className="week-line">
         <summary>
-          <span>{group.payee.name}</span>
+          <span className="payee-multi-title">
+            <span>{group.payee.name}</span>
+            {isRenamed ? <span className="muted small payee-original">Original: {group.payee.original}</span> : null}
+          </span>
           <span className="muted small">
-            {' '}
-            · {kind ? `${kind} · ` : ''}
+            {' · '}
             {paymentsWord(group.lines.filter((l) => !l.refund).length)} · {pounds(group.total)}
           </span>
         </summary>
+        <div className="payee-actions">
+          {out ? (
+            <button type="button" className="payee-action-chip" aria-label={`What ${group.payee.name} is for`} onClick={() => openKind(group)}>
+              {kind ? `${kind} · Change` : '+ Category'}
+            </button>
+          ) : null}
+          <button type="button" className="payee-action-chip" aria-label={`Rename ${group.payee.name}`} onClick={() => openRename(group.payee)}>
+            Rename
+          </button>
+          {mayBeOwn(group.lines) ? (
+            <button type="button" className="small-link" onClick={() => void markOwnPayee(group.payee.key, true)}>
+              It’s me, moving money
+            </button>
+          ) : null}
+        </div>
         <LineList lines={group.lines} />
-        {out ? (
-          <button type="button" className="small-link" aria-label={`What ${group.payee.name} is for`} onClick={() => openKind(group)}>
-            {kind ? `For: ${kind} · Change` : 'What is it for?'}
-          </button>
-        ) : null}
-        {mayBeOwn(group.lines) ? (
-          <button type="button" className="small-link" onClick={() => void markOwnPayee(group.payee.key, true)}>
-            It’s me, moving money
-          </button>
-        ) : null}
       </details>
     </li>
   )
