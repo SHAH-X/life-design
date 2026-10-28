@@ -1805,27 +1805,29 @@ button.line-button {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
-  margin: 4px 0 18px;
+  margin: 12px 0 18px;
   padding: 4px;
-  border-radius: 14px;
-  background: var(--accent-soft);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg);
 }
 
 .money-screen .money-detail-switch button {
   min-width: 0;
-  min-height: 40px;
-  padding: 0 6px;
+  min-height: 42px;
+  padding: 0 8px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 12px;
   background: transparent;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 650;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .money-screen .money-detail-switch button[aria-pressed='true'] {
   background: var(--surface);
-  color: var(--accent);
+  color: var(--text);
   box-shadow: 0 1px 3px rgb(31 30 28 / 0.1);
 }
 
@@ -1888,7 +1890,10 @@ button.line-button {
 }
 
 .money-screen .money-overview {
-  padding: 20px;
+  padding: 22px;
+  background: linear-gradient(180deg, var(--surface) 0%, #faf8f5 100%);
+  border: 1px solid var(--border);
+  box-shadow: var(--card-shadow);
 }
 
 .money-screen .money-overview-heading {
@@ -1937,7 +1942,7 @@ button.line-button {
 .money-screen .money-overview-breakdown {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 16px;
+  gap: 10px 14px;
 }
 
 /* The two summary statistics share a row while closed. A tapped statistic must take the whole card: otherwise its
@@ -1964,7 +1969,31 @@ button.line-button {
 
 .money-screen .money-overview-breakdown .money-overview-comparison {
   grid-column: 1 / -1;
-  border-block: 1px solid var(--border);
+  border-block: 0;
+  margin-bottom: 2px;
+}
+
+.money-screen .money-overview-breakdown .money-overview-comparison details.week-line > summary.money-overview-summary {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.money-screen .money-overview-breakdown .money-overview-comparison .money-overview-summary > span:first-child {
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.money-screen .money-overview-breakdown .money-overview-comparison .money-overview-summary .money-overview-value {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .money-screen .receipt-overview .money-overview-breakdown {
@@ -1989,29 +2018,44 @@ button.line-button {
 }
 
 .money-screen .money-overview-stat details.week-line > summary.money-overview-summary {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 2px;
-  min-height: 64px;
+  display: flex !important;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  min-height: 66px;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgb(31 30 28 / 0.03);
+}
+
+.money-screen .money-overview-stat details.week-line > summary.money-overview-summary:active {
+  background: var(--viz-hover);
 }
 
 .money-screen .money-overview-summary > span:first-child {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   line-height: 1.3;
 }
 
 .money-screen .money-overview-summary .money-overview-value {
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: 1.08rem;
   font-variant-numeric: tabular-nums;
-  font-weight: 650;
+  font-weight: 750;
+  letter-spacing: -0.02em;
   line-height: 1.3;
 }
 
 .money-screen .money-overview-summary::after {
   position: absolute;
   top: 50%;
-  right: 2px;
+  right: 12px;
   transform: translateY(-50%);
 }
 
@@ -2027,24 +2071,277 @@ button.line-button {
   background: var(--viz-hover);
 }
 
-.money-screen .account-row {
-  align-items: flex-start;
-  padding: 8px 0;
+/* Category proportion meter */
+.money-screen .money-kind-row {
+  padding: 2px 0;
 }
 
-.money-screen .regular-payment-line {
-  display: grid;
+.money-screen .money-kind-summary {
+  display: grid !important;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 8px;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 10px 4px;
 }
 
-.money-screen .regular-payment-line > details {
+.money-screen .money-kind-header {
+  grid-column: 1 / 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
   min-width: 0;
 }
 
+.money-screen .money-kind-label {
+  font-weight: 650;
+  color: var(--text);
+}
+
+.money-screen .money-kind-summary::after {
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+}
+
+.money-screen .money-kind-meter {
+  grid-column: 1 / -1;
+  display: block;
+  height: 5px;
+  background: var(--accent-soft);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.money-screen .money-kind-meter-fill {
+  display: block;
+  height: 100%;
+  background: var(--viz-seq);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+/* Spending rise insight row */
+.money-screen .money-rise-row {
+  padding: 2px 0;
+}
+
+.money-screen .money-rise-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 9px 4px;
+}
+
+.money-screen .money-rise-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.money-screen .money-rise-label {
+  font-weight: 650;
+  color: var(--text);
+}
+
+.money-screen .money-rise-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--warn-bg);
+  color: #7c4a00;
+  font-size: 0.76rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--border);
+}
+
+/* Regular payment card row */
+.money-screen .regular-payment-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.money-screen .regular-payment-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 8px 4px;
+}
+
+.money-screen .regular-payment-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.money-screen .regular-payment-name {
+  font-weight: 650;
+  color: var(--text);
+}
+
+.money-screen .regular-payment-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .money-screen .regular-payment-line > button.small-link {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 600;
   margin: 0;
+  align-self: center;
+}
+
+.money-screen .regular-payment-line > button.small-link:active {
+  background: var(--viz-hover);
+}
+
+/* Account card in Accounts list */
+.money-screen .account-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.money-screen .account-card-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.money-screen .account-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-bottom: 3px;
+}
+
+.money-screen .account-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.money-screen .account-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.money-screen .account-badge.synced {
+  background: rgb(31 122 51 / 0.1);
+  color: var(--success);
+}
+
+.money-screen .account-badge.missing {
+  background: var(--warn-bg);
+  color: #7c4a00;
+}
+
+.money-screen .account-badge.closed {
+  background: var(--border);
+  color: var(--muted);
+}
+
+.money-screen .account-period {
+  display: block;
+}
+
+.money-screen .account-missing {
+  display: block;
+  margin-top: 6px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: var(--warn-bg);
+  color: #7c4a00;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  border: 1px solid #ebd9b0;
+}
+
+.money-screen .account-change-btn {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.money-screen .account-change-btn:active {
+  background: var(--viz-hover);
+}
+
+/* Receipts repeat items */
+.money-screen .receipt-repeat-row {
+  padding: 2px 0;
+}
+
+.money-screen .receipt-repeat-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 8px 4px;
+}
+
+.money-screen .receipt-repeat-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.money-screen .receipt-repeat-name {
+  font-weight: 650;
+  color: var(--text);
+}
+
+.money-screen .receipt-repeat-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--evening-bg);
+  color: var(--text);
+  font-size: 0.74rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--evening-border);
+}
+
+.money-screen .account-row {
+  align-items: flex-start;
+  padding: 8px 0;
 }
 
 /* One payment is shown as a complete, tappable record. Accordion rows are reserved for payees with a real choice of

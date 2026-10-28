@@ -34,8 +34,10 @@ export function Dialog({ title, titleHidden = false, toolbar, onClose, children,
       // Enter would close the sheet (the browser's default picks the first button, which is Close).
       ;(dialog.querySelector<HTMLElement>('[data-autofocus]') ?? dialog).focus()
     }
-    return () => dialog?.close()
-  }, [])
+    return () => {
+      dialog?.close()
+    }
+  }, [title])
   useKeyboardInset(ref)
   useScrollLock()
 

@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { type BroughtIn, bringInStatement } from '../../db/statements'
 import { readStatement, type StatementProblem } from '../../domain/statements'
 import { formatRecentPeriod } from '../../lib/dates'
 import { PdfError, readPdf } from '../../lib/pdfText'
-import { Dialog } from '../../ui/Dialog'
+import { useScrollLock } from '../../ui/useScrollLock'
 import { useAccountNames } from './useAccountNames'
 
 // Bringing in a statement (v0.20): its PDF read on the phone (src/lib/pdfText.ts, src/domain/statements.ts) and its
@@ -31,7 +31,10 @@ function told(b: BroughtIn): string {
 
 export function StatementImport({ onClose }: { onClose: () => void }) {
   const names = useAccountNames()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const titleId = useId()
   const [state, setState] = useState<State>({ kind: 'choose' })
+  useScrollLock()
   const choose = async (file: File | undefined) => {
     if (!file) return
     setState({ kind: 'reading' })
@@ -44,44 +47,57 @@ export function StatementImport({ onClose }: { onClose: () => void }) {
     }
   }
   return (
-    <Dialog title="Bring in a statement" onClose={onClose}>
-      {state.kind === 'choose' ? (
-        <>
-          <p>A PDF statement from your bank or card. It’s read on this phone and sent nowhere.</p>
-          <label className="button primary wide">
-            Choose a statement
-            <input
-              type="file"
-              accept="application/pdf,.pdf"
-              className="visually-hidden"
-              onChange={(event) => {
-                void choose(event.target.files?.[0])
-                event.target.value = '' // so choosing the same file again still works
-              }}
-            />
-          </label>
-          {state.error ? (
-            <div className="notice warn top-gap" role="alert">
-              <p>{state.error}</p>
-            </div>
-          ) : null}
-        </>
-      ) : null}
-      {state.kind === 'reading' ? <p className="muted">Reading the statement…</p> : null}
-      {state.kind === 'done' ? (
-        <>
-          <ul className="plain-list" aria-label="Brought in">
-            {state.brought.map((b) => (
-              <li key={b.account}>
-                <strong>{names?.get(b.account) ?? b.account}</strong>: {told(b)}
-              </li>
-            ))}
-          </ul>
-          <button type="button" className="primary wide top-gap" onClick={onClose}>
-            Done
+    <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="sheet">
+      <div className="sheet-inner">
+        <div className="sheet-handle" aria-hidden="true" />
+        <header className="sheet-header">
+          <h2 id={titleId}>Bring in a statement</h2>
+          <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
+            ✕
           </button>
-        </>
-      ) : null}
-    </Dialog>
+        </header>
+        <div className="sheet-body">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            className="visually-hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              void choose(file)
+              event.target.value = '' // so choosing the same file again still works
+            }}
+          />
+          {state.kind === 'choose' ? (
+            <>
+              <p>A PDF statement from your bank or card. It’s read on this phone and sent nowhere.</p>
+              <button type="button" className="button primary wide" onClick={() => inputRef.current?.click()}>
+                Choose a statement
+              </button>
+              {state.error ? (
+                <div className="notice warn top-gap" role="alert">
+                  <p>{state.error}</p>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+          {state.kind === 'reading' ? <p className="muted">Reading the statement…</p> : null}
+          {state.kind === 'done' ? (
+            <>
+              <ul className="plain-list" aria-label="Brought in">
+                {state.brought.map((b) => (
+                  <li key={b.account}>
+                    <strong>{names?.get(b.account) ?? b.account}</strong>: {told(b)}
+                  </li>
+                ))}
+              </ul>
+              <button type="button" className="primary wide top-gap" onClick={onClose}>
+                Done
+              </button>
+            </>
+          ) : null}
+        </div>
+      </div>
+    </div>
   )
 }

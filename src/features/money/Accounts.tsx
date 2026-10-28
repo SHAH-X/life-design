@@ -60,17 +60,26 @@ export function Accounts() {
             {list.map((a) => {
               const missing = notBroughtIn(a.statements, today, a.closed)
               return (
-                <li key={a.name} className="account-row">
-                  <span>
-                    <span className="account-name">{names.get(a.name) ?? a.name}</span>
+                <li key={a.name} className="account-row account-card">
+                  <div className="account-card-body">
+                    <div className="account-card-header">
+                      <span className="account-name">{names.get(a.name) ?? a.name}</span>
+                      {a.closed ? (
+                        <span className="account-badge closed" aria-hidden="true">Closed</span>
+                      ) : missing.length ? (
+                        <span className="account-badge missing" aria-hidden="true">Needs statement</span>
+                      ) : (
+                        <span className="account-badge synced" aria-hidden="true">Up to date</span>
+                      )}
+                    </div>
                     <span className="muted small account-period">
                       {formatPeriod(a.from, a.to)}
                       {a.closed ? ' · Closed' : ''}
                       {a.notAdding ? ` · ${a.notAdding} ${a.notAdding === 1 ? 'doesn’t match its' : 'don’t match their'} printed balance` : ''}
                     </span>
                     {missing.length ? <span className="muted small account-missing">Missing: {missing.map((g) => formatPeriod(g.from, g.to)).join('; ')}</span> : null}
-                  </span>
-                  <button type="button" className="small-link" aria-label={`Change ${names.get(a.name) ?? a.name}`} onClick={() => setNaming(a)}>
+                  </div>
+                  <button type="button" className="small-link account-change-btn" aria-label={`Change ${names.get(a.name) ?? a.name}`} onClick={() => setNaming(a)}>
                     Change
                   </button>
                 </li>

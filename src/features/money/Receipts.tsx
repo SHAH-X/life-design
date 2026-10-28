@@ -253,7 +253,23 @@ function ItemLine(props: { label: string; detail: string; items: KindLine['items
 
 function Repeats({ its, onOpen }: { its: ShoppingMonth; onOpen: (r: KnownReceipt) => void }) {
   const line = (r: ShoppingMonth['repeats'][number]) => (
-    <ReceiptLine key={r.name} label={r.name} detail={`on ${receiptsWord(r.receipts.length)} · ${inWords(r.spent)}`} receipts={r.receipts} onOpen={onOpen} />
+    <li key={r.name} className="receipt-repeat-row">
+      <details className="week-line">
+        <summary className="receipt-repeat-summary">
+          <span className="receipt-repeat-header">
+            <span className="receipt-repeat-name">{r.name}</span>
+            <span className="receipt-repeat-count" aria-hidden="true">
+              {r.receipts.length}×
+            </span>
+          </span>
+          <span className="muted small">
+            {' · '}
+            on {receiptsWord(r.receipts.length)} · {inWords(r.spent)}
+          </span>
+        </summary>
+        <ReceiptList receipts={r.receipts} onOpen={onOpen} />
+      </details>
+    </li>
   )
   const rest = its.repeats.slice(REPEATS_SHOWN)
   return (
