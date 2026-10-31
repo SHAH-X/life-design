@@ -110,7 +110,7 @@ describe('receiptsToCsv: every item on your receipts, a row each (fictional rece
     total: 115,
     adds: true,
     items: [
-      { name: 'Semi Skimmed Milk 2.27L', price: 165, quantity: 1, kind: 'Dairy and eggs' },
+      { name: 'Semi Skimmed Milk 2.27L', price: 165, quantity: 1, kind: 'Dairy and eggs', returned: true },
       { name: 'Clubcard saving', price: -50, quantity: 1 },
     ],
     dated: true,
@@ -123,11 +123,11 @@ describe('receiptsToCsv: every item on your receipts, a row each (fictional rece
     const lines = csv.replace(/^\ufeff/, '').trimEnd().split('\r\n')
     expect(csv.startsWith('\ufeff')).toBe(true)
     expect(lines).toEqual([
-      'date,shop,item,as_printed,kind,quantity,price,currency,receipt_total,adds_up,date_read,read_by',
+      'date,shop,item,as_printed,kind,quantity,price,currency,receipt_total,adds_up,date_read,read_by,returned',
       // Oldest first; a comma is quoted, and a name that starts like a formula can't run as one.
-      `2026-10-03,"Greenleaf, Market",Oat drink,'=Oat milk,,2,1.45,£,9.99,no,no,Gemini · gemini-2.5-flash`,
-      '2026-10-17,Tesco,Semi Skimmed Milk 2.27L,Semi Skimmed Milk 2.27L,Dairy and eggs,1,1.65,£,1.15,yes,yes,the phone',
-      '2026-10-17,Tesco,Clubcard saving,Clubcard saving,,1,-0.50,£,1.15,yes,yes,the phone',
+      `2026-10-03,"Greenleaf, Market",Oat drink,'=Oat milk,,2,1.45,£,9.99,no,no,Gemini · gemini-2.5-flash,`,
+      '2026-10-17,Tesco,Semi Skimmed Milk 2.27L,Semi Skimmed Milk 2.27L,Dairy and eggs,1,1.65,£,1.15,yes,yes,the phone,yes',
+      '2026-10-17,Tesco,Clubcard saving,Clubcard saving,,1,-0.50,£,1.15,yes,yes,the phone,',
     ])
     expect(shoppingCsvFileName(new Date(2026, 9, 24, 20))).toBe('life-design-shopping-2026-10-24.csv')
   })

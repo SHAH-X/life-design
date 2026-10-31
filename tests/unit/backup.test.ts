@@ -345,6 +345,20 @@ describe('backup and restore', () => {
     expect(isEntry({ ...withReceipt, photos: [{ id: 'p1', text: null, ai: { ...ai, by: 3 } }] })).toBe(false)
   })
 
+  it('backs up and restores your changes to a receipt’s items: a kind you chose, an item returned (v0.20.18)', async () => {
+    const changed = entry('r2', 6000, { photos: [{ id: 'p2', text: 'GREENLEAF MARKET\nOat milk 1.45\nTOTAL 1.45', items: [{ key: 'Oat milk#1', kind: 'Drinks', returned: true }] }] })
+    await phone.entries.put(changed)
+    const detected = detectFile(JSON.stringify(await createBackup(phone)))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    await applyImport(detected.raw, newPhone)
+    expect(await newPhone.entries.get('r2')).toEqual(changed)
+    const withItems = (items: unknown) => isEntry({ ...changed, photos: [{ id: 'p2', text: null, items }] })
+    expect(withItems([{ key: 'Oat milk#1', kind: 'Milk' }])).toBe(false)
+    expect(withItems([{ key: 'Oat milk#1', returned: 'yes' }])).toBe(false)
+    expect(withItems([{ kind: 'Drinks' }])).toBe(false)
+    expect(withItems('Oat milk')).toBe(false)
+  })
+
   it('backs up and restores reviews by AI, and never the AI key', async () => {
     const review: AiReview = {
       id: 'ai1',

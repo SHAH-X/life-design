@@ -5,14 +5,18 @@ import { type ItemKind, itemShown } from '../../src/domain/receipts'
 import {
   amountsOf,
   inWords,
+  itemKeys,
   type KnownReceipt,
   monthTotals,
+  paid,
   receiptsAndCopies,
   receiptsOf,
+  returnedOn,
   shopKey,
   shoppingMonth,
   shoppingMonths,
   spendByShop,
+  spentOn,
 } from '../../src/domain/shopping'
 import { areaEntry } from '../fixtures/areas'
 
@@ -90,6 +94,74 @@ describe('receiptsOf: whether a date was read, and who read it', () => {
     expect(byAi).toMatchObject({ date: '2026-10-12', dated: false, readBy: 'Gemini · gemini-2.5-flash' })
     const [byPhone] = receiptsOf([{ ...areaEntry({ id: 'e2', text: '', expect: [] }, '2026-10-20'), photos: [{ id: 'p2', text: 'GREENLEAF MARKET\n12 Oct 2026\nOat milk 1.65\nTOTAL 1.65' }] }])
     expect(byPhone).toMatchObject({ date: '2026-10-12', dated: true, readBy: null })
+  })
+})
+
+// Owner, 2026-10-31: "i cannot see … which category the item … is assigned to" and "certain things … have been returned
+// … so that it is not counted in the expense".
+describe('your changes to a receipt’s items: a kind you chose, an item returned (v0.20.18)', () => {
+  const reading = {
+    by: 'Gemini · gemini-2.5-flash',
+    at: 1,
+    text: '',
+    description: '',
+    receipt: {
+      shop: 'Greenleaf Market',
+      date: '2026-10-12',
+      currency: '£',
+      items: [
+        { name: 'Oat milk', price: 165, quantity: 1, kind: 'Dairy and eggs' as const },
+        { name: 'Wool scarf', price: 1500, quantity: 1, kind: 'Clothes and shoes' as const },
+        { name: 'Oat milk', price: 165, quantity: 1, kind: 'Dairy and eggs' as const },
+        { name: 'Saving', price: -100, quantity: 1 },
+      ],
+      total: 1730,
+    },
+  }
+  const withChanges = (items: { key: string; kind?: ItemKind; returned?: true }[]) =>
+    receiptsOf([{ ...areaEntry({ id: 'e1', text: '', expect: [] }, '2026-10-12'), photos: [{ id: 'p1', text: null, ai: reading, items }] }])[0]!
+
+  it('keys each item by its printed name and which time that name comes, so two alike are told apart', () => {
+    expect(itemKeys(reading.receipt.items)).toEqual(['Oat milk#1', 'Wool scarf#1', 'Oat milk#2', 'Saving#1'])
+  })
+
+  it('shows the kind you chose over your AI’s, and marks the item you returned, leaving the other alike as it was', () => {
+    const r = withChanges([{ key: 'Oat milk#2', kind: 'Drinks', returned: true }])
+    expect(r.items.map((item) => [item.kind, item.returned])).toEqual([
+      ['Dairy and eggs', undefined],
+      ['Clothes and shoes', undefined],
+      ['Drinks', true],
+      [undefined, undefined],
+    ])
+  })
+
+  it('gives a kind to an item the phone read, which has none of its own', () => {
+    const [r] = receiptsOf([{ ...areaEntry({ id: 'e2', text: '', expect: [] }, '2026-10-20'), photos: [{ id: 'p2', text: 'GREENLEAF MARKET\n12 Oct 2026\nOat milk 1.65\nTOTAL 1.65', items: [{ key: 'Oat milk#1', kind: 'Drinks' }] }] }])
+    expect(r!.items[0]!.kind).toBe('Drinks')
+  })
+
+  it('takes a returned item off what was spent, the month’s total, its shop and its kind; what was paid stays as printed', () => {
+    const r = withChanges([{ key: 'Wool scarf#1', returned: true }])
+    expect(paid(r)).toBe(1730)
+    expect(spentOn(r)).toBe(230)
+    expect(returnedOn(r)).toBe(1500)
+    expect(amountsOf([r])).toEqual([{ currency: '£', minor: 230 }])
+    const month = shoppingMonth([r], '2026-10', TODAY)
+    expect(month.spent).toEqual([{ currency: '£', minor: 230 }])
+    expect(month.shops.others[0]!.spent).toEqual([{ currency: '£', minor: 230 }])
+    expect(month.kinds!.others.map((k) => k.kind)).toEqual(['Dairy and eggs'])
+  })
+
+  it('never counts a saving as returned, nor what was spent below nothing', () => {
+    const r = withChanges([{ key: 'Saving#1', returned: true }])
+    expect(r.items[3]!.returned).toBeUndefined()
+    const all = withChanges(itemKeys(reading.receipt.items).map((key) => ({ key, returned: true as const })))
+    expect(spentOn(all)).toBe(0)
+  })
+
+  it('leaves a change whose item is no longer read doing nothing', () => {
+    const r = withChanges([{ key: 'Bread#1', returned: true }])
+    expect(spentOn(r)).toBe(1730)
   })
 })
 

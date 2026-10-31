@@ -303,6 +303,14 @@ describe('ensureAiReadings and readOnePhoto: sending photos, one at a time', () 
     expect(read?.tries).toBeUndefined()
   })
 
+  it('keeps your changes to its items (a kind chosen, an item returned) when it is read again (v0.20.18)', async () => {
+    const items = [{ key: 'Oat milk#1', kind: 'Drinks' as const, returned: true as const }]
+    await phone.entries.put(withPhotos('e1', [{ id: 'receipt', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text, items }]))
+    await phone.photos.put(photo('receipt', 'e1'))
+    await readOnePhoto('receipt', { by: BY, send: async () => receiptReply }, phone)
+    expect((await phone.entries.get('e1'))?.photos[0]?.items).toEqual(items)
+  })
+
   it('sends a receipt read before items had kinds or plain names again by itself, once, whatever comes back', async () => {
     const before = parseAiReading(receiptReply, BY, 1)! // kinds, but no plain names
     await phone.entries.put(withPhotos('e1', [{ id: 'old', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text, ai: before }]))
