@@ -62,11 +62,15 @@ function hasValidJournalFields(x: Rec): boolean {
     isOptional(x.status, isOneOf(['draft', 'done'])) &&
     isOptional(x.skipped, (v) => Array.isArray(v) && v.every(isOneOf(['engagement', 'energy']))) &&
     isOptional(x.replyTo, (v) => v === null || (isObj(v) && isNonEmptyStr(v.id) && isStr(v.question))) &&
-    isOptional(x.photos, (v) => Array.isArray(v) && v.every((p) => isObj(p) && isNonEmptyStr(p.id) && (p.text === null || isStr(p.text)) && isOptional(p.ai, isAiReading)))
+    isOptional(x.photos, (v) => Array.isArray(v) && v.every((p) => isObj(p) && isNonEmptyStr(p.id) && (p.text === null || isStr(p.text)) && isOptional(p.ai, isAiReading) && isOptional(p.items, isItemChanges)))
   )
 }
 
 /** A photo as the AI read it (v0.18): its text, and a receipt's items with prices in minor units. */
+/** Your changes to a receipt's items (v0.20.18): a key, a kind from the list or none, returned or not. */
+const isItemChanges = (x: unknown): boolean =>
+  Array.isArray(x) && x.every((c) => isObj(c) && isNonEmptyStr(c.key) && isOptional(c.kind, isOneOf(ITEM_KINDS)) && isOptional(c.returned, (v) => v === true))
+
 function isAiReading(x: unknown): boolean {
   if (!isObj(x) || !isStr(x.by) || !isNum(x.at) || !isStr(x.text) || !isStr(x.description) || !isOptional(x.version, isNum) || !isOptional(x.tries, isNum)) return false
   if (x.receipt === null) return true

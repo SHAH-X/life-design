@@ -82,13 +82,13 @@ export function csvFileName(now: Date): string {
   return `life-design-entries-${toDateKey(now)}.csv`
 }
 
-const RECEIPT_HEADER = ['date', 'shop', 'item', 'as_printed', 'kind', 'quantity', 'price', 'currency', 'receipt_total', 'adds_up', 'date_read', 'read_by']
+const RECEIPT_HEADER = ['date', 'shop', 'item', 'as_printed', 'kind', 'quantity', 'price', 'currency', 'receipt_total', 'adds_up', 'date_read', 'read_by', 'returned']
 
 /** Pence as a plain number a spreadsheet adds up, "1.45" or "-0.50"; the currency has a column of its own. */
 const pounds = (minor: number) => `${minor < 0 ? '-' : ''}${(Math.abs(minor) / 100).toFixed(2)}`
 
 /** Every item on your receipts (Shopping, v0.19), a row each, oldest first: what your AI took it for and as printed
- *  (v0.19.3); a receipt's total is the one it printed. */
+ *  (v0.19.3); a receipt's total is the one it printed; an item you returned says so (v0.20.18). */
 export function receiptsToCsv(receipts: readonly KnownReceipt[]): string {
   const rows = [...receipts]
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -107,6 +107,7 @@ export function receiptsToCsv(receipts: readonly KnownReceipt[]): string {
           cell(r.adds ? 'yes' : 'no'),
           cell(r.dated ? 'yes' : 'no'),
           cell(r.readBy ?? 'the phone', true),
+          cell(item.returned ? 'yes' : ''),
         ].join(','),
       ),
     )

@@ -31,6 +31,7 @@ import { usePurposeSettings } from '../today/usePurpose'
 import { Accounts, RenameSheet } from './Accounts'
 import { ReceiptsMonth, ReceiptsShare, receiptsWord, Section } from './Receipts'
 import { KindSheet, PaymentSheet } from './PaymentSheets'
+import { ReceiptSheet } from './ReceiptSheet'
 import { useAccountNames } from './useAccountNames'
 
 /** The chart shows this many months, the page's own the last. */
@@ -96,6 +97,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const purpose = usePurposeSettings()
   const suggestions = useLiveQuery(() => loadSuggestions(), [], NO_SUGGESTIONS)
   const [sheet, setSheet] = useState<EntrySheetState>(null)
+  const [receiptId, setReceiptId] = useState<string | null>(null)
   const [view, setView] = useState<'accounts' | 'receipts'>(legacyView ?? 'accounts')
   const earlierId = useId()
   useEffect(() => {
@@ -105,11 +107,15 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || kinds === undefined || notes === undefined || receiptReviews === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
 
   const byId = new Map(entries.map((e) => [e.id, e]))
-  const open = (receipt: KnownReceipt) => {
+  const openEntry = (receipt: KnownReceipt) => {
     const entry = byId.get(receipt.entryId)
     if (entry) setSheet({ kind: 'open', entry })
   }
   const { receipts, copies } = receiptsAndCopies(entries)
+  // A receipt opens to its items; an extra copy, counted nowhere, opens its entry, where it can be deleted.
+  const copyIds = new Set(copies.map((c) => c.copy.id))
+  const open = (receipt: KnownReceipt) => (copyIds.has(receipt.id) ? openEntry(receipt) : setReceiptId(receipt.id))
+  const openReceipt = receiptId ? receipts.find((r) => r.id === receiptId) : undefined
   const lines = classify(bankLines, new Set(own), payeeNames)
   const links = linkReceipts(lines, receipts, receiptReviews.paymentLinks)
   const receiptReasons = receiptReviews.paymentReasons
@@ -260,6 +266,16 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
               await namePayee(renaming.key, name)
             }}
             onClose={() => setRenaming(null)}
+          />
+        ) : null}
+        {openReceipt ? (
+          <ReceiptSheet
+            receipt={openReceipt}
+            onOpenEntry={() => {
+              setReceiptId(null)
+              openEntry(openReceipt)
+            }}
+            onClose={() => setReceiptId(null)}
           />
         ) : null}
         <EntrySheet state={sheet} onChange={setSheet} suggestions={suggestions} own={ownWords} purpose={purpose} />

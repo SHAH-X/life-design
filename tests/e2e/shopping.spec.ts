@@ -65,14 +65,14 @@ test('Money has its own tab, receipts and all: the month so far, next to last mo
   await expect(where.locator('summary', { hasText: 'J Sainsbury plc' })).toBeVisible()
   await expect(where.locator('summary', { hasText: 'shops under £10' })).toHaveText('4 shops under £10 · £17.29 in all')
 
-  // A line opens to its receipts, and a receipt opens its entry.
+  // A line opens to its receipts, and a receipt opens to its items.
   await where.locator('summary').first().click()
   const tesco = where.locator('details.week-line').first().locator('.evidence-list li')
   await expect(tesco).toHaveCount(3)
   await expect(tesco.first()).toHaveText('Sat 17 Oct Tesco Stores Ltd · £2.45')
   await tesco.first().getByRole('button').click()
-  await expect(page.getByRole('dialog')).toBeVisible()
-  await page.getByRole('dialog').getByRole('button', { name: 'Done', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Tesco Stores Ltd' })).toBeVisible()
+  await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click()
 
   // By kind: none has 3 items, so they're in the list's own order, never ranked; then what has no kind.
   const kinds = page.getByRole('region', { name: 'By kind' })
@@ -104,6 +104,50 @@ test('Money has its own tab, receipts and all: the month so far, next to last mo
 
   for (const summary of await page.locator('details.week-line > summary').all()) await summary.click()
   await expectNoScores(page, 'Money, opened')
+})
+
+// Owner, 2026-10-31: "i cannot see the item in that receipt or which category the item … is assigned to", and things
+// "returned … whose refund is obtained" should not count in the expense.
+test('a receipt opens to its items, each with its price and kind; you can choose another kind, or say you returned it', async ({ page }, testInfo) => {
+  await restoreReceipts(page, testInfo.outputPath('receipts.json'))
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  await line(page, '5 receipts from 3 shops').click()
+  await page.getByRole('button', { name: /Sat 3 Oct TESCO/ }).click()
+
+  const receipt = page.getByRole('dialog', { name: 'TESCO' })
+  const items = receipt.getByRole('list', { name: 'Items' }).getByRole('listitem')
+  await expect(items).toHaveText([`${MILK} · £1.45Dairy and eggs`, 'Bananas · £0.95Fruit and veg', 'Bread · £1.20Bread and bakery'])
+  await expect(receipt.getByText('Total £3.60', { exact: true })).toBeVisible()
+
+  // Another kind: Bread moves to Cupboard.
+  await items.nth(2).getByRole('button').click()
+  const bread = page.getByRole('dialog', { name: 'Bread' })
+  await expect(bread.getByRole('radio', { name: 'Bread and bakery' })).toBeChecked()
+  await bread.getByText('Cupboard', { exact: true }).click()
+  await expect(items.nth(2)).toHaveText('Bread · £1.20Cupboard')
+
+  // Returned: the milk comes off what was spent, its row says so, and it stays on the receipt.
+  await items.nth(0).getByRole('button').click()
+  await page.getByRole('dialog', { name: MILK }).getByText('I returned it').click()
+  await expect(items.nth(0)).toHaveText(`${MILK} · £1.45Dairy and eggs · Returned`)
+  await expect(receipt.getByText('Total £3.60 · £1.45 returned · £2.15 spent')).toBeVisible()
+  await receipt.getByRole('button', { name: 'Close', exact: true }).click()
+
+  await expect(page.getByRole('strong')).toHaveText('£57.94 spent')
+  await expect(page.getByRole('button', { name: /Sat 3 Oct TESCO/ })).toHaveText('Sat 3 Oct TESCO · £2.15 · 1 returned')
+  const kinds = page.getByRole('region', { name: 'By kind' })
+  await expect(kinds.locator('summary', { hasText: 'Dairy and eggs' })).toHaveText('Dairy and eggs · 1 item · £1.65')
+  await expect(kinds.locator('summary', { hasText: 'Cupboard' })).toHaveText('Cupboard · 3 items · £2.80')
+
+  // Kept: after a reload, and the entry still opens from the receipt.
+  await page.reload()
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  await expect(page.getByRole('strong')).toHaveText('£57.94 spent')
+  await line(page, '5 receipts from 3 shops').click()
+  await page.getByRole('button', { name: /Sat 3 Oct TESCO/ }).click()
+  await page.getByRole('dialog', { name: 'TESCO' }).getByRole('button', { name: 'Open the entry' }).click()
+  await expect(page.getByRole('dialog', { name: 'Photo' })).toBeVisible()
 })
 
 test('the chart has a table and a readout, and an earlier month has its own page', async ({ page }, testInfo) => {
@@ -143,10 +187,10 @@ test('Share as a spreadsheet gives every item, a row each, through the share men
   const file = await sharedFile(page)
   expect(file.name).toBe('life-design-shopping-2026-10-24.csv')
   const rows = file.text.replace(/^﻿/, '').trimEnd().split('\r\n')
-  expect(rows[0]).toBe('date,shop,item,as_printed,kind,quantity,price,currency,receipt_total,adds_up,date_read,read_by')
+  expect(rows[0]).toBe('date,shop,item,as_printed,kind,quantity,price,currency,receipt_total,adds_up,date_read,read_by,returned')
   expect(rows).toHaveLength(13)
-  expect(rows).toContain('2026-10-10,Tesco,Clubcard saving,Clubcard saving,,1,-0.50,£,1.25,yes,yes,Gemini · gemini-2.5-flash')
-  expect(rows).toContain('2026-10-03,TESCO,Bananas,Bananas,Fruit and veg,1,0.95,£,3.60,yes,yes,Gemini · gemini-2.5-flash')
+  expect(rows).toContain('2026-10-10,Tesco,Clubcard saving,Clubcard saving,,1,-0.50,£,1.25,yes,yes,Gemini · gemini-2.5-flash,')
+  expect(rows).toContain('2026-10-03,TESCO,Bananas,Bananas,Fruit and veg,1,0.95,£,3.60,yes,yes,Gemini · gemini-2.5-flash,')
 })
 
 // Owner, 2026-10-25: "if i upload the same receipt twice, it counts it twice".

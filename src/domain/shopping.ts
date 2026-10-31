@@ -3,7 +3,7 @@
 // units), so sums are exact, and pounds and euros are never added together. Counts and amounts only: nothing averaged,
 // rated or set as a limit (DECISIONS, "Never").
 import { MIN_COUNT } from '../analysis/stats'
-import type { Entry, PhotoRef } from '../db/types'
+import type { Entry, ItemChange, PhotoRef } from '../db/types'
 import { addMonths } from '../lib/dates'
 import { chainOf, ITEM_KINDS, type ItemKind, itemShown, type ReceiptItem, readReceipt, type Receipt, receiptTime, shopWords } from './receipts'
 
@@ -23,6 +23,11 @@ export interface KnownReceipt extends Omit<Receipt, 'date'> {
 /** A photo's receipt: as your AI read it when it did (v0.18), else as the phone read it. Whether its items add up is
  *  the phone's to say, from the numbers. */
 function receiptOf(photo: PhotoRef): Receipt | null {
+  const read = readOf(photo)
+  return read && photo.items?.length ? { ...read, items: withChanges(read.items, photo.items) } : read
+}
+
+function readOf(photo: PhotoRef): Receipt | null {
   const ai = photo.ai?.receipt
   if (ai) {
     const sum = ai.items.reduce((s, item) => s + item.price, 0)
@@ -30,6 +35,27 @@ function receiptOf(photo: PhotoRef): Receipt | null {
     return { shop: ai.shop || phone?.shop || '', date: ai.date ?? phone?.date ?? null, items: ai.items, total: ai.total, adds: ai.total === null || sum === ai.total, currency: ai.currency }
   }
   return photo.text ? readReceipt(photo.text) : null
+}
+
+/** Each item's key for your changes (v0.20.18): its printed name and which time that name comes ("Oat milk#2"), so
+ *  two alike are told apart, and a new reading of the same receipt finds them again. */
+export function itemKeys(items: readonly Pick<ReceiptItem, 'name'>[]): string[] {
+  const seen = new Map<string, number>()
+  return items.map((item) => {
+    const n = (seen.get(item.name) ?? 0) + 1
+    seen.set(item.name, n)
+    return `${item.name}#${n}`
+  })
+}
+
+/** Items with your changes laid over: the kind you chose wins over your AI's; a saving is never returned. */
+function withChanges(items: readonly ReceiptItem[], changes: readonly ItemChange[]): ReceiptItem[] {
+  const keys = itemKeys(items)
+  return items.map((item, i) => {
+    const change = changes.find((c) => c.key === keys[i])
+    if (!change) return item
+    return { ...item, ...(change.kind ? { kind: change.kind } : {}), ...(change.returned && item.price > 0 ? { returned: true as const } : {}) }
+  })
 }
 
 /** A receipt added again, left out of every total (v0.19.5): a second upload of the same photo, or a new photo of the
@@ -91,10 +117,17 @@ export const money = (minor: number, currency: string) => `${minor < 0 ? '-' : '
 /** What a receipt counts for: its printed total, the amount paid, else its items' sum. */
 export const paid = (r: KnownReceipt) => r.total ?? r.items.reduce((s, item) => s + item.price, 0)
 
+/** What its returned items came to (v0.20.18). */
+export const returnedOn = (r: Pick<Receipt, 'items'>) => r.items.reduce((s, item) => s + (item.returned ? item.price : 0), 0)
+
+/** What a receipt counts as spent: what was paid, less what was returned, never below nothing. Matching it to a card
+ *  payment uses `paid`, which is what the bank was charged. */
+export const spentOn = (r: KnownReceipt) => Math.max(0, paid(r) - returnedOn(r))
+
 /** Receipts' total, one per currency (pounds and euros are never added together). */
 export function totalOf(receipts: readonly KnownReceipt[]): string | string[] {
   const byCurrency = new Map<string, number>()
-  for (const r of receipts) byCurrency.set(r.currency, (byCurrency.get(r.currency) ?? 0) + paid(r))
+  for (const r of receipts) byCurrency.set(r.currency, (byCurrency.get(r.currency) ?? 0) + spentOn(r))
   const totals = [...byCurrency].map(([currency, minor]) => money(minor, currency))
   return totals.length === 1 ? totals[0]! : totals
 }
@@ -152,7 +185,7 @@ function addTo(amounts: Amounts, currency: string, minor: number): void {
 /** What some receipts came to, one amount per currency. */
 export function amountsOf(receipts: readonly KnownReceipt[]): Amounts {
   const amounts: Amounts = []
-  for (const r of receipts) addTo(amounts, r.currency, paid(r))
+  for (const r of receipts) addTo(amounts, r.currency, spentOn(r))
   return amounts
 }
 
@@ -303,7 +336,7 @@ function repeats(receipts: readonly KnownReceipt[], currency: string): Repeat[] 
 
 /** The month's items by kind; null when none has one. */
 function kindsOf(receipts: readonly KnownReceipt[], currency: string): Kinds | null {
-  const bought = receipts.flatMap((receipt) => receipt.items.filter((item) => item.price > 0).map((item) => ({ item, receipt })))
+  const bought = receipts.flatMap((receipt) => receipt.items.filter((item) => item.price > 0 && !item.returned).map((item) => ({ item, receipt })))
   const lines = ITEM_KINDS.map((kind): KindLine => {
     const items = bought.filter((b) => b.item.kind === kind)
     const spent: Amounts = []
@@ -344,7 +377,7 @@ export function shoppingMonth(
 
   const saved: Amounts = []
   for (const r of receipts) for (const item of r.items) if (item.price < 0) addTo(saved, r.currency, -item.price)
-  const small = receipts.filter((r) => r.currency === '£' && paid(r) > 0 && paid(r) < SMALL_SHOP)
+  const small = receipts.filter((r) => r.currency === '£' && spentOn(r) > 0 && spentOn(r) < SMALL_SHOP)
 
   return {
     month,

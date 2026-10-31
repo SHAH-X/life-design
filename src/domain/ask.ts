@@ -6,7 +6,7 @@
 // pointed out.
 import type { ChatMessage, ToolCall, ToolSpec } from '../lib/ai'
 import { itemShown } from './receipts'
-import { type KnownReceipt, money, paid, shopKey, spendByShop } from './shopping'
+import { type KnownReceipt, money, shopKey, spendByShop, spentOn } from './shopping'
 
 export interface FoundEntry {
   id: string
@@ -60,7 +60,7 @@ export const ASK_TOOLS: ToolSpec[] = [
     function: {
       name: 'sum',
       description:
-        'Adds up prices exactly. Give item ids (to total some items, for example one kind) or receipt ids (to total whole receipts, using each printed total). Use it for every total, however simple.',
+        'Adds up prices exactly. Give item ids (to total some items, for example one kind) or receipt ids (to total whole receipts, using each printed total less what was returned); a returned item adds nothing. Use it for every total, however simple.',
       parameters: {
         type: 'object',
         properties: {
@@ -168,7 +168,7 @@ export async function runTool(call: ToolCall, journal: AskJournal): Promise<{ re
       id: r.id,
       shop: r.shop,
       date: r.date,
-      items: r.items.map((item, n) => ({ id: `${r.id}:${n}`, name: itemShown(item), ...(itemShown(item) !== item.name ? { printed: item.name } : {}), price: money(item.price, r.currency), ...(item.quantity > 1 ? { quantity: item.quantity } : {}), ...(item.kind ? { kind: item.kind } : {}) })),
+      items: r.items.map((item, n) => ({ id: `${r.id}:${n}`, name: itemShown(item), ...(itemShown(item) !== item.name ? { printed: item.name } : {}), price: money(item.price, r.currency), ...(item.quantity > 1 ? { quantity: item.quantity } : {}), ...(item.kind ? { kind: item.kind } : {}), ...(item.returned ? { returned: true } : {}) })),
       total: r.total === null ? null : money(r.total, r.currency),
       adds: r.adds,
     }))
@@ -188,7 +188,7 @@ export async function runTool(call: ToolCall, journal: AskJournal): Promise<{ re
       const item = match && receipt ? receipt.items[Number(match[2])] : undefined
       if (!receipt || !item) unknown.push(id)
       else {
-        add(receipt.currency, item.price)
+        add(receipt.currency, item.returned ? 0 : item.price)
         items++
       }
     }
@@ -196,7 +196,7 @@ export async function runTool(call: ToolCall, journal: AskJournal): Promise<{ re
       const receipt = journal.receipts.find((r) => r.id === id)
       if (!receipt) unknown.push(id)
       else {
-        add(receipt.currency, paid(receipt))
+        add(receipt.currency, spentOn(receipt))
         receipts++
       }
     }

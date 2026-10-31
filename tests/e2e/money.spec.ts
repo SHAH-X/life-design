@@ -313,6 +313,10 @@ test('a card payment with its receipt opens the receipt', async ({ page }, testI
   const payment = out.getByRole('button', { name: /^EXAMPLE STREAMING Sat,? 12 Sept? Out of Lloyds · Receipt £10\.99$/ })
   await payment.click()
   await page.getByRole('dialog', { name: 'EXAMPLE STREAMING' }).getByRole('button', { name: 'Open its receipt' }).click()
+  // The receipt opens to its items (v0.20.18), and from there its entry.
+  const receipt = page.getByRole('dialog', { name: 'Example Streaming' })
+  await expect(receipt.getByRole('list', { name: 'Items' })).toContainText('Monthly plan · £10.99')
+  await receipt.getByRole('button', { name: 'Open the entry' }).click()
   await expect(page.getByRole('dialog', { name: 'Photo' })).toBeVisible()
   // A payment with no receipt is still a direct row.
   await page.getByRole('dialog', { name: 'Photo' }).getByRole('button', { name: 'Done', exact: true }).click()

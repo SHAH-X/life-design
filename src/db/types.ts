@@ -143,6 +143,16 @@ export interface PhotoRef {
   text: string | null
   /** What your AI read in it (v0.18), when it was sent: a receipt's items and total, or what it shows. */
   ai?: AiReading
+  /** Your changes to a receipt's items (v0.20.18): a kind you chose, an item you returned. Kept apart from `ai`, so a
+   *  new reading never wipes them; `key` is from `itemKeys` (src/domain/shopping.ts). */
+  items?: ItemChange[]
+}
+
+/** One item as you changed it: its key ("Oat milk#2", the second Oat milk printed), and what you said. */
+export interface ItemChange {
+  key: string
+  kind?: ItemKind
+  returned?: true
 }
 
 /** A photo as your AI read it (src/domain/aiReading.ts). Prices in minor units; the phone checks they add up. */

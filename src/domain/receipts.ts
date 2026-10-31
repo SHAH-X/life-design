@@ -21,8 +21,10 @@ export interface ReceiptItem {
   price: number
   /** From a "2 x 0.89" line, or a "2 @ 1.50 3.00" one; 1 if none. */
   quantity: number
-  /** From ITEM_KINDS, when your AI read the receipt. */
+  /** From ITEM_KINDS, when your AI read the receipt, or as you chose (v0.20.18). */
   kind?: ItemKind
+  /** You took it back and had the money back (v0.20.18): it no longer counts as spent. Never a saving. */
+  returned?: true
 }
 
 /** An item as it's shown: what your AI took it for, else as printed (read by the phone, or before v0.19.3). */

@@ -13,6 +13,7 @@ import {
   paid,
   shopKey,
   SMALL_SHOP,
+  spentOn,
   type ShoppingMonth,
   shoppingMonth,
 } from '../../domain/shopping'
@@ -25,7 +26,7 @@ import { FileActions } from '../backup/FileActions'
 
 // Money's receipts (v0.19 as the Shopping tab; part of Money from v0.20): what you spent, from the receipts in your
 // photos, worked out on the phone with no AI. Counts and amounts only (no averages, ratings or a limit), and every line
-// opens to its receipts, each opening its entry.
+// opens to its receipts, each opening to its items (v0.20.18).
 
 /** The chart shows this many months, the page's own the last. */
 const CHART_MONTHS = 6
@@ -219,7 +220,7 @@ function ByKind({ kinds, onOpen }: { kinds: Kinds; onOpen: (r: KnownReceipt) => 
   )
 }
 
-/** A kind's line, opening to its items, newest first: day, item, shop and price, each opening its receipt's entry. */
+/** A kind's line, opening to its items, newest first: day, item, shop and price, each opening its receipt. */
 function ItemLine(props: { label: string; detail: string; items: KindLine['items']; onOpen: (r: KnownReceipt) => void }) {
   const { label, detail, items, onOpen } = props
   const listed = [...items].sort((a, b) => b.receipt.date.localeCompare(a.receipt.date))
@@ -301,7 +302,9 @@ function ReceiptLine(props: { label: string; detail?: string; receipts: readonly
   )
 }
 
-/** Receipts, newest first: day, shop and what it came to, each opening its entry; with why, when it needs a look. */
+const returnedCount = (r: KnownReceipt) => r.items.filter((item) => item.returned).length
+
+/** Receipts, newest first: day, shop and what was spent, each opening to its items; with why, when it needs a look. */
 function ReceiptList(props: {
   receipts: readonly KnownReceipt[]
   why?: ReadonlyMap<string, string[]>
@@ -398,7 +401,11 @@ function ReceiptList(props: {
                 <span>
                   <span className="muted small">{shortDayMonth(r.date)} </span>
                   {r.shop || 'No shop read'}
-                  <span className="muted small"> · {money(paid(r), r.currency)}</span>
+                  <span className="muted small">
+                    {' '}
+                    · {money(spentOn(r), r.currency)}
+                    {returnedCount(r) ? ` · ${returnedCount(r)} returned` : ''}
+                  </span>
                 </span>
               </button>
             )}
