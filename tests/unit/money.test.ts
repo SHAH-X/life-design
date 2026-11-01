@@ -112,6 +112,25 @@ describe('classify: a Monzo Flex statement (owner, 2026-10-26)', () => {
     ).map((l) => l.moving)
     expect(moving).toEqual(['flex', null, null, 'flex', 'flex'])
   })
+
+  it('knows a Flex statement by its words, whatever its account is called: one that came in as "Account" counted each purchase twice (v0.20.29)', () => {
+    // The same £41.17: on the current account when it was paid, and again as "moved to Flex" on the Flex statement.
+    const lines = classify(
+      [
+        line(CURRENT, '2026-10-08', -41.17, 'EXAMPLE VISA CENTRE LONDON'),
+        line('Account', '2026-10-08', -41.17, 'Example Visa Centre moved to Flex'),
+        line('Account', '2026-10-20', 50, 'You paid early'),
+      ],
+      new Set(),
+    )
+    expect(lines.map((l) => l.moving)).toEqual([null, 'flex', 'flex'])
+    const october = moneyMonth(lines, '2026-10', TODAY, [])
+    expect([october.out, october.in]).toEqual([4117, 0])
+  })
+  it('does not take an ordinary line for Flex because it mentions it', () => {
+    const lines = classify([line(BANK, '2026-10-08', -10, 'FLEX GYM MEMBERSHIP'), line(BANK, '2026-10-09', -8, 'Moved to Flexible Savings')], new Set())
+    expect(lines.map((l) => l.moving)).toEqual([null, null])
+  })
 })
 
 describe('notBroughtIn: the days an account has no statement for, up to today or its last when closed (owner, 2026-10-26)', () => {

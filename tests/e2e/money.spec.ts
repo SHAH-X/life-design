@@ -466,6 +466,23 @@ test('the year page shows what you hold at each month’s end, what you owe apar
   await expect(table.getByRole('row')).toHaveCount(1 + 4)
 })
 
+test('a purchase moved to Flex counts once even when its Flex statement came in as "Account"', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const row = (id: string, account: string, amount: number, description: string, createdAt: number) => ({ id, account, date: '2026-10-08', amount, description, type: '', balance: null, adds: true, createdAt, updatedAt: createdAt })
+  // The same £41.17: paid from the current account, and "moved to Flex" on a Flex statement whose title wasn't read.
+  const bankLines = [row('paid', 'Monzo ···5678', -4117, 'EXAMPLE VISA CENTRE LONDON', 1), row('flex', 'Account', -4117, 'Example Visa Centre moved to Flex', 2)]
+  await restoreBackup(page, testInfo.outputPath('flex-account.json'), backupWith({ bankLines }, now))
+  await page.goto('./#/money')
+
+  // The month's headline: £41.17 once, not £82.34.
+  await expect(page.locator('.acc-figure')).toHaveText('£41.17 out')
+  await accountView(page, 'Spending')
+  await expect(page.getByRole('region', { name: 'Money out' }).getByRole('button', { name: /EXAMPLE VISA CENTRE/ })).toHaveCount(1)
+  await expect(page.getByRole('region', { name: 'Money out' }).getByText('moved to Flex')).toHaveCount(0)
+  await expect(page.getByRole('region', { name: 'Moved between your accounts' })).toContainText('Monzo Flex')
+})
+
 test('the accounts spending chart shows its six-month average and pages through earlier months', async ({ page }, testInfo) => {
   const now = new Date(2026, 9, 26, 12, 0)
   await page.clock.setFixedTime(now)
