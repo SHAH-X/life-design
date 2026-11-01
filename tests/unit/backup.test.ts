@@ -264,7 +264,7 @@ describe('backup and restore', () => {
     await phone.steps.put(agenda)
     await phone.weeks.put({ id: '2026-10-19', carry: 'Walk at lunch', createdAt: 2000, updatedAt: 2000 })
     const backup = await createBackup(phone)
-    expect(backup.schemaVersion).toBe(11)
+    expect(backup.schemaVersion).toBe(BACKUP_SCHEMA_VERSION)
     const detected = detectFile(JSON.stringify(backup))
     if (detected.format !== 'backup') throw new Error('expected a backup')
     await applyImport(detected.raw, newPhone)
@@ -477,8 +477,8 @@ describe('backup and restore', () => {
   })
 
   it('moves to a new backup format with each new item kind: an older version would skip an entry with one, its writing too', () => {
-    // v0.19.2 added Clothes and shoes and format 10. A new kind: raise the format, then both numbers here.
-    expect({ format: BACKUP_SCHEMA_VERSION, kinds: ITEM_KINDS.length }).toEqual({ format: 11, kinds: 13 })
+    // v0.19.2 added Clothes and shoes and format 10; v0.20.37 added Baby and toddler and format 12. A new kind: raise the format, then both numbers here.
+    expect({ format: BACKUP_SCHEMA_VERSION, kinds: ITEM_KINDS.length }).toEqual({ format: 12, kinds: 14 })
   })
 
   it('recognises locked backups, v1 files and everything else', async () => {

@@ -1,9 +1,10 @@
 import type { AskJournal, FoundEntry } from '../domain/ask'
-import { receiptsOf } from '../domain/shopping'
+import { receiptsOf, rememberedKindsOf } from '../domain/shopping'
 import { matchesSearch, photoTexts, writtenParts } from '../domain/search'
 import type { Embed } from '../lib/embedder'
 import { db as defaultDb, type LifeDesignDB } from './db'
 import type { Entry } from './types'
+import { ITEM_KINDS_SETTING } from './receiptItems'
 import { findByMeaning } from './vectors'
 
 // What Ask your journal reads on the phone: every receipt in a photo, and entries found about something. Read when you
@@ -21,7 +22,8 @@ export async function journalForAsking(title: (entry: Entry) => string, embed: E
   const byId = new Map(finished.map((e) => [e.id, e]))
   const found = (e: Entry): FoundEntry => ({ id: e.id, date: e.date, title: title(e), text: textOf(e) })
   return {
-    receipts: receiptsOf(finished),
+    // The kinds you chose for an item at a shop, so Ask adds up what Money's receipts do.
+    receipts: receiptsOf(finished, rememberedKindsOf((await database.settings.get(ITEM_KINDS_SETTING))?.value)),
     async findEntries(about, from, to) {
       const among = finished.filter((e) => (!from || e.date >= from) && (!to || e.date <= to))
       const byWords = among.filter((e) => matchesSearch(e, about))

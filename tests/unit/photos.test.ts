@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { applyImport, createBackup, detectFile } from '../../src/db/backup'
+import { applyImport, BACKUP_SCHEMA_VERSION, createBackup, detectFile } from '../../src/db/backup'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { ensurePhotoText } from '../../src/db/photoText'
 import { deleteEntry, restoreEntry, saveEntry, savePhoto } from '../../src/db/repo'
@@ -81,7 +81,7 @@ describe('keeping photos', () => {
     await savePhoto(photo('p1', 'e1', 'jpeg-bytes'), phone)
     await phone.settings.put({ key: 'photoText', value: true, updatedAt: 1 })
     const backup = await createBackup(phone)
-    expect(backup.schemaVersion).toBe(11)
+    expect(backup.schemaVersion).toBe(BACKUP_SCHEMA_VERSION)
     expect(backup.data.settings.map((s) => s.key)).not.toContain('photoText') // its download is this phone's
     const detected = detectFile(JSON.stringify(backup))
     if (detected.format !== 'backup') throw new Error('expected a backup')

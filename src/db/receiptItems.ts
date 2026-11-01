@@ -1,5 +1,7 @@
 import type { ItemKind } from '../domain/receipts'
+import { rememberedKey, rememberedKindsOf } from '../domain/shopping'
 import { db as defaultDb, type LifeDesignDB } from './db'
+import { setSetting } from './repo'
 import { guardWrite } from './saveErrors'
 import type { ItemChange } from './types'
 
@@ -32,4 +34,15 @@ export async function changeItem(
       await database.entries.update(entryId, { photos, updatedAt: Date.now() })
     }),
   )
+}
+
+/** The kinds you chose for an item at a shop (v0.20.37, owner 2026-11-01: infant formula was filed under dairy on every
+ *  receipt): a setting by `rememberedKey`, so in backups. Read with `rememberedKindsOf`; laid over your AI's kind by
+ *  `receiptsAndCopies`, on past receipts too. */
+export const ITEM_KINDS_SETTING = 'itemKinds'
+
+/** Keeps the kind for an item at a shop, on every receipt; null goes back to your AI's. */
+export async function rememberItemKind(shop: string, name: string, kind: ItemKind | null, database: LifeDesignDB = defaultDb): Promise<void> {
+  const { [rememberedKey(shop, name)]: _, ...rest } = rememberedKindsOf((await database.settings.get(ITEM_KINDS_SETTING))?.value)
+  await setSetting(ITEM_KINDS_SETTING, kind ? { ...rest, [rememberedKey(shop, name)]: kind } : rest, database)
 }

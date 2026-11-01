@@ -152,6 +152,52 @@ test('a receipt opens to its items, each with its price and kind; you can choose
   await expect(page.getByRole('dialog', { name: 'Photo' })).toBeVisible()
 })
 
+// Owner, 2026-11-01: "the infant's formula milk goes into 'dairy and eggs'". A kind chosen for an item is kept for that
+// item at that shop, on every receipt, so it is fixed once.
+test('a kind chosen for an item follows it on every receipt at that shop, and not at another; "Back to the AI’s guess" undoes it', async ({ page }, testInfo) => {
+  const FORMULA = 'EXAMPLE INFANT MILK 800G'
+  const entries = [
+    receiptEntry('f1', '2026-10-03', reading('Tesco Express', '2026-10-03', [[FORMULA, 1450, 'Dairy and eggs'], ['Bananas', 95, 'Fruit and veg']])),
+    receiptEntry('f2', '2026-10-10', reading('TESCO', '2026-10-10', [[FORMULA, 1450, 'Dairy and eggs']])),
+    receiptEntry('f3', '2026-10-17', reading('ASDA', '2026-10-17', [[FORMULA, 1399, 'Dairy and eggs']])),
+  ]
+  await restoreBackup(page, testInfo.outputPath('formula.json'), backupWith({ entries }, SATURDAY))
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  const kinds = page.getByRole('region', { name: 'By kind' })
+  await expect(kinds.locator('summary', { hasText: 'Dairy and eggs' })).toHaveText('Dairy and eggs · 3 items · £42.99')
+  await expect(kinds.locator('summary', { hasText: 'Baby and toddler' })).toHaveCount(0)
+
+  // Chosen on one Tesco receipt: both Tesco receipts follow it, the ASDA one stays as read.
+  await line(page, /3 receipts from 2 shops/).click()
+  await page.getByRole('button', { name: /Sat 10 Oct TESCO/ }).click()
+  const receipt = page.getByRole('dialog', { name: 'TESCO' })
+  await receipt.getByRole('list', { name: 'Items' }).getByRole('listitem').nth(0).getByRole('button').click()
+  const item = page.getByRole('dialog', { name: FORMULA })
+  await expect(item).toContainText('Later receipts with this item at TESCO follow it.')
+  await expect(item.getByRole('radio', { name: /Back to the AI/ })).toHaveCount(0)
+  await item.getByText('Baby and toddler', { exact: true }).click()
+  await expect(receipt.getByRole('list', { name: 'Items' }).getByRole('listitem').nth(0)).toHaveText(`${FORMULA} · £14.50Baby and toddler`)
+  await receipt.getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(kinds.locator('summary', { hasText: 'Baby and toddler' })).toHaveText('Baby and toddler · 2 items · £29.00')
+  await expect(kinds.locator('summary', { hasText: 'Dairy and eggs' })).toHaveText('Dairy and eggs · 1 item · £13.99')
+
+  // Kept after a reload.
+  await page.reload()
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'By kind' }).locator('summary', { hasText: 'Baby and toddler' })).toHaveText('Baby and toddler · 2 items · £29.00')
+
+  // From the other Tesco receipt it can be given back to the AI's guess, for them all.
+  await line(page, /3 receipts from 2 shops/).click()
+  await page.getByRole('button', { name: /Sat 3 Oct Tesco Express/ }).click()
+  await page.getByRole('dialog', { name: 'Tesco Express' }).getByRole('list', { name: 'Items' }).getByRole('listitem').nth(0).getByRole('button').click()
+  const again = page.getByRole('dialog', { name: FORMULA })
+  await expect(again.getByRole('radio', { name: 'Baby and toddler' })).toBeChecked()
+  await again.getByText('Back to the AI’s guess', { exact: true }).click()
+  await page.getByRole('dialog', { name: 'Tesco Express' }).getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'By kind' }).locator('summary', { hasText: 'Dairy and eggs' })).toHaveText('Dairy and eggs · 3 items · £42.99')
+})
+
 // Owner, 2026-11-01: a return slip showed as spent; "just show it as refund receipt at max, don't include in any
 // calculation, as I will also be marking it as returned in the original receipt".
 test('a refund slip is shown as money back, counted nowhere, and opens to what came back', async ({ page }, testInfo) => {

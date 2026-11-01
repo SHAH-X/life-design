@@ -1,7 +1,9 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
-import { changeItem } from '../../src/db/receiptItems'
+import { createBackup } from '../../src/db/backup'
+import { changeItem, ITEM_KINDS_SETTING, rememberItemKind } from '../../src/db/receiptItems'
+import { rememberedKey, rememberedKindsOf } from '../../src/domain/shopping'
 import type { Entry } from '../../src/db/types'
 import { areaEntry } from '../fixtures/areas'
 
@@ -41,5 +43,28 @@ describe('changeItem: your changes to a receipt’s items (v0.20.18)', () => {
     await phone.entries.put(withReceipt())
     await changeItem('e1', 'gone', 'Bread#1', { returned: true }, phone)
     expect((await phone.entries.get('e1'))!.updatedAt).toBe(3)
+  })
+})
+
+describe('rememberItemKind: a kind kept for an item at a shop (v0.20.37)', () => {
+  let phone: LifeDesignDB
+  beforeEach(() => {
+    phone = openDb(`phone-${crypto.randomUUID()}`)
+  })
+  afterEach(async () => {
+    await phone.delete()
+  })
+  const kept = async () => rememberedKindsOf((await phone.settings.get(ITEM_KINDS_SETTING))?.value)
+
+  it('keeps one per item and shop, in a backup, and takes it back, leaving nothing behind', async () => {
+    await rememberItemKind('Tesco Express', 'Infant Milk 800G', 'Baby and toddler', phone)
+    await rememberItemKind('ASDA', 'Infant Milk 800G', 'Baby and toddler', phone)
+    await rememberItemKind('ASDA', 'infant  milk 800g', 'Household', phone)
+    expect(await kept()).toEqual({ [rememberedKey('Tesco', 'Infant Milk 800G')]: 'Baby and toddler', [rememberedKey('ASDA', 'Infant Milk 800G')]: 'Household' })
+    const backup = await createBackup(phone, new Date('2026-11-01T12:00:00Z'))
+    expect(backup.data.settings.find((row) => row.key === 'itemKinds')?.value).toEqual(await kept())
+    await rememberItemKind('ASDA', 'Infant Milk 800G', null, phone)
+    await rememberItemKind('Tesco', 'Infant Milk 800G', null, phone)
+    expect(await kept()).toEqual({})
   })
 })

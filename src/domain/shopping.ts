@@ -22,11 +22,12 @@ export interface KnownReceipt extends Omit<Receipt, 'date'> {
 
 /** A photo's receipt: as your AI read it when it did (v0.18), else as the phone read it. Whether its items add up is
  *  the phone's to say, from the numbers. */
-function receiptOf(photo: PhotoRef): Receipt | null {
+function receiptOf(photo: PhotoRef, remembered: Remembered): Receipt | null {
   const read = readOf(photo)
   if (!read) return null
   const keys = itemKeys(read.items)
-  const changed = (photo.items?.length ? withChanges(read.items, photo.items) : read.items).map((item, i) => ({ ...item, key: keys[i]! }))
+  const kept = withRemembered(read.items, read.shop, remembered)
+  const changed = (photo.items?.length ? withChanges(kept, photo.items) : kept).map((item, i) => ({ ...item, key: keys[i]! }))
   if (read.refund) return { ...asMoneyBack(read, changed), ...(backToGiftCard(photo.ai?.text || photo.text || '') ? { giftCard: true as const } : {}) }
   return { ...read, items: withSavings(changed, photo.ai?.text || photo.text || '') }
 }
@@ -98,7 +99,30 @@ export function itemKeys(items: readonly Pick<ReceiptItem, 'name'>[]): string[] 
   })
 }
 
-/** Items with your changes laid over: the kind you chose wins over your AI's; a saving is never returned. */
+/** The kinds you chose for an item at a shop (v0.20.37), by `rememberedKey`: they follow it on every receipt. */
+export type Remembered = Readonly<Record<string, ItemKind>>
+
+/** An item at a shop, for the kind you chose for it: the chain's name and the item's words, whatever the capitals and
+ *  spaces ("Tesco Express" and "TESCO" are one shop; a shop prints an item the same way each time). */
+export const rememberedKey = (shop: string, name: string): string => `${shopKey(shop)}|${itemKey(name)}`
+
+/** What a stored setting says is remembered: only kinds from the list. */
+export function rememberedKindsOf(value: unknown): Remembered {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, ItemKind] => (ITEM_KINDS as readonly string[]).includes(entry[1] as string)))
+}
+
+/** Items with the kind you remembered for them at this shop laid over your AI's. A saving has no kind to give. */
+function withRemembered(items: readonly ReceiptItem[], shop: string, remembered: Remembered): ReceiptItem[] {
+  if (!shop.trim() || !Object.keys(remembered).length) return [...items]
+  return items.map((item) => {
+    const kind = item.price > 0 ? remembered[rememberedKey(shop, item.name)] : undefined
+    return kind ? { ...item, kind } : item
+  })
+}
+
+/** Items with your changes laid over: the kind you chose for this receipt wins over the one you remembered, and that
+ *  over your AI's; a saving is never returned. */
 function withChanges(items: readonly ReceiptItem[], changes: readonly ItemChange[]): ReceiptItem[] {
   const keys = itemKeys(items)
   return items.map((item, i) => {
@@ -118,13 +142,13 @@ export interface ReceiptCopy {
 /** The receipts in finished entries, oldest first, each counted once (`sameReceipt`), and the copies left out. Refund
  *  slips (v0.20.20) are kept apart in `refunds`, each listed once and counted nowhere: every sum, payment match, Ask and
  *  the spreadsheet read `receipts`. */
-export function receiptsAndCopies(entries: readonly Entry[]): { receipts: KnownReceipt[]; copies: ReceiptCopy[]; refunds: KnownReceipt[] } {
+export function receiptsAndCopies(entries: readonly Entry[], remembered: Remembered = {}): { receipts: KnownReceipt[]; copies: ReceiptCopy[]; refunds: KnownReceipt[] } {
   const added = entries
     .filter((e) => e.status !== 'draft')
     .sort((a, b) => a.createdAt - b.createdAt)
     .flatMap((entry) =>
       (entry.photos ?? []).flatMap((photo) => {
-        const receipt = receiptOf(photo)
+        const receipt = receiptOf(photo, remembered)
         if (!receipt) return []
         const readBy = photo.ai?.receipt ? photo.ai.by : null
         const time = receiptTime(photo.ai?.text || photo.text || '', receipt.currency === '$')
@@ -143,7 +167,7 @@ export function receiptsAndCopies(entries: readonly Entry[]): { receipts: KnownR
 }
 
 /** The receipts in finished entries, oldest first, each counted once: what Shopping and Ask add up. */
-export const receiptsOf = (entries: readonly Entry[]): KnownReceipt[] => receiptsAndCopies(entries).receipts
+export const receiptsOf = (entries: readonly Entry[], remembered: Remembered = {}): KnownReceipt[] => receiptsAndCopies(entries, remembered).receipts
 
 /** One receipt read twice: the same shop, date, total and item prices (whatever their names, as the phone and your AI
  *  write them differently), the same currency and till time when both show one, so two alike bought an hour apart stay
