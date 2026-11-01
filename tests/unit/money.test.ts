@@ -337,19 +337,17 @@ describe('regularPayments: the same payee paid every month or every week', () =>
     ])
   })
 
-  it('calculates regular payments total separately, including monthly and weekly split', () => {
+  it('totals regular payments as a year, a monthly one 12 times and a weekly one 52 (v0.20.24: they were added up as one figure, £10 a month + £5 a week as £15)', () => {
     const lines = [
       ...monthly(['2026-08-10', '2026-09-10', '2026-10-10'], [10, 10, 10], 'STREAMING'),
       ...['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22'].map((d) => line(BANK, d, -5, 'WEEKLY BOX')),
     ]
     const regular = regularPayments(classify(lines, new Set()), '2026-10')
-    const totals = regularPaymentsTotal(regular)
-    expect(totals).toEqual({
-      total: 1500,
-      monthly: 1000,
-      weekly: 500,
-      count: 2,
-    })
+    expect(regular.map((r) => [r.payee.name, r.every, r.amount, r.year])).toEqual([
+      ['STREAMING', 'month', 1000, 1000 * 12],
+      ['WEEKLY BOX', 'week', 500, 500 * 52],
+    ])
+    expect(regularPaymentsTotal(regular)).toEqual({ monthly: 1000, weekly: 500, year: 1000 * 12 + 500 * 52, count: 2 })
   })
 })
 

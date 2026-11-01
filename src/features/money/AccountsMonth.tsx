@@ -176,10 +176,10 @@ function Overview({ its, lines, month, today }: { its: Its; lines: readonly Mone
                 <span className="acc-row-text">
                   <span className="acc-row-title">Total regular payments</span>
                   <span className="acc-row-sub">
-                    {totals.weekly > 0 && totals.monthly > 0 ? `${pounds(totals.monthly)} monthly · ${pounds(totals.weekly)} weekly` : `${paymentsWord(regular.length)}, all ${totals.weekly > 0 ? 'weekly' : 'monthly'}`}
+                    {totals.weekly > 0 && totals.monthly > 0 ? cadence.join(' + ') : `${paymentsWord(regular.length)}, all ${totals.weekly > 0 ? 'weekly' : 'monthly'}`}
                   </span>
                 </span>
-                <span className="acc-row-value">{pounds(totals.total)}</span>
+                <span className="acc-row-value">{pounds(totals.year)} a year</span>
               </div>
             </li>
             {regular.map((r) => (

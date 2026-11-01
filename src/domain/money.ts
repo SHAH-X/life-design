@@ -357,11 +357,16 @@ export interface Regular {
   every: 'month' | 'week'
   /** The latest payment, in pence. */
   amount: number
+  /** What it comes to in a year, in pence: the latest payment times PER_YEAR (multiplied, never averaged). */
+  year: number
   last: string
   /** When the latest payment differs from the one before. */
   changed: { from: number; to: number; date: string } | null
   lines: MoneyLine[]
 }
+
+/** How many times a regular payment is paid in a year. */
+const PER_YEAR = { month: 12, week: 52 } as const
 
 /** Days between payments for each, and how many make it regular. */
 const CADENCE = { week: { least: 4, from: 6, to: 8 }, month: { least: 3, from: 26, to: 35 } } as const
@@ -390,6 +395,7 @@ export function regularPayments(lines: readonly MoneyLine[], month: string): Reg
         payee: last.payee,
         every,
         amount: -last.amount,
+        year: -last.amount * PER_YEAR[every],
         last: last.date,
         changed: before.amount !== last.amount ? { from: -before.amount, to: -last.amount, date: last.date } : null,
         lines: run,
@@ -401,25 +407,21 @@ export function regularPayments(lines: readonly MoneyLine[], month: string): Reg
 }
 
 export interface RegularTotals {
-  /** Sum of regular payment amounts, in pence. */
-  total: number
-  /** Sum of monthly regular payment amounts, in pence. */
+  /** What the monthly ones come to in a month, in pence. */
   monthly: number
-  /** Sum of weekly regular payment amounts, in pence. */
+  /** What the weekly ones come to in a week, in pence. */
   weekly: number
+  /** All of them in a year, in pence: monthly ones 12 times, weekly ones 52. Monthly and weekly amounts are never
+   *  added as one figure (a week isn't a month). */
+  year: number
   count: number
 }
 
-/** Calculates total regular commitments separately, split by cadence. */
+/** The total of regular payments, by cadence and as a year. */
 export function regularPaymentsTotal(regular: readonly Regular[]): RegularTotals {
   const monthly = regular.filter((r) => r.every === 'month').reduce((s, r) => s + r.amount, 0)
   const weekly = regular.filter((r) => r.every === 'week').reduce((s, r) => s + r.amount, 0)
-  return {
-    total: monthly + weekly,
-    monthly,
-    weekly,
-    count: regular.length,
-  }
+  return { monthly, weekly, year: regular.reduce((s, r) => s + r.year, 0), count: regular.length }
 }
 
 /** How many days a card payment can be from its receipt's date: it can post a day or two later. */

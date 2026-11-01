@@ -237,6 +237,37 @@ test('a regular payment can be renamed across existing transactions and a later 
   await expect(octoberOut.getByRole('button', { name: /^Example streaming.* £10\.99$/ })).toBeVisible()
 })
 
+test('regular payments total as a year: a monthly payment 12 times and a weekly one 52, never added as one figure', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const payment = (id: string, date: string, amount: number, description: string, createdAt: number) => ({
+    id,
+    account: 'Lloyds ···4321',
+    date,
+    amount,
+    description,
+    type: 'DD',
+    balance: null,
+    adds: true,
+    createdAt,
+    updatedAt: createdAt,
+  })
+  const bankLines = [
+    ...['2026-07-14', '2026-08-13', '2026-09-12'].map((date, i) => payment(`month-${i}`, date, -1099, 'EXAMPLE STREAMING', i + 1)),
+    ...['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22'].map((date, i) => payment(`week-${i}`, date, -500, 'EXAMPLE WEEKLY BOX', i + 10)),
+  ]
+  await restoreBackup(page, testInfo.outputPath('regular-total.json'), backupWith({ bankLines }, now))
+  await page.goto('./#/money')
+
+  const regularPayments = page.getByRole('region', { name: 'Regular payments' })
+  const total = regularPayments.locator('li.acc-total')
+  // £10.99 x 12 + £5.00 x 52 = £131.88 + £260.00; the old mixed figure was £15.99.
+  await expect(total).toContainText('Total regular payments')
+  await expect(total).toContainText('£391.88 a year')
+  await expect(total).toContainText('£10.99 a month + £5.00 a week')
+  await expect(total).not.toContainText('£15.99')
+})
+
 test('the accounts spending chart shows its six-month average and pages through earlier months', async ({ page }, testInfo) => {
   const now = new Date(2026, 9, 26, 12, 0)
   await page.clock.setFixedTime(now)
