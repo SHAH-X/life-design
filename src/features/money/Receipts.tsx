@@ -1,7 +1,7 @@
 import { type ReactNode, useId, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { receiptsToCsv, shoppingCsvFileName } from '../../db/csv'
-import { itemShown } from '../../domain/receipts'
+import { itemShown, paidFor } from '../../domain/receipts'
 import {
   inWords,
   type KindLine,
@@ -202,7 +202,7 @@ function Shops({ its, onOpen }: { its: ShoppingMonth; onOpen: (r: KnownReceipt) 
 function ByKind({ kinds, onOpen }: { kinds: Kinds; onOpen: (r: KnownReceipt) => void }) {
   const line = (k: KindLine) => <ItemLine key={k.kind} label={k.kind} detail={`${itemsWord(k.items.length)} · ${inWords(k.spent)}`} items={k.items} onOpen={onOpen} />
   return (
-    <Section title="By kind" status="Items at their prices, before offers">
+    <Section title="By kind" status="Items at what you paid, after offers">
       {kinds.ranked.length ? <ul className="plain-list compact">{kinds.ranked.map(line)}</ul> : null}
       {kinds.ranked.length && kinds.others.length ? <p className="muted small">Fewer than 3 items</p> : null}
       {kinds.others.length ? <ul className="plain-list compact">{kinds.others.map(line)}</ul> : null}
@@ -240,7 +240,7 @@ function ItemLine(props: { label: string; detail: string; items: KindLine['items
                   {itemShown(item)}
                   <span className="muted small">
                     {' '}
-                    · {receipt.shop || 'No shop read'} · {money(item.price, receipt.currency)}
+                    · {receipt.shop || 'No shop read'} · {money(paidFor(item), receipt.currency)}
                   </span>
                 </span>
               </button>

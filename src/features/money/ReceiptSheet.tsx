@@ -1,22 +1,24 @@
 import { useId, useState } from 'react'
 import { changeItem } from '../../db/receiptItems'
-import { ITEM_KINDS, itemShown, type ReceiptItem } from '../../domain/receipts'
+import { ITEM_KINDS, itemShown, paidFor, type ReceiptItem } from '../../domain/receipts'
 import { itemKeys, type KnownReceipt, money, paid, returnedOn, spentOn } from '../../domain/shopping'
 import { dayMonthLong } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
 
 // One receipt (v0.20.18, owner 2026-10-31: "i cannot see the item in that receipt or which category the item … is
 // assigned to"): its items, each with its price and kind, and a tap to choose another kind or say you returned it. A
-// returned item comes off what was spent; what was paid stays as printed, for matching a card payment.
+// returned item comes off what was spent; what was paid stays as printed, for matching a card payment. An item on
+// offer shows what was paid, then what it was and what the offer took off (v0.20.19, owner's choice).
 
 /** A receipt's items and what it came to; "Open the entry" for its photo and journal. */
 export function ReceiptSheet(props: { receipt: KnownReceipt; onOpenEntry: () => void; onClose: () => void }) {
   const { receipt, onOpenEntry, onClose } = props
   const [chosen, setChosen] = useState<number | null>(null)
-  const keys = itemKeys(receipt.items)
+  const keys = itemKeys(receipt.items).map((key, i) => receipt.items[i]!.key ?? key)
   const item = chosen === null ? undefined : receipt.items[chosen]
   if (item && chosen !== null) return <ItemSheet receipt={receipt} item={item} itemKey={keys[chosen]!} onClose={() => setChosen(null)} />
   const returned = returnedOn(receipt)
+  const offers = receipt.items.reduce((s, it) => s + (it.saving ?? (it.price < 0 ? -it.price : 0)), 0)
   const footer = (
     <button type="button" className="primary wide" onClick={onOpenEntry}>
       Open the entry
@@ -46,6 +48,7 @@ export function ReceiptSheet(props: { receipt: KnownReceipt; onOpenEntry: () => 
       )}
       <p>
         Total {money(paid(receipt), receipt.currency)}
+        {offers ? ` · ${money(offers, receipt.currency)} off with offers` : ''}
         {returned ? ` · ${money(returned, receipt.currency)} returned · ${money(spentOn(receipt), receipt.currency)} spent` : ''}
       </p>
     </Dialog>
@@ -59,10 +62,18 @@ function ItemText({ item, currency }: { item: ReceiptItem; currency: string }) {
       <span className="muted small">
         {' '}
         · {item.quantity > 1 ? `${item.quantity} × ` : ''}
-        {money(item.price, currency)}
+        {money(paidFor(item), currency)}
       </span>
+      {item.saving ? (
+        <>
+          <br />
+          <span className="muted small">
+            Was {money(item.price, currency)} · {money(item.saving, currency)} off
+          </span>
+        </>
+      ) : null}
       <br />
-      <span className="muted small">{item.price < 0 ? 'Saving' : [item.kind ?? 'Not sorted', ...(item.returned ? ['Returned'] : [])].join(' · ')}</span>
+      <span className="muted small">{item.price < 0 ? 'Offer on the whole receipt' : [item.kind ?? 'Not sorted', ...(item.returned ? ['Returned'] : [])].join(' · ')}</span>
     </span>
   )
 }
@@ -78,7 +89,7 @@ function ItemSheet(props: { receipt: KnownReceipt; item: ReceiptItem; itemKey: s
   return (
     <Dialog title={itemShown(item)} onClose={onClose}>
       <p className="muted small">
-        {receipt.shop || 'No shop read'} · {money(item.price, receipt.currency)}
+        {receipt.shop || 'No shop read'} · {money(paidFor(item), receipt.currency)}
       </p>
       <div className="purpose-list">
         <label className="purpose-option">
