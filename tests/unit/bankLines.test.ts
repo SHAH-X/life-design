@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
-import { ACCOUNT_NAMES, accountNamesOf, bringInStatement, markClosed, markOwnPayee, nameAccount, CLOSED_ACCOUNTS, matchReceiptPayment, notePayment, PAYEE_KINDS, PAYMENT_NOTES, RECEIPT_REVIEWS, receiptReviewState, setPayeeKind, namePayee, removeAccount, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES, unmatchReceiptPayment } from '../../src/db/statements'
+import { createBackup } from '../../src/db/backup'
+import { ACCOUNT_NAMES, accountNamesOf, bringInStatement, markClosed, markOwnPayee, nameAccount, namePayment, PAYMENT_NAMES, CLOSED_ACCOUNTS, matchReceiptPayment, notePayment, PAYEE_KINDS, PAYMENT_NOTES, RECEIPT_REVIEWS, receiptReviewState, setPayeeKind, namePayee, removeAccount, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES, unmatchReceiptPayment } from '../../src/db/statements'
 import { readStatement, type StatementAccount } from '../../src/domain/statements'
 import { piecesOf } from '../fixtures/pdf'
 import { LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
@@ -148,6 +149,18 @@ describe('bringInStatement: a statement’s lines kept on the phone, each once',
     await notePayment('l2', 'Gone', phone)
     await notePayment('l2', '', phone)
     expect(accountNamesOf(await phone.settings.get(PAYMENT_NOTES))).toEqual({ l1: 'Birthday present' })
+  })
+
+  it('keeps a name for one payment alone, by the line’s id, in a backup; empty takes it away (v0.20.35)', async () => {
+    await namePayment('l1', '  Fever medicine ', phone)
+    await namePayment('l2', 'Gone', phone)
+    await namePayment('l2', ' ', phone)
+    await namePayee('example pharmacy', 'The pharmacy', phone)
+    expect(accountNamesOf(await phone.settings.get(PAYMENT_NAMES))).toEqual({ l1: 'Fever medicine' })
+    // It is not the payee's name: naming a payment leaves its shop's name alone, and the other way round.
+    expect(accountNamesOf(await phone.settings.get(PAYEE_NAMES))).toEqual({ 'example pharmacy': 'The pharmacy' })
+    const backup = await createBackup(phone, new Date('2026-11-01T12:00:00Z'))
+    expect(backup.data.settings.find((row) => row.key === 'paymentNames')?.value).toEqual({ l1: 'Fever medicine' })
   })
 
   it('counts the lines whose printed balance doesn’t follow, to check', async () => {

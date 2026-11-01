@@ -19,7 +19,7 @@ import {
   type ShoppingMonth,
   shoppingMonth,
 } from '../../domain/shopping'
-import type { MoneyLine } from '../../domain/money'
+import { type MoneyLine, nameOf } from '../../domain/money'
 import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { MonthChart } from '../../ui/charts/MonthChart'
@@ -477,7 +477,7 @@ function ReceiptList(props: {
                             return (
                               <li key={line.id}>
                                 <span>
-                                  {line.payee.name} · {shortDayMonth(line.date)} · receipt {money(paid(r), r.currency)} · debit {money(debit, '£')}
+                                  {nameOf(line)} · {shortDayMonth(line.date)} · receipt {money(paid(r), r.currency)} · debit {money(debit, '£')}
                                   {difference ? ` · difference ${money(difference, r.currency)}` : ''}
                                 </span>
                               </li>
@@ -563,7 +563,7 @@ function MatchPaymentDialog(props: {
                 <label key={line.id} className="purpose-option">
                   <input type="radio" name="receipt-payment" value={line.id} checked={paymentId === line.id} onChange={() => setPaymentId(line.id)} />
                   <span className="purpose-text">
-                    <span className="purpose-label">{line.payee.name} · {shortDayMonth(line.date)}</span>
+                    <span className="purpose-label">{nameOf(line)} · {shortDayMonth(line.date)}</span>
                     <span className="muted small">Debit {money(debit, '£')} · {line.account}{difference ? ` · difference ${money(difference, receipt.currency)}` : ''}</span>
                   </span>
                 </label>

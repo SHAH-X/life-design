@@ -26,7 +26,12 @@ export interface MoneyLine extends BankLine {
   moving: Moving | null
   /** Money back from where it was spent: it lowers that spending, never counts as money in (owner, 2026-10-26). */
   refund: boolean
+  /** A name you gave this payment alone (v0.20.35). It's still to its payee, so groups, runs and refunds don't move. */
+  label?: string
 }
+
+/** What a payment is called: your name for it alone, else its payee's. */
+export const nameOf = (line: Pick<MoneyLine, 'payee' | 'label'>): string => line.label ?? line.payee.name
 
 /** A line that says it's money back: Monzo's note on a petrol hold given back, a refund or an adjustment. */
 const REFUND_NOTE = /\s*This relates to a previous transaction\.?/i
@@ -106,12 +111,12 @@ export function notBroughtIn(statements: readonly Pick<StatementRecord, 'from' |
 const TRANSFER_DAYS = 3
 
 /** Each line with its payee (by the name you gave it, if any), and whether it's money moved (in the order given). */
-export function classify(lines: readonly BankLine[], own: ReadonlySet<string>, named: Readonly<Record<string, string>> = {}): MoneyLine[] {
+export function classify(lines: readonly BankLine[], own: ReadonlySet<string>, named: Readonly<Record<string, string>> = {}, labels: Readonly<Record<string, string>> = {}): MoneyLine[] {
   const classed = lines.map((line): MoneyLine => {
     const printed = payeeOf(line.description)
     const isRenamed = Boolean(named[printed.key] && named[printed.key] !== printed.name)
     const payee: Payee = isRenamed ? { ...printed, name: named[printed.key]!, original: printed.name } : printed
-    return { ...line, payee, moving: movingOf(line, payee, own), refund: false }
+    return { ...line, payee, moving: movingOf(line, payee, own), refund: false, ...(labels[line.id] ? { label: labels[line.id]! } : {}) }
   })
   const apart = (a: MoneyLine, b: MoneyLine) => Math.abs(dayNumber(a.date) - dayNumber(b.date))
   for (const out of classed.filter((l) => !l.moving && l.amount < 0)) {
@@ -587,7 +592,8 @@ export function averageOfComplete(totals: readonly { month: string; out: number 
 export const MIN_SEARCH = 2
 
 /** Every line (money moved too, as it's on a statement) that a search finds, newest first (v0.20.33): the payee as you
- *  named it or as printed, the statement's own words, your note on it, or its amount, as far as you've typed it
+ *  named it or as printed, your name for that payment alone, the statement's own words, your note on it, or its amount,
+ *  as far as you've typed it
  *  ("24.9" finds £24.99). */
 export function searchPayments(lines: readonly MoneyLine[], query: string, notes: Readonly<Record<string, string>> = {}): MoneyLine[] {
   const wanted = query.trim().toLowerCase().replace(/^£/, '')
@@ -595,7 +601,7 @@ export function searchPayments(lines: readonly MoneyLine[], query: string, notes
   const amountLike = /^\d+(\.\d{0,2})?$/.test(wanted)
   return lines
     .filter((l) => {
-      const words = [l.payee.name, l.payee.original ?? '', l.description, notes[l.id] ?? ''].join(' ').toLowerCase()
+      const words = [l.label ?? '', l.payee.name, l.payee.original ?? '', l.description, notes[l.id] ?? ''].join(' ').toLowerCase()
       return words.includes(wanted) || (amountLike && (Math.abs(l.amount) / 100).toFixed(2).startsWith(wanted))
     })
     .sort((a, b) => b.date.localeCompare(a.date))
