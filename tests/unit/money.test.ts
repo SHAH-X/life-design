@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges } from '../../src/domain/money'
+import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges, moneyYear } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
@@ -559,5 +559,56 @@ describe('regularChanges: regular payments that started or stopped (v0.20.26)', 
       const before = [line(BANK, '2026-06-12', -10, 'NEW SUB'), ...lines]
       expect(names(changes(before, '2026-10', [statement(BANK, '2026-05-01', TODAY)]).started)).toEqual([])
     })
+  })
+})
+
+describe('moneyYear: a year of your accounts (v0.20.27)', () => {
+  const own = new Set(['my own savings'])
+  const lines = classify(
+    [
+      line(BANK, '2025-12-30', -50, 'EXAMPLE SHOP'), // another year
+      line(BANK, '2026-02-03', 2000, 'EXAMPLE EMPLOYER'),
+      line(BANK, '2026-06-01', 1500, 'EXAMPLE EMPLOYER'),
+      line(BANK, '2026-02-10', -300, 'TESCO STORES SOMETOWN GBR'),
+      line(BANK, '2026-03-04', -200, 'TESCO STORES SOMETOWN GBR'),
+      line(BANK, '2026-04-10', -100, 'TESCO STORES SOMETOWN GBR'),
+      line(BANK, '2026-04-12', 20, 'Refund for TESCO STORES SOMETOWN GBR'),
+      line(BANK, '2026-05-01', -400, 'MY OWN SAVINGS'), // moved, not spent
+      ...['2026-02-14', '2026-03-14', '2026-04-14', '2026-05-14'].map((d) => line(BANK, d, -10, 'EXAMPLE STREAMING')),
+      ...['2026-01-10', '2026-02-10', '2026-03-10'].map((d) => line(BANK, d, -25, 'EXAMPLE OLD GYM')), // stopped since
+    ],
+    own,
+  )
+  const covered = [statement(BANK, '2026-01-01', TODAY)]
+  const year = (statements = covered, closed: ReadonlySet<string> = new Set()) => moneyYear(lines, '2026', TODAY, statements, closed, {})
+
+  it('adds up what went out and came in during the year, leaving out money moved and other years, a refund lowering its payee', () => {
+    const y = year()
+    expect(y.in).toBe(350000)
+    // 300 + 200 + 100 - 20 at Tesco, 4 x 10 streaming, 3 x 25 gym.
+    expect(y.out).toBe(58000 + 4000 + 7500)
+    expect(y.months).toEqual({ first: '2026-01', last: '2026-06' })
+  })
+  it('groups it by what it was for and by payee, ranked only with 3 or more payments', () => {
+    const y = year()
+    expect(y.kinds.ranked.map((k) => [k.kind, k.total])).toEqual([['Groceries', 58000]])
+    expect(y.payees.out.ranked.map((g) => [g.payee.name, g.total])).toEqual([['Tesco', 58000], ['EXAMPLE OLD GYM', 7500], ['EXAMPLE STREAMING', 4000]])
+  })
+  it('lists the regular payments paid in the year, what was paid and how often, a stopped one included', () => {
+    expect(year().regular.map((r) => [r.payee.name, r.every, r.total, r.lines.length])).toEqual([
+      ['EXAMPLE OLD GYM', 'month', 7500, 3],
+      ['EXAMPLE STREAMING', 'month', 4000, 4],
+    ])
+  })
+  it('names the days with no statement inside the year, per account, and none for a closed account after its last', () => {
+    const broken = [statement(BANK, '2026-01-01', '2026-03-31'), statement(BANK, '2026-05-01', TODAY)]
+    expect(year(broken).gaps).toEqual([{ account: BANK, from: '2026-04-01', to: '2026-04-30' }])
+    expect(year([statement(BANK, '2026-01-01', '2026-08-31')]).gaps).toEqual([{ account: BANK, from: '2026-09-01', to: TODAY }])
+    expect(year([statement(BANK, '2026-01-01', '2026-08-31')], new Set([BANK])).gaps).toEqual([])
+    expect(year().gaps).toEqual([])
+  })
+  it('is empty for a year with nothing in it', () => {
+    const none = moneyYear(lines, '2024', TODAY, covered, new Set(), {})
+    expect([none.out, none.in, none.months, none.regular, none.gaps]).toEqual([0, 0, null, [], []])
   })
 })

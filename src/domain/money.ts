@@ -263,7 +263,8 @@ export const MIN_RISE = 100
 
 const byName = (a: { payee: Payee }, b: { payee: Payee }) => a.payee.name.localeCompare(b.payee.name, 'en', { sensitivity: 'base' })
 const sumOut = (lines: readonly MoneyLine[]) => lines.reduce((s, l) => s - l.amount, 0)
-const counted = (lines: readonly MoneyLine[], month: string) => lines.filter((l) => !l.moving && l.date.slice(0, 7) === month)
+/** The lines counted in a period, a month ("2026-10") or a year ("2026"): money moved is left out. */
+const counted = (lines: readonly MoneyLine[], period: string) => lines.filter((l) => !l.moving && l.date.startsWith(period))
 
 function groups(lines: readonly MoneyLine[], sign: 1 | -1): Ranked<PayeeGroup> {
   const all = groupBy(lines, (l) => l.payee.key).map((same): PayeeGroup => ({ payee: same[0]!.payee, total: sign * same.reduce((s, l) => s + l.amount, 0), lines: same }))
@@ -350,6 +351,76 @@ export function moneyMonthTotals(lines: readonly MoneyLine[], last: string, coun
     const out = counted(lines, month).filter((l) => l.amount < 0 || l.refund)
     return { month, out: sumOut(out), lines: out.filter((l) => l.amount < 0).length }
   })
+}
+
+/** A regular payment as it was paid in a year: what was paid, not what's expected. */
+export interface RegularPaid {
+  payee: Payee
+  every: 'month' | 'week'
+  /** Paid in the year, in pence. */
+  total: number
+  lines: MoneyLine[]
+}
+
+export interface MoneyYear {
+  year: string
+  /** Money out and in, in pence, money moved left out. */
+  out: number
+  in: number
+  outLines: MoneyLine[]
+  inLines: MoneyLine[]
+  /** The first and last month (YYYY-MM) with money in or out: a year is only as long as the statements brought in. */
+  months: { first: string; last: string } | null
+  payees: { out: Ranked<PayeeGroup> }
+  kinds: Ranked<KindGroup>
+  /** Payees paid regularly at some point, even if since stopped, with what was paid in the year; most first. */
+  regular: RegularPaid[]
+  /** Days with no statement inside the year (up to today), by account: left out of every figure. */
+  gaps: { account: string; from: string; to: string }[]
+}
+
+/** Everything Money says about one year ("2026"), on `today` (v0.20.27). */
+export function moneyYear(
+  lines: readonly MoneyLine[],
+  year: string,
+  today: string,
+  statements: readonly StatementRecord[],
+  closed: ReadonlySet<string> = new Set(),
+  kinds: Readonly<Record<string, string>> = {},
+): MoneyYear {
+  const inYear = counted(lines, year)
+  const outLines = inYear.filter((l) => l.amount < 0 || l.refund)
+  const inLines = inYear.filter((l) => l.amount > 0 && !l.refund)
+  const months = [...new Set(inYear.map((l) => l.date.slice(0, 7)))].sort()
+
+  const regular = regularRuns(lines, `${year}-12`)
+    .flatMap(({ every, run }): RegularPaid[] => {
+      const paidIn = run.filter((l) => l.date.startsWith(year))
+      return paidIn.length ? [{ payee: run[0]!.payee, every, total: sumOut(paidIn), lines: paidIn }] : []
+    })
+    .sort((a, b) => b.total - a.total || byName(a, b))
+
+  const first = `${year}-01-01`
+  const last = [`${year}-12-31`, today].sort()[0]!
+  const gaps = [...new Set(statements.map((s) => s.account))].sort().flatMap((account) =>
+    notBroughtIn(statements.filter((s) => s.account === account), today, closed.has(account)).flatMap((gap) => {
+      const clipped = { account, from: gap.from < first ? first : gap.from, to: gap.to > last ? last : gap.to }
+      return clipped.from <= clipped.to ? [clipped] : []
+    }),
+  )
+
+  return {
+    year,
+    out: sumOut(outLines),
+    in: inLines.reduce((s, l) => s + l.amount, 0),
+    outLines,
+    inLines,
+    months: months.length ? { first: months[0]!, last: months.at(-1)! } : null,
+    payees: { out: groups(outLines, -1) },
+    kinds: kindGroups(outLines, kinds),
+    regular,
+    gaps,
+  }
 }
 
 export interface Regular {
@@ -514,7 +585,7 @@ export function regularPaymentsTotal(regular: readonly Regular[]): RegularTotals
 
 /** A month's money out split in two (v0.20.25): what went to payees that are paid regularly, a refund from one counted
  *  against it, and everything else. Committed changes with one decision (cancelling, switching); everyday with habits. */
-export function committedOf(outLines: readonly MoneyLine[], regular: readonly Regular[]): { committed: number; everyday: number } {
+export function committedOf(outLines: readonly MoneyLine[], regular: readonly { payee: Payee }[]): { committed: number; everyday: number } {
   const keys = new Set(regular.map((r) => r.payee.key))
   const committed = sumOut(outLines.filter((l) => keys.has(l.payee.key)))
   return { committed, everyday: sumOut(outLines) - committed }

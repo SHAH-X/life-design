@@ -2281,9 +2281,11 @@ button.line-button {
 }
 
 .money-screen summary.acc-row,
+.money-screen a.acc-row,
 .money-screen button.acc-row {
   cursor: pointer;
   list-style: none;
+  text-decoration: none;
 }
 
 .money-screen summary.acc-row::-webkit-details-marker {
@@ -2291,11 +2293,13 @@ button.line-button {
 }
 
 .money-screen summary.acc-row:active,
+.money-screen a.acc-row:active,
 .money-screen button.acc-row:active {
   background: var(--viz-hover);
 }
 
 .money-screen summary.acc-row::after,
+.money-screen a.acc-row::after,
 .money-screen button.acc-row::after {
   grid-column: 3;
   grid-row: 1;
