@@ -204,7 +204,8 @@ test('a regular payment can be renamed across existing transactions and a later 
   await page.goto('./#/money')
 
   const regularPayments = page.getByRole('region', { name: 'Regular payments' })
-  const regular = regularPayments.locator('details.acc-item')
+  // Coming up is a row of its own above the payments, so pick the payment's row: it says "every month".
+  const regular = regularPayments.locator('details.acc-item', { hasText: 'every month' })
   await expect(regular.locator('summary')).toContainText('EXAMPLE STREAMING')
   await regular.locator('summary').click()
   await regular.getByRole('button', { name: 'Rename EXAMPLE STREAMING' }).click()
@@ -266,6 +267,58 @@ test('regular payments total as a year: a monthly payment 12 times and a weekly 
   await expect(total).toContainText('£391.88 a year')
   await expect(total).toContainText('£10.99 a month + £5.00 a week')
   await expect(total).not.toContainText('£15.99')
+})
+
+test('Money splits the month into committed and everyday, says when each regular payment is next due and what it costs a year, and lists what is coming up', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const payment = (id: string, date: string, amount: number, description: string, createdAt: number) => ({
+    id,
+    account: 'Lloyds ···4321',
+    date,
+    amount,
+    description,
+    type: 'DD',
+    balance: null,
+    adds: true,
+    createdAt,
+    updatedAt: createdAt,
+  })
+  const bankLines = [
+    ...['2026-07-14', '2026-08-13', '2026-09-12'].map((date, i) => payment(`month-${i}`, date, -1099, 'EXAMPLE STREAMING', i + 1)),
+    ...['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22'].map((date, i) => payment(`week-${i}`, date, -500, 'EXAMPLE WEEKLY BOX', i + 10)),
+    payment('shop', '2026-10-05', -2000, 'EXAMPLE CORNER SHOP', 20),
+  ]
+  await restoreBackup(page, testInfo.outputPath('regular-next.json'), backupWith({ bankLines }, now))
+  await page.goto('./#/money')
+
+  // October so far: £40.00 out, of which the four weekly payments (£20.00) are committed.
+  await expect(page.getByText('£40.00 out')).toBeVisible()
+  await expect(page.getByText('Committed £20.00 · Everyday £20.00')).toBeVisible()
+
+  const regularPayments = page.getByRole('region', { name: 'Regular payments' })
+  // A payment's row says how often; Coming up (closed) holds the same names, so the names alone would match it too.
+  const streaming = regularPayments.locator('details.acc-item', { hasText: 'every month' })
+  const weekly = regularPayments.locator('details.acc-item', { hasText: 'every week' })
+  // Last paid 12 Sep, so the 12 Oct one is past and the next is 12 Nov; weekly, last paid 22 Oct, next 29 Oct.
+  await expect(streaming.locator('summary')).toContainText('every month · next around 12 Nov · £131.88 a year')
+  await expect(weekly.locator('summary')).toContainText('every week · next around 29 Oct · £260.00 a year')
+
+  // The next 30 days from 27 Oct run to 26 Nov: the weekly box on 29 Oct, 5, 12, 19 and 26 Nov, the streaming one on 12 Nov.
+  const coming = regularPayments.locator('details.acc-item', { hasText: 'Coming up' })
+  await expect(coming.locator('summary')).toContainText('6 payments in the next 30 days')
+  await expect(coming.locator('summary')).toContainText('£35.99')
+  await coming.locator('summary').click()
+  await expect(coming.locator('li.acc-li')).toHaveCount(6)
+  await expect(coming.locator('li.acc-li').first()).toContainText('EXAMPLE WEEKLY BOX')
+  await expect(coming.locator('li.acc-li').first()).toContainText('around 29 Oct')
+
+  // An earlier month says nothing of what's next: no Coming up, no "next around".
+  await page.goto('./#/money/2026-09')
+  const earlier = page.getByRole('region', { name: 'Regular payments' })
+  await expect(earlier).toContainText('every month')
+  await expect(earlier).not.toContainText('next around')
+  await expect(earlier).not.toContainText('Coming up')
 })
 
 test('the accounts spending chart shows its six-month average and pages through earlier months', async ({ page }, testInfo) => {

@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useId, useState } from 'react'
 import { markOwnPayee, namePayee } from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
 import {
+  committedOf,
   joinMoves,
   type KindGroup,
   kindOf,
@@ -18,6 +19,7 @@ import {
   regularPayments,
   regularPaymentsTotal,
   type Rise,
+  upcoming,
 } from '../../domain/money'
 import { money, paid, shiftMonth } from '../../domain/shopping'
 import { dayMonth, monthName, monthYear, shortDayMonth } from '../../lib/dates'
@@ -34,7 +36,12 @@ import { useMoney } from './MoneyContext'
 /** The chart shows this many months, the page's own the last. */
 const CHART_MONTHS = 6
 
+/** Regular payments due within this many days are listed under Coming up (this month only). */
+const COMING_DAYS = 30
+
 const pounds = (pence: number) => money(pence, '£')
+/** A change over a year, in words: +£48.00 a year, or £12.00 a year less. */
+const yearly = (pence: number) => (pence >= 0 ? `+${pounds(pence)} a year` : `${pounds(-pence)} a year less`)
 const paymentsWord = (n: number) => `${n} payment${n === 1 ? '' : 's'}`
 const movesWord = (n: number) => `${n} move${n === 1 ? '' : 's'}`
 
@@ -70,6 +77,8 @@ export function AccountsMonth(props: {
   const { kinds } = useMoney()
   const [jump, setJump] = useState<string | null>(null)
   const its = moneyMonth(lines, month, today, statements, closed, kinds)
+  const regular = regularPayments(lines, month, today)
+  const split = committedOf(its.outLines, regular)
   const thisMonth = today.slice(0, 7)
   const current = month === thisMonth
   const earlier = months.filter((m) => m < month).at(-1)
@@ -119,6 +128,11 @@ export function AccountsMonth(props: {
           </strong>
         </p>
         <p className="acc-caption">From your accounts</p>
+        {split.committed > 0 ? (
+          <p className="acc-caption">
+            Committed {pounds(split.committed)} · Everyday {pounds(split.everyday)}
+          </p>
+        ) : null}
         <div className="acc-stats" role="group" aria-label="Money in and payments out">
           <button type="button" className="acc-stat" onClick={() => goTo('acc-money-in')}>
             <span className="acc-stat-label">Money in</span> <span className="acc-stat-value">{pounds(its.in)}</span>
@@ -141,7 +155,7 @@ export function AccountsMonth(props: {
           </button>
         ))}
       </nav>
-      {section === 'overview' ? <Overview its={its} lines={lines} month={month} today={today} /> : null}
+      {section === 'overview' ? <Overview its={its} lines={lines} regular={regular} month={month} today={today} /> : null}
       {section === 'spending' ? <Spending its={its} /> : null}
       {section === 'statements' ? <Statements its={its} /> : null}
     </>
@@ -150,12 +164,12 @@ export function AccountsMonth(props: {
 
 type Its = ReturnType<typeof moneyMonth>
 
-function Overview({ its, lines, month, today }: { its: Its; lines: readonly MoneyLine[]; month: string; today: string }) {
-  const regular = regularPayments(lines, month)
+function Overview({ its, lines, regular, month, today }: { its: Its; lines: readonly MoneyLine[]; regular: readonly Regular[]; month: string; today: string }) {
   const totals = regularPaymentsTotal(regular)
   const cadence = [totals.monthly > 0 ? `${pounds(totals.monthly)} a month` : '', totals.weekly > 0 ? `${pounds(totals.weekly)} a week` : ''].filter(Boolean)
   const regularStatus = `${cadence.join(' + ')} · ${paymentsWord(regular.length)}`
   const current = month === today.slice(0, 7)
+  const coming = current ? upcoming(regular, today, COMING_DAYS) : []
   const lastMonth = monthName(shiftMonth(month, -1))
   const anyRose = its.rose.ranked.length + its.rose.others.length > 0
   return (
@@ -171,6 +185,22 @@ function Overview({ its, lines, month, today }: { its: Its; lines: readonly Mone
       {regular.length ? (
         <Block title="Regular payments" status={regularStatus}>
           <ul className="acc-list">
+            {coming.length ? (
+              <Item title="Coming up" sub={`${paymentsWord(coming.length)} in the next ${COMING_DAYS} days`} value={pounds(coming.reduce((sum, u) => sum + u.amount, 0))}>
+                <ul className="acc-list">
+                  {coming.map((u) => (
+                    <li key={`${u.payee.key}-${u.date}`} className="acc-li">
+                      <div className="acc-row">
+                        <span className="acc-row-text">
+                          <span className="acc-row-title">{u.payee.name}</span> <span className="acc-row-sub">around {dayMonth(u.date)}</span>
+                        </span>{' '}
+                        <span className="acc-row-value">{pounds(u.amount)}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </Item>
+            ) : null}
             <li className="acc-li acc-total">
               <div className="acc-row">
                 <span className="acc-row-text">
@@ -183,7 +213,7 @@ function Overview({ its, lines, month, today }: { its: Its; lines: readonly Mone
               </div>
             </li>
             {regular.map((r) => (
-              <RegularRow key={r.payee.key} item={r} />
+              <RegularRow key={r.payee.key} item={r} soon={current} />
             ))}
           </ul>
         </Block>
@@ -408,9 +438,17 @@ function RiseRow({ rise }: { rise: Rise }) {
   )
 }
 
-function RegularRow({ item }: { item: Regular }) {
+function RegularRow({ item, soon }: { item: Regular; soon: boolean }) {
   const [naming, setNaming] = useState(false)
-  const sub = [`every ${item.every}`, item.changed ? `was ${pounds(item.changed.from)} until ${dayMonth(item.changed.date)}` : ''].filter(Boolean).join(' · ')
+  // When it is next due only says something for the month you're in; what it comes to in a year always does.
+  const sub = [
+    `every ${item.every}`,
+    soon ? `next around ${dayMonth(item.next)}` : '',
+    `${pounds(item.year)} a year`,
+    item.changed ? `was ${pounds(item.changed.from)} until ${dayMonth(item.changed.date)} (${yearly(item.changed.year)})` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
   return (
     <Item title={item.payee.name} sub={sub} value={pounds(item.amount)}>
       <div className="acc-actions">

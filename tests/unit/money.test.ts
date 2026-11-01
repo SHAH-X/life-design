@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates } from '../../src/domain/money'
+import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
@@ -299,19 +299,19 @@ describe('regularPayments: the same payee paid every month or every week', () =>
 
   it('finds a payment on about the same day of 3 or more months, and says when its amount changed', () => {
     const lines = monthly(['2026-08-10', '2026-09-11', '2026-10-10'], [9.99, 9.99, 10.99])
-    expect(regularPayments(classify(lines, new Set()), '2026-10').map((r) => [r.payee.name, r.every, r.amount, r.last, r.changed])).toEqual([
-      ['EXAMPLE STREAMING', 'month', 1099, '2026-10-10', { from: 999, to: 1099, date: '2026-10-10' }],
+    expect(regularPayments(classify(lines, new Set()), '2026-10', TODAY).map((r) => [r.payee.name, r.every, r.amount, r.last, r.changed])).toEqual([
+      ['EXAMPLE STREAMING', 'month', 1099, '2026-10-10', { from: 999, to: 1099, date: '2026-10-10', year: 100 * 12 }],
     ])
   })
 
   it('finds one every week, from 4 payments', () => {
     const lines = ['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22'].map((d) => line(BANK, d, -3.5, 'WEEKLY BOX'))
-    expect(regularPayments(classify(lines, new Set()), '2026-10').map((r) => [r.payee.name, r.every, r.amount, r.changed])).toEqual([['WEEKLY BOX', 'week', 350, null]])
+    expect(regularPayments(classify(lines, new Set()), '2026-10', TODAY).map((r) => [r.payee.name, r.every, r.amount, r.changed])).toEqual([['WEEKLY BOX', 'week', 350, null]])
   })
 
   it('keeps a series regular when an earlier month is opened after later statements arrived', () => {
     const lines = monthly(['2026-07-10', '2026-08-10', '2026-09-10', '2026-10-10'], [9.99, 9.99, 9.99, 9.99])
-    expect(regularPayments(classify(lines, new Set()), '2026-09').map((r) => [r.payee.name, r.last])).toEqual([['EXAMPLE STREAMING', '2026-09-10']])
+    expect(regularPayments(classify(lines, new Set()), '2026-09', TODAY).map((r) => [r.payee.name, r.last])).toEqual([['EXAMPLE STREAMING', '2026-09-10']])
   })
 
   it('finds none from 2 months, from a shop paid on many days, or from money moved', () => {
@@ -320,7 +320,7 @@ describe('regularPayments: the same payee paid every month or every week', () =>
       ...['2026-10-01', '2026-10-03', '2026-10-09', '2026-10-15', '2026-10-24'].map((d) => line(BANK, d, -20, 'TESCO SOMETOWN GBR')),
       ...['2026-08-17', '2026-09-17', '2026-10-17'].map((d) => line(CURRENT, d, -100, 'Flex')),
     ]
-    expect(regularPayments(classify(lines, new Set()), '2026-10')).toEqual([])
+    expect(regularPayments(classify(lines, new Set()), '2026-10', TODAY)).toEqual([])
   })
 
   it('arranges regular payments in decreasing order of value, highest at the top', () => {
@@ -329,7 +329,7 @@ describe('regularPayments: the same payee paid every month or every week', () =>
       ...monthly(['2026-08-01', '2026-09-01', '2026-10-01'], [120, 120, 120], 'EXPENSIVE GYM'),
       ...monthly(['2026-08-15', '2026-09-15', '2026-10-15'], [35, 35, 35], 'MEDIUM INTERNET'),
     ]
-    const result = regularPayments(classify(lines, new Set()), '2026-10')
+    const result = regularPayments(classify(lines, new Set()), '2026-10', TODAY)
     expect(result.map((r) => [r.payee.name, r.amount])).toEqual([
       ['EXPENSIVE GYM', 12000],
       ['MEDIUM INTERNET', 3500],
@@ -342,12 +342,88 @@ describe('regularPayments: the same payee paid every month or every week', () =>
       ...monthly(['2026-08-10', '2026-09-10', '2026-10-10'], [10, 10, 10], 'STREAMING'),
       ...['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22'].map((d) => line(BANK, d, -5, 'WEEKLY BOX')),
     ]
-    const regular = regularPayments(classify(lines, new Set()), '2026-10')
+    const regular = regularPayments(classify(lines, new Set()), '2026-10', TODAY)
     expect(regular.map((r) => [r.payee.name, r.every, r.amount, r.year])).toEqual([
       ['STREAMING', 'month', 1000, 1000 * 12],
       ['WEEKLY BOX', 'week', 500, 500 * 52],
     ])
     expect(regularPaymentsTotal(regular)).toEqual({ monthly: 1000, weekly: 500, year: 1000 * 12 + 500 * 52, count: 2 })
+  })
+
+  it('says what a change comes to in a year, a rise as plus and a fall as minus (a weekly one 52 times)', () => {
+    const weekly = ['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22'].map((d, i) => line(BANK, d, -[3.5, 3.5, 3.5, 4][i]!, 'WEEKLY BOX'))
+    expect(regularPayments(classify(weekly, new Set()), '2026-10', TODAY)[0]!.changed).toEqual({ from: 350, to: 400, date: '2026-10-22', year: 50 * 52 })
+    const fall = monthly(['2026-08-10', '2026-09-10', '2026-10-10'], [10.99, 10.99, 9.99])
+    expect(regularPayments(classify(fall, new Set()), '2026-10', TODAY)[0]!.changed?.year).toBe(-100 * 12)
+  })
+
+  describe('next: when it is due again (v0.20.25)', () => {
+    const next = (dates: string[], month: string, today: string, description = 'EXAMPLE STREAMING') =>
+      regularPayments(classify(monthly(dates, dates.map(() => 10), description), new Set()), month, today).map((r) => r.next)
+
+    it('is a month after the latest payment, or a week', () => {
+      expect(next(['2026-08-10', '2026-09-10', '2026-10-10'], '2026-10', TODAY)).toEqual(['2026-11-10'])
+      const weekly = ['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22'].map((d) => line(BANK, d, -5, 'WEEKLY BOX'))
+      expect(regularPayments(classify(weekly, new Set()), '2026-10', TODAY).map((r) => r.next)).toEqual(['2026-10-29'])
+    })
+    it('moves on a cycle at a time until it is today or later, and today itself counts', () => {
+      expect(next(['2026-07-12', '2026-08-12', '2026-09-12'], '2026-10', TODAY)).toEqual(['2026-11-12'])
+      expect(next(['2026-07-26', '2026-08-26', '2026-09-26'], '2026-10', TODAY)).toEqual(['2026-10-26'])
+      const weekly = ['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22'].map((d) => line(BANK, d, -5, 'WEEKLY BOX'))
+      expect(regularPayments(classify(weekly, new Set()), '2026-10', '2026-11-10').map((r) => r.next)).toEqual(['2026-11-12'])
+    })
+    it('clamps to a short month without pulling later ones earlier (31 Jan + 2 months is 31 Mar, not 28 Mar)', () => {
+      expect(next(['2025-11-30', '2025-12-30', '2026-01-30'], '2026-01', '2026-02-01')).toEqual(['2026-02-28'])
+      expect(next(['2025-11-30', '2025-12-31', '2026-01-31'], '2026-02', '2026-03-02')).toEqual(['2026-03-31'])
+    })
+  })
+})
+
+describe('committedOf: a month’s money out, what went to regular payments and the rest (v0.20.25)', () => {
+  const monthly = (dates: string[], pounds: number[], description: string) => dates.map((d, i) => line(BANK, d, -pounds[i]!, description))
+
+  it('counts a refund from a regular payee against it, and the rest is everyday', () => {
+    const lines = classify(
+      [
+        ...monthly(['2026-08-10', '2026-09-10', '2026-10-10'], [10, 10, 10], 'EXAMPLE STREAMING'),
+        line(BANK, '2026-10-12', 2, 'Refund for EXAMPLE STREAMING'),
+        line(BANK, '2026-10-05', -30, 'EXAMPLE CORNER SHOP'),
+        line(BANK, '2026-10-06', -20, 'ANOTHER SHOP'),
+      ],
+      new Set(),
+    )
+    const month = moneyMonth(lines, '2026-10', TODAY, [])
+    expect(month.out).toBe(5800)
+    expect(committedOf(month.outLines, regularPayments(lines, '2026-10', TODAY))).toEqual({ committed: 800, everyday: 5000 })
+  })
+  it('is all everyday when nothing is regular', () => {
+    const lines = classify([line(BANK, '2026-10-05', -30, 'EXAMPLE CORNER SHOP')], new Set())
+    expect(committedOf(moneyMonth(lines, '2026-10', TODAY, []).outLines, [])).toEqual({ committed: 0, everyday: 3000 })
+  })
+})
+
+describe('upcoming: what regular payments are due in the next days (v0.20.25)', () => {
+  it('lists a weekly one each week and a monthly one once, soonest first, up to and including the last day', () => {
+    const lines = classify(
+      [
+        ...['2026-08-10', '2026-09-10', '2026-10-10'].map((d) => line(BANK, d, -10, 'EXAMPLE STREAMING')),
+        ...['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22'].map((d) => line(BANK, d, -3.5, 'WEEKLY BOX')),
+      ],
+      new Set(),
+    )
+    const regular = regularPayments(lines, '2026-10', TODAY)
+    expect(upcoming(regular, TODAY, 30).map((u) => [u.date, u.payee.name, u.amount])).toEqual([
+      ['2026-10-29', 'WEEKLY BOX', 350],
+      ['2026-11-05', 'WEEKLY BOX', 350],
+      ['2026-11-10', 'EXAMPLE STREAMING', 1000],
+      ['2026-11-12', 'WEEKLY BOX', 350],
+      ['2026-11-19', 'WEEKLY BOX', 350],
+    ])
+    // 26 Oct + 30 days is 25 Nov: the weekly one on 26 Nov is outside, and 26 Nov would be inside from 27 Oct.
+    expect(upcoming(regular, '2026-10-27', 30).filter((u) => u.payee.name === 'WEEKLY BOX').map((u) => u.date).at(-1)).toBe('2026-11-26')
+  })
+  it('is empty with nothing regular', () => {
+    expect(upcoming([], TODAY, 30)).toEqual([])
   })
 })
 
