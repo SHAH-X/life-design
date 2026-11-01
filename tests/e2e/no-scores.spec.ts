@@ -64,21 +64,22 @@ test('an entry logged in words reads back in words', async ({ page }) => {
 
 test('Money’s month and year pages, with payments in, show no rating, score or scale', async ({ page }, testInfo) => {
   await page.clock.setFixedTime(THURSDAY)
-  const payment = (id: string, date: string, amount: number, description: string, createdAt: number) => ({
+  const payment = (id: string, date: string, amount: number, description: string, createdAt: number, balance: number) => ({
     id,
     account: 'Lloyds ···4321',
     date,
     amount,
     description,
     type: 'DD',
-    balance: null,
+    balance,
     adds: true,
     createdAt,
     updatedAt: createdAt,
   })
   const bankLines = [
-    ...['2026-08-14', '2026-09-14', '2026-10-14'].map((date, i) => payment(`streaming-${i}`, date, i === 2 ? -1199 : -1099, 'EXAMPLE STREAMING', i + 1)),
-    payment('employer', '2026-10-20', 150000, 'EXAMPLE EMPLOYER', 10),
+    // The balance printed beside each, from £1000.00: the year's chart of balances has something to show.
+    ...['2026-08-14', '2026-09-14', '2026-10-14'].map((date, i) => payment(`streaming-${i}`, date, i === 2 ? -1199 : -1099, 'EXAMPLE STREAMING', i + 1, [98901, 97802, 96603][i]!)),
+    payment('employer', '2026-10-20', 150000, 'EXAMPLE EMPLOYER', 10, 246603),
   ]
   const statements = [{ id: 'a', account: 'Lloyds ···4321', from: '2026-01-01', to: '2026-10-22', lines: 4, createdAt: 1, updatedAt: 1 }]
   await restoreBackup(page, testInfo.outputPath('money.json'), backupWith({ bankLines, statements }, THURSDAY))
@@ -88,5 +89,6 @@ test('Money’s month and year pages, with payments in, show no rating, score or
   await expectNoScores(page, 'Money, this month', true)
   await page.goto('./#/money/2026')
   await expect(page.getByRole('heading', { level: 1, name: '2026' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'At each month’s end' })).toBeVisible()
   await expectNoScores(page, 'Money, the year')
 })

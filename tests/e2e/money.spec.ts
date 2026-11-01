@@ -424,6 +424,48 @@ test('each month says what came in against what went out, and Overview opens the
   await expect(page.getByRole('heading', { level: 1, name: 'Money' })).toBeVisible()
 })
 
+test('the year page shows what you hold at each month’s end, what you owe apart, and says when a month cannot be told', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const CARD = 'M&S Card ···9999'
+  const row = (id: string, account: string, date: string, amount: number, balance: number, description: string, createdAt: number) => ({ id, account, date, amount, description, type: '', balance, adds: true, createdAt, updatedAt: createdAt })
+  // The bank holds £1000.00 at the start: -£200.00 on 5 Jul, then -£50.00 and -£25.00 on 10 Aug (given to the app the
+  // wrong way round), then +£100.00 on 2 Oct. The card owes £50.00: a £30.00 purchase on 20 Jul, a £20.00 payment on 10 Oct.
+  const bankLines = [
+    row('b1', LLOYDS, '2026-07-05', -20000, 80000, 'EXAMPLE RENT', 1),
+    row('b3', LLOYDS, '2026-08-10', -2500, 72500, 'EXAMPLE SHOP TWO', 3),
+    row('b2', LLOYDS, '2026-08-10', -5000, 75000, 'EXAMPLE SHOP ONE', 2),
+    row('b4', LLOYDS, '2026-10-02', 10000, 82500, 'EXAMPLE EMPLOYER', 4),
+    row('c1', CARD, '2026-07-20', -3000, 8000, 'EXAMPLE CLOTHES', 5),
+    row('c2', CARD, '2026-10-10', 2000, 6000, 'EXAMPLE PAYMENT', 6),
+  ]
+  // The bank has no statement for September.
+  const statements = [
+    { id: 'l1', account: LLOYDS, from: '2026-07-01', to: '2026-08-31', lines: 3, createdAt: 1, updatedAt: 1 },
+    { id: 'l2', account: LLOYDS, from: '2026-10-01', to: '2026-10-27', lines: 1, createdAt: 2, updatedAt: 2 },
+    { id: 'c', account: CARD, from: '2026-07-01', to: '2026-10-27', lines: 2, createdAt: 3, updatedAt: 3 },
+  ]
+  await restoreBackup(page, testInfo.outputPath('balances.json'), backupWith({ bankLines, statements }, now))
+  await page.goto('./#/money/2026')
+
+  const ends = page.getByRole('region', { name: 'At each month’s end' })
+  // Tapping a month says what is held and what is owed, apart.
+  await ends.getByRole('button', { name: /^August 2026/ }).click()
+  await expect(ends.getByText('August 2026: £725.00 held · £80.00 owed', { exact: true })).toBeVisible()
+  await ends.getByRole('button', { name: /^September 2026/ }).click()
+  await expect(ends.getByText('September 2026: not known: no statement for Lloyds · £80.00 owed', { exact: true })).toBeVisible()
+
+  // Every month, as a table.
+  await ends.getByText('Show as table').click()
+  const table = ends.locator('table')
+  await expect(table.getByRole('row', { name: /^July 2026/ })).toContainText('£800.00 held')
+  await expect(table.getByRole('row', { name: /^July 2026/ })).toContainText('£80.00 owed')
+  await expect(table.getByRole('row', { name: /^October so far/ })).toContainText('£825.00 held')
+  await expect(table.getByRole('row', { name: /^October so far/ })).toContainText('£60.00 owed')
+  // Nothing before the accounts began.
+  await expect(table.getByRole('row')).toHaveCount(1 + 4)
+})
+
 test('the accounts spending chart shows its six-month average and pages through earlier months', async ({ page }, testInfo) => {
   const now = new Date(2026, 9, 26, 12, 0)
   await page.clock.setFixedTime(now)
