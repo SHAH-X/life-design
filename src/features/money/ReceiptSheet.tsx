@@ -3,7 +3,7 @@ import { type ReactNode, useId, useState } from 'react'
 import { db } from '../../db/db'
 import { changeItem, fileItem, ITEM_KINDS_SETTING, rememberItemKind } from '../../db/receiptItems'
 import { ITEM_KINDS, itemShown, paidFor, type ReceiptItem } from '../../domain/receipts'
-import { givenBack, itemKeys, type KnownReceipt, money, paid, rememberedKey, rememberedKindsOf, returnedOn, spentOn } from '../../domain/shopping'
+import { givenBack, itemKeys, type KnownReceipt, money, offerWords, paid, rememberedKey, rememberedKindsOf, returnedOn, spentOn } from '../../domain/shopping'
 import { dayMonthLong } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
 import { ForSheet } from './PaymentSheets'
@@ -124,7 +124,7 @@ function ItemText({ item, currency }: { item: ReceiptItem; currency: string }) {
         </span>
       ) : null}
       <span className="rc-kind" data-returned={item.returned ? 'true' : undefined}>
-        {item.price < 0 ? 'Offer on the whole receipt' : [item.kind ?? 'Not sorted', ...(item.returned ? ['Returned'] : [])].join(' · ')}
+        {item.price < 0 ? offerWords(item, currency) : [item.kind ?? 'Not sorted', ...(item.returned ? ['Returned'] : [])].join(' · ')}
       </span>
     </span>
   )
