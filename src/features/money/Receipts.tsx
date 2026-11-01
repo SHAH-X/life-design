@@ -3,6 +3,8 @@ import { flushSync } from 'react-dom'
 import { receiptsToCsv, shoppingCsvFileName } from '../../db/csv'
 import { itemShown, paidFor } from '../../domain/receipts'
 import {
+  type Amounts,
+  givenBack,
   inWords,
   type KindLine,
   type Kinds,
@@ -39,6 +41,8 @@ const itemsWord = (n: number) => `${n} item${n === 1 ? '' : 's'}`
 /** A month of your receipts, top to bottom: how much, each month, shops, what changed, what came back, to check. */
 export function ReceiptsMonth(props: {
   receipts: readonly KnownReceipt[]
+  /** Refund slips (v0.20.20): shown, counted nowhere. */
+  refunds: readonly KnownReceipt[]
   copies: readonly ReceiptCopy[]
   month: string
   today: string
@@ -53,13 +57,19 @@ export function ReceiptsMonth(props: {
   const headingId = useId()
   const its = shoppingMonth(receipts, month, today, props.copies, props.reviewedDates, props.possiblePaymentIds)
   const shops = its.shops.ranked.length + its.shops.others.filter((s) => s.name !== null).length
+  const refunds = props.refunds.filter((r) => r.date.slice(0, 7) === month)
   if (its.receipts.length === 0) {
     return (
       <section aria-labelledby={headingId}>
         <h2 id={headingId} className="week-title">
           From your receipts
         </h2>
-        <p className="muted">{receipts.length ? `No receipts in ${monthYear(month)}.` : 'Receipts you photograph show here.'}</p>
+        <p className="muted">{receipts.length || refunds.length ? `No receipts in ${monthYear(month)}.` : 'Receipts you photograph show here.'}</p>
+        {refunds.length ? (
+          <ul className="plain-list compact">
+            <RefundLine refunds={refunds} onOpen={onOpen} />
+          </ul>
+        ) : null}
       </section>
     )
   }
@@ -79,6 +89,7 @@ export function ReceiptsMonth(props: {
         <ul className="plain-list compact money-overview-breakdown">
           {its.before ? <ReceiptLine label={`By ${dayMonthLong(its.before.until)}`} detail={inWords(its.before.spent)} receipts={its.before.receipts} onOpen={onOpen} /> : null}
           <ReceiptLine label={`${receiptsWord(its.receipts.length)} from ${shops} shop${shops === 1 ? '' : 's'}`} receipts={its.receipts} onOpen={onOpen} />
+          {refunds.length ? <RefundLine refunds={refunds} onOpen={onOpen} /> : null}
           {its.offers.saved.length ? <ReceiptLine label={`${inWords(its.offers.saved)} off with offers`} receipts={its.offers.receipts} onOpen={onOpen} /> : null}
         </ul>
       </div>
@@ -297,6 +308,48 @@ function ReceiptLine(props: { label: string; detail?: string; receipts: readonly
           {detail ? <span className="muted small"> · {detail}</span> : null}
         </summary>
         <ReceiptList receipts={receipts} onOpen={onOpen} />
+      </details>
+    </li>
+  )
+}
+
+/** The month's refund slips (v0.20.20, owner 2026-11-01: "just show it as refund receipt at max, don't include in any
+ *  calculation"): what came back, said in words, no minus sign, and that it isn't counted; each opens to its items. */
+function RefundLine(props: { refunds: readonly KnownReceipt[]; onOpen: (r: KnownReceipt) => void }) {
+  const { refunds, onOpen } = props
+  const back: Amounts = []
+  for (const r of refunds) {
+    const found = back.find((a) => a.currency === r.currency)
+    if (found) found.minor += givenBack(r)
+    else back.push({ currency: r.currency, minor: givenBack(r) })
+  }
+  return (
+    <li>
+      <details className="week-line">
+        <summary>
+          <span>
+            {refunds.length} refund{refunds.length === 1 ? '' : 's'} · {inWords(back)} back
+          </span>
+          <span className="muted small"> · not counted</span>
+        </summary>
+        <ul className="plain-list compact evidence-list">
+          {[...refunds]
+            .sort((a, b) => b.date.localeCompare(a.date))
+            .map((r) => (
+              <li key={r.id}>
+                <button type="button" className="line-button" onClick={() => onOpen(r)}>
+                  <span>
+                    <span className="muted small">{shortDayMonth(r.date)} </span>
+                    {r.shop || 'No shop read'}
+                    <span className="muted small">
+                      {' '}
+                      · {money(givenBack(r), r.currency)} back · refund of {itemsWord(r.items.length)}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            ))}
+        </ul>
       </details>
     </li>
   )

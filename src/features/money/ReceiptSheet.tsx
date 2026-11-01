@@ -1,7 +1,7 @@
-import { useId, useState } from 'react'
+import { type ReactNode, useId, useState } from 'react'
 import { changeItem } from '../../db/receiptItems'
 import { ITEM_KINDS, itemShown, paidFor, type ReceiptItem } from '../../domain/receipts'
-import { itemKeys, type KnownReceipt, money, paid, returnedOn, spentOn } from '../../domain/shopping'
+import { givenBack, itemKeys, type KnownReceipt, money, paid, returnedOn, spentOn } from '../../domain/shopping'
 import { dayMonthLong } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
 
@@ -24,6 +24,7 @@ export function ReceiptSheet(props: { receipt: KnownReceipt; onOpenEntry: () => 
       Open the entry
     </button>
   )
+  if (receipt.refund) return <RefundSheet receipt={receipt} footer={footer} onClose={onClose} />
   return (
     <Dialog title={receipt.shop || 'No shop read'} onClose={onClose} footer={footer} full>
       <p className="muted small">
@@ -51,6 +52,35 @@ export function ReceiptSheet(props: { receipt: KnownReceipt; onOpenEntry: () => 
         {offers ? ` · ${money(offers, receipt.currency)} off with offers` : ''}
         {returned ? ` · ${money(returned, receipt.currency)} returned · ${money(spentOn(receipt), receipt.currency)} spent` : ''}
       </p>
+    </Dialog>
+  )
+}
+
+/** A refund slip (v0.20.20): what came back, item by item, in words; counted nowhere, so nothing on it to change. Its
+ *  items' return is marked on the receipt they were bought on (owner, 2026-11-01). */
+function RefundSheet(props: { receipt: KnownReceipt; footer: ReactNode; onClose: () => void }) {
+  const { receipt, footer, onClose } = props
+  return (
+    <Dialog title={`${receipt.shop || 'No shop read'} refund`} onClose={onClose} footer={footer} full>
+      <p className="muted small">
+        {dayMonthLong(receipt.date)} · {receipt.readBy ? 'Read by your AI' : 'Read by the phone'}
+      </p>
+      <ul className="plain-list compact receipt-items" aria-label="Items">
+        {receipt.items.map((it, i) => (
+          <li key={`${it.name}#${i}`}>
+            <span>
+              {itemShown(it)}
+              <span className="muted small"> · {money(it.price, receipt.currency)} back</span>
+              <br />
+              <span className="muted small">{it.kind ?? 'Not sorted'}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p>
+        Total {money(givenBack(receipt), receipt.currency)} back{receipt.giftCard ? ' · to a gift card' : ''}
+      </p>
+      <p className="muted small">Not counted. Say “I returned it” on the receipt you bought them on.</p>
     </Dialog>
   )
 }

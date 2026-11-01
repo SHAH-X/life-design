@@ -49,6 +49,22 @@ export interface Receipt {
   adds: boolean
   /** £, $, € or '' when the receipt shows none. */
   currency: string
+  /** A refund slip, money given back (v0.20.20, `isRefundSlip`): shown, never counted. */
+  refund?: true
+  /** A refund slip that names a gift card after its total: the money went back to it, so no bank shows it. */
+  giftCard?: true
+}
+
+/** A slip's own words for a refund: "*** RETURN RECEIPT ***", "ITEMS RETURNED 2", "REFUND REASON". A receipt's refund
+ *  policy ("the last date for a refund/exchange", "Refunds may still be given") says none of these. */
+const REFUND_WORDS = /\b(?:return|refund)\s+receipt\b|\bitems?\s+returned\b|\brefund\s+(?:reason|total)\b|\btotal\s+refund\b/i
+
+/** Whether a reading is a refund slip, money given back (v0.20.20, owner 2026-11-01: "just show it as refund receipt
+ *  at max, don't include in any calculation, as I will also be marking it as returned in the original receipt"): its
+ *  words say so, or every item is below nothing. An AI can give a slip's amounts as plus figures and its total as "the
+ *  total paid", so the words count whatever the signs. A total below nothing alone isn't one: savings can do that. */
+export function isRefundSlip(text: string, items: readonly Pick<ReceiptItem, 'price'>[]): boolean {
+  return REFUND_WORDS.test(text) || (items.length > 0 && items.every((item) => item.price < 0))
 }
 
 /** An amount: pence or cents after a point or comma. */
@@ -281,5 +297,6 @@ export function readReceipt(text: string): Receipt | null {
     total,
     adds: total === null || sum === total,
     currency,
+    ...(isRefundSlip(text, items) ?{ refund: true as const } : {}),
   }
 }

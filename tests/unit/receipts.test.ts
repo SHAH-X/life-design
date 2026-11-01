@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { readReceipt, receiptDate, receiptTime } from '../../src/domain/receipts'
-import { type ExpectedReceipt, RECEIPTS, RECEIPTS_UNSEEN } from '../fixtures/receipts'
+import { isRefundSlip, readReceipt, receiptDate, receiptTime } from '../../src/domain/receipts'
+import { type ExpectedReceipt, RECEIPTS, RECEIPTS_UNSEEN, REFUND_SLIP } from '../fixtures/receipts'
 
 /** What the rules made of each fictional receipt, as the fixture writes it. */
 const asRead = (c: ExpectedReceipt) => {
@@ -15,6 +15,18 @@ describe('readReceipt: a receipt in the text read from a photo', () => {
 
   it.each(RECEIPTS_UNSEEN.map((c) => [c.id, c] as const))('reads %s, never used to write the rules, as a person would', (_, c) => {
     expect(asRead(c)).toEqual(c.expect)
+  })
+
+  // Owner, 2026-11-01: a return slip showed as £… spent; "just show it as refund receipt … don't include in any
+  // calculation, as I will also be marking it as returned in the original receipt".
+  it('knows a refund slip, and never takes a receipt with a refund policy for one', () => {
+    expect(readReceipt(REFUND_SLIP)?.refund).toBe(true)
+    for (const c of [...RECEIPTS, ...RECEIPTS_UNSEEN].filter((c) => c.expect && c.text !== REFUND_SLIP)) expect(readReceipt(c.text)?.refund, c.id).toBeFalsy()
+    expect(isRefundSlip('SHOP\nREFUND RECEIPT', [{ price: 1100 }, { price: 500 }])).toBe(true)
+    expect(isRefundSlip('SHOP', [{ price: -1100 }, { price: -500 }])).toBe(true)
+    expect(isRefundSlip('Refunds may still be given\nlast date for a refund/exchange is', [{ price: 1600 }])).toBe(false)
+    // Savings can take a total below nothing; that alone isn't a refund.
+    expect(isRefundSlip('SHOP', [{ price: 100 }, { price: -60 }, { price: -60 }])).toBe(false)
   })
 
   it('checks the items add up to the printed total, and says when they don’t', () => {

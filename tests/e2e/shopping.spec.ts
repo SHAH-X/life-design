@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test'
 import { captureShareSheet, expectNoScores, sharedFile } from './helpers'
+import { REFUND_SLIP } from '../fixtures/receipts'
 import { backupWith, freeWriting, restoreBackup } from './seed'
 
 // Money's receipts (v0.19 as the Shopping tab, part of Money from v0.20) in WebKit: what was spent, from the receipts in
@@ -149,6 +150,29 @@ test('a receipt opens to its items, each with its price and kind; you can choose
   await page.getByRole('button', { name: /Sat 3 Oct TESCO/ }).click()
   await page.getByRole('dialog', { name: 'TESCO' }).getByRole('button', { name: 'Open the entry' }).click()
   await expect(page.getByRole('dialog', { name: 'Photo' })).toBeVisible()
+})
+
+// Owner, 2026-11-01: a return slip showed as spent; "just show it as refund receipt at max, don't include in any
+// calculation, as I will also be marking it as returned in the original receipt".
+test('a refund slip is shown as money back, counted nowhere, and opens to what came back', async ({ page }, testInfo) => {
+  // As an AI may read one: plus amounts, its total "the total paid", the slip's own words in its text.
+  const slip = { ...reading('ASDA', '2026-10-22', [['Kids Coat', 750, 'Clothes and shoes'], ['Kids Socks', 325, 'Clothes and shoes']]), text: REFUND_SLIP }
+  await restoreBackup(page, testInfo.outputPath('receipts.json'), backupWith({ entries: [...ENTRIES, receiptEntry('r1', '2026-10-22', slip)] }, SATURDAY))
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+
+  // The month as it was without it.
+  await expect(page.getByRole('strong')).toHaveText('£59.39 spent')
+  await expect(line(page, '5 receipts from 3 shops')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Shops' }).locator('summary', { hasText: 'ASDA' })).toHaveCount(0)
+
+  await line(page, '1 refund · £10.75 back').click()
+  await expect(line(page, '1 refund · £10.75 back')).toHaveText('1 refund · £10.75 back · not counted')
+  await page.getByRole('button', { name: /Thu 22 Oct ASDA/ }).click()
+  const refund = page.getByRole('dialog', { name: 'ASDA refund' })
+  await expect(refund.getByRole('list', { name: 'Items' }).getByRole('listitem')).toHaveText(['Kids Coat · £7.50 backClothes and shoes', 'Kids Socks · £3.25 backClothes and shoes'])
+  await expect(refund.getByText('Total £10.75 back · to a gift card', { exact: true })).toBeVisible()
+  await expect(refund.getByRole('list', { name: 'Items' }).getByRole('button')).toHaveCount(0)
 })
 
 // Owner, 2026-11-01: a saving "is just amount saved on that product"; show what was paid, what it was, and the saving.

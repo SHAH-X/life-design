@@ -14,6 +14,15 @@ export interface ExpectedReceipt {
   } | null
 }
 
+/** A made-up return slip on the layout of a real Asda one (v0.20.20): "RETURN RECEIPT" in stars, a refund reason above
+ *  each item, prices and the total below nothing, "ITEMS RETURNED", and the gift card the money went back to. A refund
+ *  slip is shown, never counted (`isRefundSlip` in src/domain/receipts.ts). */
+export const REFUND_SLIP =
+  '***For a chance to win £1,000! ***\nPlease tell us how we did today at\nwww.tellasda.com\nASDA STORES LTD\nWWW.ASDA.COM\nMANAGER A N OTHER\nAnytown,\n' +
+  'ST. 0000 OP. 00000000 TE. 00 TR. 0000\n*** RETURN RECEIPT ***\nREFUND REASON: Changed my mind\nKids Coat -£7.50\nREFUND REASON: Changed my mind\nKids Socks -£3.25\n' +
+  'TOTAL: -£10.75\nITEMS RETURNED 2\nGift Card £10.75\nTAX SUMMARY\nRATE NET VAT\n0.00% -10.75 0.00\nTAX TOTAL: 0.00\nASDA GIFT CARD\n0000000000000000\nExp. Date 01/3025\n' +
+  '£ 10.75\nBalance £ 10.75\nCod. Auth. 000000\nTC# 0000000000000000000000\nShop online at Asda.com for easy home\ndelivery or collection in store\n24/10/2026 15:42'
+
 export const RECEIPTS: readonly ExpectedReceipt[] = [
   {
     // The real model's reading of tests/fixtures/photos/receipt-clean.png (v0.16 e2e).
@@ -145,6 +154,12 @@ export const RECEIPTS: readonly ExpectedReceipt[] = [
       'ST. 00000P. ScoUser~TÉ.00 TR.0000\nKids Socks £4.00\nKids Gloves £3.00\nTUONOBHO\nTOTAL: £7.00\nNO.ITEMS SOLD 2\nGift Card -u£7.00\nTAX SUMMARY\n' +
       'Asda Gift Card Redemption\n0000000000000000\nExp. Date 01/3025\n£ 7.00\nBalance £ 0.00\nShop onl ine at Asda. com for easy home\ndel ivery or collection in store\n24/10/2026 15:10',
     expect: { shop: 'Asda', date: '2026-10-24', items: [['Kids Socks', 400], ['Kids Gloves', 300]], total: 700 },
+  },
+  {
+    // A return slip (v0.20.20), read as printed: its minus amounts kept. It is a refund (receipts.test.ts).
+    id: 'asda-return-slip',
+    text: REFUND_SLIP,
+    expect: { shop: 'Asda', date: '2026-10-24', items: [['Kids Coat', -750], ['Kids Socks', -325]], total: -1075 },
   },
   {
     // After the total: payment, savings and points, never items.

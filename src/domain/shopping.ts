@@ -5,7 +5,7 @@
 import { MIN_COUNT } from '../analysis/stats'
 import type { Entry, ItemChange, PhotoRef } from '../db/types'
 import { addMonths } from '../lib/dates'
-import { chainOf, ITEM_KINDS, type ItemKind, itemShown, paidFor, type ReceiptItem, readReceipt, type Receipt, receiptTime, shopWords } from './receipts'
+import { chainOf, isRefundSlip, ITEM_KINDS, type ItemKind, itemShown, paidFor, type ReceiptItem, readReceipt, type Receipt, receiptTime, shopWords } from './receipts'
 
 /** A receipt in a photo of a finished entry. Its id is the photo's; its date is the receipt's, else the entry's. */
 export interface KnownReceipt extends Omit<Receipt, 'date'> {
@@ -27,8 +27,24 @@ function receiptOf(photo: PhotoRef): Receipt | null {
   if (!read) return null
   const keys = itemKeys(read.items)
   const changed = (photo.items?.length ? withChanges(read.items, photo.items) : read.items).map((item, i) => ({ ...item, key: keys[i]! }))
+  if (read.refund) return { ...asMoneyBack(read, changed), ...(backToGiftCard(photo.ai?.text || photo.text || '') ? { giftCard: true as const } : {}) }
   return { ...read, items: withSavings(changed, photo.ai?.text || photo.text || '') }
 }
+
+/** A refund slip's amounts as money back, plus figures whatever signs it was read with (the phone keeps its minus, an
+ *  AI may not), so the two readings agree; never offers, and nothing on it is "returned" again. */
+function asMoneyBack(read: Receipt, items: readonly ReceiptItem[]): Receipt {
+  const back = items.map(({ returned: _, ...item }) => ({ ...item, price: Math.abs(item.price) }))
+  const total = read.total === null ? null : Math.abs(read.total)
+  const sum = back.reduce((s, item) => s + item.price, 0)
+  return { ...read, items: back, total, adds: total === null || sum === total }
+}
+
+/** What a refund slip gave back: its printed total, else its items' sum (`asMoneyBack` made them plus figures). */
+export const givenBack = (r: Pick<Receipt, 'total' | 'items'>) => r.total ?? r.items.reduce((s, item) => s + item.price, 0)
+
+/** Whether a refund slip names a gift card after its total, where the money went back to. */
+const backToGiftCard =(text: string) => /\btotal\b[\s\S]*\bgift\s*card\b/i.test(text)
 
 /** A saving for the whole basket, never for the item printed before it. */
 const BASKET_SAVING = /multi[\s-]?buy|meal\s*deal|\b\d+\s*for\b|bundle|mix\s*(?:&|and)?\s*match|staff|colleague|coupon|voucher/i
@@ -65,7 +81,8 @@ function readOf(photo: PhotoRef): Receipt | null {
   if (ai) {
     const sum = ai.items.reduce((s, item) => s + item.price, 0)
     const phone = photo.text ? readReceipt(photo.text) : null
-    return { shop: ai.shop || phone?.shop || '', date: ai.date ?? phone?.date ?? null, items: ai.items, total: ai.total, adds: ai.total === null || sum === ai.total, currency: ai.currency }
+    const refund = isRefundSlip(`${photo.ai?.text ?? ''}\n${photo.text ?? ''}`, ai.items) || Boolean(phone?.refund)
+    return { shop: ai.shop || phone?.shop || '', date: ai.date ?? phone?.date ?? null, items: ai.items, total: ai.total, adds: ai.total === null || sum === ai.total, currency: ai.currency, ...(refund ? { refund: true as const } : {}) }
   }
   return photo.text ? readReceipt(photo.text) : null
 }
@@ -98,8 +115,10 @@ export interface ReceiptCopy {
   of: KnownReceipt
 }
 
-/** The receipts in finished entries, oldest first, each counted once (`sameReceipt`), and the copies left out. */
-export function receiptsAndCopies(entries: readonly Entry[]): { receipts: KnownReceipt[]; copies: ReceiptCopy[] } {
+/** The receipts in finished entries, oldest first, each counted once (`sameReceipt`), and the copies left out. Refund
+ *  slips (v0.20.20) are kept apart in `refunds`, each listed once and counted nowhere: every sum, payment match, Ask and
+ *  the spreadsheet read `receipts`. */
+export function receiptsAndCopies(entries: readonly Entry[]): { receipts: KnownReceipt[]; copies: ReceiptCopy[]; refunds: KnownReceipt[] } {
   const added = entries
     .filter((e) => e.status !== 'draft')
     .sort((a, b) => a.createdAt - b.createdAt)
@@ -115,11 +134,12 @@ export function receiptsAndCopies(entries: readonly Entry[]): { receipts: KnownR
   const counted: typeof added = []
   const copies: ReceiptCopy[] = []
   for (const one of added) {
-    const of = counted.find((first) => sameReceipt(first, one))
-    if (of) copies.push({ copy: one.receipt, of: of.receipt })
-    else counted.push(one)
+    const of = counted.find((first) => Boolean(first.receipt.refund) === Boolean(one.receipt.refund) && sameReceipt(first, one))
+    if (of && !one.receipt.refund) copies.push({ copy: one.receipt, of: of.receipt })
+    else if (!of) counted.push(one)
   }
-  return { receipts: counted.map((c) => c.receipt).sort((a, b) => a.date.localeCompare(b.date)), copies }
+  const byDate = counted.map((c) => c.receipt).sort((a, b) => a.date.localeCompare(b.date))
+  return { receipts: byDate.filter((r) => !r.refund), copies, refunds: byDate.filter((r) => r.refund) }
 }
 
 /** The receipts in finished entries, oldest first, each counted once: what Shopping and Ask add up. */
