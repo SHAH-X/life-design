@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges, moneyYear, monthEndBalances, monthCoverage, averageOfComplete, searchPayments, paymentYears, nameOf } from '../../src/domain/money'
+import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges, moneyYear, monthEndBalances, monthCoverage, averageOfComplete, searchPayments, paymentYears, nameOf, labelsOf } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
@@ -789,6 +789,13 @@ describe('monthCoverage: which months have every statement in (v0.20.32: the cha
   })
 })
 
+describe('labelsOf: a note you wrote before v0.20.36 is the payment’s name (v0.20.36)', () => {
+  it('is its name when it has none of its own; a name beats a note, per payment', () => {
+    expect(labelsOf({ a: 'Birthday present', b: 'Winter bill' }, { b: 'Gas', c: 'Fever medicine' })).toEqual({ a: 'Birthday present', b: 'Gas', c: 'Fever medicine' })
+    expect(labelsOf({}, {})).toEqual({})
+  })
+})
+
 describe('classify: a name for one payment alone (v0.20.35)', () => {
   // One pharmacy, three different medicines: renaming the payee would name all three the same.
   const bought = [line(BANK, '2026-07-01', -5, 'EXAMPLE PHARMACY LEICESTER'), line(BANK, '2026-08-21', -4.99, 'EXAMPLE PHARMACY LEICESTER'), line(BANK, '2026-10-07', -4.99, 'EXAMPLE PHARMACY LEICESTER')]
@@ -828,7 +835,7 @@ describe('searchPayments: find a payment across every month and account (v0.20.3
     { 'example shop sometown': 'The Corner Shop' },
   )
   const noted = all.find((l) => l.description === 'COFFEE PLACE')!
-  const found = (query: string, notes: Record<string, string> = {}) => searchPayments(all, query, notes).map((l) => l.date)
+  const found = (query: string) => searchPayments(all, query).map((l) => l.date)
 
   it('finds a payee by its name or the statement’s words, whatever the case, newest first', () => {
     expect(found('amazon')).toEqual(['2026-04-04', '2025-11-05', '2025-03-02'])
@@ -844,9 +851,10 @@ describe('searchPayments: find a payment across every month and account (v0.20.3
     expect(found('24.9')).toEqual(['2026-02-10', '2025-03-02'])
     expect(found('12.50')).toEqual(['2026-04-04'])
   })
-  it('finds your note on a payment', () => {
+  it('finds the name you gave one payment, which is where a note you wrote before v0.20.36 went', () => {
     expect(found('birthday')).toEqual([])
-    expect(found('birthday', { [noted.id]: 'Birthday present' })).toEqual(['2026-06-06'])
+    const named = classify([line(BANK, '2026-06-06', -8, 'COFFEE PLACE', { id: noted.id })], new Set(), {}, labelsOf({ [noted.id]: 'Birthday present' }, {}))
+    expect(searchPayments(named, 'birthday').map((l) => l.date)).toEqual(['2026-06-06'])
   })
   it('finds money moved between your own accounts too, since it is on a statement', () => {
     expect(searchPayments(all, 'own savings').map((l) => l.moving)).toEqual(['own'])

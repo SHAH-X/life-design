@@ -623,11 +623,16 @@ test('Spending finds any payment across every month and year: by name, by amount
   await expect(page.getByRole('region')).toContainText(['1 payment · £24.99', '1 payment · £24.99'])
   await expect(page.getByRole('heading', { level: 2, name: /^20/ })).toHaveText(['2026', '2025'])
 
-  // A payment opens, as everywhere else, and your note on it can be found.
+  // A payment opens, as everywhere else, and the name you give it alone can be found.
   await page.getByRole('region', { name: '2026' }).getByRole('button').first().click()
   const sheet = page.getByRole('dialog')
-  await sheet.getByRole('textbox').fill('birthday present')
-  await sheet.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(sheet.getByRole('textbox')).toHaveCount(0)
+  await sheet.getByRole('button', { name: 'Rename transaction' }).click()
+  const naming = page.getByRole('dialog', { name: 'Rename transaction' })
+  await naming.getByRole('radio', { name: /Only this payment/ }).check()
+  await naming.getByRole('textbox').fill('birthday present')
+  await naming.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.getByRole('dialog', { name: 'birthday present' }).getByRole('button', { name: 'Close' }).click()
   await search.fill('birthday')
   await expect(page.getByRole('region', { name: '2026' })).toContainText('1 payment · £24.99')
   await expect(page.getByRole('region', { name: '2025' })).toHaveCount(0)
@@ -661,7 +666,7 @@ test('Spending’s search lists a purchase once, its Flex side apart and named; 
   await page.goto('./#/money')
   await accountView(page, 'Spending')
   const search = page.getByRole('searchbox', { name: 'Search every payment' })
-  await expect(search).toHaveAttribute('placeholder', 'Search by name, note or amount')
+  await expect(search).toHaveAttribute('placeholder', 'Search by name or amount')
   const clear = page.getByRole('button', { name: 'Clear the search' })
   await expect(clear).toHaveCount(0)
 
@@ -710,7 +715,10 @@ test('a payment can be named alone: the others to the same shop keep their name,
   await naming.getByRole('radio', { name: /Only this payment/ }).check()
   await naming.getByRole('textbox').fill('Fever medicine')
   await naming.getByRole('button', { name: 'Save', exact: true }).click()
-  await page.getByRole('dialog', { name: 'EXAMPLE PHARMACY LEICESTER' }).getByRole('button', { name: 'Close' }).click()
+  // The sheet it was named from shows the new name at once, and who was paid under it.
+  const named = page.getByRole('dialog', { name: 'Fever medicine' })
+  await expect(named).toContainText('Paid to: EXAMPLE PHARMACY LEICESTER')
+  await named.getByRole('button', { name: 'Close' }).click()
   // It is still one payee of three payments; only that row has a name of its own.
   await expect(group.locator('summary')).toContainText('EXAMPLE PHARMACY LEICESTER')
   await expect(group.locator('summary')).toContainText('3 payments')
@@ -749,7 +757,7 @@ test('a payment can be named alone: the others to the same shop keep their name,
   await page.getByRole('dialog', { name: 'Fever medicine' }).getByRole('button', { name: 'Rename transaction' }).click()
   await naming.getByRole('textbox').fill('')
   await naming.getByRole('button', { name: 'Save', exact: true }).click()
-  await page.getByRole('dialog', { name: 'Fever medicine' }).getByRole('button', { name: 'Close' }).click()
+  await page.getByRole('dialog', { name: 'The pharmacy' }).getByRole('button', { name: 'Close' }).click()
   await expect(rows).toHaveText([/^Thu,? 15 Oct ?Out of Lloyds[^£]*£4\.99$/, /^Wed,? 7 Oct ?Out of Lloyds[^£]*£4\.99$/, /^Sat,? 3 Oct ?Out of Lloyds[^£]*£5\.00$/])
 })
 
@@ -779,14 +787,18 @@ test('a card payment with its receipt opens the receipt', async ({ page }, testI
   const energy = out.getByRole('button', { name: /^EXAMPLE ENERGY Wed,? 2 Sept? · Out of Lloyds £45\.00$/ })
   await expect(energy).toBeVisible()
 
-  // What a payment was for (owner, 2026-10-26): a kind for its payee, kept for all its payments, and a note on one.
+  // What a payment was for (owner, 2026-10-26): a kind for its payee, kept for all its payments, and a name for one.
   await energy.click()
   const paymentSheet = page.getByRole('dialog', { name: 'EXAMPLE ENERGY' })
   await paymentSheet.getByRole('button', { name: /^(\+ Assign category|Category: )/ }).click()
   await page.getByRole('dialog', { name: 'What is EXAMPLE ENERGY for?' }).getByRole('radio', { name: 'Energy', exact: true }).click()
   await expect(paymentSheet.getByRole('button', { name: 'Category: Energy' })).toBeVisible()
-  await paymentSheet.getByRole('textbox', { name: 'What was it for?' }).fill('Winter bill')
-  await paymentSheet.getByRole('button', { name: 'Save', exact: true }).click()
+  await paymentSheet.getByRole('button', { name: 'Rename transaction' }).click()
+  const naming = page.getByRole('dialog', { name: 'Rename transaction' })
+  await naming.getByRole('radio', { name: /Only this payment/ }).check()
+  await naming.getByRole('textbox').fill('Winter bill')
+  await naming.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Winter bill' }).getByRole('button', { name: 'Close' }).click()
   await expect(out.getByRole('button', { name: /Winter bill/ })).toBeVisible()
   await expect(page.getByRole('region', { name: 'By what it was for' }).locator('summary', { hasText: 'Energy' })).toHaveText('Energy 1 payment £45.00')
 })
