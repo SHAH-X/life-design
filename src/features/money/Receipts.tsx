@@ -6,6 +6,7 @@ import {
   type Amounts,
   givenBack,
   inWords,
+  type ForItems,
   type KindLine,
   type Kinds,
   type KnownReceipt,
@@ -19,7 +20,7 @@ import {
   type ShoppingMonth,
   shoppingMonth,
 } from '../../domain/shopping'
-import { type MoneyLine, nameOf } from '../../domain/money'
+import { type MoneyLine, NOBODY, nameOf } from '../../domain/money'
 import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { MonthChart } from '../../ui/charts/MonthChart'
@@ -185,6 +186,7 @@ export function ReceiptsMonth(props: {
       ) : null}
       <Shops its={its} onOpen={onOpen} />
       {its.kinds ? <ByKind kinds={its.kinds} onOpen={onOpen} /> : null}
+      {its.forWho ? <WhoFor who={its.forWho} onOpen={onOpen} /> : null}
       {its.priceChanges.length ? (
         <Group title="Price changes at the same shop">
           <ul>
@@ -301,6 +303,20 @@ function ByKind({ kinds, onOpen }: { kinds: Kinds; onOpen: (r: KnownReceipt) => 
           />
         </ul>
       ) : null}
+    </Group>
+  )
+}
+
+/** What was bought by who it was for (v0.20.39): names with 3+ items by what was spent, the rest by name; what no name
+ *  was given to last. */
+function WhoFor({ who, onOpen }: { who: ForItems; onOpen: (r: KnownReceipt) => void }) {
+  const line = (g: { who: string; items: KindLine['items']; spent: Amounts }) => <ItemLine key={g.who} label={g.who} sub={itemsWord(g.items.length)} amount={inWords(g.spent)} items={g.items} onOpen={onOpen} />
+  return (
+    <Group title="Who it was for" status="Items at what you paid, after offers">
+      {who.ranked.length ? <ul>{who.ranked.map(line)}</ul> : null}
+      {who.ranked.length && who.others.length ? <p className="rc-note">Fewer than 3 items</p> : null}
+      {who.others.length ? <ul>{who.others.map(line)}</ul> : null}
+      {who.nobody ? <ul>{line({ who: NOBODY, ...who.nobody })}</ul> : null}
     </Group>
   )
 }

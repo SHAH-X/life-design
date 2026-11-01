@@ -23,6 +23,8 @@ export interface ReceiptItem {
   quantity: number
   /** From ITEM_KINDS, when your AI read the receipt, or as you chose (v0.20.18). */
   kind?: ItemKind
+  /** Who it was for, as you filed this item at this shop (v0.20.39). */
+  forWho?: string
   /** You took it back and had the money back (v0.20.18): it no longer counts as spent. Never a saving. */
   returned?: true
   /** What its offer took off, in minor units (v0.20.19): the saving printed after it, joined to it (`price` stays the

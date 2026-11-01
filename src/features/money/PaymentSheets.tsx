@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { filePayment, setPayeeKind } from '../../db/statements'
+import { setPayeeKind } from '../../db/statements'
 import { type MoneyLine, nameOf, PAYMENT_KINDS } from '../../domain/money'
 import { money } from '../../domain/shopping'
 import { dayMonthLong } from '../../lib/dates'
@@ -40,40 +40,49 @@ export function KindSheet(props: { payeeKey: string; payee: string; chosen: stri
   )
 }
 
-/** Who a payment was for (v0.20.38): a name in use, one from your entries, or a new one; for this payment alone or for all
- *  its payee's. Choosing is saving. */
-export function ForSheet(props: { line: MoneyLine; names: string[]; suggestions: string[]; all: boolean; onClose: () => void }) {
-  const { line, names, suggestions, all, onClose } = props
-  const [scope, setScope] = useState<'one' | 'all'>(all ? 'all' : 'one')
+/** Who a payment or an item was for (v0.20.38, v0.20.39): a name in use, one from your entries, or a new one. For a
+ *  payment, for itself alone or for all its payee's (`scopes`). Choosing is saving. */
+export function ForSheet(props: {
+  /** Its name now; "" is nobody in particular. */
+  current: string
+  names: string[]
+  suggestions: string[]
+  scopes?: { payee: string; all: boolean }
+  onFile: (who: string, scope: 'one' | 'all') => Promise<void>
+  onClose: () => void
+}) {
+  const { current, names, suggestions, scopes, onFile, onClose } = props
+  const [scope, setScope] = useState<'one' | 'all'>(scopes?.all ? 'all' : 'one')
   const [fresh, setFresh] = useState('')
   const scopeName = useId()
   const listName = useId()
   const freshId = useId()
-  const current = line.forWho ?? ''
   const file = async (who: string) => {
     const said = who.trim()
     // A name you have, whatever its capitals, is that name.
-    await filePayment(line.id, line.payee.key, names.find((n) => n.toLowerCase() === said.toLowerCase()) ?? said, scope)
+    await onFile(names.find((n) => n.toLowerCase() === said.toLowerCase()) ?? said, scope)
     onClose()
   }
   return (
     <Dialog title="Who was it for?" onClose={onClose}>
-      <div role="radiogroup" aria-label="Applies to" className="purpose-list">
-        <label className="purpose-option">
-          <input type="radio" name={scopeName} value="one" checked={scope === 'one'} onChange={() => setScope('one')} />
-          <span className="purpose-text">
-            <span className="purpose-label">Only this payment</span>
-          </span>
-        </label>
-        <label className="purpose-option">
-          <input type="radio" name={scopeName} value="all" checked={scope === 'all'} onChange={() => setScope('all')} />
-          <span className="purpose-text">
-            <span className="purpose-label">All payments to {line.payee.name}</span>
-            <span className="muted small">Earlier and later ones too</span>
-          </span>
-        </label>
-      </div>
-      <div role="radiogroup" aria-label="Who it was for" className="purpose-list top-gap">
+      {scopes ? (
+        <div role="radiogroup" aria-label="Applies to" className="purpose-list">
+          <label className="purpose-option">
+            <input type="radio" name={scopeName} value="one" checked={scope === 'one'} onChange={() => setScope('one')} />
+            <span className="purpose-text">
+              <span className="purpose-label">Only this payment</span>
+            </span>
+          </label>
+          <label className="purpose-option">
+            <input type="radio" name={scopeName} value="all" checked={scope === 'all'} onChange={() => setScope('all')} />
+            <span className="purpose-text">
+              <span className="purpose-label">All payments to {scopes.payee}</span>
+              <span className="muted small">Earlier and later ones too</span>
+            </span>
+          </label>
+        </div>
+      ) : null}
+      <div role="radiogroup" aria-label="Who it was for" className={scopes ? 'purpose-list top-gap' : 'purpose-list'}>
         {names.map((who) => (
           <label key={who} className="purpose-option">
             <input type="radio" name={listName} value={who} checked={current === who} onChange={() => void file(who)} />

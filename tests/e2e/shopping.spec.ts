@@ -174,7 +174,7 @@ test('a kind chosen for an item follows it on every receipt at that shop, and no
   const receipt = page.getByRole('dialog', { name: 'TESCO' })
   await receipt.getByRole('list', { name: 'Items' }).getByRole('listitem').nth(0).getByRole('button').click()
   const item = page.getByRole('dialog', { name: FORMULA })
-  await expect(item).toContainText('Later receipts with this item at TESCO follow it.')
+  await expect(item).toContainText('Later receipts with this item at TESCO follow its kind and who it was for.')
   await expect(item.getByRole('radio', { name: /Back to the AI/ })).toHaveCount(0)
   await item.getByText('Baby and toddler', { exact: true }).click()
   await expect(receipt.getByRole('list', { name: 'Items' }).getByRole('listitem').nth(0)).toHaveText(`${FORMULA} · £14.50Baby and toddler`)
@@ -196,6 +196,58 @@ test('a kind chosen for an item follows it on every receipt at that shop, and no
   await again.getByText('Back to the AI’s guess', { exact: true }).click()
   await page.getByRole('dialog', { name: 'Tesco Express' }).getByRole('button', { name: 'Close', exact: true }).click()
   await expect(page.getByRole('region', { name: 'By kind' }).locator('summary', { hasText: 'Dairy and eggs' })).toHaveText('Dairy and eggs · 3 items · £42.99')
+})
+
+// v0.20.39 (owner, 2026-11-01: what goes on one person): an item is filed under who it was for, for that item at that
+// shop on every receipt; what was bought is then totalled by name. Receipts and accounts are never added.
+test('an item can be filed under who it was for, on every receipt at that shop, and what was bought is totalled by name', async ({ page }, testInfo) => {
+  const FORMULA = 'EXAMPLE INFANT MILK 800G'
+  const entries = [
+    receiptEntry('f1', '2026-10-03', reading('Tesco Express', '2026-10-03', [[FORMULA, 1450, 'Baby and toddler'], ['Bananas', 95, 'Fruit and veg']])),
+    receiptEntry('f2', '2026-10-10', reading('TESCO', '2026-10-10', [[FORMULA, 1450, 'Baby and toddler']])),
+    receiptEntry('f3', '2026-10-17', reading('ASDA', '2026-10-17', [[FORMULA, 1399, 'Baby and toddler']])),
+  ]
+  // Priya is in an entry: offered as a name.
+  const withPeople = [...entries, { ...freeWriting('e-people', '', 3, SATURDAY), people: ['Priya'] }]
+  await restoreBackup(page, testInfo.outputPath('items-for.json'), backupWith({ entries: withPeople }, SATURDAY))
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  // Nothing is filed: no block.
+  await expect(page.getByRole('region', { name: 'Who it was for' })).toHaveCount(0)
+
+  // On one Tesco receipt: both Tesco receipts follow, the ASDA one does not.
+  await line(page, /3 receipts from 2 shops/).click()
+  await page.getByRole('button', { name: /Sat 10 Oct TESCO/ }).click()
+  const receipt = page.getByRole('dialog', { name: 'TESCO' })
+  await receipt.getByRole('list', { name: 'Items' }).getByRole('listitem').nth(0).getByRole('button').click()
+  const item = page.getByRole('dialog', { name: FORMULA })
+  await item.getByRole('button', { name: '+ Who was it for?' }).click()
+  const forSheet = page.getByRole('dialog', { name: 'Who was it for?' })
+  await expect(forSheet.getByRole('radiogroup', { name: 'Applies to' })).toHaveCount(0)
+  await expect(forSheet.getByRole('button', { name: 'Priya' })).toBeVisible()
+  await forSheet.getByRole('textbox', { name: 'A new name' }).fill('Riya')
+  await forSheet.getByRole('button', { name: 'Add', exact: true }).click()
+  await expect(item.getByRole('button', { name: 'For: Riya' })).toBeVisible()
+  await item.getByRole('button', { name: 'Close' }).click()
+  await receipt.getByRole('button', { name: 'Close', exact: true }).click()
+  const who = page.getByRole('region', { name: 'Who it was for' })
+  await expect(who.locator('summary')).toHaveText(['Riya · 2 items · £29.00', 'Nobody in particular · 2 items · £14.94'])
+
+  // It opens to its items, is kept after a reload, and the ASDA one is filed from its own receipt, from the list.
+  await who.locator('summary', { hasText: 'Riya' }).click()
+  await expect(who.locator('details', { hasText: 'Riya' }).getByRole('button')).toHaveCount(2)
+  await page.reload()
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'Who it was for' }).locator('summary')).toHaveText(['Riya · 2 items · £29.00', 'Nobody in particular · 2 items · £14.94'])
+  await line(page, /3 receipts from 2 shops/).click()
+  await page.getByRole('button', { name: /Sat 17 Oct ASDA/ }).click()
+  await page.getByRole('dialog', { name: 'ASDA' }).getByRole('list', { name: 'Items' }).getByRole('listitem').nth(0).getByRole('button').click()
+  await page.getByRole('dialog', { name: FORMULA }).getByRole('button', { name: '+ Who was it for?' }).click()
+  await page.getByRole('dialog', { name: 'Who was it for?' }).getByRole('radio', { name: 'Riya' }).click()
+  await page.getByRole('dialog', { name: FORMULA }).getByRole('button', { name: 'Close' }).click()
+  await page.getByRole('dialog', { name: 'ASDA' }).getByRole('button', { name: 'Close', exact: true }).click()
+  // Three items now: ranked, with what no name was given to last.
+  await expect(page.getByRole('region', { name: 'Who it was for' }).locator('summary')).toHaveText(['Riya · 3 items · £42.99', 'Nobody in particular · 1 item · £0.95'])
 })
 
 // Owner, 2026-11-01: a return slip showed as spent; "just show it as refund receipt at max, don't include in any

@@ -1,5 +1,5 @@
 import type { ItemKind } from '../domain/receipts'
-import { rememberedKey, rememberedKindsOf } from '../domain/shopping'
+import { rememberedKey, rememberedKindsOf, rememberedNamesOf } from '../domain/shopping'
 import { db as defaultDb, type LifeDesignDB } from './db'
 import { setSetting } from './repo'
 import { guardWrite } from './saveErrors'
@@ -45,4 +45,14 @@ export const ITEM_KINDS_SETTING = 'itemKinds'
 export async function rememberItemKind(shop: string, name: string, kind: ItemKind | null, database: LifeDesignDB = defaultDb): Promise<void> {
   const { [rememberedKey(shop, name)]: _, ...rest } = rememberedKindsOf((await database.settings.get(ITEM_KINDS_SETTING))?.value)
   await setSetting(ITEM_KINDS_SETTING, kind ? { ...rest, [rememberedKey(shop, name)]: kind } : rest, database)
+}
+
+/** Who you filed an item under at a shop (v0.20.39: what goes on one person): a setting by `rememberedKey`, so in
+ *  backups. Read with `rememberedNamesOf`; laid on items by `receiptsAndCopies`, on every receipt. */
+export const ITEM_FOR_SETTING = 'itemFor'
+
+/** Files the item at a shop under a name, on every receipt; blank takes it back. */
+export async function fileItem(shop: string, name: string, who: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  const { [rememberedKey(shop, name)]: _, ...rest } = rememberedNamesOf((await database.settings.get(ITEM_FOR_SETTING))?.value)
+  await setSetting(ITEM_FOR_SETTING, who.trim() ? { ...rest, [rememberedKey(shop, name)]: who.trim() } : rest, database)
 }
