@@ -20,7 +20,7 @@ https://shah-x.github.io/life-design/. What the app does and why: `DECISIONS.md`
   | What a screen shows | the above + `npm run screens`, then look (below) |
   | Sheets, fields, keyboard or scrolling | the above + `npm run ios-check`, then look at `test-results/ios/` |
   | Code that calls the AI service | the above + the live check (`AI_LIVE=1`, a fake key) |
-  | Before pushing to `main` | the full `npm run test:e2e`; after the deploy, open the live URL |
+  | Before pushing to `main` | the checks for the change, as above (not the full `npm run test:e2e`: that runs once everything is finalised, owner 2026-11-01); after the deploy, open the live URL |
 
 - Look before "done": open every changed screenshot and its `-diff.png` in `test-results/`, and name them in the report. Accept with `npm run screens -- --update-snapshots=changed` only after looking (plain `--update-snapshots` rewrites every one). A new screen: `-- --update-snapshots=missing`, then look. A removed or renamed screen: delete its old screenshots (Playwright keeps them).
 - Bugs: a failing test first, then the fix.
