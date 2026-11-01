@@ -111,11 +111,12 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
     const entry = byId.get(receipt.entryId)
     if (entry) setSheet({ kind: 'open', entry })
   }
-  const { receipts, copies } = receiptsAndCopies(entries)
+  const { receipts, copies, refunds } = receiptsAndCopies(entries)
   // A receipt opens to its items; an extra copy, counted nowhere, opens its entry, where it can be deleted.
   const copyIds = new Set(copies.map((c) => c.copy.id))
   const open = (receipt: KnownReceipt) => (copyIds.has(receipt.id) ? openEntry(receipt) : setReceiptId(receipt.id))
-  const openReceipt = receiptId ? receipts.find((r) => r.id === receiptId) : undefined
+  // A refund slip (v0.20.20) opens the same way; it's counted nowhere.
+  const openReceipt = receiptId ? [...receipts, ...refunds].find((r) => r.id === receiptId) : undefined
   const lines = classify(bankLines, new Set(own), payeeNames)
   const links = linkReceipts(lines, receipts, receiptReviews.paymentLinks)
   const receiptReasons = receiptReviews.paymentReasons
@@ -174,6 +175,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
           <ReceiptsMonth
             key={`receipts-${month}`}
             receipts={receipts}
+            refunds={refunds}
             copies={copies}
             month={month}
             today={today}

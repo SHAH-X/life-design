@@ -19,6 +19,7 @@ import {
   spentOn,
 } from '../../src/domain/shopping'
 import { areaEntry } from '../fixtures/areas'
+import { REFUND_SLIP } from '../fixtures/receipts'
 
 // Fictional receipts only. Today is Saturday 24 October 2026.
 
@@ -292,6 +293,52 @@ describe('the same receipt added twice is counted once (v0.19.5)', () => {
 
   it('counts the copy once the first is deleted', () => {
     expect(ids([added('e2', 2, { id: 'again', text: null, ai: TEA })])).toEqual(['again'])
+  })
+})
+
+// Owner, 2026-11-01: a return slip showed as spent; "just show it as refund receipt at max, don't include in any
+// calculation, as I will also be marking it as returned in the original receipt".
+describe('a refund slip is shown, never counted (v0.20.20)', () => {
+  const entry = (id: string, createdAt: number, photo: Entry['photos'][number]): Entry => ({ ...areaEntry({ id, text: '', expect: [] }, '2026-10-24'), createdAt, photos: [photo] })
+  // As an AI may read it: the amounts back as plus figures, its total "the total paid", the slip's words in its text.
+  const AI_SLIP = {
+    by: 'Gemini · gemini-test',
+    at: 1,
+    text: REFUND_SLIP,
+    description: '',
+    version: 2,
+    receipt: { shop: 'ASDA', date: '2026-10-24', currency: '£', items: [{ name: 'Kids Coat', price: 750, quantity: 1, kind: 'Clothes and shoes' as const }, { name: 'Kids Socks', price: 325, quantity: 1, kind: 'Clothes and shoes' as const }], total: 1075 },
+  }
+  const PURCHASE = { id: 'bought', text: 'CORNER SHOP\n24/10/2026 09:15\nTea £3.00\nMilk £1.20\nTOTAL £4.20' }
+
+  it('keeps a slip your AI read with plus amounts out of the receipts, and lists it as a refund, its amounts as money back', () => {
+    const { receipts, copies, refunds } = receiptsAndCopies([entry('e1', 1, PURCHASE), entry('e2', 2, { id: 'slip', text: null, ai: AI_SLIP })])
+    expect(receipts.map((r) => r.id)).toEqual(['bought'])
+    expect(copies).toEqual([])
+    expect(refunds.map((r) => [r.id, r.refund, r.total, r.items.map((i) => i.price), r.adds, r.giftCard])).toEqual([['slip', true, 1075, [750, 325], true, true]])
+  })
+
+  it('keeps a slip the phone read, its minus amounts, out too, never as offers', () => {
+    const { receipts, refunds } = receiptsAndCopies([entry('e1', 1, { id: 'slip', text: REFUND_SLIP })])
+    expect(receipts).toEqual([])
+    expect(refunds.map((r) => [r.total, r.items.map((i) => [i.price, i.saving])])).toEqual([[1075, [[750, undefined], [325, undefined]]]])
+  })
+
+  it('leaves the month, its shops, kinds, offers, to check and Ask as they were without it', () => {
+    const entries = [entry('e1', 1, PURCHASE), entry('e2', 2, { id: 'slip', text: null, ai: AI_SLIP })]
+    const month = shoppingMonth(receiptsOf(entries), '2026-10', TODAY)
+    expect(inWords(month.spent)).toBe('£4.20')
+    expect(month.receipts.map((r) => r.id)).toEqual(['bought'])
+    expect(month.offers.saved).toEqual([])
+    expect(month.toCheck).toEqual([])
+    expect(month.kinds).toBeNull()
+    expect(spendByShop(receiptsOf(entries)).total).toBe('£4.20')
+  })
+
+  it('lists a slip added twice once, and never as a duplicate to check', () => {
+    const { refunds, copies } = receiptsAndCopies([entry('e1', 1, { id: 'slip', text: null, ai: AI_SLIP }), entry('e2', 2, { id: 'again', text: null, ai: AI_SLIP })])
+    expect(refunds.map((r) => r.id)).toEqual(['slip'])
+    expect(copies).toEqual([])
   })
 })
 
