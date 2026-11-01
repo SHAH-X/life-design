@@ -240,6 +240,16 @@ export function readStatement(all: readonly TextPiece[]): { accounts: StatementA
     return { page: line.page, y: line.y, columns, name: nameAbove(above, bank), period, read }
   })
 
+  // A table can begin on a later page than its statement's title and dates (Monzo Flex's longer one: the summary on page 1,
+  // the table alone on page 2). Until a section is named, the pages before it name and date it (v0.20.30: it came in as
+  // "Account", dated by its first and last lines). A table already named earlier is left as it was.
+  sections.forEach((section, i) => {
+    if (sections.slice(0, i).some((earlier) => earlier.name)) return
+    const before = lines.filter((l) => l.page < section.page)
+    section.name ??= nameAbove(before, bank)
+    section.period ??= before.map((l) => periodIn(l.text)).find(Boolean) ?? null
+  })
+
   // Sections with no name of their own carry on the account before (a heading row repeated on each page).
   const accounts = new Map<string, { period: Section['period']; lines: StatementLine[] }>()
   let current = sections.find((s) => s.name)?.name ?? bank

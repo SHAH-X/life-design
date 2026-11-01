@@ -252,6 +252,21 @@ export const FLEX_LIKE: Placed[][] = [
   ],
 ]
 
+/** The same statement laid out as Monzo Flex's longer one is: the title, dates and summary on page 1, the table alone on
+ *  page 2 (no title above it), then wording that isn't a table. */
+export const FLEX_TABLE_ON_PAGE_2: Placed[][] = (() => {
+  const [first] = FLEX_LIKE
+  const table = first!.filter((p) => p.y <= 259 + 1)
+  return [
+    first!.filter((p) => p.y > 259 + 1),
+    table.map((p) => ({ ...p, y: p.y + 450 })),
+    [
+      { text: 'Example wording about how payments are used.', x: 63, y: 700 },
+      { text: 'It is not a table and names no account.', x: 63, y: 680 },
+    ],
+  ]
+})()
+
 export const FLEX_EXPECT = [
   {
     account: 'Monzo Flex',

@@ -3,7 +3,7 @@ import { expect, type Page, test } from '@playwright/test'
 import { expectNoScores } from './helpers'
 import { backupWith, freeWriting, restoreBackup } from './seed'
 import { makePdf, type Placed } from '../fixtures/pdf'
-import { FLEX_LIKE, LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
+import { FLEX_LIKE, FLEX_TABLE_ON_PAGE_2, LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
 
 // Bank and card statements (v0.20, step 1) in WebKit at iPhone size: a statement's PDF chosen in the app, read on the
 // phone by PDF.js in its own worker, its lines kept once each. The statements are fictional, laid out like the owner's
@@ -116,6 +116,22 @@ test('a Monzo Flex statement reads as Monzo Flex, every line matching; an accoun
   await naming.getByRole('button', { name: 'Remove', exact: true }).click()
   await naming.getByRole('button', { name: 'Tap again to remove it' }).click()
   await expect(accounts.getByText('Bring in your bank and card statements to see all your spending.')).toBeVisible()
+})
+
+// A longer Flex statement (owner, 2026-11-01: it came in as "Account", dated by its first and last lines, and each
+// purchase counted twice): its title and dates on page 1, its table alone on page 2.
+test('a Flex statement whose table is on a later page than its title is still Monzo Flex, for the dates it says', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date(2026, 8, 30, 12, 0))
+  await page.goto('./#/money')
+  const sheet = await bringIn(page, await pdf(testInfo.outputPath('flex-page-2.pdf'), FLEX_TABLE_ON_PAGE_2))
+  await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveText([/^Monzo Flex: 5 new · 1 ?– ?30 Sept?$/])
+  await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  await accountView(page, 'Statements')
+  const accounts = page.getByRole('region', { name: 'Your accounts', exact: true })
+  await expect(accounts.getByRole('listitem')).toContainText('Monzo Flex')
+  // The statement's own dates, not its first and last lines' (1 to 20 Sep): nothing is missing up to the 30th.
+  await expect(accounts.getByRole('listitem')).toContainText(/1\s+–\s+30 Sep 2026/)
+  await expect(accounts.getByRole('listitem')).not.toContainText('Missing')
 })
 
 test('a PDF that isn’t a statement, or isn’t a PDF, is refused saying why, and nothing is kept', async ({ page }, testInfo) => {
