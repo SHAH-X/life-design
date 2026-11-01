@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges, moneyYear } from '../../src/domain/money'
+import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges, moneyYear, monthEndBalances } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
@@ -610,5 +610,98 @@ describe('moneyYear: a year of your accounts (v0.20.27)', () => {
   it('is empty for a year with nothing in it', () => {
     const none = moneyYear(lines, '2024', TODAY, covered, new Set(), {})
     expect([none.out, none.in, none.months, none.regular, none.gaps]).toEqual([0, 0, null, [], []])
+  })
+})
+
+describe('monthEndBalances: what you hold and what you owe at the end of each month (v0.20.28)', () => {
+  const CARD = 'M&S Card ···9999'
+  const OTHER = 'First Direct ···1111'
+  const TODAY_APRIL = '2026-04-15'
+  /** An account's lines with the balance printed beside each, in the order given; a card's balance is what's owed. */
+  const ledger = (account: string, opening: number, rows: [string, number][], owed = false) => {
+    let balance = opening
+    return rows.map(([date, pounds]) => {
+      balance -= (owed ? 1 : -1) * Math.round(pounds * 100)
+      return line(account, date, pounds, 'EXAMPLE', { balance })
+    })
+  }
+  const run = (lines: BankLine[], statements: StatementRecord[], closed: ReadonlySet<string> = new Set(), today = TODAY_APRIL) =>
+    monthEndBalances(classify(lines, new Set()), statements, closed, '2026', today)
+  const heldBy = (found: ReturnType<typeof run>) => found.months.map((m) => [m.month, m.held])
+
+  it('is the balance after the last line, kept from a quiet month, and the current month up to today', () => {
+    const lines = ledger(BANK, 20000, [['2026-01-10', -10], ['2026-03-05', -20], ['2026-03-20', 50]])
+    expect(heldBy(run(lines, [statement(BANK, '2026-01-01', TODAY_APRIL)]))).toEqual([
+      ['2026-01', 19000],
+      ['2026-02', 19000],
+      ['2026-03', 22000],
+      ['2026-04', 22000],
+    ])
+  })
+
+  it('finds the last line of a day by chaining the balances, whatever order the lines come in', () => {
+    const sameDay = ledger(BANK, 20000, [['2026-01-20', -1], ['2026-01-20', -2], ['2026-01-20', 0.5]])
+    // 20000 - 100 - 200 + 50 = 19750, however they are handed over.
+    for (const order of [sameDay, [...sameDay].reverse(), [sameDay[1]!, sameDay[2]!, sameDay[0]!]]) {
+      expect(heldBy(run(order, [statement(BANK, '2026-01-01', TODAY_APRIL)]))[0]).toEqual(['2026-01', 19750])
+    }
+  })
+
+  it('knows a card’s balance is what it owes, apart from what is held, and a pot is held', () => {
+    const POT = 'Monzo Savings pot'
+    const lines = [
+      ...ledger(CARD, 5000, [['2026-01-12', -20], ['2026-01-20', -10], ['2026-02-05', 30]], true),
+      ...ledger(POT, 10000, [['2026-02-02', 25]]),
+    ]
+    const found = run(lines, [statement(CARD, '2026-01-01', TODAY_APRIL), statement(POT, '2026-01-01', TODAY_APRIL)])
+    expect(found.months.map((m) => [m.month, m.held, m.owed])).toEqual([
+      ['2026-01', 10000, 8000],
+      ['2026-02', 12500, 5000],
+      ['2026-03', 12500, 5000],
+      ['2026-04', 12500, 5000],
+    ])
+    expect(found.accounts.map((a) => [a.account, a.owed])).toEqual([[CARD, true], [POT, false]])
+  })
+
+  it('does not know a month when its account has no statement for the days up to its end, and says which', () => {
+    const lines = ledger(BANK, 20000, [['2026-01-10', -10], ['2026-03-05', -20], ['2026-05-02', 5]])
+    const gap = [statement(BANK, '2026-01-01', '2026-03-31'), statement(BANK, '2026-05-01', '2026-06-30')]
+    const found = run(lines, gap, new Set(), '2026-06-30')
+    expect(heldBy(found)).toEqual([['2026-01', 19000], ['2026-02', 19000], ['2026-03', 17000], ['2026-04', null], ['2026-05', 17500], ['2026-06', 17500]])
+    expect(found.months[3]!.unknown).toEqual([{ account: BANK, owed: false, why: 'statement' }])
+  })
+
+  it('does not know a month when a balance is missing or the order of its last day cannot be told', () => {
+    const missing = ledger(BANK, 20000, [['2026-01-10', -10], ['2026-01-10', -5]])
+    missing[1] = { ...missing[1]!, balance: null }
+    expect(run(missing, [statement(BANK, '2026-01-01', '2026-01-31')], new Set(), '2026-01-31').months[0]).toMatchObject({ held: null, unknown: [{ why: 'order' }] })
+    // +£5.00 then -£5.00 on one day: each balance is the other's start, so which is last cannot be told.
+    const loop = ledger(BANK, 20000, [['2026-01-10', 5], ['2026-01-10', -5]])
+    expect(run(loop, [statement(BANK, '2026-01-01', '2026-01-31')], new Set(), '2026-01-31').months[0]).toMatchObject({ held: null, unknown: [{ why: 'order' }] })
+  })
+
+  it('adds up several accounts held, but not when one of them is not known for the month', () => {
+    const lines = [...ledger(BANK, 20000, [['2026-01-10', -10], ['2026-03-05', -20]]), ...ledger(OTHER, 1000, [['2026-01-15', 5], ['2026-03-10', 5]])]
+    const both = [statement(BANK, '2026-01-01', TODAY_APRIL), statement(OTHER, '2026-01-01', TODAY_APRIL)]
+    expect(heldBy(run(lines, both))).toEqual([['2026-01', 19000 + 1500], ['2026-02', 19000 + 1500], ['2026-03', 17000 + 2000], ['2026-04', 17000 + 2000]])
+    const found = run(lines, [statement(BANK, '2026-01-01', TODAY_APRIL), statement(OTHER, '2026-01-01', '2026-02-28')])
+    expect(heldBy(found)).toEqual([['2026-01', 20500], ['2026-02', 20500], ['2026-03', null], ['2026-04', null]])
+    expect(found.months[2]!.unknown).toEqual([{ account: OTHER, owed: false, why: 'statement' }])
+  })
+
+  it('leaves out an account once it is closed, after its last statement, and months before it began', () => {
+    const lines = [...ledger(BANK, 20000, [['2026-02-10', -10]]), ...ledger(OTHER, 1000, [['2026-01-15', 5]])]
+    const statements = [statement(BANK, '2026-02-01', TODAY_APRIL), statement(OTHER, '2026-01-01', '2026-01-31')]
+    // Other closed after January; the bank begins in February, so January has only Other.
+    const found = run(lines, statements, new Set([OTHER]))
+    expect(heldBy(found)).toEqual([['2026-01', 1500], ['2026-02', 19000], ['2026-03', 19000], ['2026-04', 19000]])
+    expect(found.months.every((m) => m.unknown.length === 0)).toBe(true)
+    expect(heldBy(run(lines, [statement(BANK, '2026-02-01', TODAY_APRIL)]))[0]).toEqual(['2026-02', 19000])
+  })
+
+  it('has no months for a year with nothing in it, nor beyond this month', () => {
+    const lines = ledger(BANK, 20000, [['2026-01-10', -10]])
+    expect(monthEndBalances(classify(lines, new Set()), [statement(BANK, '2026-01-01', TODAY_APRIL)], new Set(), '2024', TODAY_APRIL).months).toEqual([])
+    expect(run(lines, [statement(BANK, '2026-01-01', TODAY_APRIL)]).months.at(-1)!.month).toBe('2026-04')
   })
 })

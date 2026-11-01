@@ -168,6 +168,15 @@ function nameAbove(above: readonly Line[], bank: string): string | null {
   return null
 }
 
+/** Whether a line's printed balance follows from the balance before it (v0.20.28: Money's year of balances uses the same
+ *  rule). A card's or Flex's balance is what you owe, so money out raises it. A balance that isn't known follows. */
+export function balanceFollows(before: number | null | undefined, line: { amount: number; balance: number | null }, owed: boolean): boolean {
+  return before === null || before === undefined || line.balance === null || before + (owed ? -line.amount : line.amount) === line.balance
+}
+
+/** Whether an account's balances are what's owed rather than held: whichever way more lines follow, a tie being held. */
+export const preferOwed = (heldFollow: number, owedFollow: number): boolean => owedFollow > heldFollow
+
 /** A statement in a PDF's pieces of text: its accounts and their lines, or why there's none. */
 export function readStatement(all: readonly TextPiece[]): { accounts: StatementAccount[] } | { problem: StatementProblem } {
   // Text nobody sees (a screen reader's labels) is left out.
@@ -247,11 +256,8 @@ export function readStatement(all: readonly TextPiece[]): { accounts: StatementA
     // Oldest first (some banks print newest first), then each balance checked against the line before.
     const lines = printed[0]!.date > printed.at(-1)!.date ? [...printed].reverse() : [...printed]
     // A card's or Flex's balance is what you owe, so money out raises it: whichever way more lines follow.
-    const follows = (owed: boolean) => (line: StatementLine, i: number) => {
-      const before = lines[i - 1]?.balance
-      return i === 0 || before === null || before === undefined || line.balance === null || before + (owed ? -line.amount : line.amount) === line.balance
-    }
-    const owed = lines.filter(follows(true)).length > lines.filter(follows(false)).length
+    const follows = (owed: boolean) => (line: StatementLine, i: number) => i === 0 || balanceFollows(lines[i - 1]?.balance, line, owed)
+    const owed = preferOwed(lines.filter(follows(false)).length, lines.filter(follows(true)).length)
     lines.forEach((line, i) => {
       line.adds = follows(owed)(line, i)
     })

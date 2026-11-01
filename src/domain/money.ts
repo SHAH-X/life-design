@@ -7,6 +7,7 @@ import { MIN_COUNT } from '../analysis/stats'
 import type { BankLine, StatementRecord } from '../db/types'
 import { addDays, addMonths, dayNumber } from '../lib/dates'
 import { chainOf } from './receipts'
+import { balanceFollows, preferOwed } from './statements'
 import { groupBy, type KnownReceipt, paid, shiftMonth, shopKey } from './shopping'
 
 /** Who a line was paid to or from, as one name (a UK chain's names as the chain). */
@@ -421,6 +422,111 @@ export function moneyYear(
     regular,
     gaps,
   }
+}
+
+/** An account's lines on one day. Their order isn't kept (ids are random and a statement's lines share a time), so
+ *  where one ends is told by the balances. */
+interface Day {
+  date: string
+  lines: BankLine[]
+}
+
+/** Whether `next` is the line after `earlier`, by the printed balances (both must be known). */
+const nextAfter = (earlier: BankLine, next: BankLine, owed: boolean) => earlier.balance !== null && next.balance !== null && balanceFollows(earlier.balance, next, owed)
+
+/** The balance before a line, from the balance printed beside it (the other way round from `balanceFollows`). */
+const balanceBefore = (line: BankLine & { balance: number }, owed: boolean) => (owed ? line.balance + line.amount : line.balance - line.amount)
+
+/** The balance after a day's last line, found by chaining: the line no other follows. Null when any balance is missing or
+ *  the chain doesn't end in one line (+£5.00 then -£5.00 leaves each as the other's start). */
+function dayEnd(day: readonly BankLine[], owed: boolean): number | null {
+  if (day.some((l) => l.balance === null)) return null
+  const ends = day.filter((x) => !day.some((y) => y !== x && nextAfter(x, y, owed)))
+  return ends.length === 1 ? ends[0]!.balance : null
+}
+
+/** The balance before a day's first line: the line that follows no other. */
+function dayStart(day: readonly BankLine[], owed: boolean): number | null {
+  if (day.some((l) => l.balance === null)) return null
+  const starts = day.filter((x) => !day.some((y) => y !== x && nextAfter(y, x, owed)))
+  return starts.length === 1 ? balanceBefore(starts[0] as BankLine & { balance: number }, owed) : null
+}
+
+/** How many balances follow from the one before if they are held (`owed` false) or owed: within a day by chaining, and
+ *  from one day's end to the next's by adding the day's amounts, which doesn't depend on their order. */
+function followingBalances(days: readonly Day[], owed: boolean): number {
+  let count = 0
+  days.forEach((day, i) => {
+    count += day.lines.filter((x) => day.lines.some((y) => y !== x && nextAfter(y, x, owed))).length
+    const before = i > 0 ? dayEnd(days[i - 1]!.lines, owed) : null
+    const end = dayEnd(day.lines, owed)
+    if (before !== null && end !== null && end === before + (owed ? -1 : 1) * day.lines.reduce((sum, l) => sum + l.amount, 0)) count++
+  })
+  return count
+}
+
+export interface BalanceMonth {
+  month: string
+  /** In pence, across the accounts that hold money (current accounts, pots): null if none, or if one isn't known. */
+  held: number | null
+  /** In pence, across the cards and Flex, which owe: kept apart from `held`, never netted. Null likewise. */
+  owed: number | null
+  /** The accounts whose balance isn't known at this month's end: no statement for the days up to it, or the order of
+   *  the last day's lines can't be told. */
+  unknown: { account: string; owed: boolean; why: 'statement' | 'order' }[]
+}
+
+/** What you hold and what you owe at the end of each month of a year, up to today (v0.20.28). A month's end is known for an
+ *  account only when its statements cover every day from its last line to that end; a balance that cannot be told is
+ *  said, never guessed. A closed account counts up to its last statement. */
+export function monthEndBalances(
+  lines: readonly BankLine[],
+  statements: readonly StatementRecord[],
+  closed: ReadonlySet<string>,
+  year: string,
+  today: string,
+): { accounts: { account: string; owed: boolean }[]; months: BalanceMonth[] } {
+  const ledgers = [...new Set(statements.map((s) => s.account))].sort().flatMap((account) => {
+    const mine = lines.filter((l) => l.account === account)
+    if (!mine.length) return []
+    const days: Day[] = groupBy(
+      [...mine].sort((a, b) => a.date.localeCompare(b.date)),
+      (l) => l.date,
+    ).map((same) => ({ date: same[0]!.date, lines: same }))
+    const owed = preferOwed(followingBalances(days, false), followingBalances(days, true))
+    const its = statements.filter((s) => s.account === account)
+    return [{ account, owed, days, statements: its, firstFrom: its.map((s) => s.from).sort()[0]!, lastTo: its.map((s) => s.to).sort().at(-1)! }]
+  })
+
+  const balanceAt = (ledger: (typeof ledgers)[number], end: string): { balance: number } | { why: 'statement' | 'order' } => {
+    const last = ledger.days.filter((d) => d.date <= end).at(-1)
+    const balance = last ? dayEnd(last.lines, ledger.owed) : dayStart(ledger.days[0]!.lines, ledger.owed)
+    const from = last ? last.date : ledger.firstFrom
+    if (notBroughtIn(ledger.statements, end).some((gap) => gap.from <= end && gap.to >= from)) return { why: 'statement' }
+    return balance === null ? { why: 'order' } : { balance }
+  }
+
+  const thisMonth = today.slice(0, 7)
+  const months: BalanceMonth[] = []
+  for (let n = 1; n <= 12; n++) {
+    const month = `${year}-${String(n).padStart(2, '0')}`
+    if (month > thisMonth) break
+    const end = month === thisMonth ? today : addDays(addMonths(`${month}-01`, 1), -1)
+    const here = ledgers.filter((l) => end >= l.firstFrom && !(closed.has(l.account) && end > l.lastTo))
+    if (!here.length && !months.length) continue
+    const found = here.map((ledger) => ({ ledger, at: balanceAt(ledger, end) }))
+    const total = (owed: boolean) => {
+      const these = found.filter((f) => f.ledger.owed === owed)
+      return these.length && these.every((f) => 'balance' in f.at) ? these.reduce((sum, f) => sum + (f.at as { balance: number }).balance, 0) : null
+    }
+    months.push({
+      month,
+      held: total(false),
+      owed: total(true),
+      unknown: found.flatMap((f) => ('why' in f.at ? [{ account: f.ledger.account, owed: f.ledger.owed, why: f.at.why }] : [])),
+    })
+  }
+  return { accounts: ledgers.map((l) => ({ account: l.account, owed: l.owed })), months }
 }
 
 export interface Regular {
