@@ -11,6 +11,7 @@ import {
   moneyMonth,
   moneyMonthTotals,
   type Moving,
+  moneyYear,
   payeeOf,
   type PayeeGroup,
   type PaymentRow,
@@ -41,11 +42,18 @@ const CHART_MONTHS = 6
 /** Regular payments due within this many days are listed under Coming up (this month only). */
 const COMING_DAYS = 30
 
-const pounds = (pence: number) => money(pence, '£')
+export const pounds = (pence: number) => money(pence, '£')
 /** A change over a year, in words: +£48.00 a year, or £12.00 a year less. */
 const yearly = (pence: number) => (pence >= 0 ? `+${pounds(pence)} a year` : `${pounds(-pence)} a year less`)
-const paymentsWord = (n: number) => `${n} payment${n === 1 ? '' : 's'}`
+export const paymentsWord = (n: number) => `${n} payment${n === 1 ? '' : 's'}`
 const movesWord = (n: number) => `${n} move${n === 1 ? '' : 's'}`
+
+/** What came in against what went out, in words and never as a sign: "£460.00 more in than out". Null with nothing in or out. */
+export function resultWords(came: number, went: number): string | null {
+  if (came === 0 && went === 0) return null
+  if (came === went) return 'As much in as out'
+  return came > went ? `${pounds(came - went)} more in than out` : `${pounds(went - came)} more out than in`
+}
 
 /** Why money moved is left out, in words. */
 const MOVED: Record<Moving, string> = {
@@ -84,6 +92,8 @@ export function AccountsMonth(props: {
   const stopped = new Set(changes.lapsed.map((l) => l.payee.key))
   const regular = regularPayments(lines, month, today).filter((r) => !stopped.has(r.payee.key))
   const split = committedOf(its.outLines, regular)
+  const result = resultWords(its.in, its.out)
+  const yearOut = moneyYear(lines, month.slice(0, 4), today, statements, closed, kinds).out
   const thisMonth = today.slice(0, 7)
   const current = month === thisMonth
   const earlier = months.filter((m) => m < month).at(-1)
@@ -146,6 +156,7 @@ export function AccountsMonth(props: {
             <span className="acc-stat-label">Payments out</span> <span className="acc-stat-value">{paymentsWord(its.outLines.length)}</span>
           </button>
         </div>
+        {result ? <p className="acc-caption">{current ? `${result} so far` : result}</p> : null}
         {stale ? (
           <button type="button" className="acc-notice" onClick={() => onSection('statements')}>
             <span>{stale === 1 ? '1 account needs a newer statement' : `${stale} accounts need a newer statement`}</span>
@@ -160,7 +171,7 @@ export function AccountsMonth(props: {
           </button>
         ))}
       </nav>
-      {section === 'overview' ? <Overview its={its} lines={lines} regular={regular} changes={changes} month={month} today={today} /> : null}
+      {section === 'overview' ? <Overview its={its} lines={lines} regular={regular} changes={changes} yearOut={yearOut} month={month} today={today} /> : null}
       {section === 'spending' ? <Spending its={its} /> : null}
       {section === 'statements' ? <Statements its={its} /> : null}
     </>
@@ -174,6 +185,7 @@ function Overview({
   lines,
   regular,
   changes,
+  yearOut,
   month,
   today,
 }: {
@@ -181,6 +193,8 @@ function Overview({
   lines: readonly MoneyLine[]
   regular: readonly Regular[]
   changes: { started: RegularChange[]; lapsed: RegularChange[] }
+  /** Money out over the year of this month, for the way in to the year. */
+  yearOut: number
   month: string
   today: string
 }) {
@@ -259,6 +273,18 @@ function Overview({
           </ul>
         </Block>
       ) : null}
+      <nav aria-label="Year">
+        <ul className="acc-list">
+          <li className="acc-li">
+            <a className="acc-row" href={hashFor('money', month.slice(0, 4))}>
+              <span className="acc-row-text">
+                <span className="acc-row-title">{month.slice(0, 4) === today.slice(0, 4) ? `${month.slice(0, 4)} so far` : month.slice(0, 4)}</span>
+              </span>{' '}
+              <span className="acc-row-value">{pounds(yearOut)} out</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
     </>
   )
 }
@@ -328,7 +354,7 @@ function Statements({ its }: { its: Its }) {
 }
 
 /** A titled part of a tab: its heading names the region, one short status line under it. */
-function Block({ id, title, status, children }: { id?: string; title: string; status?: string; children: ReactNode }) {
+export function Block({ id, title, status, children }: { id?: string; title: string; status?: string; children: ReactNode }) {
   const headingId = useId()
   return (
     <section id={id} className="acc-block" aria-labelledby={headingId}>
@@ -340,7 +366,7 @@ function Block({ id, title, status, children }: { id?: string; title: string; st
 }
 
 /** Groups ranked only with 3+ payments, most first; the rest by name. */
-function Groups<T>({ of, line, fewer }: { of: Ranked<T>; line: (item: T) => ReactNode; fewer: string }) {
+export function Groups<T>({ of, line, fewer }: { of: Ranked<T>; line: (item: T) => ReactNode; fewer: string }) {
   return (
     <>
       {of.ranked.length ? <ul className="acc-list">{of.ranked.map(line)}</ul> : null}
@@ -351,7 +377,7 @@ function Groups<T>({ of, line, fewer }: { of: Ranked<T>; line: (item: T) => Reac
 }
 
 /** The one kind of row: what it is, what it says underneath, and its figure; it opens to what's behind it. */
-function Item({ title, sub, value, meter, children }: { title: string; sub?: ReactNode; value?: ReactNode; meter?: number; children: ReactNode }) {
+export function Item({ title, sub, value, meter, children }: { title: string; sub?: ReactNode; value?: ReactNode; meter?: number; children: ReactNode }) {
   return (
     <li className="acc-li">
       <details className="acc-item">
@@ -453,7 +479,7 @@ function Chart({ lines, month, today }: { lines: readonly MoneyLine[]; month: st
   )
 }
 
-function KindRow({ group, totalOut }: { group: KindGroup; totalOut: number }) {
+export function KindRow({ group, totalOut }: { group: KindGroup; totalOut: number }) {
   const count = group.lines.filter((l) => !l.refund).length
   const share = totalOut > 0 ? Math.min(100, Math.max(2, Math.round((group.total / totalOut) * 100))) : 0
   return (
@@ -508,7 +534,7 @@ function RegularRow({ item, soon }: { item: Regular; soon: boolean }) {
 /** A payee. Paid once, it's its payment: one tap opens it, with its note, kind, name and receipt. Paid more, it opens to
  *  its payments, and, where it could be, a way to say it's you moving money (the payee is remembered: its lines leave
  *  the totals, in later statements too). */
-function PayeeRow({ group, out = false }: { group: PayeeGroup; out?: boolean }) {
+export function PayeeRow({ group, out = false }: { group: PayeeGroup; out?: boolean }) {
   const { kinds, links, names, notes, openKind, openPayment, openRename } = useMoney()
   const line = group.lines[0]!
   const original = group.payee.original && group.payee.original !== group.payee.name ? group.payee.original : null
@@ -615,7 +641,7 @@ function OwnRows({ lines }: { lines: readonly MoneyLine[] }) {
  *  same in every section, never a sign that comes and goes). `moves` joins the two sides of a move between your accounts
  *  ("Savings pot → Monzo"). The payee is named only where the rows' payees differ. A payment with its receipt opens it;
  *  with why, when it needs a look. */
-function LineList({ lines, why, moves = false }: { lines: readonly MoneyLine[]; why?: string; moves?: boolean }) {
+export function LineList({ lines, why, moves = false }: { lines: readonly MoneyLine[]; why?: string; moves?: boolean }) {
   const { links, receiptReasons, names, notes, openPayment } = useMoney()
   const rows = moves ? joinMoves(lines) : [...lines].sort((a, b) => b.date.localeCompare(a.date)).map((line) => ({ line }))
   const name = (account: string) => names.get(account) ?? account

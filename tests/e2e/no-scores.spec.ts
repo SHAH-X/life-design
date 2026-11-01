@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { addEntry, captureBox, expectNoScores } from './helpers'
-import { restoreSeed } from './seed'
+import { backupWith, restoreBackup, restoreSeed } from './seed'
 
 // The guard for Phase 2.6's rule: nothing asks for or shows a rating, score or scale (expectNoScores).
 // Search by meaning's screens are checked in meaning.spec.ts, which has the model.
@@ -60,4 +60,33 @@ test('an entry logged in words reads back in words', async ({ page }) => {
   await expectNoScores(page, 'Today after logging')
   await page.goto('./#/insights')
   await expectNoScores(page, 'Insights after logging')
+})
+
+test('Money’s month and year pages, with payments in, show no rating, score or scale', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(THURSDAY)
+  const payment = (id: string, date: string, amount: number, description: string, createdAt: number) => ({
+    id,
+    account: 'Lloyds ···4321',
+    date,
+    amount,
+    description,
+    type: 'DD',
+    balance: null,
+    adds: true,
+    createdAt,
+    updatedAt: createdAt,
+  })
+  const bankLines = [
+    ...['2026-08-14', '2026-09-14', '2026-10-14'].map((date, i) => payment(`streaming-${i}`, date, i === 2 ? -1199 : -1099, 'EXAMPLE STREAMING', i + 1)),
+    payment('employer', '2026-10-20', 150000, 'EXAMPLE EMPLOYER', 10),
+  ]
+  const statements = [{ id: 'a', account: 'Lloyds ···4321', from: '2026-01-01', to: '2026-10-22', lines: 4, createdAt: 1, updatedAt: 1 }]
+  await restoreBackup(page, testInfo.outputPath('money.json'), backupWith({ bankLines, statements }, THURSDAY))
+
+  await page.goto('./#/money')
+  await expect(page.getByText('more in than out so far')).toBeVisible()
+  await expectNoScores(page, 'Money, this month', true)
+  await page.goto('./#/money/2026')
+  await expect(page.getByRole('heading', { level: 1, name: '2026' })).toBeVisible()
+  await expectNoScores(page, 'Money, the year')
 })

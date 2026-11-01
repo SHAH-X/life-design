@@ -28,6 +28,7 @@ import { useOwnWords } from '../today/useOwnWords'
 import { usePurposeSettings } from '../today/usePurpose'
 import { type AccountsSection, AccountsMonth } from './AccountsMonth'
 import { Accounts, RenameSheet } from './Accounts'
+import { AccountsYear } from './AccountsYear'
 import { MoneyContext } from './MoneyContext'
 import { ReceiptsMonth, ReceiptsShare, receiptsWord } from './Receipts'
 import { StatementImport } from './StatementImport'
@@ -102,6 +103,9 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const month = sub && /^\d{4}-\d{2}$/.test(sub) ? sub : thisMonth
   // The months with money in or out, oldest first: Accounts steps between them.
   const accountMonths = [...new Set(lines.filter((l) => !l.moving).map((l) => l.date.slice(0, 7)))].sort()
+  // The years with money in or out, oldest first: the year page steps between them. A year is the Accounts view's only.
+  const accountYears = [...new Set(accountMonths.map((m) => m.slice(0, 4)))]
+  const year = view === 'accounts' && lines.length && sub && /^\d{4}$/.test(sub) ? sub : null
   const earlier = shoppingMonths(receipts).filter((m) => m < thisMonth).sort().reverse()
   const manualReceiptId = payment ? manualReceiptByPayment.get(payment.line.id) : undefined
   const paymentReceipt = payment ? links.get(payment.line.id) : undefined
@@ -114,7 +118,14 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   return (
     <MoneyContext.Provider value={{ links, receiptReasons, open, names, kinds, notes, openPayment: (line, way, group) => setPayment({ line, way, group }), openKind: setKindFor, openRename: setRenaming, importStatement: () => setImporting(true) }}>
       <div className="money-screen">
-        {month === thisMonth ? (
+        {year ? (
+          <>
+            <a className="back-link" href={hashFor('money')}>
+              ‹ Money
+            </a>
+            <h1>{year}</h1>
+          </>
+        ) : month === thisMonth ? (
           <h1>Money</h1>
         ) : (
           <>
@@ -132,7 +143,9 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             Receipts
           </button>
         </div>
-        {view === 'accounts' && lines.length ? (
+        {year ? (
+          <AccountsYear key={`accounts-year-${year}`} lines={lines} year={year} today={today} statements={statements} closed={closed} years={accountYears} />
+        ) : view === 'accounts' && lines.length ? (
           // Keyed by month: a month opened from another starts afresh (a tapped chart column doesn't carry over).
           <AccountsMonth key={`accounts-${month}`} lines={lines} month={month} today={today} statements={statements} closed={closed} months={accountMonths} section={section} onSection={setSection} />
         ) : view === 'receipts' ? (

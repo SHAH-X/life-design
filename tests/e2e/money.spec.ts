@@ -368,6 +368,62 @@ test('a missing statement is never a stopped payment', async ({ page }, testInfo
   await expect(page.getByText('no payment since')).toHaveCount(0)
 })
 
+test('each month says what came in against what went out, and Overview opens the year: its totals, what it was for, the days with no statement, and the years either side', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const bankLines = [
+    ...monthlyPayments('EXAMPLE EMPLOYER', ['2025-11-26', '2026-09-26', '2026-10-26'], [100000, 100000, 100000]),
+    ...monthlyPayments('EXAMPLE OLD SHOP', ['2025-11-05'], [-3000]),
+    ...monthlyPayments('EXAMPLE CORNER SHOP', ['2026-09-10', '2026-10-05'], [-4000, -2000]),
+    ...monthlyPayments('EXAMPLE STREAMING', ['2026-08-14', '2026-09-14', '2026-10-14'], [-1099, -1099, -1099]),
+  ]
+  // 31 May to 1 July has no statement: June is missing from 2026.
+  const statements = [
+    { id: 'a', account: LLOYDS, from: '2025-01-01', to: '2026-05-31', lines: 4, createdAt: 1, updatedAt: 1 },
+    { id: 'b', account: LLOYDS, from: '2026-07-01', to: '2026-10-27', lines: 8, createdAt: 2, updatedAt: 2 },
+  ]
+  await restoreBackup(page, testInfo.outputPath('year.json'), backupWith({ bankLines, statements }, now))
+
+  // A month: £1000.00 in, £20.00 + £10.99 out in October; £1000.00 in, £40.00 + £10.99 out in September.
+  await page.goto('./#/money')
+  await expect(page.getByText('£969.01 more in than out so far', { exact: true })).toBeVisible()
+  await page.goto('./#/money/2026-09')
+  await expect(page.getByText('£949.01 more in than out', { exact: true })).toBeVisible()
+
+  // Overview ends with the way in to the year: £40 + £20 + 3 x £10.99 out in 2026.
+  await page.goto('./#/money')
+  await page.getByRole('link', { name: /2026 so far/ }).click()
+  await expect(page.getByRole('heading', { level: 1, name: '2026' })).toBeVisible()
+  await expect(page.getByText('£92.97 out', { exact: true })).toBeVisible()
+  await expect(page.getByText('From your accounts · Aug – Oct', { exact: true })).toBeVisible()
+  await expect(page.getByText('Money in £2000.00 · 5 payments out', { exact: true })).toBeVisible()
+  await expect(page.getByText('£1907.03 more in than out so far', { exact: true })).toBeVisible()
+  await expect(page.getByText('Committed £32.97 · Everyday £60.00', { exact: true })).toBeVisible()
+
+  // The regular payment it paid in the year, and the month with no statement.
+  const regular = page.getByRole('region', { name: 'Regular payments' })
+  await expect(regular).toContainText('EXAMPLE STREAMING')
+  await expect(regular).toContainText('every month · 3 payments')
+  await expect(regular).toContainText('£32.97')
+  const missing = page.getByRole('region', { name: 'Not brought in' })
+  await expect(missing).toContainText('Lloyds')
+  await expect(missing).toContainText('Jun 2026')
+  // The biggest payees are those paid 3 times or more.
+  await expect(page.getByRole('region', { name: 'Biggest payees' })).toContainText('EXAMPLE STREAMING')
+
+  // The years either side: 2025 had one payment out of £30.00 and nothing to say about missing statements after it.
+  await page.getByRole('link', { name: 'Earlier: 2025' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: '2025' })).toBeVisible()
+  await expect(page.getByText('£30.00 out', { exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: /^Earlier:/ })).toHaveCount(0)
+  await page.getByRole('link', { name: 'Later: 2026' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: '2026' })).toBeVisible()
+
+  // And back to Money.
+  await page.getByRole('link', { name: '‹ Money' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Money' })).toBeVisible()
+})
+
 test('the accounts spending chart shows its six-month average and pages through earlier months', async ({ page }, testInfo) => {
   const now = new Date(2026, 9, 26, 12, 0)
   await page.clock.setFixedTime(now)
