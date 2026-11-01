@@ -601,31 +601,34 @@ export function searchPayments(lines: readonly MoneyLine[], query: string, notes
     .sort((a, b) => b.date.localeCompare(a.date))
 }
 
-/** What a search found in one year: payments out and what they come to (a refund taking off), what came in, and how many
- *  lines were money moved, which is in neither. */
+/** What a search found in one year: payments out and what they come to (a refund taking off), what came in, and the money
+ *  moved, which is in neither and kept apart: a purchase on Monzo Flex is on the bank's statement and again on Flex's, and
+ *  two rows of one amount in one list read as a double charge (owner, 2026-11-01). */
 export interface PaymentYear {
   year: string
   payments: number
   /** In pence; negative when only money came back. */
   out: number
   in: number
-  moved: number
+  /** Payments, refunds and money in. */
   lines: MoneyLine[]
+  /** Money moved between your accounts, left out of the figures above. */
+  moves: MoneyLine[]
 }
 
 /** What a search found, by year, newest first. */
 export function paymentYears(found: readonly MoneyLine[]): PaymentYear[] {
   return groupBy(found, (l) => l.date.slice(0, 4))
-    .map((lines): PaymentYear => {
-      const counted = lines.filter((l) => !l.moving)
-      const out = counted.filter((l) => l.amount < 0 || l.refund)
+    .map((all): PaymentYear => {
+      const lines = all.filter((l) => !l.moving)
+      const out = lines.filter((l) => l.amount < 0 || l.refund)
       return {
-        year: lines[0]!.date.slice(0, 4),
+        year: all[0]!.date.slice(0, 4),
         payments: out.filter((l) => l.amount < 0).length,
         out: sumOut(out),
-        in: counted.filter((l) => l.amount > 0 && !l.refund).reduce((sum, l) => sum + l.amount, 0),
-        moved: lines.length - counted.length,
+        in: lines.filter((l) => l.amount > 0 && !l.refund).reduce((sum, l) => sum + l.amount, 0),
         lines,
+        moves: all.filter((l) => l.moving),
       }
     })
     .sort((a, b) => b.year.localeCompare(a.year))

@@ -646,6 +646,45 @@ test('Spending finds any payment across every month and year: by name, by amount
   await expect(page.getByRole('region', { name: 'Money in' })).toBeVisible()
 })
 
+// v0.20.34: a purchase on Monzo Flex is on the bank's statement and again on Flex's ("… moved to Flex"); a search read as
+// two payments of one amount, the second naming nobody (owner, 2026-11-01), and the box didn't say what it searched.
+test('Spending’s search lists a purchase once, its Flex side apart and named; the box says what it searches and has a ✕', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const line = (id: string, account: string, amount: number, description: string) => ({ id, account, date: '2026-10-08', amount, description, type: '', balance: null, adds: true, createdAt: 1, updatedAt: 1 })
+  const bankLines = [
+    line('pass-bank', 'Example Current', -4117, 'EXAMPLE PASSPORT OFFICE'),
+    line('pass-back', 'Example Current', 4117, 'Flex'),
+    line('pass-flex', 'Monzo Flex', -4117, 'EXAMPLE PASSPORT OFFICE moved to Flex'),
+  ]
+  await restoreBackup(page, testInfo.outputPath('search-flex.json'), backupWith({ bankLines }, now))
+  await page.goto('./#/money')
+  await accountView(page, 'Spending')
+  const search = page.getByRole('searchbox', { name: 'Search every payment' })
+  await expect(search).toHaveAttribute('placeholder', 'Search by name, note or amount')
+  const clear = page.getByRole('button', { name: 'Clear the search' })
+  await expect(clear).toHaveCount(0)
+
+  await search.fill('passport')
+  const year = page.getByRole('region', { name: '2026' })
+  // One payment, one row, naming where it went; money moved is not counted in the year's line.
+  await expect(year.locator('.acc-status')).toHaveText('1 payment · £41.17')
+  await expect(year.locator(':scope > ul.acc-lines > li')).toHaveText([/^Thu,? 8 Oct ?EXAMPLE PASSPORT OFFICE · out of Example Current ?£41\.17$/])
+  // Its Flex side is under money moved, closed until asked for, and says whose purchase it paid off.
+  const moved = year.locator('details', { hasText: 'Moved between your accounts' })
+  await expect(moved.locator('summary')).toHaveText('Moved between your accounts 1 move, left out')
+  await moved.locator('summary').click()
+  await expect(moved.locator('.acc-lines li')).toHaveText([/^Thu,? 8 Oct ?EXAMPLE PASSPORT OFFICE · paid off, from Monzo Flex ?£41\.17$/])
+
+  // A ✕ clears the search and the keyboard stays up for the next one; the month's lists come back.
+  await expect(clear).toBeVisible()
+  await clear.click()
+  await expect(search).toHaveValue('')
+  await expect(search).toBeFocused()
+  await expect(clear).toHaveCount(0)
+  await expect(page.getByRole('region', { name: 'Money out' })).toBeVisible()
+})
+
 test('a card payment with its receipt opens the receipt', async ({ page }, testInfo) => {
   const now = new Date(2026, 8, 30, 12, 0)
   await page.clock.setFixedTime(now)

@@ -1385,6 +1385,20 @@ input[type='search'] {
   outline: none;
 }
 
+/* The ✕ that clears it is ours: Safari's own appears only while the box has the focus, and not in every place. */
+.logs-search input[type='search']::-webkit-search-cancel-button {
+  display: none;
+  -webkit-appearance: none;
+}
+
+.logs-search .icon-button {
+  flex: none;
+  min-height: 44px;
+  margin-right: -10px;
+  color: var(--muted);
+  font-size: 1.25rem;
+}
+
 .logs-search:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft), var(--list-shadow);
