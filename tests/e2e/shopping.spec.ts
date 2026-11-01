@@ -81,7 +81,8 @@ test('Money has its own tab, receipts and all: the month so far, next to last mo
     'Fruit and veg · 2 items · £1.90',
     'Dairy and eggs · 2 items · £3.10',
     'Bread and bakery · 1 item · £1.20',
-    'Cupboard · 2 items · £1.60',
+    // Pasta at what was paid, its Clubcard saving taken off (v0.20.19).
+    'Cupboard · 2 items · £1.10',
     'Drinks · 1 item · £4.50',
     'Not sorted · 1 item on 1 receipt · £42.10',
   ])
@@ -138,7 +139,7 @@ test('a receipt opens to its items, each with its price and kind; you can choose
   await expect(page.getByRole('button', { name: /Sat 3 Oct TESCO/ })).toHaveText('Sat 3 Oct TESCO · £2.15 · 1 returned')
   const kinds = page.getByRole('region', { name: 'By kind' })
   await expect(kinds.locator('summary', { hasText: 'Dairy and eggs' })).toHaveText('Dairy and eggs · 1 item · £1.65')
-  await expect(kinds.locator('summary', { hasText: 'Cupboard' })).toHaveText('Cupboard · 3 items · £2.80')
+  await expect(kinds.locator('summary', { hasText: 'Cupboard' })).toHaveText('Cupboard · 3 items · £2.30')
 
   // Kept: after a reload, and the entry still opens from the receipt.
   await page.reload()
@@ -182,15 +183,16 @@ test('Share as a spreadsheet gives every item, a row each, through the share men
   await page.getByRole('button', { name: 'Receipts', exact: true }).click()
   await page.getByRole('button', { name: 'Share as a spreadsheet' }).click()
   const dialog = page.getByRole('dialog', { name: 'Receipts as a spreadsheet' })
-  await expect(dialog.getByText('12 items on 6 receipts')).toBeVisible()
+  await expect(dialog.getByText('11 items on 6 receipts')).toBeVisible()
   await dialog.getByRole('button', { name: 'Save or share…' }).click()
   const file = await sharedFile(page)
   expect(file.name).toBe('life-design-shopping-2026-10-24.csv')
   const rows = file.text.replace(/^﻿/, '').trimEnd().split('\r\n')
-  expect(rows[0]).toBe('date,shop,item,as_printed,kind,quantity,price,currency,receipt_total,adds_up,date_read,read_by,returned')
-  expect(rows).toHaveLength(13)
-  expect(rows).toContain('2026-10-10,Tesco,Clubcard saving,Clubcard saving,,1,-0.50,£,1.25,yes,yes,Gemini · gemini-2.5-flash,')
-  expect(rows).toContain('2026-10-03,TESCO,Bananas,Bananas,Fruit and veg,1,0.95,£,3.60,yes,yes,Gemini · gemini-2.5-flash,')
+  expect(rows[0]).toBe('date,shop,item,as_printed,kind,quantity,price,currency,receipt_total,adds_up,date_read,read_by,returned,saving')
+  expect(rows).toHaveLength(12)
+  // The Clubcard saving joins the Pasta before it (v0.20.19): what was paid, and what the offer took off.
+  expect(rows).toContain('2026-10-10,Tesco,Pasta,Pasta,Cupboard,1,0.30,£,1.25,yes,yes,Gemini · gemini-2.5-flash,,0.50')
+  expect(rows).toContain('2026-10-03,TESCO,Bananas,Bananas,Fruit and veg,1,0.95,£,3.60,yes,yes,Gemini · gemini-2.5-flash,,')
 })
 
 // Owner, 2026-10-25: "if i upload the same receipt twice, it counts it twice".

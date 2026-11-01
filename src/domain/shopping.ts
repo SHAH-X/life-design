@@ -5,7 +5,7 @@
 import { MIN_COUNT } from '../analysis/stats'
 import type { Entry, ItemChange, PhotoRef } from '../db/types'
 import { addMonths } from '../lib/dates'
-import { chainOf, ITEM_KINDS, type ItemKind, itemShown, type ReceiptItem, readReceipt, type Receipt, receiptTime, shopWords } from './receipts'
+import { chainOf, ITEM_KINDS, type ItemKind, itemShown, paidFor, type ReceiptItem, readReceipt, type Receipt, receiptTime, shopWords } from './receipts'
 
 /** A receipt in a photo of a finished entry. Its id is the photo's; its date is the receipt's, else the entry's. */
 export interface KnownReceipt extends Omit<Receipt, 'date'> {
@@ -24,7 +24,40 @@ export interface KnownReceipt extends Omit<Receipt, 'date'> {
  *  the phone's to say, from the numbers. */
 function receiptOf(photo: PhotoRef): Receipt | null {
   const read = readOf(photo)
-  return read && photo.items?.length ? { ...read, items: withChanges(read.items, photo.items) } : read
+  if (!read) return null
+  const keys = itemKeys(read.items)
+  const changed = (photo.items?.length ? withChanges(read.items, photo.items) : read.items).map((item, i) => ({ ...item, key: keys[i]! }))
+  return { ...read, items: withSavings(changed, photo.ai?.text || photo.text || '') }
+}
+
+/** A saving for the whole basket, never for the item printed before it. */
+const BASKET_SAVING = /multi[\s-]?buy|meal\s*deal|\b\d+\s*for\b|bundle|mix\s*(?:&|and)?\s*match|staff|colleague|coupon|voucher/i
+/** M&S prints the Sparks savings for the whole receipt after this line. */
+const BALANCE_BEFORE_SAVING = /balance\s+before\s+sav/i
+
+/** Each saving joined to the item printed just before it (v0.20.19, owner 2026-11-01: "it is just amount saved on that
+ *  product"), so the item counts at what was paid. A saving stays a row of its own, an offer on the whole receipt,
+ *  when it's for the basket (`BASKET_SAVING`, or anything after "Balance before saving"), or would take off more than
+ *  its item cost. */
+function withSavings(items: readonly ReceiptItem[], text: string): ReceiptItem[] {
+  const basket = BALANCE_BEFORE_SAVING.test(text)
+  const out: ReceiptItem[] = []
+  let last: ReceiptItem | null = null
+  for (const item of items) {
+    if (item.price >= 0) {
+      last = { ...item }
+      out.push(last)
+      continue
+    }
+    const off = -item.price
+    if (!basket && last && !BASKET_SAVING.test(item.name) && (last.saving ?? 0) + off <= last.price) {
+      last.saving = (last.saving ?? 0) + off
+      continue
+    }
+    last = null
+    out.push(item)
+  }
+  return out
 }
 
 function readOf(photo: PhotoRef): Receipt | null {
@@ -115,10 +148,10 @@ export function shopKey(name: string): string {
 export const money = (minor: number, currency: string) => `${minor < 0 ? '-' : ''}${currency}${(Math.abs(minor) / 100).toFixed(2)}`
 
 /** What a receipt counts for: its printed total, the amount paid, else its items' sum. */
-export const paid = (r: KnownReceipt) => r.total ?? r.items.reduce((s, item) => s + item.price, 0)
+export const paid = (r: KnownReceipt) => r.total ?? r.items.reduce((s, item) => s + paidFor(item), 0)
 
-/** What its returned items came to (v0.20.18). */
-export const returnedOn = (r: Pick<Receipt, 'items'>) => r.items.reduce((s, item) => s + (item.returned ? item.price : 0), 0)
+/** What its returned items came to (v0.20.18): what was paid for them, after offers (v0.20.19). */
+export const returnedOn = (r: Pick<Receipt, 'items'>) => r.items.reduce((s, item) => s + (item.returned ? paidFor(item) : 0), 0)
 
 /** What a receipt counts as spent: what was paid, less what was returned, never below nothing. Matching it to a card
  *  payment uses `paid`, which is what the bank was charged. */
@@ -240,7 +273,7 @@ export interface ToCheck {
   possiblePayment?: boolean
 }
 
-/** The month's items of one kind, at their prices: before offers, which have a line of their own. */
+/** The month's items of one kind, at what was paid for them: after the offers joined to them (v0.20.19). */
 export interface KindLine {
   kind: ItemKind
   items: { item: ReceiptItem; receipt: KnownReceipt }[]
@@ -325,7 +358,7 @@ function repeats(receipts: readonly KnownReceipt[], currency: string): Repeat[] 
       const found = on.get(key) ?? { name: itemShown(item), receipts: [], spent: [] }
       if (!found.receipts.includes(receipt)) found.receipts.push(receipt)
       found.name = itemShown(item)
-      addTo(found.spent, receipt.currency, item.price)
+      addTo(found.spent, receipt.currency, paidFor(item))
       on.set(key, found)
     }
   }
@@ -340,14 +373,14 @@ function kindsOf(receipts: readonly KnownReceipt[], currency: string): Kinds | n
   const lines = ITEM_KINDS.map((kind): KindLine => {
     const items = bought.filter((b) => b.item.kind === kind)
     const spent: Amounts = []
-    for (const b of items) addTo(spent, b.receipt.currency, b.item.price)
+    for (const b of items) addTo(spent, b.receipt.currency, paidFor(b.item))
     return { kind, items, spent }
   }).filter((line) => line.items.length > 0)
   if (lines.length === 0) return null
   const ranked = lines.filter((line) => line.items.length >= MIN_COUNT).sort((a, b) => inCurrency(b.spent, currency) - inCurrency(a.spent, currency))
   const unsorted = bought.filter((b) => !b.item.kind)
   const spent: Amounts = []
-  for (const b of unsorted) addTo(spent, b.receipt.currency, b.item.price)
+  for (const b of unsorted) addTo(spent, b.receipt.currency, paidFor(b.item))
   return {
     ranked,
     others: lines.filter((line) => !ranked.includes(line)),
@@ -376,7 +409,7 @@ export function shoppingMonth(
   const others = shopLines.filter((s) => !ranked.includes(s)).sort((a, b) => (a.name === null ? 1 : b.name === null ? -1 : a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })))
 
   const saved: Amounts = []
-  for (const r of receipts) for (const item of r.items) if (item.price < 0) addTo(saved, r.currency, -item.price)
+  for (const r of receipts) for (const item of r.items) if (item.price < 0 || item.saving) addTo(saved, r.currency, item.saving ?? -item.price)
   const small = receipts.filter((r) => r.currency === '£' && spentOn(r) > 0 && spentOn(r) < SMALL_SHOP)
 
   return {
@@ -385,7 +418,7 @@ export function shoppingMonth(
     spent: amountsOf(receipts),
     before: before ? { until, receipts: before, spent: amountsOf(before) } : null,
     shops: { ranked, others },
-    offers: { saved, receipts: receipts.filter((r) => r.items.some((item) => item.price < 0)) },
+    offers: { saved, receipts: receipts.filter((r) => r.items.some((item) => item.price < 0 || item.saving)) },
     small: small.length >= MIN_COUNT ? { receipts: small, spent: amountsOf(small) } : null,
     priceChanges: priceChanges(
       all.filter((r) => inMonths(r, shiftMonth(month, -(PRICE_MONTHS - 1)), month)),
