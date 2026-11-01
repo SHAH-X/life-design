@@ -163,6 +163,11 @@ describe('kindOf: what a payment was for (owner, 2026-10-26: “other transactio
     expect(kindOf(one('EXAMPLE DISTRICT COUNCIL SOMETOWN GBR'), {})).toBe('Council tax')
     expect(kindOf(one('A N OTHER'), {})).toBeNull()
   })
+  it('guesses a delivery from the Uber app as eating out and a ride as transport (v0.20.23: Uber Eats was guessed as transport)', () => {
+    expect(kindOf(one('UBER EATS LONDON GBR'), {})).toBe('Eating out')
+    expect(kindOf(one('UBER *EATS HELP.UBER.COM'), {})).toBe('Eating out')
+    expect(kindOf(one('UBER *TRIP HELP.UBER.COM'), {})).toBe('Transport')
+  })
   it('takes the kind you chose for the payee over any guess', () => {
     expect(kindOf(one('TESCO STORES 1234 SOMETOWN GBR'), { tesco: 'Shopping' })).toBe('Shopping')
     expect(kindOf(one('A N OTHER'), { 'a n other': 'Rent' })).toBe('Rent')

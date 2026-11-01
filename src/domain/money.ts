@@ -175,7 +175,7 @@ export const PAYMENT_KINDS = [
 export type PaymentKind = (typeof PAYMENT_KINDS)[number]
 
 /** Kinds guessed from a description, for common UK payees; what you choose for a payee always wins. Fuel before a
- *  supermarket ("ASDA PETROL"). */
+ *  supermarket ("ASDA PETROL"), Eating out before Transport ("UBER EATS" is a meal, "UBER *TRIP" a ride). */
 const GUESSES: [PaymentKind, RegExp][] = [
   ['Fuel', /\b(?:petrol|fuel|esso|shell|texaco|bp)\b/i],
   ['Parking', /\bcar ?park|\bparking\b|paybyphone|ringgo/i],
@@ -187,8 +187,8 @@ const GUESSES: [PaymentKind, RegExp][] = [
   ['Insurance', /insurance|hastings direct|admiral|aviva|direct line/i],
   ['Saving and investing', /trading ?212|vanguard|freetrade|hargreaves|nutmeg|moneybox/i],
   ['Subscriptions', /netflix|spotify|disney|anthropic|claude|openai|youtube|icloud|apple\.com|google (?:one|storage)|prime video|audible|github/i],
+  ['Eating out', /pizza|mcdonald|starbucks|costa|greggs|nando|kfc|subway|tim hortons|domino|deliveroo|just eat|uber[ *]*eats/i],
   ['Transport', /trainline|national express|flixbus|\bflix\b|transport for london|\btfl\b|\buber\b|stagecoach|arriva|\bbus\b|\brail/i],
-  ['Eating out', /pizza|mcdonald|starbucks|costa|greggs|nando|kfc|subway|tim hortons|domino|deliveroo|just eat|uber eats/i],
   ['Health', /pharmacy|\bboots\b|dentist|\bnhs\b|optician/i],
   ['Giving', /charity|foundation|mandir|temple|church|mosque|gurdwara|donation/i],
   ['Shopping', /amazon|temu|ebay|argos|currys|dunelm|john lewis|\bnext\b|primark|ikea|matalan|tk ?maxx|homesense/i],
