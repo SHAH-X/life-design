@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges, moneyYear, monthEndBalances } from '../../src/domain/money'
+import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges, moneyYear, monthEndBalances, monthCoverage, averageOfComplete } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
@@ -734,5 +734,57 @@ describe('monthEndBalances: what you hold and what you owe at the end of each mo
     const lines = ledger(BANK, 20000, [['2026-01-10', -10]])
     expect(monthEndBalances(classify(lines, new Set()), [statement(BANK, '2026-01-01', TODAY_APRIL)], new Set(), '2024', TODAY_APRIL).months).toEqual([])
     expect(run(lines, [statement(BANK, '2026-01-01', TODAY_APRIL)]).months.at(-1)!.month).toBe('2026-04')
+  })
+})
+
+describe('monthCoverage: which months have every statement in (v0.20.32: the chart’s average counted November, not begun, as £0, and October with one account’s statements)', () => {
+  const OTHER = 'First Direct ···1111'
+  const MONTHS = ['2026-01', '2026-02', '2026-03', '2026-08', '2026-09', '2026-10', '2026-11']
+  const coverage = (statements: StatementRecord[], closed: ReadonlySet<string> = new Set(), today = '2026-11-01') => monthCoverage(statements, closed, MONTHS, today)
+  const complete = (found: ReturnType<typeof coverage>) => found.filter((m) => m.complete).map((m) => m.month)
+
+  it('is complete when the month is over and every account begun by then has statements for all its days', () => {
+    expect(complete(coverage([statement(BANK, '2026-01-01', '2026-10-31')]))).toEqual(['2026-01', '2026-02', '2026-03', '2026-08', '2026-09', '2026-10'])
+  })
+  it('is never complete for the month you are in, nor for one before any statement began', () => {
+    const found = coverage([statement(BANK, '2026-03-01', '2026-10-31')])
+    expect(found.find((m) => m.month === '2026-11')).toMatchObject({ complete: false })
+    expect(found.find((m) => m.month === '2026-02')).toMatchObject({ complete: false, missing: [] })
+    expect(complete(found)).toEqual(['2026-03', '2026-08', '2026-09', '2026-10'])
+  })
+  it('names the accounts missing days: one that stops early is missing every month after', () => {
+    const found = coverage([statement(BANK, '2026-01-01', '2026-08-31'), statement(OTHER, '2026-03-01', '2026-10-31')])
+    expect(complete(found)).toEqual(['2026-01', '2026-02', '2026-03', '2026-08'])
+    expect(found.find((m) => m.month === '2026-09')).toMatchObject({ complete: false, missing: [BANK] })
+    expect(found.find((m) => m.month === '2026-10')).toMatchObject({ complete: false, missing: [BANK] })
+  })
+  it('does not ask an account for months before its first statement, nor a closed one for days after its last', () => {
+    const statements = [statement(BANK, '2026-01-01', '2026-10-31'), statement(OTHER, '2026-03-01', '2026-08-31')]
+    // Other began in March: January and February need only the bank. Closed after August, it is not asked for more.
+    expect(complete(coverage(statements, new Set([OTHER])))).toEqual(['2026-01', '2026-02', '2026-03', '2026-08', '2026-09', '2026-10'])
+    expect(complete(coverage(statements))).toEqual(['2026-01', '2026-02', '2026-03', '2026-08'])
+  })
+  it('makes only the months a gap touches incomplete', () => {
+    const found = coverage([statement(BANK, '2026-01-01', '2026-08-15'), statement(BANK, '2026-09-20', '2026-10-31')])
+    expect(complete(found)).toEqual(['2026-01', '2026-02', '2026-03', '2026-10'])
+    expect(found.find((m) => m.month === '2026-08')).toMatchObject({ complete: false, missing: [BANK] })
+    expect(found.find((m) => m.month === '2026-09')).toMatchObject({ complete: false, missing: [BANK] })
+    expect(found.find((m) => m.month === '2026-10')).toMatchObject({ complete: true, missing: [] })
+  })
+  it('is incomplete for every month with no statements at all', () => {
+    expect(complete(coverage([]))).toEqual([])
+  })
+
+  describe('averageOfComplete', () => {
+    const totals = [{ month: '2026-08', out: 4000 }, { month: '2026-09', out: 5000 }, { month: '2026-10', out: 6000 }, { month: '2026-11', out: 0 }]
+    const covered = (...months: string[]) => totals.map((t) => ({ month: t.month, complete: months.includes(t.month), missing: [] as string[] }))
+    it('averages only the complete months, leaving out the others rather than counting them as nothing', () => {
+      expect(averageOfComplete(totals, covered('2026-08', '2026-09'))).toEqual({ value: 4500, months: 2 })
+      expect(averageOfComplete(totals, covered('2026-08', '2026-09', '2026-10'))).toEqual({ value: 5000, months: 3 })
+    })
+    it('says nothing from fewer than 2 complete months', () => {
+      expect(averageOfComplete(totals, covered('2026-08'))).toBeNull()
+      expect(averageOfComplete(totals, covered())).toBeNull()
+    })
   })
 })

@@ -548,6 +548,41 @@ export function monthEndBalances(
   return { accounts: ledgers.map((l) => ({ account: l.account, owed: l.owed })), months }
 }
 
+/** Whether a month has every statement in (v0.20.32): the chart's average counted a month not begun as £0, and one with a
+ *  single account's statements as all its spending. */
+export interface MonthCoverage {
+  month: string
+  /** The month is over, some account's statements had begun by its end, and none of them is missing days of it. */
+  complete: boolean
+  /** The accounts, as the statements name them, with days of the month not brought in. */
+  missing: string[]
+}
+
+/** For each month, whether every account in use has statements for all its days. An account is in use from its first
+ *  statement, and a closed one isn't asked for the days after its last; the month you are in is never complete, nor is
+ *  one before any statement began (nothing is known of it, which isn't the same as nothing spent). */
+export function monthCoverage(statements: readonly StatementRecord[], closed: ReadonlySet<string>, months: readonly string[], today: string): MonthCoverage[] {
+  const accounts = [...new Set(statements.map((s) => s.account))].sort().map((account) => {
+    const its = statements.filter((s) => s.account === account)
+    return { account, firstFrom: its.map((s) => s.from).sort()[0]!, gaps: notBroughtIn(its, today, closed.has(account)) }
+  })
+  return months.map((month) => {
+    const start = `${month}-01`
+    const end = addDays(addMonths(start, 1), -1)
+    const begun = accounts.filter((a) => a.firstFrom <= end)
+    const missing = begun.filter((a) => a.gaps.some((gap) => gap.from <= end && gap.to >= start)).map((a) => a.account)
+    return { month, complete: end < today && begun.length > 0 && missing.length === 0, missing }
+  })
+}
+
+/** The average of the months that are complete, in pence, and how many that is; null from fewer than 2 (an average of one
+ *  month is that month). Months that aren't complete are left out, never counted as nothing. */
+export function averageOfComplete(totals: readonly { month: string; out: number }[], coverage: readonly MonthCoverage[]): { value: number; months: number } | null {
+  const done = new Set(coverage.filter((c) => c.complete).map((c) => c.month))
+  const these = totals.filter((t) => done.has(t.month))
+  return these.length >= 2 ? { value: Math.round(these.reduce((sum, t) => sum + t.out, 0) / these.length), months: these.length } : null
+}
+
 export interface Regular {
   payee: Payee
   every: 'month' | 'week'

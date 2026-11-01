@@ -12,6 +12,8 @@ export interface MonthColumn {
   /** Every amount in words, "£70.48 and €7.30", for the readout and table. */
   amount: string
   receipts: number
+  /** Something to say of the month beside its amount, in the readout and the table: "not every statement is in: Lloyds". */
+  note?: string
 }
 
 const W = 320
@@ -45,7 +47,8 @@ export interface Counted {
 const RECEIPTS: Counted = { heading: 'Receipts', word: (n) => `${n} receipt${n === 1 ? '' : 's'}`, none: 'no receipts' }
 
 function describe(month: MonthColumn, counted: Counted): string {
-  return month.receipts ? `${month.title}: ${month.amount} · ${counted.word(month.receipts)}` : `${month.title}: ${counted.none}`
+  const said = month.receipts ? `${month.title}: ${month.amount} · ${counted.word(month.receipts)}` : `${month.title}: ${counted.none}`
+  return month.note ? `${said} · ${month.note}` : said
 }
 
 /**
@@ -167,7 +170,10 @@ export function MonthChart(props: {
             {months.map((m) => (
               <tr key={m.key}>
                 <th scope="row">{m.title}</th>
-                <td>{m.receipts ? m.amount : '–'}</td>
+                <td>
+                  {m.receipts ? m.amount : '–'}
+                  {m.note ? ` · ${m.note}` : ''}
+                </td>
                 <td>{m.receipts}</td>
               </tr>
             ))}

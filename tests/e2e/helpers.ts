@@ -263,6 +263,6 @@ export const SCORE = /[+−-]\d|\d\s*\/\s*(?:5|10)\b|\b\d\.\d\b|\baverage\b/i
 
 export async function expectNoScores(page: Page, where: string, allowMoneyAverage = false) {
   let text = await page.locator('body').innerText()
-  if (allowMoneyAverage) text = text.replace(/Average over these 6 months: £[\d,]+\.\d{2} per month/g, '')
+  if (allowMoneyAverage) text = text.replace(/Average of the \d+ months with every statement in: £[\d,]+\.\d{2} per month/g, '')
   expect(text.match(SCORE)?.[0] ?? null, `a score on ${where}`).toBeNull()
 }
