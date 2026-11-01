@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useId, useState } from 'react'
 import { markOwnPayee, namePayee } from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
 import {
+  averageOfComplete,
   committedOf,
   joinMoves,
   type KindGroup,
@@ -10,6 +11,7 @@ import {
   type MoneyLine,
   moneyMonth,
   moneyMonthTotals,
+  monthCoverage,
   type Moving,
   moneyYear,
   payeeOf,
@@ -171,7 +173,7 @@ export function AccountsMonth(props: {
           </button>
         ))}
       </nav>
-      {section === 'overview' ? <Overview its={its} lines={lines} regular={regular} changes={changes} yearOut={yearOut} month={month} today={today} /> : null}
+      {section === 'overview' ? <Overview its={its} lines={lines} regular={regular} changes={changes} yearOut={yearOut} statements={statements} closed={closed} month={month} today={today} /> : null}
       {section === 'spending' ? <Spending its={its} /> : null}
       {section === 'statements' ? <Statements its={its} /> : null}
     </>
@@ -186,6 +188,8 @@ function Overview({
   regular,
   changes,
   yearOut,
+  statements,
+  closed,
   month,
   today,
 }: {
@@ -195,6 +199,8 @@ function Overview({
   changes: { started: RegularChange[]; lapsed: RegularChange[] }
   /** Money out over the year of this month, for the way in to the year. */
   yearOut: number
+  statements: readonly StatementRecord[]
+  closed: ReadonlySet<string>
   month: string
   today: string
 }) {
@@ -209,7 +215,7 @@ function Overview({
   return (
     <>
       <div className="acc-chart">
-        <Chart lines={lines} month={month} today={today} />
+        <Chart lines={lines} statements={statements} closed={closed} month={month} today={today} />
       </div>
       {anyRose ? (
         <Block title="Where it rose" status={current ? `Next to ${lastMonth} by the same day` : `Next to ${lastMonth}`}>
@@ -410,13 +416,17 @@ export function Item({ title, sub, value, meter, children }: { title: string; su
 }
 
 /** Money out each month, from your accounts. */
-function Chart({ lines, month, today }: { lines: readonly MoneyLine[]; month: string; today: string }) {
+function Chart({ lines, statements, closed, month, today }: { lines: readonly MoneyLine[]; statements: readonly StatementRecord[]; closed: ReadonlySet<string>; month: string; today: string }) {
+  const { names } = useMoney()
   const [active, setActive] = useState<number | null>(null)
   const [page, setPage] = useState(0)
   const thisMonth = today.slice(0, 7)
   const last = shiftMonth(month, -page * CHART_MONTHS)
   const months = moneyMonthTotals(lines, last, CHART_MONTHS)
-  const average = Math.round(months.reduce((sum, item) => sum + item.out, 0) / months.length)
+  // The average counts only months that are over and have every statement in (v0.20.32): a month not begun, or with an
+  // account's statements missing, is not a month of no spending.
+  const coverage = monthCoverage(statements, closed, months.map((m) => m.month), today)
+  const average = averageOfComplete(months, coverage)
   const hasEarlier = lines.some((line) => !line.moving && (line.amount < 0 || line.refund) && line.date.slice(0, 7) < months[0]!.month)
   const tapped = active === null ? undefined : months[active]
   const firstMonth = months[0]!.month
@@ -429,13 +439,15 @@ function Chart({ lines, month, today }: { lines: readonly MoneyLine[]; month: st
     <>
       <MonthChart
         title="Spent each month"
-        months={months.map((m) => ({
+        months={months.map((m, i) => ({
           key: m.month,
           axisLabel: monthName(m.month, 'short'),
           title: m.month === thisMonth ? `${monthName(m.month)} so far` : monthYear(m.month),
           value: m.out,
           amount: pounds(m.out),
           receipts: m.lines,
+          // Said of a finished month only: the month you're in is still being brought in.
+          note: m.month < thisMonth && coverage[i]!.missing.length ? `not every statement is in: ${coverage[i]!.missing.map((account) => names.get(account) ?? account).join(', ')}` : undefined,
         }))}
         currency="£"
         summary="Tap a month"
@@ -443,7 +455,7 @@ function Chart({ lines, month, today }: { lines: readonly MoneyLine[]; month: st
         onActive={setActive}
         labelled={months.length - 1}
         counted={{ heading: 'Payments', word: paymentsWord, none: 'no payments' }}
-        average={{ value: average, label: `Average over these ${months.length} months: ${pounds(average)} per month`, amount: pounds(average) }}
+        average={average ? { value: average.value, label: `Average of the ${average.months} months with every statement in: ${pounds(average.value)} per month`, amount: pounds(average.value) } : undefined}
         detail={
           tapped && tapped.month !== month && tapped.lines ? (
             <a className="small-link" href={hashFor('money', tapped.month === thisMonth ? null : tapped.month)}>

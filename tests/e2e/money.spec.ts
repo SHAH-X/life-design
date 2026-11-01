@@ -499,7 +499,7 @@ test('a purchase moved to Flex counts once even when its Flex statement came in 
   await expect(page.getByRole('region', { name: 'Moved between your accounts' })).toContainText('Monzo Flex')
 })
 
-test('the accounts spending chart shows its six-month average and pages through earlier months', async ({ page }, testInfo) => {
+test('the accounts spending chart averages the months with every statement in, and pages through earlier months', async ({ page }, testInfo) => {
   const now = new Date(2026, 9, 26, 12, 0)
   await page.clock.setFixedTime(now)
   const payments = [
@@ -534,28 +534,33 @@ test('the accounts spending chart shows its six-month average and pages through 
     createdAt: now.getTime(),
     updatedAt: now.getTime(),
   }))
-  await restoreBackup(page, testInfo.outputPath('chart-history.json'), backupWith({ bankLines: payments }, now))
+  // One account whose statements run from April 2025 to today: the months before it began are unknown, not £0.
+  const statements = [{ id: 'chart', account: 'Example Current', from: '2025-04-01', to: '2026-10-26', lines: 19, createdAt: 1, updatedAt: 1 }]
+  await restoreBackup(page, testInfo.outputPath('chart-history.json'), backupWith({ bankLines: payments, statements }, now))
   await page.goto('./#/money')
 
   const chart = page.locator('figure.chart', { hasText: 'Spent each month' })
   const navigation = page.getByRole('navigation', { name: 'Spending chart months' })
   await expect(chart.locator('.chart-average')).toHaveCount(1)
-  await expect(chart.locator('.chart-average-label')).toHaveText('Average over these 6 months: £35.00 per month')
+  // May to October: October isn't over, so the average is of the 5 months before it (£10 + 20 + 30 + 40 + 50).
+  await expect(chart.locator('.chart-average-label')).toHaveText('Average of the 5 months with every statement in: £30.00 per month')
   await chart.getByText('Show as table').click()
-  await expect(chart.locator('tfoot tr')).toHaveText('Average£35.00–')
+  await expect(chart.locator('tfoot tr')).toHaveText('Average£30.00–')
   await expect(navigation).toContainText('May–Oct 2026')
   await expect(navigation.getByRole('button', { name: 'Earlier months' })).toBeEnabled()
   await expect(navigation.getByRole('button', { name: 'Later months' })).toBeDisabled()
 
   await navigation.getByRole('button', { name: 'Earlier months' }).click()
   await expect(navigation).toContainText('Nov 2025–Apr 2026')
-  await expect(chart.locator('.chart-average-label')).toHaveText('Average over these 6 months: £3.50 per month')
+  await expect(chart.locator('.chart-average-label')).toHaveText('Average of the 6 months with every statement in: £3.50 per month')
   await navigation.getByRole('button', { name: 'Earlier months' }).click()
   await expect(navigation).toContainText('May–Oct 2025')
-  await expect(chart.locator('.chart-average-label')).toHaveText('Average over these 6 months: £9.50 per month')
+  await expect(chart.locator('.chart-average-label')).toHaveText('Average of the 6 months with every statement in: £9.50 per month')
   await navigation.getByRole('button', { name: 'Earlier months' }).click()
   await expect(navigation).toContainText('Nov 2024–Apr 2025')
-  await expect(chart.locator('.chart-average-label')).toHaveText('Average over these 6 months: £0.08 per month')
+  // Before April 2025 nothing is known, which isn't the same as nothing spent: one month left, so no average.
+  await expect(chart.locator('.chart-average')).toHaveCount(0)
+  await expect(chart.locator('.chart-average-label')).toHaveCount(0)
   await expect(navigation.getByRole('button', { name: 'Earlier months' })).toBeDisabled()
 
   await navigation.getByRole('button', { name: 'Later months' }).click()
@@ -565,6 +570,31 @@ test('the accounts spending chart shows its six-month average and pages through 
 })
 
 // Step 3 (v0.20.2): a card payment opens the receipt for it.
+test('a month with an account’s statements missing, or not begun, is left out of the average and says which statements are missing', async ({ page }, testInfo) => {
+  // 1 November: November hasn't begun, and the card's statements stop at the end of August.
+  const now = new Date(2026, 10, 1, 12, 0)
+  await page.clock.setFixedTime(now)
+  const spent = [['2026-05-10', 1000], ['2026-06-10', 2000], ['2026-07-10', 3000], ['2026-08-10', 4000], ['2026-09-10', 5000], ['2026-10-10', 6000]]
+  const bankLines = spent.map(([date, amount], i) => ({ id: `m-${i}`, account: 'Example Current', date: String(date), amount: -Number(amount), description: 'EXAMPLE SHOP', type: 'DEB', balance: 100000 - i * 100, adds: true, createdAt: i + 1, updatedAt: i + 1 }))
+  const statements = [
+    { id: 'current', account: 'Example Current', from: '2026-05-01', to: '2026-10-31', lines: 6, createdAt: 1, updatedAt: 1 },
+    { id: 'card', account: 'Example Card', from: '2026-05-01', to: '2026-08-31', lines: 0, createdAt: 2, updatedAt: 2 },
+  ]
+  await restoreBackup(page, testInfo.outputPath('chart-missing.json'), backupWith({ bankLines, statements }, now))
+  await page.goto('./#/money')
+
+  const chart = page.locator('figure.chart', { hasText: 'Spent each month' })
+  // June to November: only June, July and August have both accounts' statements (£20 + 30 + 40), not 6 months counting November as nothing.
+  await expect(chart.locator('.chart-average-label')).toHaveText('Average of the 3 months with every statement in: £30.00 per month')
+  await chart.getByRole('button', { name: /^October 2026/ }).click()
+  await expect(chart.locator('.chart-readout')).toHaveText('October 2026: £60.00 · 1 payment · not every statement is in: Example Card')
+  await chart.getByRole('button', { name: /^August 2026/ }).click()
+  await expect(chart.locator('.chart-readout')).toHaveText('August 2026: £40.00 · 1 payment')
+  // The month you are in has no note: it is still being brought in.
+  await chart.getByRole('button', { name: /^November so far/ }).click()
+  await expect(chart.locator('.chart-readout')).toHaveText('November so far: no payments')
+})
+
 test('a card payment with its receipt opens the receipt', async ({ page }, testInfo) => {
   const now = new Date(2026, 8, 30, 12, 0)
   await page.clock.setFixedTime(now)
