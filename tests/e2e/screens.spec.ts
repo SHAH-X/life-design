@@ -230,7 +230,8 @@ for (const scheme of ['light'] as const) {
       await restoreBackup(page, testInfo.outputPath('money-regular-rename.json'), backupWith({ bankLines }, EVENING))
       await page.goto('./#/money')
       const regularPayments = page.getByRole('region', { name: 'Regular payments' })
-      const regular = regularPayments.locator('details.acc-item')
+      // Coming up is a row above the payments (this month): pick the payment's row, which says "every month".
+      const regular = regularPayments.locator('details.acc-item', { hasText: 'every month' })
       await look(page, `${scheme}-money-regular-payment`)
       await regular.locator('summary').click()
       await regular.getByRole('button', { name: 'Rename EXAMPLE STREAMING' }).click()

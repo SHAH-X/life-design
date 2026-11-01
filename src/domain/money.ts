@@ -360,20 +360,33 @@ export interface Regular {
   /** What it comes to in a year, in pence: the latest payment times PER_YEAR (multiplied, never averaged). */
   year: number
   last: string
-  /** When the latest payment differs from the one before. */
-  changed: { from: number; to: number; date: string } | null
+  /** When it is due next, as a date: the first on or after today (v0.20.25). It is a pattern, not a promise: say "around". */
+  next: string
+  /** When the latest payment differs from the one before; `year` is the difference over a year, in pence (a fall is negative). */
+  changed: { from: number; to: number; date: string; year: number } | null
   lines: MoneyLine[]
 }
 
 /** How many times a regular payment is paid in a year. */
 const PER_YEAR = { month: 12, week: 52 } as const
 
+/** The `k`th payment after the latest, counted from the latest each time: a short month doesn't pull later ones earlier
+ *  (31 Jan + 2 months is 31 Mar, not 28 Mar). */
+const dueAfter = (r: Pick<Regular, 'every' | 'last'>, k: number) => (r.every === 'month' ? addMonths(r.last, k) : addDays(r.last, 7 * k))
+
+/** The first payment due on or after `today`: a cycle at a time from the latest. */
+function nextDue(r: Pick<Regular, 'every' | 'last'>, today: string): string {
+  let k = 1
+  while (dueAfter(r, k) < today) k++
+  return dueAfter(r, k)
+}
+
 /** Days between payments for each, and how many make it regular. */
 const CADENCE = { week: { least: 4, from: 6, to: 8 }, month: { least: 3, from: 26, to: 35 } } as const
 
 /** Payees paid every week or month, their latest payment in the month or the one before: the latest run of payments
  *  that far apart, 4 a week or 3 a month at least. A shop paid on many days isn't regular; money moved isn't either. */
-export function regularPayments(lines: readonly MoneyLine[], month: string): Regular[] {
+export function regularPayments(lines: readonly MoneyLine[], month: string, today: string): Regular[] {
   // An older Money page describes what was regular at that time. Payments from later statements must not make its
   // latest run look too new and disappear (for example, viewing September after importing October).
   const out = lines.filter((l) => !l.moving && l.amount < 0 && l.date.slice(0, 7) <= month).sort((a, b) => a.date.localeCompare(b.date))
@@ -397,7 +410,8 @@ export function regularPayments(lines: readonly MoneyLine[], month: string): Reg
         amount: -last.amount,
         year: -last.amount * PER_YEAR[every],
         last: last.date,
-        changed: before.amount !== last.amount ? { from: -before.amount, to: -last.amount, date: last.date } : null,
+        next: nextDue({ every, last: last.date }, today),
+        changed: before.amount !== last.amount ? { from: -before.amount, to: -last.amount, date: last.date, year: (before.amount - last.amount) * PER_YEAR[every] } : null,
         lines: run,
       })
       break
@@ -422,6 +436,36 @@ export function regularPaymentsTotal(regular: readonly Regular[]): RegularTotals
   const monthly = regular.filter((r) => r.every === 'month').reduce((s, r) => s + r.amount, 0)
   const weekly = regular.filter((r) => r.every === 'week').reduce((s, r) => s + r.amount, 0)
   return { monthly, weekly, year: regular.reduce((s, r) => s + r.year, 0), count: regular.length }
+}
+
+/** A month's money out split in two (v0.20.25): what went to payees that are paid regularly, a refund from one counted
+ *  against it, and everything else. Committed changes with one decision (cancelling, switching); everyday with habits. */
+export function committedOf(outLines: readonly MoneyLine[], regular: readonly Regular[]): { committed: number; everyday: number } {
+  const keys = new Set(regular.map((r) => r.payee.key))
+  const committed = sumOut(outLines.filter((l) => keys.has(l.payee.key)))
+  return { committed, everyday: sumOut(outLines) - committed }
+}
+
+/** One regular payment expected on a day. */
+export interface Upcoming {
+  payee: Payee
+  date: string
+  /** In pence: the latest payment's amount. */
+  amount: number
+}
+
+/** The regular payments due from `today` for `days` days, the last day included: a weekly one each week, a monthly one
+ *  once. Soonest first, then by name. */
+export function upcoming(regular: readonly Regular[], today: string, days: number): Upcoming[] {
+  const until = addDays(today, days)
+  const due: Upcoming[] = []
+  for (const r of regular) {
+    for (let k = 1; dueAfter(r, k) <= until; k++) {
+      const date = dueAfter(r, k)
+      if (date >= today) due.push({ payee: r.payee, date, amount: r.amount })
+    }
+  }
+  return due.sort((a, b) => a.date.localeCompare(b.date) || a.payee.name.localeCompare(b.payee.name, 'en', { sensitivity: 'base' }))
 }
 
 /** How many days a card payment can be from its receipt's date: it can post a day or two later. */
