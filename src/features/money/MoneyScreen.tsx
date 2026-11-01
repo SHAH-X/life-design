@@ -11,14 +11,16 @@ import {
   PAYEE_KINDS,
   PAYMENT_NOTES,
   namePayee,
+  namePayment,
   OWN_PAYEES,
   ownPayeesOf,
   PAYEE_NAMES,
+  PAYMENT_NAMES,
   RECEIPT_REVIEWS,
   receiptReviewState,
   unmatchReceiptPayment,
 } from '../../db/statements'
-import { classify, kindOf, linkReceipts, mayBeOwn, type MoneyLine, type Payee, type PayeeGroup, receiptPaymentCandidates } from '../../domain/money'
+import { classify, kindOf, linkReceipts, mayBeOwn, type MoneyLine, nameOf, type Payee, type PayeeGroup, receiptPaymentCandidates } from '../../domain/money'
 import { inWords, type KnownReceipt, money, paid, receiptsAndCopies, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { monthYear, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -50,12 +52,15 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const names = useAccountNames()
   const closed = useLiveQuery(async () => new Set(ownPayeesOf(await db.settings.get(CLOSED_ACCOUNTS))), [])
   const payeeNames = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYEE_NAMES)), [])
+  const paymentNames = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYMENT_NAMES)), [])
   const kinds = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYEE_KINDS)), [])
   const notes = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYMENT_NOTES)), [])
   const receiptReviews = useLiveQuery(async () => receiptReviewState((await db.settings.get(RECEIPT_REVIEWS))?.value), [])
   const [payment, setPayment] = useState<{ line: MoneyLine; way: string; group?: PayeeGroup } | null>(null)
   const [kindFor, setKindFor] = useState<PayeeGroup | null>(null)
   const [renaming, setRenaming] = useState<Payee | null>(null)
+  // The payment whose sheet the rename was opened from: it may be named alone, which a payee's row can't offer.
+  const [renamingLine, setRenamingLine] = useState<MoneyLine | null>(null)
   const [importing, setImporting] = useState(false)
   const ownWords = useOwnWords()
   const purpose = usePurposeSettings()
@@ -72,7 +77,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
     if (legacyView) setView(legacyView)
   }, [legacyView])
   // Render only once loaded, so nothing jumps under your finger.
-  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || kinds === undefined || notes === undefined || receiptReviews === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
+  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || paymentNames === undefined || kinds === undefined || notes === undefined || receiptReviews === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
 
   const byId = new Map(entries.map((e) => [e.id, e]))
   const openEntry = (receipt: KnownReceipt) => {
@@ -85,7 +90,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const open = (receipt: KnownReceipt) => (copyIds.has(receipt.id) ? openEntry(receipt) : setReceiptId(receipt.id))
   // A refund slip (v0.20.20) opens the same way; it's counted nowhere.
   const openReceipt = receiptId ? [...receipts, ...refunds].find((r) => r.id === receiptId) : undefined
-  const lines = classify(bankLines, new Set(own), payeeNames)
+  const lines = classify(bankLines, new Set(own), payeeNames, paymentNames)
   const links = linkReceipts(lines, receipts, receiptReviews.paymentLinks)
   const receiptReasons = receiptReviews.paymentReasons
   const manualReceiptByPayment = new Map(
@@ -118,7 +123,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
       : null
 
   return (
-    <MoneyContext.Provider value={{ links, receiptReasons, open, names, kinds, notes, openPayment: (line, way, group) => setPayment({ line, way, group }), openKind: setKindFor, openRename: setRenaming, importStatement: () => setImporting(true) }}>
+    <MoneyContext.Provider value={{ links, receiptReasons, open, names, kinds, notes, openPayment: (line, way, group) => setPayment({ line, way, group }), openKind: setKindFor, openRename: (payee) => { setRenamingLine(null); setRenaming(payee) }, importStatement: () => setImporting(true) }}>
       <div className="money-screen">
         {year ? (
           <>
@@ -205,6 +210,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
               setKindFor({ payee: payment.line.payee, total: Math.abs(payment.line.amount), lines: [payment.line] })
             }}
             onRename={() => {
+              setRenamingLine(payment.line)
               setRenaming(payment.line.payee)
             }}
             onOwn={
@@ -251,7 +257,20 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             onSave={async (name) => {
               await namePayee(renaming.key, name)
             }}
-            onClose={() => setRenaming(null)}
+            only={
+              renamingLine
+                ? {
+                    shown: nameOf(renamingLine),
+                    named: Boolean(renamingLine.label),
+                    shop: renaming.name,
+                    onSave: (name) => namePayment(renamingLine.id, name),
+                  }
+                : undefined
+            }
+            onClose={() => {
+              setRenaming(null)
+              setRenamingLine(null)
+            }}
           />
         ) : null}
         {openReceipt ? (

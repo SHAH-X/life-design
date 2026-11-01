@@ -90,6 +90,17 @@ export async function namePayee(key: string, name: string, database: LifeDesignD
   await setSetting(PAYEE_NAMES, name.trim() ? { ...rest, [key]: name.trim() } : rest, database)
 }
 
+/** The names you gave single payments (owner, 2026-11-01: three medicines from one pharmacy), by the line's id: a setting,
+ *  so in backups. The payment is still to the same payee: only what it is called differs. Read with `accountNamesOf`;
+ *  shown by `classify` as the line's `label`. */
+export const PAYMENT_NAMES = 'paymentNames'
+
+/** Gives one payment a name of its own; a blank name goes back to its payee's. */
+export async function namePayment(lineId: string, name: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  const { [lineId]: _, ...rest } = accountNamesOf(await database.settings.get(PAYMENT_NAMES))
+  await setSetting(PAYMENT_NAMES, name.trim() ? { ...rest, [lineId]: name.trim() } : rest, database)
+}
+
 /** Takes an account out wholly (owner, 2026-10-26: a statement read wrongly): its lines, its statements and your name
  *  for it. Bringing its statements in again puts it back. */
 export async function removeAccount(account: string, database: LifeDesignDB = defaultDb): Promise<void> {

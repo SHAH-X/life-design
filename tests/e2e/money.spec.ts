@@ -685,6 +685,74 @@ test('Spending’s search lists a purchase once, its Flex side apart and named; 
   await expect(page.getByRole('region', { name: 'Money out' })).toBeVisible()
 })
 
+// v0.20.35: renaming a payee names every payment to it, right for rent and wrong for three different medicines from one
+// pharmacy (owner, 2026-11-01). From a payment, the rename can be for that payment alone.
+test('a payment can be named alone: the others to the same shop keep their name, and emptying it goes back', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const bankLines = [['2026-10-03', -500], ['2026-10-07', -499], ['2026-10-15', -499]].map(([date, amount], i) => ({ id: `pharmacy-${i}`, account: LLOYDS, date: String(date), amount: Number(amount), description: 'EXAMPLE PHARMACY LEICESTER', type: 'DEB', balance: null, adds: true, createdAt: i + 1, updatedAt: i + 1 }))
+  await restoreBackup(page, testInfo.outputPath('named-alone.json'), backupWith({ bankLines }, now))
+  await page.goto('./#/money')
+  await accountView(page, 'Spending')
+  const out = page.getByRole('region', { name: 'Money out' })
+  const group = out.locator('details', { hasText: 'EXAMPLE PHARMACY LEICESTER' })
+  await group.locator('summary').click()
+  const rows = group.locator('.acc-lines li')
+  const open = async (day: string) => {
+    await rows.filter({ hasText: day }).getByRole('button').click()
+  }
+
+  // The 7th: renamed for this payment only.
+  await open('7 Oct')
+  await page.getByRole('dialog', { name: 'EXAMPLE PHARMACY LEICESTER' }).getByRole('button', { name: 'Rename transaction' }).click()
+  const naming = page.getByRole('dialog', { name: 'Rename transaction' })
+  await expect(naming.getByRole('radio', { name: /All payments to EXAMPLE PHARMACY LEICESTER/ })).toBeChecked()
+  await naming.getByRole('radio', { name: /Only this payment/ }).check()
+  await naming.getByRole('textbox').fill('Fever medicine')
+  await naming.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.getByRole('dialog', { name: 'EXAMPLE PHARMACY LEICESTER' }).getByRole('button', { name: 'Close' }).click()
+  // It is still one payee of three payments; only that row has a name of its own.
+  await expect(group.locator('summary')).toContainText('EXAMPLE PHARMACY LEICESTER')
+  await expect(group.locator('summary')).toContainText('3 payments')
+  await expect(rows).toHaveText([/^Thu,? 15 Oct ?Out of Lloyds[^£]*£4\.99$/, /^Wed,? 7 Oct ?Fever medicine · out of Lloyds[^£]*£4\.99$/, /^Sat,? 3 Oct ?Out of Lloyds[^£]*£5\.00$/])
+
+  // Search finds it by its name, and the shop's name still finds all three.
+  await accountView(page, 'Spending')
+  const search = page.getByRole('searchbox', { name: 'Search every payment' })
+  await search.fill('fever')
+  await expect(page.getByRole('region', { name: '2026' })).toContainText('1 payment · £4.99')
+  await search.fill('pharmacy')
+  await expect(page.getByRole('region', { name: '2026' })).toContainText('3 payments · £14.98')
+  await search.fill('')
+
+  // Its sheet says who was paid; the choice opens on "Only this payment" with its own name in the box.
+  await group.locator('summary').click()
+  await open('7 Oct')
+  const sheet = page.getByRole('dialog', { name: 'Fever medicine' })
+  await expect(sheet).toContainText('Paid to: EXAMPLE PHARMACY LEICESTER')
+  await sheet.getByRole('button', { name: 'Rename transaction' }).click()
+  await expect(naming.getByRole('radio', { name: /Only this payment/ })).toBeChecked()
+  await expect(naming.getByRole('textbox')).toHaveValue('Fever medicine')
+
+  // All payments to the shop can still be named together, and the one named alone keeps its own name.
+  await naming.getByRole('radio', { name: /All payments to/ }).check()
+  await expect(naming.getByRole('textbox')).toHaveValue('EXAMPLE PHARMACY LEICESTER')
+  await naming.getByRole('textbox').fill('The pharmacy')
+  await naming.getByRole('button', { name: 'Save', exact: true }).click()
+  await sheet.getByRole('button', { name: 'Close' }).click()
+  await expect(out.locator('details', { hasText: 'The pharmacy' }).locator('summary')).toContainText('3 payments')
+  await expect(rows.nth(1)).toContainText('Fever medicine · out of Lloyds')
+  await expect(rows.nth(0)).toContainText('Out of Lloyds')
+
+  // Emptying its name goes back to the shop's.
+  await open('7 Oct')
+  await page.getByRole('dialog', { name: 'Fever medicine' }).getByRole('button', { name: 'Rename transaction' }).click()
+  await naming.getByRole('textbox').fill('')
+  await naming.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Fever medicine' }).getByRole('button', { name: 'Close' }).click()
+  await expect(rows).toHaveText([/^Thu,? 15 Oct ?Out of Lloyds[^£]*£4\.99$/, /^Wed,? 7 Oct ?Out of Lloyds[^£]*£4\.99$/, /^Sat,? 3 Oct ?Out of Lloyds[^£]*£5\.00$/])
+})
+
 test('a card payment with its receipt opens the receipt', async ({ page }, testInfo) => {
   const now = new Date(2026, 8, 30, 12, 0)
   await page.clock.setFixedTime(now)

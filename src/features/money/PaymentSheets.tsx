@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import { notePayment, setPayeeKind } from '../../db/statements'
-import { type MoneyLine, PAYMENT_KINDS } from '../../domain/money'
+import { type MoneyLine, nameOf, PAYMENT_KINDS } from '../../domain/money'
 import { money } from '../../domain/shopping'
 import { dayMonthLong } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
@@ -69,7 +69,8 @@ export function PaymentSheet(props: {
     </button>
   )
   return (
-    <Dialog title={line.payee.name} onClose={onClose} footer={footer} full>
+    <Dialog title={nameOf(line)} onClose={onClose} footer={footer} full>
+      {line.label ? <p className="muted small">Paid to: {line.payee.name}</p> : null}
       {isRenamed ? <p className="muted small">Original: {line.payee.original}</p> : null}
       <p>
         {dayMonthLong(line.date)} · {way} · {money(Math.abs(line.amount), '£')}

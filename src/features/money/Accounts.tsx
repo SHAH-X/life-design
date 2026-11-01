@@ -121,18 +121,28 @@ export function RenameSheet(props: {
   hint: string
   /** Whether the account is closed, for a sheet that asks (an account's, not a payee's). */
   closed?: boolean
+  /** From a payment's sheet: the name can be for this payment alone (v0.20.35), not for all its payee's. `shown` is its
+   *  name now, `named` whether that's its own, `shop` the payee's. */
+  only?: { shown: string; named: boolean; shop: string; onSave: (name: string) => Promise<void> }
   onSave: (name: string, closed?: boolean) => Promise<void>
   onRemove?: () => Promise<void>
   onClose: () => void
 }) {
-  const { title, shown, hint, onSave, onRemove, onClose } = props
-  const [name, setName] = useState(shown)
+  const { title, shown, hint, only, onSave, onRemove, onClose } = props
+  const [alone, setAlone] = useState(Boolean(only?.named))
+  const [name, setName] = useState(only?.named ? only.shown : shown)
   const [closed, setClosed] = useState(props.closed)
   const [sure, setSure] = useState(false)
   const id = useId()
+  const scope = useId()
   const save = async () => {
-    await onSave(name, closed)
+    if (only && alone) await only.onSave(name)
+    else await onSave(name, closed)
     onClose()
+  }
+  const choose = (single: boolean) => {
+    setAlone(single)
+    setName(single ? only!.shown : shown)
   }
   const remove = async () => {
     if (!sure) return setSure(true)
@@ -155,7 +165,25 @@ export function RenameSheet(props: {
   )
   return (
     <Dialog title={title} onClose={onClose} footer={footer} full>
-      <label className="question-text" htmlFor={id}>
+      {only ? (
+        <div role="radiogroup" aria-label="Rename" className="purpose-list">
+          <label className="purpose-option">
+            <input type="radio" name={scope} value="all" checked={!alone} onChange={() => choose(false)} />
+            <span className="purpose-text">
+              <span className="purpose-label">All payments to {only.shop}</span>
+              <span className="muted small">Earlier and later ones too</span>
+            </span>
+          </label>
+          <label className="purpose-option">
+            <input type="radio" name={scope} value="one" checked={alone} onChange={() => choose(true)} />
+            <span className="purpose-text">
+              <span className="purpose-label">Only this payment</span>
+              <span className="muted small">The others keep their name</span>
+            </span>
+          </label>
+        </div>
+      ) : null}
+      <label className="question-text top-gap" htmlFor={id}>
         What do you call it?
       </label>
       <input id={id} data-autofocus value={name} maxLength={40} autoCapitalize="sentences" onChange={(e) => setName(e.target.value)} />
@@ -165,7 +193,7 @@ export function RenameSheet(props: {
           This account is closed: nothing to bring in after its last statement
         </label>
       ) : null}
-      <p className="muted small">{hint}</p>
+      <p className="muted small">{only && alone ? `Left empty, it’s ${only.shop} again.` : hint}</p>
     </Dialog>
   )
 }

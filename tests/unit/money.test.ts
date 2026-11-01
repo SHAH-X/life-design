@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges, moneyYear, monthEndBalances, monthCoverage, averageOfComplete, searchPayments, paymentYears } from '../../src/domain/money'
+import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges, moneyYear, monthEndBalances, monthCoverage, averageOfComplete, searchPayments, paymentYears, nameOf } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
@@ -786,6 +786,30 @@ describe('monthCoverage: which months have every statement in (v0.20.32: the cha
       expect(averageOfComplete(totals, covered('2026-08'))).toBeNull()
       expect(averageOfComplete(totals, covered())).toBeNull()
     })
+  })
+})
+
+describe('classify: a name for one payment alone (v0.20.35)', () => {
+  // One pharmacy, three different medicines: renaming the payee would name all three the same.
+  const bought = [line(BANK, '2026-07-01', -5, 'EXAMPLE PHARMACY LEICESTER'), line(BANK, '2026-08-21', -4.99, 'EXAMPLE PHARMACY LEICESTER'), line(BANK, '2026-10-07', -4.99, 'EXAMPLE PHARMACY LEICESTER')]
+  const second = bought[1]!.id
+
+  it('labels only that payment; it is still a payment to the same shop, so grouping, regular runs and refunds do not move', () => {
+    const lines = classify(bought, new Set(), {}, { [second]: 'Fever medicine' })
+    expect(lines.map((l) => l.label)).toEqual([undefined, 'Fever medicine', undefined])
+    expect(new Set(lines.map((l) => l.payee.key)).size).toBe(1)
+    expect(lines.map(nameOf)).toEqual(['EXAMPLE PHARMACY LEICESTER', 'Fever medicine', 'EXAMPLE PHARMACY LEICESTER'])
+    expect(moneyMonth(lines, '2026-08', TODAY, []).payees.out.others.map((g) => [g.payee.name, g.lines.length])).toEqual([['EXAMPLE PHARMACY LEICESTER', 1]])
+  })
+  it('is separate from the shop’s name: the label wins for that payment, the shop’s name for the rest', () => {
+    const lines = classify(bought, new Set(), { 'example pharmacy leicester': 'The pharmacy' }, { [second]: 'Fever medicine' })
+    expect(lines.map(nameOf)).toEqual(['The pharmacy', 'Fever medicine', 'The pharmacy'])
+    expect(lines[1]!.payee.name).toBe('The pharmacy')
+  })
+  it('is found by a search, for the one payment, and the shop’s name still finds all three', () => {
+    const lines = classify(bought, new Set(), {}, { [second]: 'Fever medicine' })
+    expect(searchPayments(lines, 'fever').map((l) => l.date)).toEqual(['2026-08-21'])
+    expect(searchPayments(lines, 'pharmacy').map((l) => l.date)).toEqual(['2026-10-07', '2026-08-21', '2026-07-01'])
   })
 })
 

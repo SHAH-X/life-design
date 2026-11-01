@@ -10,6 +10,7 @@ import {
   mayBeOwn,
   type MoneyLine,
   moneyMonth,
+  nameOf,
   moneyMonthTotals,
   MIN_SEARCH,
   monthCoverage,
@@ -637,7 +638,13 @@ export function PayeeRow({ group, out = false }: { group: PayeeGroup; out?: bool
       <li className="acc-li">
         <button type="button" className="acc-row" onClick={() => openPayment(line, way, group)}>
           <span className="acc-row-text">
-            <span className="acc-row-title">{group.payee.name}</span>
+            <span className="acc-row-title">{nameOf(line)}</span>
+            {line.label ? (
+              <>
+                {' '}
+                <span className="acc-row-sub">{group.payee.name}</span>
+              </>
+            ) : null}
             {original ? (
               <>
                 {' '}
@@ -742,11 +749,11 @@ export function LineList({ lines, why, moves = false, named = false }: { lines: 
     if (l.moving === 'flex') {
       const flex = l.amount > 0 ? 'Spread with Flex' : `Paid off, from ${name(l.account)}`
       // Flex's own statement words it "… moved to Flex": the purchase's name is what's before that.
-      return named && l.amount < 0 ? `${l.payee.name.replace(/\s+moved to Flex$/i, '')} · ${flex[0]!.toLowerCase()}${flex.slice(1)}` : flex
+      return named && l.amount < 0 ? `${nameOf(l).replace(/\s+moved to Flex$/i, '')} · ${flex[0]!.toLowerCase()}${flex.slice(1)}` : flex
     }
     if (l.moving === 'own') return l.amount < 0 ? `${name(l.account)} → ${l.payee.name}` : `${l.payee.name} → ${name(l.account)}`
     const way = l.amount < 0 ? `out of ${name(l.account)}` : l.refund ? `back into ${name(l.account)}` : `into ${name(l.account)}`
-    return payees ? `${l.payee.name} · ${way}` : way[0]!.toUpperCase() + way.slice(1)
+    return payees || l.label ? `${nameOf(l)} · ${way}` : way[0]!.toUpperCase() + way.slice(1)
   }
   return (
     <ul className="acc-lines">
