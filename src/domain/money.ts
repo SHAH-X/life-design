@@ -45,9 +45,9 @@ export function withFor(lines: readonly MoneyLine[], payeeFor: Readonly<Record<s
 }
 
 /** The names to choose from: those in use, each once whatever its capitals, by name. */
-export function forNamesOf(payeeFor: Readonly<Record<string, string>>, paymentFor: Readonly<Record<string, string>>): string[] {
+export function forNamesOf(...filed: Readonly<Record<string, string>>[]): string[] {
   const seen = new Map<string, string>()
-  for (const who of [...Object.values(payeeFor), ...Object.values(paymentFor)]) if (who.trim() && !seen.has(who.toLowerCase())) seen.set(who.toLowerCase(), who.trim())
+  for (const who of filed.flatMap((names) => Object.values(names))) if (who.trim() && !seen.has(who.toLowerCase())) seen.set(who.toLowerCase(), who.trim())
   return [...seen.values()].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }))
 }
 

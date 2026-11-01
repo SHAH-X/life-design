@@ -840,6 +840,8 @@ describe('Who it was for: a name on a payee’s payments or on one payment (v0.2
   })
   it('offers the names in use, then the people in your entries who are not', () => {
     expect(forNamesOf({ a: 'Sam', b: 'Riya' }, { c: 'sam', d: '', e: 'Home' })).toEqual(['Home', 'Riya', 'Sam'])
+    // Receipt items name them too.
+    expect(forNamesOf({ a: 'Sam' }, {}, { f: 'Asha' })).toEqual(['Asha', 'Sam'])
     expect(suggestedPeople(['Priya', 'riya', 'Priya', ' ', 'Asha', 'Priya', 'Asha'], ['Riya'])).toEqual(['Priya', 'Asha'])
     expect(suggestedPeople(['A', 'B', 'C'], [], 2)).toEqual(['A', 'B'])
   })

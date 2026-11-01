@@ -17,14 +17,15 @@ import {
   PAYEE_FOR,
   PAYEE_NAMES,
   PAYMENT_FOR,
+  filePayment,
   PAYMENT_NAMES,
   RECEIPT_REVIEWS,
   receiptReviewState,
   unmatchReceiptPayment,
 } from '../../db/statements'
 import { classify, forNamesOf, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, nameOf, type Payee, type PayeeGroup, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
-import { inWords, type KnownReceipt, money, paid, receiptsAndCopies, rememberedKindsOf, shoppingMonth, shoppingMonths } from '../../domain/shopping'
-import { ITEM_KINDS_SETTING } from '../../db/receiptItems'
+import { inWords, type KnownReceipt, money, paid, receiptsAndCopies, rememberedKindsOf, rememberedNamesOf, shoppingMonth, shoppingMonths } from '../../domain/shopping'
+import { ITEM_FOR_SETTING, ITEM_KINDS_SETTING } from '../../db/receiptItems'
 import { monthYear, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { Loading } from '../../ui/Loading'
@@ -62,6 +63,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   // What you wrote on a payment before v0.20.36 is its name (`labelsOf`).
   const notes = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYMENT_NOTES)), [])
   const remembered = useLiveQuery(async () => rememberedKindsOf((await db.settings.get(ITEM_KINDS_SETTING))?.value), [])
+  const itemFor = useLiveQuery(async () => rememberedNamesOf((await db.settings.get(ITEM_FOR_SETTING))?.value), [])
   const receiptReviews = useLiveQuery(async () => receiptReviewState((await db.settings.get(RECEIPT_REVIEWS))?.value), [])
   const [payment, setPayment] = useState<{ line: MoneyLine; way: string; group?: PayeeGroup } | null>(null)
   const [kindFor, setKindFor] = useState<PayeeGroup | null>(null)
@@ -85,21 +87,22 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
     if (legacyView) setView(legacyView)
   }, [legacyView])
   // Render only once loaded, so nothing jumps under your finger.
-  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || paymentNames === undefined || payeeFor === undefined || paymentFor === undefined || kinds === undefined || notes === undefined || remembered === undefined || receiptReviews === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
+  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || paymentNames === undefined || payeeFor === undefined || paymentFor === undefined || kinds === undefined || notes === undefined || remembered === undefined || itemFor === undefined || receiptReviews === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
 
   const byId = new Map(entries.map((e) => [e.id, e]))
   const openEntry = (receipt: KnownReceipt) => {
     const entry = byId.get(receipt.entryId)
     if (entry) setSheet({ kind: 'open', entry })
   }
-  const { receipts, copies, refunds } = receiptsAndCopies(entries, remembered)
+  const { receipts, copies, refunds } = receiptsAndCopies(entries, remembered, itemFor)
   // A receipt opens to its items; an extra copy, counted nowhere, opens its entry, where it can be deleted.
   const copyIds = new Set(copies.map((c) => c.copy.id))
   const open = (receipt: KnownReceipt) => (copyIds.has(receipt.id) ? openEntry(receipt) : setReceiptId(receipt.id))
   // A refund slip (v0.20.20) opens the same way; it's counted nowhere.
   const openReceipt = receiptId ? [...receipts, ...refunds].find((r) => r.id === receiptId) : undefined
   const lines = withFor(classify(bankLines, new Set(own), payeeNames, labelsOf(notes, paymentNames)), payeeFor, paymentFor)
-  const forNames = forNamesOf(payeeFor, paymentFor)
+  const forNames = forNamesOf(payeeFor, paymentFor, itemFor)
+  const forSuggestions = suggestedPeople(entries.flatMap((e) => e.people), forNames)
   const links = linkReceipts(lines, receipts, receiptReviews.paymentLinks)
   const receiptReasons = receiptReviews.paymentReasons
   const manualReceiptByPayment = new Map(
@@ -253,10 +256,11 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
         ) : null}
         {whoFor ? (
           <ForSheet
-            line={whoFor}
+            current={whoFor.forWho ?? ''}
             names={forNames}
-            suggestions={suggestedPeople(entries.flatMap((e) => e.people), forNames)}
-            all={whoFor.payee.key in payeeFor && !(whoFor.id in paymentFor)}
+            suggestions={forSuggestions}
+            scopes={{ payee: whoFor.payee.name, all: whoFor.payee.key in payeeFor && !(whoFor.id in paymentFor) }}
+            onFile={(who, scope) => filePayment(whoFor.id, whoFor.payee.key, who, scope)}
             onClose={() => setWhoFor(null)}
           />
         ) : null}
@@ -296,6 +300,8 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
         {openReceipt ? (
           <ReceiptSheet
             receipt={openReceipt}
+            names={forNames}
+            suggestions={forSuggestions}
             onOpenEntry={() => {
               setReceiptId(null)
               openEntry(openReceipt)

@@ -2,8 +2,8 @@ import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { createBackup } from '../../src/db/backup'
-import { changeItem, ITEM_KINDS_SETTING, rememberItemKind } from '../../src/db/receiptItems'
-import { rememberedKey, rememberedKindsOf } from '../../src/domain/shopping'
+import { changeItem, fileItem, ITEM_FOR_SETTING, ITEM_KINDS_SETTING, rememberItemKind } from '../../src/db/receiptItems'
+import { rememberedKey, rememberedKindsOf, rememberedNamesOf } from '../../src/domain/shopping'
 import type { Entry } from '../../src/db/types'
 import { areaEntry } from '../fixtures/areas'
 
@@ -65,6 +65,29 @@ describe('rememberItemKind: a kind kept for an item at a shop (v0.20.37)', () =>
     expect(backup.data.settings.find((row) => row.key === 'itemKinds')?.value).toEqual(await kept())
     await rememberItemKind('ASDA', 'Infant Milk 800G', null, phone)
     await rememberItemKind('Tesco', 'Infant Milk 800G', null, phone)
+    expect(await kept()).toEqual({})
+  })
+})
+
+describe('fileItem: who an item was for, kept for it at a shop (v0.20.39)', () => {
+  let phone: LifeDesignDB
+  beforeEach(() => {
+    phone = openDb(`phone-${crypto.randomUUID()}`)
+  })
+  afterEach(async () => {
+    await phone.delete()
+  })
+  const kept = async () => rememberedNamesOf((await phone.settings.get(ITEM_FOR_SETTING))?.value)
+
+  it('keeps one name per item and shop, in a backup, and takes it back, leaving nothing behind', async () => {
+    await fileItem('Tesco Express', 'Infant Milk 800G', ' Riya ', phone)
+    await fileItem('ASDA', 'Infant Milk 800G', 'Home', phone)
+    await fileItem('ASDA', 'infant  milk 800g', 'Sam', phone)
+    expect(await kept()).toEqual({ [rememberedKey('Tesco', 'Infant Milk 800G')]: 'Riya', [rememberedKey('ASDA', 'Infant Milk 800G')]: 'Sam' })
+    const backup = await createBackup(phone, new Date('2026-11-01T12:00:00Z'))
+    expect(backup.data.settings.find((row) => row.key === 'itemFor')?.value).toEqual(await kept())
+    await fileItem('ASDA', 'Infant Milk 800G', '', phone)
+    await fileItem('Tesco', 'Infant Milk 800G', '', phone)
     expect(await kept()).toEqual({})
   })
 })

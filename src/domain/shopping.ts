@@ -22,11 +22,11 @@ export interface KnownReceipt extends Omit<Receipt, 'date'> {
 
 /** A photo's receipt: as your AI read it when it did (v0.18), else as the phone read it. Whether its items add up is
  *  the phone's to say, from the numbers. */
-function receiptOf(photo: PhotoRef, remembered: Remembered): Receipt | null {
+function receiptOf(photo: PhotoRef, remembered: Remembered, itemFor: NamesFiled): Receipt | null {
   const read = readOf(photo)
   if (!read) return null
   const keys = itemKeys(read.items)
-  const kept = withRemembered(read.items, read.shop, remembered)
+  const kept = withRemembered(read.items, read.shop, remembered, itemFor)
   const changed = (photo.items?.length ? withChanges(kept, photo.items) : kept).map((item, i) => ({ ...item, key: keys[i]! }))
   if (read.refund) return { ...asMoneyBack(read, changed), ...(backToGiftCard(photo.ai?.text || photo.text || '') ? { giftCard: true as const } : {}) }
   return { ...read, items: withSavings(changed, photo.ai?.text || photo.text || '') }
@@ -112,12 +112,25 @@ export function rememberedKindsOf(value: unknown): Remembered {
   return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, ItemKind] => (ITEM_KINDS as readonly string[]).includes(entry[1] as string)))
 }
 
-/** Items with the kind you remembered for them at this shop laid over your AI's. A saving has no kind to give. */
-function withRemembered(items: readonly ReceiptItem[], shop: string, remembered: Remembered): ReceiptItem[] {
-  if (!shop.trim() || !Object.keys(remembered).length) return [...items]
+/** Who you filed items under (v0.20.39): the name, by `rememberedKey`; it follows an item at a shop on every receipt. */
+export type NamesFiled = Readonly<Record<string, string>>
+
+/** What a stored setting says is filed: only names, none blank. */
+export function rememberedNamesOf(value: unknown): NamesFiled {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim() !== ''))
+}
+
+/** Items with the kind you remembered for them at this shop laid over your AI's, and who you filed them under. A saving
+ *  has neither to give. */
+function withRemembered(items: readonly ReceiptItem[], shop: string, remembered: Remembered, itemFor: NamesFiled): ReceiptItem[] {
+  if (!shop.trim() || (!Object.keys(remembered).length && !Object.keys(itemFor).length)) return [...items]
   return items.map((item) => {
-    const kind = item.price > 0 ? remembered[rememberedKey(shop, item.name)] : undefined
-    return kind ? { ...item, kind } : item
+    if (item.price <= 0) return item
+    const key = rememberedKey(shop, item.name)
+    const kind = remembered[key]
+    const who = itemFor[key]
+    return kind || who ? { ...item, ...(kind ? { kind } : {}), ...(who ? { forWho: who } : {}) } : item
   })
 }
 
@@ -142,13 +155,13 @@ export interface ReceiptCopy {
 /** The receipts in finished entries, oldest first, each counted once (`sameReceipt`), and the copies left out. Refund
  *  slips (v0.20.20) are kept apart in `refunds`, each listed once and counted nowhere: every sum, payment match, Ask and
  *  the spreadsheet read `receipts`. */
-export function receiptsAndCopies(entries: readonly Entry[], remembered: Remembered = {}): { receipts: KnownReceipt[]; copies: ReceiptCopy[]; refunds: KnownReceipt[] } {
+export function receiptsAndCopies(entries: readonly Entry[], remembered: Remembered = {}, itemFor: NamesFiled = {}): { receipts: KnownReceipt[]; copies: ReceiptCopy[]; refunds: KnownReceipt[] } {
   const added = entries
     .filter((e) => e.status !== 'draft')
     .sort((a, b) => a.createdAt - b.createdAt)
     .flatMap((entry) =>
       (entry.photos ?? []).flatMap((photo) => {
-        const receipt = receiptOf(photo, remembered)
+        const receipt = receiptOf(photo, remembered, itemFor)
         if (!receipt) return []
         const readBy = photo.ai?.receipt ? photo.ai.by : null
         const time = receiptTime(photo.ai?.text || photo.text || '', receipt.currency === '$')
@@ -324,6 +337,20 @@ export interface KindLine {
   spent: Amounts
 }
 
+/** Money in one name's items (v0.20.39), at what was paid. */
+export interface ForLine {
+  who: string
+  items: { item: ReceiptItem; receipt: KnownReceipt }[]
+  spent: Amounts
+}
+/** What was bought by who it was for: names with MIN_COUNT items or more, most spent first; the rest by name; what no
+ *  name was given to apart, last. */
+export interface ForItems {
+  ranked: ForLine[]
+  others: ForLine[]
+  nobody: { items: { item: ReceiptItem; receipt: KnownReceipt }[]; spent: Amounts } | null
+}
+
 export interface Kinds {
   /** Kinds with MIN_COUNT items or more, most spent first; the rest in the list's own order, never ranked. */
   ranked: KindLine[]
@@ -349,6 +376,8 @@ export interface ShoppingMonth {
   toCheck: ToCheck[]
   /** Null when no item in the month has a kind. */
   kinds: Kinds | null
+  /** Null until an item in the month is filed under a name (v0.20.39). */
+  forWho: ForItems | null
 }
 
 /** Below this a receipt is a small shop: £10, in pence. */
@@ -409,6 +438,28 @@ function repeats(receipts: readonly KnownReceipt[], currency: string): Repeat[] 
   return [...on.values()]
     .filter((r) => r.receipts.length >= MIN_COUNT)
     .sort((a, b) => b.receipts.length - a.receipts.length || inCurrency(b.spent, currency) - inCurrency(a.spent, currency) || a.name.localeCompare(b.name))
+}
+
+/** The month's items by who they were for, at what was paid; null until one is filed under a name. Returned items, and
+ *  offers, are no more here than in By kind. */
+function forWhoOf(receipts: readonly KnownReceipt[], currency: string): ForItems | null {
+  const bought = receipts.flatMap((receipt) => receipt.items.filter((item) => item.price > 0 && !item.returned).map((item) => ({ item, receipt })))
+  if (!bought.some((b) => b.item.forWho)) return null
+  const spentOn = (these: typeof bought) => {
+    const spent: Amounts = []
+    for (const b of these) addTo(spent, b.receipt.currency, paidFor(b.item))
+    return spent
+  }
+  const lines = [...new Set(bought.flatMap((b) => (b.item.forWho ? [b.item.forWho] : [])))].map((who): ForLine => {
+    const items = bought.filter((b) => b.item.forWho === who)
+    return { who, items, spent: spentOn(items) }
+  })
+  const rest = bought.filter((b) => !b.item.forWho)
+  return {
+    ranked: lines.filter((line) => line.items.length >= MIN_COUNT).sort((a, b) => inCurrency(b.spent, currency) - inCurrency(a.spent, currency)),
+    others: lines.filter((line) => line.items.length < MIN_COUNT).sort((a, b) => a.who.localeCompare(b.who, 'en', { sensitivity: 'base' })),
+    nobody: rest.length ? { items: rest, spent: spentOn(rest) } : null,
+  }
 }
 
 /** The month's items by kind; null when none has one. */
@@ -489,6 +540,7 @@ export function shoppingMonth(
           .map((c) => ({ receipt: c.copy, why: ['duplicate'], copyOf: c.of })),
       ),
     kinds: kindsOf(receipts, currency),
+    forWho: forWhoOf(receipts, currency),
   }
 }
 

@@ -13,6 +13,7 @@ import {
   receiptsOf,
   rememberedKey,
   rememberedKindsOf,
+  rememberedNamesOf,
   returnedOn,
   shopKey,
   shoppingMonth,
@@ -526,5 +527,59 @@ describe('a kind you chose is remembered for that item at that shop (v0.20.37)',
   })
   it('is the same in Ask, which reads the same receipts', () => {
     expect(receiptsOf(entries, { [rememberedKey('Tesco', FORMULA)]: 'Baby and toddler' })[0]!.items[0]!.kind).toBe('Baby and toddler')
+  })
+})
+
+describe('who an item was for (v0.20.39)', () => {
+  const FORMULA = 'EXAMPLE INFANT MILK 800G'
+  const read = (shop: string, date: string, items: [string, number][]) => ({
+    by: 'Gemini · gemini-test',
+    at: 1,
+    text: '',
+    description: '',
+    version: 2,
+    receipt: { shop, date, currency: '£', items: items.map(([name, price]) => ({ name, price, quantity: 1 })), total: items.reduce((sum, [, price]) => sum + price, 0) },
+  })
+  const entry = (id: string, createdAt: number, shop: string, date: string, items: [string, number][]): Entry => ({
+    ...areaEntry({ id, text: '', expect: [] }, '2026-10-24'),
+    createdAt,
+    photos: [{ id: `p-${id}`, text: null, ai: read(shop, date, items) }],
+  })
+  const entries = [
+    entry('e1', 1, 'Tesco Express', '2026-10-03', [[FORMULA, 1450]]),
+    entry('e2', 2, 'TESCO', '2026-10-10', [[FORMULA, 1450]]),
+    entry('e3', 3, 'ASDA', '2026-10-11', [[FORMULA, 1399]]),
+  ]
+  const forAt = (itemFor: Record<string, string>) => receiptsAndCopies(entries, {}, itemFor).receipts.map((r) => [r.shop, r.items.map((i) => i.forWho)])
+
+  it('files that item at that shop under a name on every receipt, and no other shop’s', () => {
+    expect(forAt({ [rememberedKey('Tesco', FORMULA)]: 'Riya' })).toEqual([['Tesco Express', ['Riya']], ['TESCO', ['Riya']], ['ASDA', [undefined]]])
+    expect(forAt({})).toEqual([['Tesco Express', [undefined]], ['TESCO', [undefined]], ['ASDA', [undefined]]])
+  })
+  it('reads only names from the stored setting', () => {
+    expect(rememberedNamesOf({ a: 'Riya', b: '', c: 3, d: '  ' })).toEqual({ a: 'Riya' })
+    expect(rememberedNamesOf(undefined)).toEqual({})
+    expect(rememberedNamesOf(['Riya'])).toEqual({})
+  })
+
+  const filed = (id: string, date: string, items: [name: string, price: number, who?: string, returned?: true][]): KnownReceipt => {
+    const r = receipt(id, 'Tesco', date, items.map(([name, price]) => [name, price]))
+    return { ...r, items: r.items.map((item, i) => ({ ...item, ...(items[i]![2] ? { forWho: items[i]![2] } : {}), ...(items[i]![3] ? { returned: true as const } : {}) })) }
+  }
+  const OCTOBER = [
+    filed('w1', '2026-10-03', [['Infant milk', 1450, 'Riya'], ['Bananas', 95], ['Milk saving', -50, 'Riya']]),
+    filed('w2', '2026-10-10', [['Infant milk', 1450, 'Riya'], ['Nappies', 600, 'Riya'], ['Pram', 5000, 'Riya', true]]),
+    filed('w3', '2026-10-12', [['Toy', 700, 'Sam'], ['Bread', 120]]),
+    filed('w4', '2026-09-30', [['Infant milk', 1450, 'Riya']]),
+  ]
+
+  it('totals what was bought by name: 3+ items ranked by what was paid, the rest by name, nobody apart; returns and offers left out', () => {
+    const who = shoppingMonth(OCTOBER, '2026-10', TODAY).forWho!
+    expect(who.ranked.map((g) => [g.who, g.items.length, inWords(g.spent)])).toEqual([['Riya', 3, '£35.00']])
+    expect(who.others.map((g) => [g.who, g.items.length, inWords(g.spent)])).toEqual([['Sam', 1, '£7.00']])
+    expect(who.nobody).toMatchObject({ items: [{ item: { name: 'Bananas' } }, { item: { name: 'Bread' } }], spent: [{ currency: '£', minor: 215 }] })
+  })
+  it('has nothing to say until something is filed', () => {
+    expect(shoppingMonth(RECEIPTS, '2026-10', TODAY).forWho).toBeNull()
   })
 })
