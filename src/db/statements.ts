@@ -95,10 +95,13 @@ export async function namePayee(key: string, name: string, database: LifeDesignD
  *  shown by `classify` as the line's `label`. */
 export const PAYMENT_NAMES = 'paymentNames'
 
-/** Gives one payment a name of its own; a blank name goes back to its payee's. */
+/** Gives one payment a name of its own; a blank name goes back to its payee's. A note written on it before v0.20.36 was
+ *  its name, so naming it, or emptying its name, takes the note away: it would come back as the name otherwise. */
 export async function namePayment(lineId: string, name: string, database: LifeDesignDB = defaultDb): Promise<void> {
   const { [lineId]: _, ...rest } = accountNamesOf(await database.settings.get(PAYMENT_NAMES))
   await setSetting(PAYMENT_NAMES, name.trim() ? { ...rest, [lineId]: name.trim() } : rest, database)
+  const { [lineId]: __, ...notes } = accountNamesOf(await database.settings.get(PAYMENT_NOTES))
+  if (lineId in accountNamesOf(await database.settings.get(PAYMENT_NOTES))) await setSetting(PAYMENT_NOTES, notes, database)
 }
 
 /** Takes an account out wholly (owner, 2026-10-26: a statement read wrongly): its lines, its statements and your name
@@ -130,14 +133,10 @@ export async function setPayeeKind(key: string, kind: string | null, database: L
   await setSetting(PAYEE_KINDS, kind ? { ...rest, [key]: kind } : rest, database)
 }
 
-/** Your note on one payment ("Birthday present"), by the line's id (owner, 2026-10-26): a setting, so in backups. */
+/** What you wrote on a payment before v0.20.36, "What was it for?" ("Birthday present"), by the line's id: a setting, so
+ *  in backups. Nothing writes it now: its name is what that was (owner, 2026-11-01), and `labelsOf` reads it as the name
+ *  until the payment is named, which takes the note away. */
 export const PAYMENT_NOTES = 'paymentNotes'
-
-/** Keeps a payment's note; an empty one is taken away. */
-export async function notePayment(lineId: string, note: string, database: LifeDesignDB = defaultDb): Promise<void> {
-  const { [lineId]: _, ...rest } = accountNamesOf(await database.settings.get(PAYMENT_NOTES))
-  await setSetting(PAYMENT_NOTES, note.trim() ? { ...rest, [lineId]: note.trim() } : rest, database)
-}
 
 /** Owner-reviewed receipt dates and payment links, kept on the phone and included in a backup. */
 export const RECEIPT_REVIEWS = 'receiptReviews'

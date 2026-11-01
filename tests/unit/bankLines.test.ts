@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { createBackup } from '../../src/db/backup'
-import { ACCOUNT_NAMES, accountNamesOf, bringInStatement, markClosed, markOwnPayee, nameAccount, namePayment, PAYMENT_NAMES, CLOSED_ACCOUNTS, matchReceiptPayment, notePayment, PAYEE_KINDS, PAYMENT_NOTES, RECEIPT_REVIEWS, receiptReviewState, setPayeeKind, namePayee, removeAccount, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES, unmatchReceiptPayment } from '../../src/db/statements'
+import { ACCOUNT_NAMES, accountNamesOf, bringInStatement, markClosed, markOwnPayee, nameAccount, namePayment, PAYMENT_NAMES, CLOSED_ACCOUNTS, matchReceiptPayment, PAYEE_KINDS, PAYMENT_NOTES, RECEIPT_REVIEWS, receiptReviewState, setPayeeKind, namePayee, removeAccount, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES, unmatchReceiptPayment } from '../../src/db/statements'
 import { readStatement, type StatementAccount } from '../../src/domain/statements'
 import { piecesOf } from '../fixtures/pdf'
 import { LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
@@ -140,15 +140,19 @@ describe('bringInStatement: a statement’s lines kept on the phone, each once',
     expect(ownPayeesOf(await phone.settings.get(CLOSED_ACCOUNTS))).toEqual(['Other'])
   })
 
-  it('keeps what a payee is for and a note on one payment; empty takes them away (owner, 2026-10-26)', async () => {
+  it('keeps what a payee is for; empty takes it away (owner, 2026-10-26)', async () => {
     await setPayeeKind('a n other', 'Rent', phone)
     await setPayeeKind('example gym', 'Health', phone)
     await setPayeeKind('example gym', null, phone)
     expect(accountNamesOf(await phone.settings.get(PAYEE_KINDS))).toEqual({ 'a n other': 'Rent' })
-    await notePayment('l1', '  Birthday present ', phone)
-    await notePayment('l2', 'Gone', phone)
-    await notePayment('l2', '', phone)
-    expect(accountNamesOf(await phone.settings.get(PAYMENT_NOTES))).toEqual({ l1: 'Birthday present' })
+  })
+
+  it('naming a payment, or emptying its name, takes away the note written on it before v0.20.36, which was its name', async () => {
+    await phone.settings.put({ key: PAYMENT_NOTES, value: { l1: 'Birthday present', l2: 'Winter bill', l3: 'Kept' }, updatedAt: 1 })
+    await namePayment('l1', 'Present for Sam', phone)
+    await namePayment('l2', '', phone)
+    expect(accountNamesOf(await phone.settings.get(PAYMENT_NOTES))).toEqual({ l3: 'Kept' })
+    expect(accountNamesOf(await phone.settings.get(PAYMENT_NAMES))).toEqual({ l1: 'Present for Sam' })
   })
 
   it('keeps a name for one payment alone, by the line’s id, in a backup; empty takes it away (v0.20.35)', async () => {

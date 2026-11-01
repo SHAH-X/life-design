@@ -30,6 +30,10 @@ export interface MoneyLine extends BankLine {
   label?: string
 }
 
+/** The names of single payments, by the line's id: a note written before v0.20.36 ("What was it for?") is the name of its
+ *  payment unless that was named since. Nothing is rewritten, so an older backup reads the same way. */
+export const labelsOf = (notes: Readonly<Record<string, string>>, names: Readonly<Record<string, string>>): Record<string, string> => ({ ...notes, ...names })
+
 /** What a payment is called: your name for it alone, else its payee's. */
 export const nameOf = (line: Pick<MoneyLine, 'payee' | 'label'>): string => line.label ?? line.payee.name
 
@@ -592,16 +596,16 @@ export function averageOfComplete(totals: readonly { month: string; out: number 
 export const MIN_SEARCH = 2
 
 /** Every line (money moved too, as it's on a statement) that a search finds, newest first (v0.20.33): the payee as you
- *  named it or as printed, your name for that payment alone, the statement's own words, your note on it, or its amount,
+ *  named it or as printed, your name for that payment alone, the statement's own words, or its amount,
  *  as far as you've typed it
  *  ("24.9" finds £24.99). */
-export function searchPayments(lines: readonly MoneyLine[], query: string, notes: Readonly<Record<string, string>> = {}): MoneyLine[] {
+export function searchPayments(lines: readonly MoneyLine[], query: string): MoneyLine[] {
   const wanted = query.trim().toLowerCase().replace(/^£/, '')
   if (wanted.length < MIN_SEARCH) return []
   const amountLike = /^\d+(\.\d{0,2})?$/.test(wanted)
   return lines
     .filter((l) => {
-      const words = [l.label ?? '', l.payee.name, l.payee.original ?? '', l.description, notes[l.id] ?? ''].join(' ').toLowerCase()
+      const words = [l.label ?? '', l.payee.name, l.payee.original ?? '', l.description].join(' ').toLowerCase()
       return words.includes(wanted) || (amountLike && (Math.abs(l.amount) / 100).toFixed(2).startsWith(wanted))
     })
     .sort((a, b) => b.date.localeCompare(a.date))

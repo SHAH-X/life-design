@@ -1,5 +1,5 @@
-import { useId, useState } from 'react'
-import { notePayment, setPayeeKind } from '../../db/statements'
+import { useId } from 'react'
+import { setPayeeKind } from '../../db/statements'
 import { type MoneyLine, nameOf, PAYMENT_KINDS } from '../../domain/money'
 import { money } from '../../domain/shopping'
 import { dayMonthLong } from '../../lib/dates'
@@ -40,11 +40,10 @@ export function KindSheet(props: { payeeKey: string; payee: string; chosen: stri
   )
 }
 
-/** One payment: when, who, which way, and your note on what it was for; its receipt, when there's one. */
+/** One payment: when, who, which way, and what you call it; its kind, and its receipt when there's one. */
 export function PaymentSheet(props: {
   line: MoneyLine
   way: string
-  note: string
   receiptSummary: string | null
   kind?: string | null
   onKind?: (() => void) | null
@@ -56,20 +55,9 @@ export function PaymentSheet(props: {
   onClose: () => void
 }) {
   const { line, way, receiptSummary, kind, onKind, onRename, onOwn, onReceipt, onUnlinkReceipt, onClose } = props
-  const [note, setNote] = useState(props.note)
   const isRenamed = Boolean(line.payee.original && line.payee.original !== line.payee.name)
-  const id = useId()
-  const save = async () => {
-    await notePayment(line.id, note)
-    onClose()
-  }
-  const footer = (
-    <button type="button" className="primary wide" onClick={() => void save()}>
-      Save
-    </button>
-  )
   return (
-    <Dialog title={nameOf(line)} onClose={onClose} footer={footer} full>
+    <Dialog title={nameOf(line)} onClose={onClose}>
       {line.label ? <p className="muted small">Paid to: {line.payee.name}</p> : null}
       {isRenamed ? <p className="muted small">Original: {line.payee.original}</p> : null}
       <p>
@@ -93,10 +81,6 @@ export function PaymentSheet(props: {
           </button>
         ) : null}
       </div>
-      <label className="question-text" htmlFor={id}>
-        What was it for?
-      </label>
-      <input id={id} data-autofocus value={note} maxLength={120} autoCapitalize="sentences" placeholder="e.g. Birthday present" onChange={(e) => setNote(e.target.value)} />
       {onReceipt ? (
         <button type="button" className="wide top-gap" onClick={onReceipt}>
           Open its receipt

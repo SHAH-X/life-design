@@ -342,7 +342,6 @@ function SearchResults({ found }: { found: readonly MoneyLine[] }) {
 }
 
 function Spending({ its, lines, query, onQuery }: { its: Its; lines: readonly MoneyLine[]; query: string; onQuery: (query: string) => void }) {
-  const { notes } = useMoney()
   const searchId = useId()
   const box = useRef<HTMLInputElement>(null)
   const searching = query.trim().length >= MIN_SEARCH
@@ -352,9 +351,9 @@ function Spending({ its, lines, query, onQuery }: { its: Its; lines: readonly Mo
       <div className="logs-search">
         <span aria-hidden="true">⌕</span>
         <label className="visually-hidden" htmlFor={searchId}>
-          Search every payment, by name, note or amount
+          Search every payment, by name or amount
         </label>
-        <input ref={box} id={searchId} type="search" placeholder="Search by name, note or amount" value={query} onChange={(e) => onQuery(e.target.value)} />
+        <input ref={box} id={searchId} type="search" placeholder="Search by name or amount" value={query} onChange={(e) => onQuery(e.target.value)} />
         {query ? (
           <button
             type="button"
@@ -369,7 +368,7 @@ function Spending({ its, lines, query, onQuery }: { its: Its; lines: readonly Mo
           </button>
         ) : null}
       </div>
-      {searching ? <SearchResults found={searchPayments(lines, query, notes)} /> : <SpendingMonth its={its} />}
+      {searching ? <SearchResults found={searchPayments(lines, query)} /> : <SpendingMonth its={its} />}
     </>
   )
 }
@@ -622,18 +621,17 @@ function RegularRow({ item, soon }: { item: Regular; soon: boolean }) {
   )
 }
 
-/** A payee. Paid once, it's its payment: one tap opens it, with its note, kind, name and receipt. Paid more, it opens to
+/** A payee. Paid once, it's its payment: one tap opens it, with its kind, name and receipt. Paid more, it opens to
  *  its payments, and, where it could be, a way to say it's you moving money (the payee is remembered: its lines leave
  *  the totals, in later statements too). */
 export function PayeeRow({ group, out = false }: { group: PayeeGroup; out?: boolean }) {
-  const { kinds, links, names, notes, openKind, openPayment, openRename } = useMoney()
+  const { kinds, links, names, openKind, openPayment, openRename } = useMoney()
   const line = group.lines[0]!
   const original = group.payee.original && group.payee.original !== group.payee.name ? group.payee.original : null
 
   if (group.lines.length === 1) {
     const account = names.get(line.account) ?? line.account
     const way = line.amount < 0 ? `Out of ${account}` : line.refund ? `Back into ${account}` : `Into ${account}`
-    const note = notes[line.id]
     return (
       <li className="acc-li">
         <button type="button" className="acc-row" onClick={() => openPayment(line, way, group)}>
@@ -654,7 +652,6 @@ export function PayeeRow({ group, out = false }: { group: PayeeGroup; out?: bool
             <span className="acc-row-sub">
               {shortDayMonth(line.date)} · {way}
               {links.get(line.id) ? ' · Receipt' : ''}
-              {note ? ` · “${note}”` : ''}
             </span>
           </span>{' '}
           <span className="acc-row-value">{pounds(Math.abs(line.amount))}</span>
@@ -740,7 +737,7 @@ function OwnRows({ lines }: { lines: readonly MoneyLine[] }) {
  *  results). A payment with its receipt opens it;
  *  with why, when it needs a look. */
 export function LineList({ lines, why, moves = false, named = false }: { lines: readonly MoneyLine[]; why?: string; moves?: boolean; named?: boolean }) {
-  const { links, receiptReasons, names, notes, openPayment } = useMoney()
+  const { links, receiptReasons, names, openPayment } = useMoney()
   const rows = moves ? joinMoves(lines) : [...lines].sort((a, b) => b.date.localeCompare(a.date)).map((line) => ({ line }))
   const name = (account: string) => names.get(account) ?? account
   const payees = named || new Set(lines.map((l) => l.payee.key)).size > 1
@@ -759,9 +756,8 @@ export function LineList({ lines, why, moves = false, named = false }: { lines: 
     <ul className="acc-lines">
       {rows.map((row) => {
         const receipt = links.get(row.line.id)
-        const note = notes[row.line.id]
         const receiptDetail = receipt ? (receiptReasons[receipt.id] ? `receipt ${money(paid(receipt), receipt.currency)} · ${receiptReasons[receipt.id]}` : 'receipt') : ''
-        const told = [where(row), note ? `“${note}”` : '', receiptDetail, why ?? ''].filter(Boolean).join(' · ')
+        const told = [where(row), receiptDetail, why ?? ''].filter(Boolean).join(' · ')
         return (
           <li key={row.line.id}>
             <button type="button" className="line-button" onClick={() => openPayment(row.line, where(row))}>

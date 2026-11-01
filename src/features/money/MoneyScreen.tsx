@@ -20,7 +20,7 @@ import {
   receiptReviewState,
   unmatchReceiptPayment,
 } from '../../db/statements'
-import { classify, kindOf, linkReceipts, mayBeOwn, type MoneyLine, nameOf, type Payee, type PayeeGroup, receiptPaymentCandidates } from '../../domain/money'
+import { classify, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, nameOf, type Payee, type PayeeGroup, receiptPaymentCandidates } from '../../domain/money'
 import { inWords, type KnownReceipt, money, paid, receiptsAndCopies, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { monthYear, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -54,6 +54,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const payeeNames = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYEE_NAMES)), [])
   const paymentNames = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYMENT_NAMES)), [])
   const kinds = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYEE_KINDS)), [])
+  // What you wrote on a payment before v0.20.36 is its name (`labelsOf`).
   const notes = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYMENT_NOTES)), [])
   const receiptReviews = useLiveQuery(async () => receiptReviewState((await db.settings.get(RECEIPT_REVIEWS))?.value), [])
   const [payment, setPayment] = useState<{ line: MoneyLine; way: string; group?: PayeeGroup } | null>(null)
@@ -90,7 +91,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const open = (receipt: KnownReceipt) => (copyIds.has(receipt.id) ? openEntry(receipt) : setReceiptId(receipt.id))
   // A refund slip (v0.20.20) opens the same way; it's counted nowhere.
   const openReceipt = receiptId ? [...receipts, ...refunds].find((r) => r.id === receiptId) : undefined
-  const lines = classify(bankLines, new Set(own), payeeNames, paymentNames)
+  const lines = classify(bankLines, new Set(own), payeeNames, labelsOf(notes, paymentNames))
   const links = linkReceipts(lines, receipts, receiptReviews.paymentLinks)
   const receiptReasons = receiptReviews.paymentReasons
   const manualReceiptByPayment = new Map(
@@ -114,6 +115,8 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const accountYears = [...new Set(accountMonths.map((m) => m.slice(0, 4)))]
   const year = view === 'accounts' && lines.length && sub && /^\d{4}$/.test(sub) ? sub : null
   const earlier = shoppingMonths(receipts).filter((m) => m < thisMonth).sort().reverse()
+  // The open payment is read afresh from the lines, so a name given to it shows in its sheet at once.
+  const shown = payment ? { ...payment, line: lines.find((l) => l.id === payment.line.id) ?? payment.line } : null
   const manualReceiptId = payment ? manualReceiptByPayment.get(payment.line.id) : undefined
   const paymentReceipt = payment ? links.get(payment.line.id) : undefined
   const paymentReceiptDifference = payment && paymentReceipt ? paid(paymentReceipt) - Math.abs(payment.line.amount) : 0
@@ -123,7 +126,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
       : null
 
   return (
-    <MoneyContext.Provider value={{ links, receiptReasons, open, names, kinds, notes, openPayment: (line, way, group) => setPayment({ line, way, group }), openKind: setKindFor, openRename: (payee) => { setRenamingLine(null); setRenaming(payee) }, importStatement: () => setImporting(true) }}>
+    <MoneyContext.Provider value={{ links, receiptReasons, open, names, kinds, openPayment: (line, way, group) => setPayment({ line, way, group }), openKind: setKindFor, openRename: (payee) => { setRenamingLine(null); setRenaming(payee) }, importStatement: () => setImporting(true) }}>
       <div className="money-screen">
         {year ? (
           <>
@@ -198,33 +201,32 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
         {view === 'receipts' && month === thisMonth && receipts.length ? <ReceiptsShare receipts={receipts} /> : null}
         {view === 'accounts' && !lines.length ? <Accounts /> : null}
         {importing ? <StatementImport onClose={() => setImporting(false)} /> : null}
-        {payment ? (
+        {shown ? (
           <PaymentSheet
-            key={payment.line.id}
-            line={payment.line}
-            way={payment.way}
-            note={notes[payment.line.id] ?? ''}
+            key={shown.line.id}
+            line={shown.line}
+            way={shown.way}
             receiptSummary={paymentReceiptSummary}
-            kind={kindOf(payment.line, kinds)}
+            kind={kindOf(shown.line, kinds)}
             onKind={() => {
-              setKindFor({ payee: payment.line.payee, total: Math.abs(payment.line.amount), lines: [payment.line] })
+              setKindFor({ payee: shown.line.payee, total: Math.abs(shown.line.amount), lines: [shown.line] })
             }}
             onRename={() => {
-              setRenamingLine(payment.line)
-              setRenaming(payment.line.payee)
+              setRenamingLine(shown.line)
+              setRenaming(shown.line.payee)
             }}
             onOwn={
-              payment.group && mayBeOwn(payment.group.lines)
+              shown.group && mayBeOwn(shown.group.lines)
                 ? async () => {
-                    await markOwnPayee(payment.group!.payee.key, true)
+                    await markOwnPayee(shown.group!.payee.key, true)
                     setPayment(null)
                   }
                 : null
             }
             onReceipt={
-              links.get(payment.line.id)
+              links.get(shown.line.id)
                 ? () => {
-                    const receipt = links.get(payment.line.id)!
+                    const receipt = links.get(shown.line.id)!
                     setPayment(null)
                     open(receipt)
                   }
