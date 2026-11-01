@@ -52,7 +52,7 @@ test('Money has its own tab, receipts and all: the month so far, next to last mo
 
   // £3.60 + £9.99 (what Aldi's printed, though its items don't add up) + £1.25 + £2.45 + £42.10, added up in pence.
   await expect(page.getByRole('paragraph').filter({ hasText: /^October so far$/ })).toBeVisible()
-  await expect(page.getByRole('strong')).toHaveText('£59.39')
+  await expect(page.getByRole('strong')).toHaveText('£59.39 spent')
   await expect(line(page, 'By 24 September')).toContainText('£2.40')
   await expect(line(page, '5 receipts from 3 shops')).toBeVisible()
   await expect(line(page, '£0.50 off with offers')).toBeVisible()
@@ -92,7 +92,7 @@ test('Money has its own tab, receipts and all: the month so far, next to last mo
   // The same milk at the same shop, at its price before and now.
   await expect(page.getByRole('region', { name: 'Price changes at the same shop' }).locator('summary')).toHaveText(`${MILK} · TESCO: £1.45 on 3 Oct, £1.65 on 17 Oct`)
   const again = page.getByRole('region', { name: 'Bought again and again' }).locator('summary')
-  await expect(again).toHaveText([`${MILK} · on 3 receipts · £4.55`, 'Bananas · on 3 receipts · £2.85'])
+  await expect(again).toHaveText([`${MILK}3× · on 3 receipts · £4.55`, 'Bananas3× · on 3 receipts · £2.85'])
 
   // To check: the receipt that doesn't add up, and the one with no date read.
   const check = page.getByRole('region', { name: 'Receipts to check' }).locator('li')
@@ -165,7 +165,7 @@ test('the chart has a table and a readout, and an earlier month has its own page
   await chart.getByRole('link', { name: 'Open September 2026 ›' }).click()
   await expect(page).toHaveURL(/#\/money\/2026-09$/)
   await expect(page.getByRole('heading', { level: 1, name: 'September 2026' })).toBeVisible()
-  await expect(page.getByRole('strong')).toHaveText('£2.40')
+  await expect(page.getByRole('strong')).toHaveText('£2.40 spent')
   // The page's month has its amount on its column's cap, in pounds and pence.
   await expect(page.locator('figure.chart svg text', { hasText: '£2.' })).toHaveText('£2.40')
   await expectNoScores(page, 'Money → September')
@@ -201,7 +201,7 @@ test('a duplicate receipt identifies the extra entry, explains deletion, and lea
   await restoreBackup(page, testInfo.outputPath('receipts.json'), backupWith({ entries: [first, again] }, SATURDAY))
   await page.goto('./#/money')
   await page.getByRole('button', { name: 'Receipts', exact: true }).click()
-  await expect(page.getByRole('strong')).toHaveText('£4.20')
+  await expect(page.getByRole('strong')).toHaveText('£4.20 spent')
   const check = page.getByRole('region', { name: 'Receipts to check' }).locator('li')
   await expect(check.locator('details > summary')).toContainText('Duplicate · counted once')
   await expect(check).not.toContainText('This deletes the whole entry')
@@ -213,7 +213,7 @@ test('a duplicate receipt identifies the extra entry, explains deletion, and lea
   await duplicate.getByRole('button', { name: 'Delete', exact: true }).click()
   await expect(duplicate.getByText('Delete this entry and its photos?')).toBeVisible()
   await duplicate.getByRole('button', { name: 'Yes, delete' }).click()
-  await expect(page.getByRole('strong')).toHaveText('£4.20')
+  await expect(page.getByRole('strong')).toHaveText('£4.20 spent')
   await expect(page.getByRole('region', { name: 'Receipts to check' })).toHaveCount(0)
 })
 
@@ -257,9 +257,9 @@ test('an undated receipt can be accepted or matched to a statement payment, then
 
   await page.getByRole('button', { name: 'Accounts', exact: true }).click()
   const moneyOut = page.getByRole('region', { name: 'Money out' })
-  await moneyOut.locator('summary', { hasText: 'Corner Shop' }).click()
-  const statementPayment = moneyOut.getByRole('button', { name: /Out of Example Current · receipt.*£4\.20/ })
-  await statementPayment.click()
+  // Money out is under Spending (v0.20.14); one payment is its own row (v0.20.17), opening directly.
+  await page.locator('.money-detail-switch').getByRole('button', { name: 'Spending', exact: true }).click()
+  await moneyOut.getByRole('button', { name: /CORNER SHOP.*Receipt £4\.20/i }).click()
   const paymentSheet = page.getByRole('dialog', { name: 'CORNER SHOP' })
   await paymentSheet.getByRole('button', { name: 'Unlink receipt' }).click()
   await expect(page.getByRole('dialog', { name: 'CORNER SHOP' })).toHaveCount(0)
@@ -292,7 +292,7 @@ test('a dated receipt can be matched to a smaller debit with an owner-recorded r
   await page.goto('./#/money')
   await page.getByRole('button', { name: 'Receipts', exact: true }).click()
 
-  await expect(page.getByRole('strong')).toHaveText('£96.50')
+  await expect(page.getByRole('strong')).toHaveText('£96.50 spent')
   const check = page.getByRole('region', { name: 'Receipts to check' })
   await expect(check.locator('details > summary')).toContainText('Payment differs')
   await check.locator('summary').click()
@@ -311,13 +311,13 @@ test('a dated receipt can be matched to a smaller debit with an owner-recorded r
   await match.getByRole('button', { name: 'Match receipt' }).click()
   await expect(check).toHaveCount(0)
 
-  await expect(page.getByRole('strong')).toHaveText('£96.50')
+  await expect(page.getByRole('strong')).toHaveText('£96.50 spent')
   await page.getByRole('button', { name: 'Accounts', exact: true }).click()
   await expect(page.getByRole('strong')).toHaveText('£90.71 out')
   const moneyOut = page.getByRole('region', { name: 'Money out' })
-  await moneyOut.locator('summary', { hasText: 'Corner Shop' }).click()
-  await expect(moneyOut.getByRole('button', { name: /receipt £96\.50 · Gift-card discount/ })).toBeVisible()
-  await moneyOut.getByRole('button', { name: /receipt £96\.50 · Gift-card discount/ }).click()
+  await page.locator('.money-detail-switch').getByRole('button', { name: 'Spending', exact: true }).click()
+  // The row says it has a receipt, at the debit's amount; the sheet gives both amounts and why they differ.
+  await moneyOut.getByRole('button', { name: /CORNER SHOP.*Receipt £90\.71$/i }).click()
   const paymentSheet = page.getByRole('dialog', { name: 'CORNER SHOP' })
   await expect(paymentSheet).toContainText('Receipt £96.50 · debit £90.71 · difference £5.79 · Gift-card discount')
   await paymentSheet.getByRole('button', { name: 'Unlink receipt' }).click()
@@ -335,8 +335,9 @@ test('a dated receipt can be matched to a smaller debit with an owner-recorded r
   await reason.fill('Part paid with a stored-value card')
   await secondMatch.getByRole('button', { name: 'Match receipt' }).click()
   await page.getByRole('button', { name: 'Accounts', exact: true }).click()
-  await moneyOut.locator('summary', { hasText: 'Corner Shop' }).click()
-  await expect(moneyOut.getByRole('button', { name: /receipt £96\.50 · Part paid with a stored-value card/ })).toBeVisible()
+  await page.locator('.money-detail-switch').getByRole('button', { name: 'Spending', exact: true }).click()
+  await moneyOut.getByRole('button', { name: /CORNER SHOP.*Receipt £90\.71$/i }).click()
+  await expect(paymentSheet).toContainText('Receipt £96.50 · debit £90.71 · difference £5.79 · Part paid with a stored-value card')
 })
 
 test('with no receipts, Money says where they come from', async ({ page }) => {
