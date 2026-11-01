@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readStatement, type TextPiece } from '../../src/domain/statements'
 import { piecesFromPdf } from '../../src/lib/pdfText'
 import { makePdf, type Placed, piecesOf } from '../fixtures/pdf'
-import { FLEX_EXPECT, FLEX_LIKE, LLOYDS_EXPECT, LLOYDS_LIKE, MONZO_EXPECT, MONZO_LIKE } from '../fixtures/statements'
+import { FLEX_EXPECT, FLEX_LIKE, FLEX_TABLE_ON_PAGE_2, LLOYDS_EXPECT, LLOYDS_LIKE, MONZO_EXPECT, MONZO_LIKE } from '../fixtures/statements'
 
 // Bank statements (v0.20), fictional ones laid out like the owner's real Monzo and Lloyds PDFs (tests/fixtures).
 
@@ -30,6 +30,11 @@ describe('readStatement: a statement read from where its words sit on the page',
     const read = readStatement(piecesOf(FLEX_LIKE))
     if ('problem' in read) throw new Error(read.problem)
     expect(read.accounts[0]!.lines.every((l) => l.adds)).toBe(true)
+  })
+
+  it('names and dates a Flex statement whose table starts on a later page than its title, as the whole statement (owner, 2026-11-01: it came in as "Account", dated by its first and last lines)', () => {
+    expect(piecesOf(FLEX_TABLE_ON_PAGE_2).some((p) => p.page === 2 && p.str === 'Flex statement')).toBe(false)
+    expect(asRead(piecesOf(FLEX_TABLE_ON_PAGE_2))).toEqual(FLEX_EXPECT)
   })
 
   it('checks every line against the balance printed beside it, and says which don’t follow', () => {
