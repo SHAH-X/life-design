@@ -16,6 +16,8 @@ import {
   type PaymentRow,
   type Ranked,
   type Regular,
+  type RegularChange,
+  regularChanges,
   regularPayments,
   regularPaymentsTotal,
   type Rise,
@@ -77,7 +79,10 @@ export function AccountsMonth(props: {
   const { kinds } = useMoney()
   const [jump, setJump] = useState<string | null>(null)
   const its = moneyMonth(lines, month, today, statements, closed, kinds)
-  const regular = regularPayments(lines, month, today)
+  const changes = regularChanges(lines, month, today, statements, closed)
+  // A payment that has stopped is no longer something you're committed to: it is told under What changed instead.
+  const stopped = new Set(changes.lapsed.map((l) => l.payee.key))
+  const regular = regularPayments(lines, month, today).filter((r) => !stopped.has(r.payee.key))
   const split = committedOf(its.outLines, regular)
   const thisMonth = today.slice(0, 7)
   const current = month === thisMonth
@@ -155,7 +160,7 @@ export function AccountsMonth(props: {
           </button>
         ))}
       </nav>
-      {section === 'overview' ? <Overview its={its} lines={lines} regular={regular} month={month} today={today} /> : null}
+      {section === 'overview' ? <Overview its={its} lines={lines} regular={regular} changes={changes} month={month} today={today} /> : null}
       {section === 'spending' ? <Spending its={its} /> : null}
       {section === 'statements' ? <Statements its={its} /> : null}
     </>
@@ -164,8 +169,23 @@ export function AccountsMonth(props: {
 
 type Its = ReturnType<typeof moneyMonth>
 
-function Overview({ its, lines, regular, month, today }: { its: Its; lines: readonly MoneyLine[]; regular: readonly Regular[]; month: string; today: string }) {
+function Overview({
+  its,
+  lines,
+  regular,
+  changes,
+  month,
+  today,
+}: {
+  its: Its
+  lines: readonly MoneyLine[]
+  regular: readonly Regular[]
+  changes: { started: RegularChange[]; lapsed: RegularChange[] }
+  month: string
+  today: string
+}) {
   const totals = regularPaymentsTotal(regular)
+  const went = regular.filter((r): r is Regular & { changed: NonNullable<Regular['changed']> } => r.changed !== null)
   const cadence = [totals.monthly > 0 ? `${pounds(totals.monthly)} a month` : '', totals.weekly > 0 ? `${pounds(totals.weekly)} a week` : ''].filter(Boolean)
   const regularStatus = `${cadence.join(' + ')} · ${paymentsWord(regular.length)}`
   const current = month === today.slice(0, 7)
@@ -180,6 +200,27 @@ function Overview({ its, lines, regular, month, today }: { its: Its; lines: read
       {anyRose ? (
         <Block title="Where it rose" status={current ? `Next to ${lastMonth} by the same day` : `Next to ${lastMonth}`}>
           <Groups of={its.rose} line={(r: Rise) => <RiseRow key={r.payee.key} rise={r} />} fewer="Fewer than 3 payments, by name" />
+        </Block>
+      ) : null}
+      {went.length + changes.started.length + changes.lapsed.length ? (
+        <Block title="What changed">
+          <ul className="acc-list">
+            {went.map((r) => (
+              <Item key={`went-${r.payee.key}`} title={r.payee.name} sub={`went ${r.changed.to > r.changed.from ? 'up' : 'down'} from ${pounds(r.changed.from)} to ${pounds(r.changed.to)} · ${yearly(r.changed.year)}`} value={pounds(r.amount)}>
+                <LineList lines={r.lines} />
+              </Item>
+            ))}
+            {changes.started.map((c) => (
+              <Item key={`started-${c.payee.key}`} title={c.payee.name} sub={`new · first paid ${dayMonth(c.first)} · every ${c.every}`} value={pounds(c.amount)}>
+                <LineList lines={c.lines} />
+              </Item>
+            ))}
+            {changes.lapsed.map((c) => (
+              <Item key={`lapsed-${c.payee.key}`} title={c.payee.name} sub={`no payment since ${dayMonth(c.last)} · was every ${c.every}`} value={pounds(c.amount)}>
+                <LineList lines={c.lines} />
+              </Item>
+            ))}
+          </ul>
         </Block>
       ) : null}
       {regular.length ? (

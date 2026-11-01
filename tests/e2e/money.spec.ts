@@ -321,6 +321,53 @@ test('Money splits the month into committed and everyday, says when each regular
   await expect(earlier).not.toContainText('Coming up')
 })
 
+const LLOYDS = 'Lloyds ···4321'
+const statementRecord = (to: string) => ({ id: `lloyds:2026-01-01:${to}`, account: LLOYDS, from: '2026-01-01', to, lines: 9, createdAt: 1, updatedAt: 1 })
+const monthlyPayments = (description: string, dates: string[], amounts: number[]) =>
+  dates.map((date, i) => ({ id: `${description}-${i}`, account: LLOYDS, date, amount: amounts[i]!, description, type: 'DD', balance: null, adds: true, createdAt: i + 1, updatedAt: i + 1 }))
+
+test('What changed tells of a regular payment that went up, one that is new and one that has stopped, and a stopped one leaves the list', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const bankLines = [
+    // Paid since March, so it went up and is not new.
+    ...monthlyPayments('EXAMPLE BROADBAND', ['2026-03-05', '2026-04-05', '2026-05-05', '2026-06-05', '2026-07-05', '2026-08-05', '2026-09-05', '2026-10-05'], [-3250, -3250, -3250, -3250, -3250, -3250, -3250, -3650]),
+    ...monthlyPayments('EXAMPLE NEW SUB', ['2026-08-12', '2026-09-12', '2026-10-12'], [-899, -899, -899]),
+    ...monthlyPayments('EXAMPLE GYM CLUB', ['2026-06-10', '2026-07-10', '2026-08-10'], [-1000, -1000, -1000]),
+  ]
+  await restoreBackup(page, testInfo.outputPath('what-changed.json'), backupWith({ bankLines, statements: [statementRecord('2026-10-27')] }, now))
+  await page.goto('./#/money')
+
+  const changed = page.getByRole('region', { name: 'What changed' })
+  const row = (name: string) => changed.locator('details.acc-item', { hasText: name })
+  const summary = (name: string) => row(name).locator(':scope > summary')
+  await expect(summary('EXAMPLE BROADBAND')).toContainText('went up from £32.50 to £36.50 · +£48.00 a year')
+  await expect(summary('EXAMPLE NEW SUB')).toContainText('new · first paid 12 Aug · every month')
+  await expect(summary('EXAMPLE GYM CLUB')).toContainText('no payment since 10 Aug · was every month')
+  // It opens to its payments.
+  await summary('EXAMPLE GYM CLUB').click()
+  await expect(row('EXAMPLE GYM CLUB')).toContainText('10 Jul')
+
+  // The stopped one is no longer a regular payment: not in the list, the total or Coming up. The others are.
+  const regularPayments = page.getByRole('region', { name: 'Regular payments' })
+  await expect(regularPayments).toContainText('EXAMPLE BROADBAND')
+  await expect(regularPayments).toContainText('EXAMPLE NEW SUB')
+  await expect(regularPayments).not.toContainText('EXAMPLE GYM CLUB')
+  await expect(regularPayments.locator('li.acc-total')).toContainText('2 payments, all monthly')
+})
+
+test('a missing statement is never a stopped payment', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const bankLines = monthlyPayments('EXAMPLE GYM CLUB', ['2026-06-10', '2026-07-10', '2026-08-10'], [-1000, -1000, -1000])
+  // Its account's statements stop on 31 Aug: nothing is known of the days it should have been paid after 10 Aug.
+  await restoreBackup(page, testInfo.outputPath('what-changed-gap.json'), backupWith({ bankLines, statements: [statementRecord('2026-08-31')] }, now))
+  await page.goto('./#/money')
+
+  await expect(page.getByRole('region', { name: 'What changed' })).toHaveCount(0)
+  await expect(page.getByText('no payment since')).toHaveCount(0)
+})
+
 test('the accounts spending chart shows its six-month average and pages through earlier months', async ({ page }, testInfo) => {
   const now = new Date(2026, 9, 26, 12, 0)
   await page.clock.setFixedTime(now)
