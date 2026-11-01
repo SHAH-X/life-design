@@ -11,8 +11,12 @@ import {
   type MoneyLine,
   moneyMonth,
   moneyMonthTotals,
+  MIN_SEARCH,
   monthCoverage,
   type Moving,
+  paymentYears,
+  type PaymentYear,
+  searchPayments,
   moneyYear,
   payeeOf,
   type PayeeGroup,
@@ -84,8 +88,11 @@ export function AccountsMonth(props: {
   months: readonly string[]
   section: AccountsSection
   onSection: (section: AccountsSection) => void
+  /** What's typed in Spending's search box: kept by Money, so it stays when you step to another month. */
+  query: string
+  onQuery: (query: string) => void
 }) {
-  const { lines, month, today, statements, closed, months, section, onSection } = props
+  const { lines, month, today, statements, closed, months, section, onSection, query, onQuery } = props
   const { kinds } = useMoney()
   const [jump, setJump] = useState<string | null>(null)
   const its = moneyMonth(lines, month, today, statements, closed, kinds)
@@ -109,6 +116,7 @@ export function AccountsMonth(props: {
     setJump(null)
   }, [jump, section])
   const goTo = (id: string) => {
+    onQuery('')
     onSection('spending')
     setJump(id)
   }
@@ -174,7 +182,7 @@ export function AccountsMonth(props: {
         ))}
       </nav>
       {section === 'overview' ? <Overview its={its} lines={lines} regular={regular} changes={changes} yearOut={yearOut} statements={statements} closed={closed} month={month} today={today} /> : null}
-      {section === 'spending' ? <Spending its={its} /> : null}
+      {section === 'spending' ? <Spending its={its} lines={lines} query={query} onQuery={onQuery} /> : null}
       {section === 'statements' ? <Statements its={its} /> : null}
     </>
   )
@@ -295,7 +303,51 @@ function Overview({
   )
 }
 
-function Spending({ its }: { its: Its }) {
+/** Search results show at most this many payments, newest first: a search for one letter-pair can match thousands. */
+const SEARCH_LIMIT = 200
+
+/** What a year of a search says: payments out and what they come to, money back, money in, money moved left out. */
+function yearWords(y: PaymentYear): string {
+  const out = y.out >= 0 ? pounds(y.out) : `${pounds(-y.out)} back`
+  return [y.payments ? `${paymentsWord(y.payments)} · ${out}` : y.out < 0 ? out : '', y.in ? `${pounds(y.in)} in` : '', y.moved ? `${movesWord(y.moved)} left out` : ''].filter(Boolean).join(' · ')
+}
+
+/** Every payment a search found, by year with what each year comes to, newest first. */
+function SearchResults({ found }: { found: readonly MoneyLine[] }) {
+  if (!found.length) return <p className="acc-status">Nothing found.</p>
+  const shown = new Set(found.slice(0, SEARCH_LIMIT))
+  return (
+    <>
+      {paymentYears(found).map((y) => (
+        <Block key={y.year} title={y.year} status={yearWords(y)}>
+          <LineList lines={y.lines.filter((l) => shown.has(l))} />
+        </Block>
+      ))}
+      {found.length > SEARCH_LIMIT ? <p className="acc-status">Showing the newest {SEARCH_LIMIT} of {found.length}. Type more to narrow it down.</p> : null}
+    </>
+  )
+}
+
+function Spending({ its, lines, query, onQuery }: { its: Its; lines: readonly MoneyLine[]; query: string; onQuery: (query: string) => void }) {
+  const { notes } = useMoney()
+  const searchId = useId()
+  const searching = query.trim().length >= MIN_SEARCH
+  return (
+    <>
+      {/* The same look as Logs' search box. */}
+      <div className="logs-search">
+        <span aria-hidden="true">⌕</span>
+        <label className="visually-hidden" htmlFor={searchId}>
+          Search every payment
+        </label>
+        <input id={searchId} type="search" placeholder="Search every payment" value={query} onChange={(e) => onQuery(e.target.value)} />
+      </div>
+      {searching ? <SearchResults found={searchPayments(lines, query, notes)} /> : <SpendingMonth its={its} />}
+    </>
+  )
+}
+
+function SpendingMonth({ its }: { its: Its }) {
   return (
     <>
       {its.outLines.length ? (
