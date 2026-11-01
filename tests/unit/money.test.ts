@@ -699,6 +699,18 @@ describe('monthEndBalances: what you hold and what you owe at the end of each mo
     expect(run(loop, [statement(BANK, '2026-01-01', '2026-01-31')], new Set(), '2026-01-31').months[0]).toMatchObject({ held: null, unknown: [{ why: 'order' }] })
   })
 
+  it('knows the end of a day whose lines cancel out, from the day before: +£350.00 then -£350.00 ends where it began, in either order (a real statement had one, v0.20.31)', () => {
+    // 20000 - 1000 = 19000 at the end of the 28th; the 29th ends there too, however its two lines are handed over.
+    const lines = ledger(BANK, 20000, [['2026-01-28', -10], ['2026-01-29', 350], ['2026-01-29', -350]])
+    for (const order of [lines, [lines[0]!, lines[2]!, lines[1]!], [...lines].reverse()]) {
+      expect(run(order, [statement(BANK, '2026-01-01', '2026-01-31')], new Set(), '2026-01-31').months[0]).toMatchObject({ held: 19000, unknown: [] })
+    }
+  })
+  it('still cannot tell such a day when nothing before it is known, or when a statement is missing before it', () => {
+    const first = ledger(BANK, 20000, [['2026-01-29', 350], ['2026-01-29', -350]])
+    expect(run(first, [statement(BANK, '2026-01-01', '2026-01-31')], new Set(), '2026-01-31').months[0]).toMatchObject({ held: null, unknown: [{ why: 'order' }] })
+  })
+
   it('adds up several accounts held, but not when one of them is not known for the month', () => {
     const lines = [...ledger(BANK, 20000, [['2026-01-10', -10], ['2026-03-05', -20]]), ...ledger(OTHER, 1000, [['2026-01-15', 5], ['2026-03-10', 5]])]
     const both = [statement(BANK, '2026-01-01', TODAY_APRIL), statement(OTHER, '2026-01-01', TODAY_APRIL)]

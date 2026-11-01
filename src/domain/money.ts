@@ -439,12 +439,25 @@ const nextAfter = (earlier: BankLine, next: BankLine, owed: boolean) => earlier.
 /** The balance before a line, from the balance printed beside it (the other way round from `balanceFollows`). */
 const balanceBefore = (line: BankLine & { balance: number }, owed: boolean) => (owed ? line.balance + line.amount : line.balance - line.amount)
 
-/** The balance after a day's last line, found by chaining: the line no other follows. Null when any balance is missing or
- *  the chain doesn't end in one line (+£5.00 then -£5.00 leaves each as the other's start). */
-function dayEnd(day: readonly BankLine[], owed: boolean): number | null {
+/** The balance after a day's last line. A day ends where the day before ended plus its amounts, whatever order its lines
+ *  come in (v0.20.31: +£350.00 then -£350.00 ends where it began, which chaining can't tell), when one of its printed
+ *  balances says so. With no day before, or when it doesn't fit (a statement missing), it is found by chaining: the line
+ *  no other follows. Null when any balance is missing or the chain doesn't end in one line. */
+function dayEnd(day: readonly BankLine[], owed: boolean, before: number | null = null): number | null {
   if (day.some((l) => l.balance === null)) return null
+  if (before !== null) {
+    const end = before + (owed ? -1 : 1) * day.reduce((sum, l) => sum + l.amount, 0)
+    if (day.some((l) => l.balance === end)) return end
+  }
   const ends = day.filter((x) => !day.some((y) => y !== x && nextAfter(x, y, owed)))
   return ends.length === 1 ? ends[0]!.balance : null
+}
+
+/** The balance after each day's last line, each from the one before. */
+function dayEnds(days: readonly Day[], owed: boolean): (number | null)[] {
+  const ends: (number | null)[] = []
+  days.forEach((day, i) => ends.push(dayEnd(day.lines, owed, i > 0 ? ends[i - 1]! : null)))
+  return ends
 }
 
 /** The balance before a day's first line: the line that follows no other. */
@@ -457,11 +470,12 @@ function dayStart(day: readonly BankLine[], owed: boolean): number | null {
 /** How many balances follow from the one before if they are held (`owed` false) or owed: within a day by chaining, and
  *  from one day's end to the next's by adding the day's amounts, which doesn't depend on their order. */
 function followingBalances(days: readonly Day[], owed: boolean): number {
+  const ends = dayEnds(days, owed)
   let count = 0
   days.forEach((day, i) => {
     count += day.lines.filter((x) => day.lines.some((y) => y !== x && nextAfter(y, x, owed))).length
-    const before = i > 0 ? dayEnd(days[i - 1]!.lines, owed) : null
-    const end = dayEnd(day.lines, owed)
+    const before = i > 0 ? ends[i - 1]! : null
+    const end = ends[i]!
     if (before !== null && end !== null && end === before + (owed ? -1 : 1) * day.lines.reduce((sum, l) => sum + l.amount, 0)) count++
   })
   return count
@@ -497,13 +511,16 @@ export function monthEndBalances(
     ).map((same) => ({ date: same[0]!.date, lines: same }))
     const owed = preferOwed(followingBalances(days, false), followingBalances(days, true))
     const its = statements.filter((s) => s.account === account)
-    return [{ account, owed, days, statements: its, firstFrom: its.map((s) => s.from).sort()[0]!, lastTo: its.map((s) => s.to).sort().at(-1)! }]
+    return [{ account, owed, days, ends: dayEnds(days, owed), statements: its, firstFrom: its.map((s) => s.from).sort()[0]!, lastTo: its.map((s) => s.to).sort().at(-1)! }]
   })
 
   const balanceAt = (ledger: (typeof ledgers)[number], end: string): { balance: number } | { why: 'statement' | 'order' } => {
-    const last = ledger.days.filter((d) => d.date <= end).at(-1)
-    const balance = last ? dayEnd(last.lines, ledger.owed) : dayStart(ledger.days[0]!.lines, ledger.owed)
-    const from = last ? last.date : ledger.firstFrom
+    let last = -1
+    ledger.days.forEach((d, i) => {
+      if (d.date <= end) last = i
+    })
+    const balance = last >= 0 ? ledger.ends[last]! : dayStart(ledger.days[0]!.lines, ledger.owed)
+    const from = last >= 0 ? ledger.days[last]!.date : ledger.firstFrom
     if (notBroughtIn(ledger.statements, end).some((gap) => gap.from <= end && gap.to >= from)) return { why: 'statement' }
     return balance === null ? { why: 'order' } : { balance }
   }
