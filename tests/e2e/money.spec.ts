@@ -761,6 +761,76 @@ test('a payment can be named alone: the others to the same shop keep their name,
   await expect(rows).toHaveText([/^Thu,? 15 Oct ?Out of Lloyds[^£]*£4\.99$/, /^Wed,? 7 Oct ?Out of Lloyds[^£]*£4\.99$/, /^Sat,? 3 Oct ?Out of Lloyds[^£]*£5\.00$/])
 })
 
+// v0.20.38 (owner, 2026-11-01: what goes on one person): a payment is filed under who it was for, for itself or for all
+// its payee's; money out is then totalled by name, on the month and on the year, each name opening to its payments.
+test('a payment can be filed under who it was for, alone or for all its shop’s, and money out is totalled by name', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const pay = (id: string, date: string, amount: number, description: string, n: number) => ({ id, account: LLOYDS, date, amount, description, type: 'DEB', balance: null, adds: true, createdAt: n, updatedAt: n })
+  const bankLines = [
+    pay('p1', '2026-10-03', -500, 'EXAMPLE PHARMACY LEICESTER', 1),
+    pay('p2', '2026-10-07', -499, 'EXAMPLE PHARMACY LEICESTER', 2),
+    pay('p3', '2026-10-15', -499, 'EXAMPLE PHARMACY LEICESTER', 3),
+    pay('g1', '2026-10-10', -2000, 'EXAMPLE GROCER', 4),
+  ]
+  // Priya is a person in an entry: offered, not yet a name.
+  const entries = [{ ...freeWriting('e-people', '', 3, now), people: ['Priya'] }]
+  await restoreBackup(page, testInfo.outputPath('who-for.json'), backupWith({ bankLines, entries }, now))
+  await page.goto('./#/money')
+  await accountView(page, 'Spending')
+  const out = page.getByRole('region', { name: 'Money out' })
+  const who = page.getByRole('region', { name: 'Who it was for' })
+  // Nothing is filed: no block.
+  await expect(who).toHaveCount(0)
+
+  const open = async (day: string) => {
+    const group = out.locator('details', { hasText: 'EXAMPLE PHARMACY LEICESTER' })
+    if (!(await group.evaluate((el) => (el as HTMLDetailsElement).open))) await group.locator('summary').click()
+    await group.locator('.acc-lines li').filter({ hasText: day }).getByRole('button').click()
+  }
+  const sheet = page.getByRole('dialog', { name: 'EXAMPLE PHARMACY LEICESTER' })
+  const forSheet = page.getByRole('dialog', { name: 'Who was it for?' })
+
+  // The 7th, for itself alone, under a name typed; a person from an entry is offered.
+  await open('7 Oct')
+  await sheet.getByRole('button', { name: '+ Who was it for?' }).click()
+  await expect(forSheet.getByRole('radio', { name: 'Only this payment' })).toBeChecked()
+  await expect(forSheet.getByRole('button', { name: 'Priya' })).toBeVisible()
+  await forSheet.getByRole('textbox', { name: 'A new name' }).fill('Riya')
+  await forSheet.getByRole('button', { name: 'Add', exact: true }).click()
+  await expect(sheet.getByRole('button', { name: 'For: Riya' })).toBeVisible()
+  await sheet.getByRole('button', { name: 'Close' }).click()
+  await expect(who.locator('summary')).toHaveText(['Riya 1 payment £4.99', 'Nobody in particular 3 payments £29.99'])
+
+  // The 15th, for all the pharmacy's payments, under the name now in the list.
+  await open('15 Oct')
+  await sheet.getByRole('button', { name: '+ Who was it for?' }).click()
+  await forSheet.getByRole('radio', { name: /All payments to EXAMPLE PHARMACY LEICESTER/ }).check()
+  await forSheet.getByRole('radio', { name: 'Riya' }).click()
+  await sheet.getByRole('button', { name: 'Close' }).click()
+  await expect(who.locator('summary')).toHaveText(['Riya 3 payments £14.98', 'Nobody in particular 1 payment £20.00'])
+
+  // The 3rd says nobody, alone, over the pharmacy's name.
+  await open('3 Oct')
+  await sheet.getByRole('button', { name: 'For: Riya' }).click()
+  await expect(forSheet.getByRole('radio', { name: /All payments to EXAMPLE PHARMACY LEICESTER/ })).toBeChecked()
+  await forSheet.getByRole('radio', { name: 'Only this payment' }).check()
+  await forSheet.getByRole('radio', { name: 'Nobody in particular' }).click()
+  await expect(sheet.getByRole('button', { name: '+ Who was it for?' })).toBeVisible()
+  await sheet.getByRole('button', { name: 'Close' }).click()
+  await expect(who.locator('summary')).toHaveText(['Riya 2 payments £9.98', 'Nobody in particular 2 payments £25.00'])
+
+  // A name opens to its payments; the search finds it; the year has it; it is kept.
+  await who.locator('summary', { hasText: 'Riya' }).click()
+  await expect(who.locator('details', { hasText: 'Riya' }).locator('.acc-lines li')).toHaveText([/^Thu,? 15 Oct ?Out of Lloyds[^£]*£4\.99$/, /^Wed,? 7 Oct ?Out of Lloyds[^£]*£4\.99$/])
+  await page.getByRole('searchbox', { name: 'Search every payment' }).fill('riya')
+  await expect(page.getByRole('region', { name: '2026' })).toContainText('2 payments · £9.98')
+  await page.goto('./#/money/2026')
+  await expect(page.getByRole('region', { name: 'Who it was for' }).locator('summary')).toHaveText(['Riya 2 payments £9.98', 'Nobody in particular 2 payments £25.00'])
+  await page.reload()
+  await expect(page.getByRole('region', { name: 'Who it was for' }).locator('summary')).toHaveText(['Riya 2 payments £9.98', 'Nobody in particular 2 payments £25.00'])
+})
+
 test('a card payment with its receipt opens the receipt', async ({ page }, testInfo) => {
   const now = new Date(2026, 8, 30, 12, 0)
   await page.clock.setFixedTime(now)

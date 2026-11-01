@@ -5,6 +5,8 @@ import {
   averageOfComplete,
   committedOf,
   joinMoves,
+  type ForGroup,
+  type ForGroups,
   type KindGroup,
   kindOf,
   mayBeOwn,
@@ -381,6 +383,7 @@ function SpendingMonth({ its }: { its: Its }) {
           <Groups of={its.kinds} line={(g: KindGroup) => <KindRow key={g.kind} group={g} totalOut={its.out} />} fewer="Fewer than 3 payments, by name" />
         </Block>
       ) : null}
+      {its.forWho ? <ForBlock who={its.forWho} /> : null}
       {its.outLines.length ? (
         <Block id="acc-money-out" title="Money out">
           <Groups of={its.payees.out} line={(g: PayeeGroup) => <PayeeRow key={g.payee.key} group={g} out />} fewer="Fewer than 3 payments, by name" />
@@ -566,6 +569,29 @@ function Chart({ lines, statements, closed, month, today }: { lines: readonly Mo
         </button>
       </nav>
     </>
+  )
+}
+
+/** Who it was for (v0.20.38): money out by the name you filed it under, each opening to its payments; what no name was
+ *  given to last. */
+export function ForBlock({ who }: { who: ForGroups }) {
+  return (
+    <Block title="Who it was for">
+      <Groups of={who} line={(g: ForGroup) => <ForRow key={g.who} group={g} />} fewer="Fewer than 3 payments, by name" />
+      {who.nobody ? (
+        <ul className="acc-list">
+          <ForRow group={who.nobody} />
+        </ul>
+      ) : null}
+    </Block>
+  )
+}
+
+function ForRow({ group }: { group: ForGroup }) {
+  return (
+    <Item title={group.who} sub={paymentsWord(group.lines.filter((l) => !l.refund).length)} value={pounds(group.total)}>
+      <LineList lines={group.lines} />
+    </Item>
   )
 }
 

@@ -82,7 +82,7 @@ test('Money’s month and year pages, with payments in, show no rating, score or
     payment('employer', '2026-10-20', 150000, 'EXAMPLE EMPLOYER', 10, 246603),
   ]
   const statements = [{ id: 'a', account: 'Lloyds ···4321', from: '2026-01-01', to: '2026-10-22', lines: 4, createdAt: 1, updatedAt: 1 }]
-  await restoreBackup(page, testInfo.outputPath('money.json'), backupWith({ bankLines, statements }, THURSDAY))
+  await restoreBackup(page, testInfo.outputPath('money.json'), backupWith({ bankLines, statements, settings: [{ key: 'payeeFor', value: { 'example streaming': 'Home' }, updatedAt: 1 }] }, THURSDAY))
 
   await page.goto('./#/money')
   await expect(page.getByText('more in than out so far')).toBeVisible()
@@ -90,5 +90,7 @@ test('Money’s month and year pages, with payments in, show no rating, score or
   await page.goto('./#/money/2026')
   await expect(page.getByRole('heading', { level: 1, name: '2026' })).toBeVisible()
   await expect(page.getByRole('region', { name: 'At each month’s end' })).toBeVisible()
+  // A name filed under: money out by who it was for, counts and amounts only.
+  await expect(page.getByRole('region', { name: 'Who it was for' })).toContainText('Home')
   await expectNoScores(page, 'Money, the year')
 })
