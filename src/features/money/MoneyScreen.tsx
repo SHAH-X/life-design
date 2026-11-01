@@ -21,7 +21,8 @@ import {
   unmatchReceiptPayment,
 } from '../../db/statements'
 import { classify, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, nameOf, type Payee, type PayeeGroup, receiptPaymentCandidates } from '../../domain/money'
-import { inWords, type KnownReceipt, money, paid, receiptsAndCopies, shoppingMonth, shoppingMonths } from '../../domain/shopping'
+import { inWords, type KnownReceipt, money, paid, receiptsAndCopies, rememberedKindsOf, shoppingMonth, shoppingMonths } from '../../domain/shopping'
+import { ITEM_KINDS_SETTING } from '../../db/receiptItems'
 import { monthYear, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { Loading } from '../../ui/Loading'
@@ -56,6 +57,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const kinds = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYEE_KINDS)), [])
   // What you wrote on a payment before v0.20.36 is its name (`labelsOf`).
   const notes = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYMENT_NOTES)), [])
+  const remembered = useLiveQuery(async () => rememberedKindsOf((await db.settings.get(ITEM_KINDS_SETTING))?.value), [])
   const receiptReviews = useLiveQuery(async () => receiptReviewState((await db.settings.get(RECEIPT_REVIEWS))?.value), [])
   const [payment, setPayment] = useState<{ line: MoneyLine; way: string; group?: PayeeGroup } | null>(null)
   const [kindFor, setKindFor] = useState<PayeeGroup | null>(null)
@@ -78,14 +80,14 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
     if (legacyView) setView(legacyView)
   }, [legacyView])
   // Render only once loaded, so nothing jumps under your finger.
-  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || paymentNames === undefined || kinds === undefined || notes === undefined || receiptReviews === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
+  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || paymentNames === undefined || kinds === undefined || notes === undefined || remembered === undefined || receiptReviews === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
 
   const byId = new Map(entries.map((e) => [e.id, e]))
   const openEntry = (receipt: KnownReceipt) => {
     const entry = byId.get(receipt.entryId)
     if (entry) setSheet({ kind: 'open', entry })
   }
-  const { receipts, copies, refunds } = receiptsAndCopies(entries)
+  const { receipts, copies, refunds } = receiptsAndCopies(entries, remembered)
   // A receipt opens to its items; an extra copy, counted nowhere, opens its entry, where it can be deleted.
   const copyIds = new Set(copies.map((c) => c.copy.id))
   const open = (receipt: KnownReceipt) => (copyIds.has(receipt.id) ? openEntry(receipt) : setReceiptId(receipt.id))

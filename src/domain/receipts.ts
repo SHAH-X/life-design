@@ -7,8 +7,8 @@
 // the back of the paper as the first line, an order's collection day).
 
 /** What an item is, as your AI sorts it while it reads a receipt (Shopping, v0.19). Kinds change only by the owner's
- *  choice (v0.19.2 added Clothes and shoes), never renamed, so months stay comparable; the phone's reading gives none. */
-export const ITEM_KINDS = ['Fruit and veg', 'Meat and fish', 'Dairy and eggs', 'Bread and bakery', 'Cupboard', 'Frozen', 'Drinks', 'Snacks and sweets', 'Alcohol', 'Household', 'Toiletries and health', 'Clothes and shoes', 'Other'] as const
+ *  choice (v0.19.2 added Clothes and shoes; v0.20.37 Baby and toddler), never renamed, so months stay comparable; the phone's reading gives none. */
+export const ITEM_KINDS = ['Fruit and veg', 'Meat and fish', 'Dairy and eggs', 'Bread and bakery', 'Cupboard', 'Frozen', 'Drinks', 'Snacks and sweets', 'Alcohol', 'Household', 'Toiletries and health', 'Baby and toddler', 'Clothes and shoes', 'Other'] as const
 export type ItemKind = (typeof ITEM_KINDS)[number]
 
 export interface ReceiptItem {

@@ -15,6 +15,7 @@ export const AI_READING_INSTRUCTIONS = [
   'Each line bought is an item at the price it shows (for "2 @ 1.50 3.00", one item: quantity 2, price "3.00"). A saving or discount is an item with a negative price. Payment, change, gift card, balance and points lines are not items.',
   'Give each item a plain name too: what it most likely is, in plain words ("GRK YOG 4PK" is "Greek yoghurt, 4 pack"); if you are not sure, the name as printed, adding nothing.',
   `Give each item the kind it most likely is, written exactly as one of: ${ITEM_KINDS.join(', ')}. If you are not sure, Other.`,
+  'Baby and toddler is for infant formula and baby milk, baby food, nappies, wipes and anything made for a baby or toddler, even when it is food or a toiletry.',
   'If it is not a receipt, reply: {"receipt": false, "description": "what the photo shows, in one sentence", "text": "what is printed on it, as Markdown"}.',
   'In that Markdown, keep the words as printed and laid out as they are: a heading as a # heading, a list as - items, a table as a Markdown table, and code in a ``` block named by its language, its lines and indents exactly as printed. Leave out what you cannot read.',
   'For a chart, the description says what it charts (its title, what is measured, the period, the kind of chart), and "text" gives only the values printed on it (axis labels, prices, dates, a legend), each as printed.',

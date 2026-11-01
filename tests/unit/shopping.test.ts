@@ -11,6 +11,8 @@ import {
   paid,
   receiptsAndCopies,
   receiptsOf,
+  rememberedKey,
+  rememberedKindsOf,
   returnedOn,
   shopKey,
   shoppingMonth,
@@ -475,5 +477,54 @@ describe('monthTotals and shoppingMonths', () => {
 
   it('lists the months with receipts, newest first', () => {
     expect(shoppingMonths(RECEIPTS)).toEqual(['2026-10', '2026-09'])
+  })
+})
+
+describe('a kind you chose is remembered for that item at that shop (v0.20.37)', () => {
+  const FORMULA = 'EXAMPLE INFANT MILK 800G'
+  const read = (shop: string, date: string, items: [name: string, kind: ItemKind][]) => ({
+    by: 'Gemini · gemini-test',
+    at: 1,
+    text: '',
+    description: '',
+    version: 2,
+    receipt: { shop, date, currency: '£', items: items.map(([name, kind]) => ({ name, price: 1000, quantity: 1, kind })), total: items.length * 1000 },
+  })
+  const entry = (id: string, createdAt: number, shop: string, date: string, items: [string, ItemKind][], changes?: { key: string; kind: ItemKind }[]): Entry => ({
+    ...areaEntry({ id, text: '', expect: [] }, '2026-10-24'),
+    createdAt,
+    photos: [{ id: `p-${id}`, text: null, ai: read(shop, date, items), ...(changes ? { items: changes } : {}) }],
+  })
+  const entries = [
+    entry('e1', 1, 'Tesco Express', '2026-10-03', [[FORMULA, 'Dairy and eggs'], ['Semi milk', 'Dairy and eggs']]),
+    entry('e2', 2, 'TESCO', '2026-10-10', [[FORMULA, 'Dairy and eggs']]),
+    entry('e3', 3, 'ASDA', '2026-10-11', [[FORMULA, 'Dairy and eggs']]),
+    // Chosen on this receipt alone: that wins over what is remembered.
+    entry('e4', 4, 'Tesco', '2026-10-12', [[FORMULA, 'Dairy and eggs']], [{ key: `${FORMULA}#1`, kind: 'Drinks' }]),
+  ]
+  const kindsAt = (remembered: Record<string, ItemKind>) => receiptsAndCopies(entries, remembered).receipts.map((r) => [r.shop, r.items.map((i) => i.kind)])
+
+  it('files that item at that shop under it on every receipt, and no other item or shop', () => {
+    expect(kindsAt({ [rememberedKey('Tesco', FORMULA)]: 'Baby and toddler' })).toEqual([
+      ['Tesco Express', ['Baby and toddler', 'Dairy and eggs']],
+      ['TESCO', ['Baby and toddler']],
+      ['ASDA', ['Dairy and eggs']],
+      ['Tesco', ['Drinks']],
+    ])
+  })
+  it('leaves what your AI said when nothing is remembered', () => {
+    expect(kindsAt({})).toEqual([['Tesco Express', ['Dairy and eggs', 'Dairy and eggs']], ['TESCO', ['Dairy and eggs']], ['ASDA', ['Dairy and eggs']], ['Tesco', ['Drinks']]])
+  })
+  it('knows a chain by its name and an item by its words, whatever the capitals and spaces', () => {
+    expect(rememberedKey('Tesco Express', FORMULA)).toBe(rememberedKey('TESCO', ` ${FORMULA.toLowerCase().replace('milk', 'milk ')}`))
+    expect(rememberedKey('ASDA', FORMULA)).not.toBe(rememberedKey('Tesco', FORMULA))
+  })
+  it('reads only kinds from the list', () => {
+    expect(rememberedKindsOf({ a: 'Baby and toddler', b: 'Nonsense', c: 3 })).toEqual({ a: 'Baby and toddler' })
+    expect(rememberedKindsOf(undefined)).toEqual({})
+    expect(rememberedKindsOf(['Baby and toddler'])).toEqual({})
+  })
+  it('is the same in Ask, which reads the same receipts', () => {
+    expect(receiptsOf(entries, { [rememberedKey('Tesco', FORMULA)]: 'Baby and toddler' })[0]!.items[0]!.kind).toBe('Baby and toddler')
   })
 })

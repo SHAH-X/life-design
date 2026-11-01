@@ -1,7 +1,9 @@
+import { useLiveQuery } from 'dexie-react-hooks'
 import { type ReactNode, useId, useState } from 'react'
-import { changeItem } from '../../db/receiptItems'
+import { db } from '../../db/db'
+import { changeItem, ITEM_KINDS_SETTING, rememberItemKind } from '../../db/receiptItems'
 import { ITEM_KINDS, itemShown, paidFor, type ReceiptItem } from '../../domain/receipts'
-import { givenBack, itemKeys, type KnownReceipt, money, paid, returnedOn, spentOn } from '../../domain/shopping'
+import { givenBack, itemKeys, type KnownReceipt, money, paid, rememberedKey, rememberedKindsOf, returnedOn, spentOn } from '../../domain/shopping'
 import { dayMonthLong } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
 
@@ -127,12 +129,28 @@ function ItemText({ item, currency }: { item: ReceiptItem; currency: string }) {
   )
 }
 
-/** One item: whether you returned it, and what kind it is. Each tap is kept, and goes back to the receipt. */
+/** One item: whether you returned it, and what kind it is. Each tap is kept, and goes back to the receipt. A kind you
+ *  choose is kept for this item at this shop, on every receipt (v0.20.37); where no shop was read, for this receipt only. */
 function ItemSheet(props: { receipt: KnownReceipt; item: ReceiptItem; itemKey: string; onClose: () => void }) {
   const { receipt, item, itemKey, onClose } = props
   const name = useId()
+  const shop = receipt.shop.trim()
+  const kept = useLiveQuery(async () => rememberedKindsOf((await db.settings.get(ITEM_KINDS_SETTING))?.value), [])
+  const mine = Boolean(kept?.[rememberedKey(shop, item.name)])
   const save = async (change: Parameters<typeof changeItem>[3]) => {
     await changeItem(receipt.entryId, receipt.id, itemKey, change)
+    onClose()
+  }
+  const choose = async (kind: (typeof ITEM_KINDS)[number]) => {
+    if (!shop) return save({ kind })
+    // Kept for the item at its shop, so this receipt follows it: a choice of its own would stop it following a later one.
+    await changeItem(receipt.entryId, receipt.id, itemKey, { kind: null })
+    await rememberItemKind(shop, item.name, kind)
+    onClose()
+  }
+  const backToAi = async () => {
+    await changeItem(receipt.entryId, receipt.id, itemKey, { kind: null })
+    await rememberItemKind(shop, item.name, null)
     onClose()
   }
   return (
@@ -155,13 +173,22 @@ function ItemSheet(props: { receipt: KnownReceipt; item: ReceiptItem; itemKey: s
       <div role="radiogroup" aria-labelledby={`${name}-kind`} className="purpose-list">
         {ITEM_KINDS.map((kind) => (
           <label key={kind} className="purpose-option">
-            <input type="radio" name={name} value={kind} checked={item.kind === kind} onChange={() => void save({ kind })} />
+            <input type="radio" name={name} value={kind} checked={item.kind === kind} onChange={() => void choose(kind)} />
             <span className="purpose-text">
               <span className="purpose-label">{kind}</span>
             </span>
           </label>
         ))}
+        {mine ? (
+          <label className="purpose-option">
+            <input type="radio" name={name} value="" checked={false} onChange={() => void backToAi()} />
+            <span className="purpose-text">
+              <span className="purpose-label">Back to the AI’s guess</span>
+            </span>
+          </label>
+        ) : null}
       </div>
+      {shop ? <p className="muted small">Later receipts with this item at {shop} follow it.</p> : null}
     </Dialog>
   )
 }

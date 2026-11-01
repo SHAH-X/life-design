@@ -46,8 +46,12 @@ describe('AI_READING_INSTRUCTIONS: how the AI is asked to read a photo', () => {
 
   it('gives every kind from the fixed list, and Other when unsure', () => {
     expect(AI_READING_INSTRUCTIONS).toContain(
-      'Give each item the kind it most likely is, written exactly as one of: Fruit and veg, Meat and fish, Dairy and eggs, Bread and bakery, Cupboard, Frozen, Drinks, Snacks and sweets, Alcohol, Household, Toiletries and health, Clothes and shoes, Other. If you are not sure, Other.',
+      'Give each item the kind it most likely is, written exactly as one of: Fruit and veg, Meat and fish, Dairy and eggs, Bread and bakery, Cupboard, Frozen, Drinks, Snacks and sweets, Alcohol, Household, Toiletries and health, Baby and toddler, Clothes and shoes, Other. If you are not sure, Other.',
     )
+  })
+
+  it('says what goes under Baby and toddler, so infant formula is not filed as dairy (v0.20.37)', () => {
+    expect(AI_READING_INSTRUCTIONS).toContain('Baby and toddler is for infant formula and baby milk, baby food, nappies, wipes and anything made for a baby or toddler, even when it is food or a toiletry.')
   })
 
   it('asks for the day it was bought, never a refund, expiry, collection or delivery day', () => {

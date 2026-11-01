@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { expect, type Page, type TestInfo, test } from '@playwright/test'
+import { BACKUP_SCHEMA_VERSION } from '../../src/db/backup'
 import { addEntry, captureBox, entryButton, eveningQuestion, smallJoy, useDownloadsInsteadOfShareSheet } from './helpers'
 
 // Fictional example data.
@@ -57,7 +58,7 @@ test('back up, delete everything, then restore it all', async ({ page }, testInf
 
   const file = await backUp(page, testInfo)
   const backup = JSON.parse(await readFile(file, 'utf8'))
-  expect(backup).toMatchObject({ app: 'life-design', kind: 'backup', schemaVersion: 11 })
+  expect(backup).toMatchObject({ app: 'life-design', kind: 'backup', schemaVersion: BACKUP_SCHEMA_VERSION })
   expect(backup.data.entries).toHaveLength(2)
   expect(backup.data.entries.map((e: { during: string[]; energyEffect: string }) => [e.during, e.energyEffect])).toContainEqual([['Absorbed', 'Time flew'], 'gave'])
   expect(backup.data.days).toHaveLength(1)

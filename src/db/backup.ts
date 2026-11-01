@@ -19,7 +19,7 @@ export const APP_ID = 'life-design'
  * restore (their next steps become steps); newer ones are refused by older app versions. The AI key never goes into a
  * backup.
  */
-export const BACKUP_SCHEMA_VERSION = 11
+export const BACKUP_SCHEMA_VERSION = 12
 
 /** Settings that never leave the phone, not even inside a backup: the AI keys (for Ask and reviews, and for photos),
  *  and whether search by meaning and reading photos are on (their downloads are this phone's: a phone restored to
