@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges, moneyYear, monthEndBalances, monthCoverage, averageOfComplete, searchPayments, paymentYears, nameOf, labelsOf } from '../../src/domain/money'
+import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges, moneyYear, monthEndBalances, monthCoverage, averageOfComplete, searchPayments, paymentYears, nameOf, labelsOf, withFor, forNamesOf, suggestedPeople, NOBODY } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
@@ -786,6 +786,62 @@ describe('monthCoverage: which months have every statement in (v0.20.32: the cha
       expect(averageOfComplete(totals, covered('2026-08'))).toBeNull()
       expect(averageOfComplete(totals, covered())).toBeNull()
     })
+  })
+})
+
+describe('Who it was for: a name on a payee’s payments or on one payment (v0.20.38)', () => {
+  const PHARMACY = 'EXAMPLE PHARMACY LEICESTER'
+  const bought = [
+    line(BANK, '2026-10-03', -5, PHARMACY),
+    line(BANK, '2026-10-07', -4.99, PHARMACY),
+    line(BANK, '2026-10-15', -4.99, PHARMACY),
+    line(BANK, '2026-10-16', -12, 'EXAMPLE TOY SHOP'),
+    line(BANK, '2026-10-20', -20, 'EXAMPLE GROCER'),
+    line(BANK, '2026-10-21', -30, 'EXAMPLE GROCER'),
+    line(BANK, '2026-10-22', -40, 'EXAMPLE GROCER'),
+    line(BANK, '2026-10-23', 4.99, `Refund for ${PHARMACY}`),
+    line(BANK, '2026-10-24', -100, 'MY OWN SAVINGS'),
+  ]
+  const [first, second, third, toy, g1] = classify(bought, new Set(['my own savings']))
+  const key = first!.payee.key
+  const filed = (payeeFor: Record<string, string>, paymentFor: Record<string, string> = {}) => withFor(classify(bought, new Set(['my own savings'])), payeeFor, paymentFor)
+  const whoOf = (lines: readonly { forWho?: string }[]) => lines.map((l) => l.forWho)
+
+  it('files a shop’s payments under a name, earlier and later ones too; a payment’s own name beats it, and "" says nobody', () => {
+    const lines = filed({ [key]: 'Riya' }, { [second!.id]: 'Home', [third!.id]: '' })
+    expect(whoOf(lines.slice(0, 3))).toEqual(['Riya', 'Home', undefined])
+    expect(lines[3]!.forWho).toBeUndefined()
+  })
+  it('groups money out by name: 3 or more payments ranked by amount, the rest by name, nobody apart; a refund takes off', () => {
+    const lines = filed({ [key]: 'Riya', [g1!.payee.key]: 'Home' })
+    const month = moneyMonth(lines, '2026-10', '2026-10-27', [])
+    const who = month.forWho!
+    // Riya: 5.00 + 4.99 + 4.99 less the 4.99 back; Home: 20 + 30 + 40.
+    expect(who.ranked.map((g) => [g.who, g.total, g.lines.filter((l) => !l.refund).length])).toEqual([['Home', 9000, 3], ['Riya', 999, 3]])
+    expect(who.others).toEqual([])
+    // The toy shop is nobody in particular; money moved is in nothing.
+    expect(who.nobody).toMatchObject({ who: NOBODY, total: 1200 })
+    expect(who.nobody!.lines.map((l) => l.payee.name)).toEqual(['EXAMPLE TOY SHOP'])
+  })
+  it('lists fewer than 3 payments by name, and has no block until something is filed', () => {
+    const lines = filed({}, { [toy!.id]: 'Sam', [first!.id]: 'Riya' })
+    const who = moneyMonth(lines, '2026-10', '2026-10-27', []).forWho!
+    expect(who.ranked.map((g) => g.who)).toEqual([])
+    expect(who.others.map((g) => g.who)).toEqual(['Riya', 'Sam'])
+    expect(moneyMonth(filed({}), '2026-10', '2026-10-27', []).forWho).toBeNull()
+    expect(moneyYear(filed({}), '2026', '2026-10-27', [], new Set()).forWho).toBeNull()
+  })
+  it('is in the year too', () => {
+    const year = moneyYear(filed({ [key]: 'Riya' }), '2026', '2026-10-27', [], new Set()).forWho!
+    expect(year.others.concat(year.ranked).map((g) => g.who)).toEqual(['Riya'])
+  })
+  it('is found by a search', () => {
+    expect(searchPayments(filed({ [key]: 'Riya' }), 'riya').map((l) => l.date)).toEqual(['2026-10-23', '2026-10-15', '2026-10-07', '2026-10-03'])
+  })
+  it('offers the names in use, then the people in your entries who are not', () => {
+    expect(forNamesOf({ a: 'Sam', b: 'Riya' }, { c: 'sam', d: '', e: 'Home' })).toEqual(['Home', 'Riya', 'Sam'])
+    expect(suggestedPeople(['Priya', 'riya', 'Priya', ' ', 'Asha', 'Priya', 'Asha'], ['Riya'])).toEqual(['Priya', 'Asha'])
+    expect(suggestedPeople(['A', 'B', 'C'], [], 2)).toEqual(['A', 'B'])
   })
 })
 

@@ -4,7 +4,7 @@ import { type BalanceMonth, committedOf, type KindGroup, type MoneyLine, monthEn
 import { formatPeriod, monthName, monthYear } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { BalanceChart } from '../../ui/charts/BalanceChart'
-import { Block, Groups, Item, KindRow, LineList, PayeeRow, paymentsWord, pounds, resultWords } from './AccountsMonth'
+import { Block, ForBlock, Groups, Item, KindRow, LineList, PayeeRow, paymentsWord, pounds, resultWords } from './AccountsMonth'
 import { useMoney } from './MoneyContext'
 
 // The year of your accounts (v0.20.27, #/money/2026): the same figures as a month, over the months you've brought in,
@@ -118,6 +118,7 @@ export function AccountsYear(props: {
           <Groups of={its.kinds} line={(g: KindGroup) => <KindRow key={g.kind} group={g} totalOut={its.out} />} fewer="Fewer than 3 payments, by name" />
         </Block>
       ) : null}
+      {its.forWho ? <ForBlock who={its.forWho} /> : null}
       {biggest.length ? (
         <Block title="Biggest payees" status={its.payees.out.ranked.length > BIGGEST ? `The ${BIGGEST} biggest, paid 3 times or more` : 'Paid 3 times or more, biggest first'}>
           <ul className="acc-list">

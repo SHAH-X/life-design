@@ -1,5 +1,5 @@
-import { useId } from 'react'
-import { setPayeeKind } from '../../db/statements'
+import { useId, useState } from 'react'
+import { filePayment, setPayeeKind } from '../../db/statements'
 import { type MoneyLine, nameOf, PAYMENT_KINDS } from '../../domain/money'
 import { money } from '../../domain/shopping'
 import { dayMonthLong } from '../../lib/dates'
@@ -40,6 +40,78 @@ export function KindSheet(props: { payeeKey: string; payee: string; chosen: stri
   )
 }
 
+/** Who a payment was for (v0.20.38): a name in use, one from your entries, or a new one; for this payment alone or for all
+ *  its payee's. Choosing is saving. */
+export function ForSheet(props: { line: MoneyLine; names: string[]; suggestions: string[]; all: boolean; onClose: () => void }) {
+  const { line, names, suggestions, all, onClose } = props
+  const [scope, setScope] = useState<'one' | 'all'>(all ? 'all' : 'one')
+  const [fresh, setFresh] = useState('')
+  const scopeName = useId()
+  const listName = useId()
+  const freshId = useId()
+  const current = line.forWho ?? ''
+  const file = async (who: string) => {
+    const said = who.trim()
+    // A name you have, whatever its capitals, is that name.
+    await filePayment(line.id, line.payee.key, names.find((n) => n.toLowerCase() === said.toLowerCase()) ?? said, scope)
+    onClose()
+  }
+  return (
+    <Dialog title="Who was it for?" onClose={onClose}>
+      <div role="radiogroup" aria-label="Applies to" className="purpose-list">
+        <label className="purpose-option">
+          <input type="radio" name={scopeName} value="one" checked={scope === 'one'} onChange={() => setScope('one')} />
+          <span className="purpose-text">
+            <span className="purpose-label">Only this payment</span>
+          </span>
+        </label>
+        <label className="purpose-option">
+          <input type="radio" name={scopeName} value="all" checked={scope === 'all'} onChange={() => setScope('all')} />
+          <span className="purpose-text">
+            <span className="purpose-label">All payments to {line.payee.name}</span>
+            <span className="muted small">Earlier and later ones too</span>
+          </span>
+        </label>
+      </div>
+      <div role="radiogroup" aria-label="Who it was for" className="purpose-list top-gap">
+        {names.map((who) => (
+          <label key={who} className="purpose-option">
+            <input type="radio" name={listName} value={who} checked={current === who} onChange={() => void file(who)} />
+            <span className="purpose-text">
+              <span className="purpose-label">{who}</span>
+            </span>
+          </label>
+        ))}
+        <label className="purpose-option">
+          <input type="radio" name={listName} value="" checked={current === ''} onChange={() => void file('')} />
+          <span className="purpose-text">
+            <span className="purpose-label">Nobody in particular</span>
+          </span>
+        </label>
+      </div>
+      {suggestions.length ? (
+        <>
+          <p className="question-text top-gap">From your entries</p>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {suggestions.map((who) => (
+              <button key={who} type="button" className="small-link" onClick={() => void file(who)}>
+                {who}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+      <label className="question-text top-gap" htmlFor={freshId}>
+        A new name
+      </label>
+      <input id={freshId} value={fresh} maxLength={30} autoCapitalize="words" placeholder="e.g. Home" onChange={(e) => setFresh(e.target.value)} />
+      <button type="button" className="primary wide top-gap" disabled={!fresh.trim()} onClick={() => void file(fresh)}>
+        Add
+      </button>
+    </Dialog>
+  )
+}
+
 /** One payment: when, who, which way, and what you call it; its kind, and its receipt when there's one. */
 export function PaymentSheet(props: {
   line: MoneyLine
@@ -48,13 +120,15 @@ export function PaymentSheet(props: {
   kind?: string | null
   onKind?: (() => void) | null
   onRename?: (() => void) | null
+  /** Who it was for (v0.20.38): offered for money out. */
+  onWho?: (() => void) | null
   /** Offered for a payee that could be you moving money: says so, and the sheet closes. */
   onOwn?: (() => Promise<void>) | null
   onReceipt: (() => void) | null
   onUnlinkReceipt: (() => Promise<void>) | null
   onClose: () => void
 }) {
-  const { line, way, receiptSummary, kind, onKind, onRename, onOwn, onReceipt, onUnlinkReceipt, onClose } = props
+  const { line, way, receiptSummary, kind, onKind, onRename, onWho, onOwn, onReceipt, onUnlinkReceipt, onClose } = props
   const isRenamed = Boolean(line.payee.original && line.payee.original !== line.payee.name)
   return (
     <Dialog title={nameOf(line)} onClose={onClose}>
@@ -73,6 +147,11 @@ export function PaymentSheet(props: {
         {onKind ? (
           <button type="button" className="small-link" onClick={onKind}>
             {kind ? `Category: ${kind}` : '+ Assign category'}
+          </button>
+        ) : null}
+        {onWho ? (
+          <button type="button" className="small-link" onClick={onWho}>
+            {line.forWho ? `For: ${line.forWho}` : '+ Who was it for?'}
           </button>
         ) : null}
         {onOwn ? (

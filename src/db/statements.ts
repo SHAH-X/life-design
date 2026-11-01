@@ -104,6 +104,30 @@ export async function namePayment(lineId: string, name: string, database: LifeDe
   if (lineId in accountNamesOf(await database.settings.get(PAYMENT_NOTES))) await setSetting(PAYMENT_NOTES, notes, database)
 }
 
+/** Who a payee's payments were for (v0.20.38, owner 2026-11-01: what goes on one person), by the payee's key, and who one
+ *  payment was for, by the line's id: settings, so in backups. Read with `accountNamesOf`; laid over the lines by
+ *  `withFor` (src/domain/money.ts), a payment's own over its payee's, and "" says nobody in particular. */
+export const PAYEE_FOR = 'payeeFor'
+export const PAYMENT_FOR = 'paymentFor'
+
+/** Files a payment under a name (blank: nobody in particular): for all its payee's payments, or for itself alone. For all,
+ *  this payment follows its payee again, and another that has a name of its own keeps it. Alone, a name the payee has
+ *  already is nothing more to keep, and nobody is kept only over a payee that has a name. */
+export async function filePayment(lineId: string, payeeKey: string, who: string, scope: 'all' | 'one', database: LifeDesignDB = defaultDb): Promise<void> {
+  const name = who.trim()
+  await database.transaction('rw', database.settings, async () => {
+    const payees = accountNamesOf(await database.settings.get(PAYEE_FOR))
+    const { [lineId]: _, ...others } = accountNamesOf(await database.settings.get(PAYMENT_FOR))
+    if (scope === 'all') {
+      const { [payeeKey]: __, ...rest } = payees
+      await setSetting(PAYEE_FOR, name ? { ...rest, [payeeKey]: name } : rest, database)
+      await setSetting(PAYMENT_FOR, others, database)
+    } else {
+      await setSetting(PAYMENT_FOR, name === (payees[payeeKey] ?? '') ? others : { ...others, [lineId]: name }, database)
+    }
+  })
+}
+
 /** Takes an account out wholly (owner, 2026-10-26: a statement read wrongly): its lines, its statements and your name
  *  for it. Bringing its statements in again puts it back. */
 export async function removeAccount(account: string, database: LifeDesignDB = defaultDb): Promise<void> {

@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { createBackup } from '../../src/db/backup'
-import { ACCOUNT_NAMES, accountNamesOf, bringInStatement, markClosed, markOwnPayee, nameAccount, namePayment, PAYMENT_NAMES, CLOSED_ACCOUNTS, matchReceiptPayment, PAYEE_KINDS, PAYMENT_NOTES, RECEIPT_REVIEWS, receiptReviewState, setPayeeKind, namePayee, removeAccount, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES, unmatchReceiptPayment } from '../../src/db/statements'
+import { ACCOUNT_NAMES, accountNamesOf, bringInStatement, markClosed, markOwnPayee, nameAccount, namePayment, PAYMENT_NAMES, filePayment, PAYEE_FOR, PAYMENT_FOR, CLOSED_ACCOUNTS, matchReceiptPayment, PAYEE_KINDS, PAYMENT_NOTES, RECEIPT_REVIEWS, receiptReviewState, setPayeeKind, namePayee, removeAccount, OWN_PAYEES, ownPayeesOf, PAYEE_NAMES, unmatchReceiptPayment } from '../../src/db/statements'
 import { readStatement, type StatementAccount } from '../../src/domain/statements'
 import { piecesOf } from '../fixtures/pdf'
 import { LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
@@ -165,6 +165,26 @@ describe('bringInStatement: a statement’s lines kept on the phone, each once',
     expect(accountNamesOf(await phone.settings.get(PAYEE_NAMES))).toEqual({ 'example pharmacy': 'The pharmacy' })
     const backup = await createBackup(phone, new Date('2026-11-01T12:00:00Z'))
     expect(backup.data.settings.find((row) => row.key === 'paymentNames')?.value).toEqual({ l1: 'Fever medicine' })
+  })
+
+  it('files a payment under a name for all its shop’s payments or for itself alone, and takes it back (v0.20.38)', async () => {
+    const payee = async () => accountNamesOf(await phone.settings.get(PAYEE_FOR))
+    const payment = async () => accountNamesOf(await phone.settings.get(PAYMENT_FOR))
+    await filePayment('l1', 'shop', 'Riya', 'all', phone)
+    expect([await payee(), await payment()]).toEqual([{ shop: 'Riya' }, {}])
+    // Alone: a different name is its own; the same name as the shop's is nothing more to keep.
+    await filePayment('l2', 'shop', 'Home', 'one', phone)
+    await filePayment('l3', 'shop', 'Riya', 'one', phone)
+    expect([await payee(), await payment()]).toEqual([{ shop: 'Riya' }, { l2: 'Home' }])
+    // Nobody in particular, alone: over the shop's name, and only while the shop has one.
+    await filePayment('l4', 'shop', '', 'one', phone)
+    await filePayment('l5', 'other', '', 'one', phone)
+    expect(await payment()).toEqual({ l2: 'Home', l4: '' })
+    // For all again: this payment follows the shop; another's own name stays.
+    await filePayment('l2', 'shop', 'Sam', 'all', phone)
+    expect([await payee(), await payment()]).toEqual([{ shop: 'Sam' }, { l4: '' }])
+    await filePayment('l9', 'shop', '', 'all', phone)
+    expect(await payee()).toEqual({})
   })
 
   it('counts the lines whose printed balance doesn’t follow, to check', async () => {

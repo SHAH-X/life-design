@@ -14,13 +14,15 @@ import {
   namePayment,
   OWN_PAYEES,
   ownPayeesOf,
+  PAYEE_FOR,
   PAYEE_NAMES,
+  PAYMENT_FOR,
   PAYMENT_NAMES,
   RECEIPT_REVIEWS,
   receiptReviewState,
   unmatchReceiptPayment,
 } from '../../db/statements'
-import { classify, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, nameOf, type Payee, type PayeeGroup, receiptPaymentCandidates } from '../../domain/money'
+import { classify, forNamesOf, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, nameOf, type Payee, type PayeeGroup, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
 import { inWords, type KnownReceipt, money, paid, receiptsAndCopies, rememberedKindsOf, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { ITEM_KINDS_SETTING } from '../../db/receiptItems'
 import { monthYear, toDateKey } from '../../lib/dates'
@@ -35,7 +37,7 @@ import { AccountsYear } from './AccountsYear'
 import { MoneyContext } from './MoneyContext'
 import { ReceiptsMonth, ReceiptsShare, receiptsWord } from './Receipts'
 import { StatementImport } from './StatementImport'
-import { KindSheet, PaymentSheet } from './PaymentSheets'
+import { ForSheet, KindSheet, PaymentSheet } from './PaymentSheets'
 import { ReceiptSheet } from './ReceiptSheet'
 import { useAccountNames } from './useAccountNames'
 
@@ -54,6 +56,8 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const closed = useLiveQuery(async () => new Set(ownPayeesOf(await db.settings.get(CLOSED_ACCOUNTS))), [])
   const payeeNames = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYEE_NAMES)), [])
   const paymentNames = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYMENT_NAMES)), [])
+  const payeeFor = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYEE_FOR)), [])
+  const paymentFor = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYMENT_FOR)), [])
   const kinds = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYEE_KINDS)), [])
   // What you wrote on a payment before v0.20.36 is its name (`labelsOf`).
   const notes = useLiveQuery(async () => accountNamesOf(await db.settings.get(PAYMENT_NOTES)), [])
@@ -62,6 +66,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const [payment, setPayment] = useState<{ line: MoneyLine; way: string; group?: PayeeGroup } | null>(null)
   const [kindFor, setKindFor] = useState<PayeeGroup | null>(null)
   const [renaming, setRenaming] = useState<Payee | null>(null)
+  const [whoFor, setWhoFor] = useState<MoneyLine | null>(null)
   // The payment whose sheet the rename was opened from: it may be named alone, which a payee's row can't offer.
   const [renamingLine, setRenamingLine] = useState<MoneyLine | null>(null)
   const [importing, setImporting] = useState(false)
@@ -80,7 +85,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
     if (legacyView) setView(legacyView)
   }, [legacyView])
   // Render only once loaded, so nothing jumps under your finger.
-  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || paymentNames === undefined || kinds === undefined || notes === undefined || remembered === undefined || receiptReviews === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
+  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || paymentNames === undefined || payeeFor === undefined || paymentFor === undefined || kinds === undefined || notes === undefined || remembered === undefined || receiptReviews === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
 
   const byId = new Map(entries.map((e) => [e.id, e]))
   const openEntry = (receipt: KnownReceipt) => {
@@ -93,7 +98,8 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const open = (receipt: KnownReceipt) => (copyIds.has(receipt.id) ? openEntry(receipt) : setReceiptId(receipt.id))
   // A refund slip (v0.20.20) opens the same way; it's counted nowhere.
   const openReceipt = receiptId ? [...receipts, ...refunds].find((r) => r.id === receiptId) : undefined
-  const lines = classify(bankLines, new Set(own), payeeNames, labelsOf(notes, paymentNames))
+  const lines = withFor(classify(bankLines, new Set(own), payeeNames, labelsOf(notes, paymentNames)), payeeFor, paymentFor)
+  const forNames = forNamesOf(payeeFor, paymentFor)
   const links = linkReceipts(lines, receipts, receiptReviews.paymentLinks)
   const receiptReasons = receiptReviews.paymentReasons
   const manualReceiptByPayment = new Map(
@@ -213,6 +219,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             onKind={() => {
               setKindFor({ payee: shown.line.payee, total: Math.abs(shown.line.amount), lines: [shown.line] })
             }}
+            onWho={!shown.line.moving && (shown.line.amount < 0 || shown.line.refund) ? () => setWhoFor(shown.line) : null}
             onRename={() => {
               setRenamingLine(shown.line)
               setRenaming(shown.line.payee)
@@ -242,6 +249,15 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
               : null
             }
             onClose={() => setPayment(null)}
+          />
+        ) : null}
+        {whoFor ? (
+          <ForSheet
+            line={whoFor}
+            names={forNames}
+            suggestions={suggestedPeople(entries.flatMap((e) => e.people), forNames)}
+            all={whoFor.payee.key in payeeFor && !(whoFor.id in paymentFor)}
+            onClose={() => setWhoFor(null)}
           />
         ) : null}
         {kindFor ? (

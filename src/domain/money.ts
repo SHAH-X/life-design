@@ -28,6 +28,41 @@ export interface MoneyLine extends BankLine {
   refund: boolean
   /** A name you gave this payment alone (v0.20.35). It's still to its payee, so groups, runs and refunds don't move. */
   label?: string
+  /** Who or what it was for (v0.20.38, `withFor`); none is nobody in particular. */
+  forWho?: string
+}
+
+/** The rest of the money out, under "Who it was for". */
+export const NOBODY = 'Nobody in particular'
+
+/** Lines with who they were for laid on: a payment's own name over its payee's, "" meaning nobody over a payee that has
+ *  one (`PAYEE_FOR`, `PAYMENT_FOR` in src/db/statements.ts). A payment is still to its payee, so nothing else moves. */
+export function withFor(lines: readonly MoneyLine[], payeeFor: Readonly<Record<string, string>>, paymentFor: Readonly<Record<string, string>>): MoneyLine[] {
+  return lines.map((line) => {
+    const who = line.id in paymentFor ? paymentFor[line.id]! : (payeeFor[line.payee.key] ?? '')
+    return who ? { ...line, forWho: who } : line
+  })
+}
+
+/** The names to choose from: those in use, each once whatever its capitals, by name. */
+export function forNamesOf(payeeFor: Readonly<Record<string, string>>, paymentFor: Readonly<Record<string, string>>): string[] {
+  const seen = new Map<string, string>()
+  for (const who of [...Object.values(payeeFor), ...Object.values(paymentFor)]) if (who.trim() && !seen.has(who.toLowerCase())) seen.set(who.toLowerCase(), who.trim())
+  return [...seen.values()].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }))
+}
+
+/** The people you've named in your entries who aren't a name yet, the most often first (ties as they came), at most `max`. */
+export function suggestedPeople(people: readonly string[], taken: readonly string[], max = 6): string[] {
+  const have = new Set(taken.map((t) => t.toLowerCase()))
+  const counts = new Map<string, { name: string; n: number }>()
+  for (const person of people) {
+    const name = person.trim()
+    if (!name || have.has(name.toLowerCase())) continue
+    const seen = counts.get(name.toLowerCase())
+    if (seen) seen.n += 1
+    else counts.set(name.toLowerCase(), { name, n: 1 })
+  }
+  return [...counts.values()].sort((a, b) => b.n - a.n).slice(0, max).map((c) => c.name)
 }
 
 /** The names of single payments, by the line's id: a note written before v0.20.36 ("What was it for?") is the name of its
@@ -225,6 +260,19 @@ export interface KindGroup {
   lines: MoneyLine[]
 }
 
+/** Money out for one name (v0.20.38). */
+export interface ForGroup {
+  who: string
+  total: number
+  lines: MoneyLine[]
+}
+
+/** Money out by who it was for: names with 3+ payments ranked by amount, the rest by name, and what no name was given
+ *  to apart, last. */
+export interface ForGroups extends Ranked<ForGroup> {
+  nobody: ForGroup | null
+}
+
 export interface PayeeGroup {
   payee: Payee
   /** In pence, money out or in as a positive amount. */
@@ -260,6 +308,8 @@ export interface MoneyMonth {
   payees: { out: Ranked<PayeeGroup>; in: Ranked<PayeeGroup> }
   /** Money out by what it was for (owner, 2026-10-26); payments with no kind last. */
   kinds: Ranked<KindGroup>
+  /** Money out by who it was for (v0.20.38); null until something is filed. */
+  forWho: ForGroups | null
   /** Money moved between your own accounts, left out, by why. */
   moved: { why: Moving; lines: MoneyLine[] }[]
   toCheck: {
@@ -283,6 +333,19 @@ function groups(lines: readonly MoneyLine[], sign: 1 | -1): Ranked<PayeeGroup> {
   return {
     ranked: all.filter((g) => g.lines.length >= MIN_COUNT).sort((a, b) => b.total - a.total),
     others: all.filter((g) => g.lines.length < MIN_COUNT).sort(byName),
+  }
+}
+
+/** Who it was for, from money out; null until something is filed under a name (the block isn't there before). */
+function forGroups(lines: readonly MoneyLine[]): ForGroups | null {
+  if (!lines.some((l) => l.forWho)) return null
+  const payments = (g: ForGroup) => g.lines.filter((l) => !l.refund).length
+  const all = groupBy(lines.filter((l) => l.forWho), (l) => l.forWho!).map((same): ForGroup => ({ who: same[0]!.forWho!, total: sumOut(same), lines: same }))
+  const rest = lines.filter((l) => !l.forWho)
+  return {
+    ranked: all.filter((g) => payments(g) >= MIN_COUNT).sort((a, b) => b.total - a.total),
+    others: all.filter((g) => payments(g) < MIN_COUNT).sort((a, b) => a.who.localeCompare(b.who, 'en', { sensitivity: 'base' })),
+    nobody: rest.length ? { who: NOBODY, total: sumOut(rest), lines: rest } : null,
   }
 }
 
@@ -352,6 +415,7 @@ export function moneyMonth(
     },
     payees: { out: groups(outLines, -1), in: groups(inLines, 1) },
     kinds: kindGroups(outLines, kinds),
+    forWho: forGroups(outLines),
     moved,
     toCheck: { lines: lines.filter((l) => !l.adds && l.date.slice(0, 7) === month), accounts },
   }
@@ -385,6 +449,8 @@ export interface MoneyYear {
   months: { first: string; last: string } | null
   payees: { out: Ranked<PayeeGroup> }
   kinds: Ranked<KindGroup>
+  /** Money out by who it was for; null until something is filed. */
+  forWho: ForGroups | null
   /** Payees paid regularly at some point, even if since stopped, with what was paid in the year; most first. */
   regular: RegularPaid[]
   /** Days with no statement inside the year (up to today), by account: left out of every figure. */
@@ -430,6 +496,7 @@ export function moneyYear(
     months: months.length ? { first: months[0]!, last: months.at(-1)! } : null,
     payees: { out: groups(outLines, -1) },
     kinds: kindGroups(outLines, kinds),
+    forWho: forGroups(outLines),
     regular,
     gaps,
   }
@@ -596,7 +663,7 @@ export function averageOfComplete(totals: readonly { month: string; out: number 
 export const MIN_SEARCH = 2
 
 /** Every line (money moved too, as it's on a statement) that a search finds, newest first (v0.20.33): the payee as you
- *  named it or as printed, your name for that payment alone, the statement's own words, or its amount,
+ *  named it or as printed, your name for that payment alone, who it was for, the statement's own words, or its amount,
  *  as far as you've typed it
  *  ("24.9" finds £24.99). */
 export function searchPayments(lines: readonly MoneyLine[], query: string): MoneyLine[] {
@@ -605,7 +672,7 @@ export function searchPayments(lines: readonly MoneyLine[], query: string): Mone
   const amountLike = /^\d+(\.\d{0,2})?$/.test(wanted)
   return lines
     .filter((l) => {
-      const words = [l.label ?? '', l.payee.name, l.payee.original ?? '', l.description].join(' ').toLowerCase()
+      const words = [l.label ?? '', l.forWho ?? '', l.payee.name, l.payee.original ?? '', l.description].join(' ').toLowerCase()
       return words.includes(wanted) || (amountLike && (Math.abs(l.amount) / 100).toFixed(2).startsWith(wanted))
     })
     .sort((a, b) => b.date.localeCompare(a.date))
