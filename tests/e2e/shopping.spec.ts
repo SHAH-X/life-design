@@ -76,7 +76,7 @@ test('Money has its own tab, receipts and all: the month so far, next to last mo
 
   // By kind: none has 3 items, so they're in the list's own order, never ranked; then what has no kind.
   const kinds = page.getByRole('region', { name: 'By kind' })
-  await expect(kinds.getByText('Items at their prices, before offers')).toBeVisible()
+  await expect(kinds.getByText('Items at what you paid, after offers')).toBeVisible()
   await expect(kinds.locator('summary')).toHaveText([
     'Fruit and veg · 2 items · £1.90',
     'Dairy and eggs · 2 items · £3.10',
@@ -149,6 +149,18 @@ test('a receipt opens to its items, each with its price and kind; you can choose
   await page.getByRole('button', { name: /Sat 3 Oct TESCO/ }).click()
   await page.getByRole('dialog', { name: 'TESCO' }).getByRole('button', { name: 'Open the entry' }).click()
   await expect(page.getByRole('dialog', { name: 'Photo' })).toBeVisible()
+})
+
+// Owner, 2026-11-01: a saving "is just amount saved on that product"; show what was paid, what it was, and the saving.
+test('a saving joins the item it follows: what was paid, what it was and what came off, never a row of its own', async ({ page }, testInfo) => {
+  await restoreReceipts(page, testInfo.outputPath('receipts.json'))
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  await line(page, '5 receipts from 3 shops').click()
+  await page.getByRole('button', { name: /Sat 10 Oct Tesco/ }).click()
+  const receipt = page.getByRole('dialog', { name: 'Tesco' })
+  await expect(receipt.getByRole('list', { name: 'Items' }).getByRole('listitem')).toHaveText(['Bananas · £0.95Fruit and veg', 'Pasta · £0.30Was £0.80 · £0.50 offCupboard'])
+  await expect(receipt.getByText('Total £1.25 · £0.50 off with offers', { exact: true })).toBeVisible()
 })
 
 test('the chart has a table and a readout, and an earlier month has its own page', async ({ page }, testInfo) => {
