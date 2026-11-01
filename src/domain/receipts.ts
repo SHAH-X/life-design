@@ -25,7 +25,15 @@ export interface ReceiptItem {
   kind?: ItemKind
   /** You took it back and had the money back (v0.20.18): it no longer counts as spent. Never a saving. */
   returned?: true
+  /** What its offer took off, in minor units (v0.20.19): the saving printed after it, joined to it (`price` stays the
+   *  shelf price; `paidFor` is what was paid). */
+  saving?: number
+  /** Its key for your changes (`itemKeys`), from before savings were joined. */
+  key?: string
 }
+
+/** What an item was paid for: its price less its offer's saving. */
+export const paidFor = (item: Pick<ReceiptItem, 'price' | 'saving'>) => item.price - (item.saving ?? 0)
 
 /** An item as it's shown: what your AI took it for, else as printed (read by the phone, or before v0.19.3). */
 export const itemShown = (item: ReceiptItem) => item.plain || item.name

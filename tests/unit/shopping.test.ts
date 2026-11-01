@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Entry } from '../../src/db/types'
 import { runTool } from '../../src/domain/ask'
-import { type ItemKind, itemShown } from '../../src/domain/receipts'
+import { type ItemKind, itemShown, paidFor } from '../../src/domain/receipts'
 import {
   amountsOf,
   inWords,
@@ -113,7 +113,7 @@ describe('your changes to a receipt’s items: a kind you chose, an item returne
         { name: 'Oat milk', price: 165, quantity: 1, kind: 'Dairy and eggs' as const },
         { name: 'Wool scarf', price: 1500, quantity: 1, kind: 'Clothes and shoes' as const },
         { name: 'Oat milk', price: 165, quantity: 1, kind: 'Dairy and eggs' as const },
-        { name: 'Saving', price: -100, quantity: 1 },
+        { name: 'Coupon', price: -100, quantity: 1 },
       ],
       total: 1730,
     },
@@ -122,7 +122,7 @@ describe('your changes to a receipt’s items: a kind you chose, an item returne
     receiptsOf([{ ...areaEntry({ id: 'e1', text: '', expect: [] }, '2026-10-12'), photos: [{ id: 'p1', text: null, ai: reading, items }] }])[0]!
 
   it('keys each item by its printed name and which time that name comes, so two alike are told apart', () => {
-    expect(itemKeys(reading.receipt.items)).toEqual(['Oat milk#1', 'Wool scarf#1', 'Oat milk#2', 'Saving#1'])
+    expect(itemKeys(reading.receipt.items)).toEqual(['Oat milk#1', 'Wool scarf#1', 'Oat milk#2', 'Coupon#1'])
   })
 
   it('shows the kind you chose over your AI’s, and marks the item you returned, leaving the other alike as it was', () => {
@@ -153,7 +153,7 @@ describe('your changes to a receipt’s items: a kind you chose, an item returne
   })
 
   it('never counts a saving as returned, nor what was spent below nothing', () => {
-    const r = withChanges([{ key: 'Saving#1', returned: true }])
+    const r = withChanges([{ key: 'Coupon#1', returned: true }])
     expect(r.items[3]!.returned).toBeUndefined()
     const all = withChanges(itemKeys(reading.receipt.items).map((key) => ({ key, returned: true as const })))
     expect(spentOn(all)).toBe(0)
@@ -162,6 +162,78 @@ describe('your changes to a receipt’s items: a kind you chose, an item returne
   it('leaves a change whose item is no longer read doing nothing', () => {
     const r = withChanges([{ key: 'Bread#1', returned: true }])
     expect(spentOn(r)).toBe(1730)
+  })
+})
+
+// Owner, 2026-11-01: "i don't understand why 'saving' is taken as an entry, it is just amount saved on that product …
+// after deducting saving, the actual price is what needs to be taken up".
+describe('a saving joins the item it follows: counted at what was paid (v0.20.19)', () => {
+  type Row = [name: string, price: number, kind?: ItemKind]
+  const read = (rows: Row[], text = '', total: number | null = rows.reduce((s, [, p]) => s + p, 0)) =>
+    receiptsOf([
+      {
+        ...areaEntry({ id: 'e1', text: '', expect: [] }, '2026-10-12'),
+        photos: [{ id: 'p1', text: null, ai: { by: 'Gemini · gemini-2.5-flash', at: 1, text, description: '', receipt: { shop: 'Corner Chemist', date: '2026-10-12', currency: '£', items: rows.map(([name, price, kind]) => ({ name, price, quantity: 1, ...(kind ? { kind } : {}) })), total } } }],
+      },
+    ])[0]!
+  const OFFER: Row[] = [
+    ['Oat bars 6pk', 400, 'Snacks and sweets'],
+    ['Saving', -120],
+    ['Hand soap', 250, 'Toiletries and health'],
+    ['Washing liquid', 700, 'Household'],
+    ['SAVING', -200],
+  ]
+
+  it('takes the saving off its item, which keeps its shelf price, and drops the saving as a row', () => {
+    const r = read(OFFER)
+    expect(r.items.map((item) => [item.name, item.price, item.saving, paidFor(item)])).toEqual([
+      ['Oat bars 6pk', 400, 120, 280],
+      ['Hand soap', 250, undefined, 250],
+      ['Washing liquid', 700, 200, 500],
+    ])
+    expect(paid(r)).toBe(1030)
+  })
+
+  it('keeps each item’s key from before, so a kind or return you chose still finds it', () => {
+    expect(read(OFFER).items.map((item) => item.key)).toEqual(['Oat bars 6pk#1', 'Hand soap#1', 'Washing liquid#1'])
+  })
+
+  it('counts a returned item on offer at what was paid, not its shelf price', () => {
+    const [r] = receiptsOf([
+      {
+        ...areaEntry({ id: 'e1', text: '', expect: [] }, '2026-10-12'),
+        photos: [{ id: 'p1', text: 'CORNER CHEMIST\n12 Oct 2026\nWashing liquid 7.00\nSaving -2.00\nTOTAL 5.00', items: [{ key: 'Washing liquid#1', returned: true }] }],
+      },
+    ])
+    expect(returnedOn(r!)).toBe(500)
+    expect(spentOn(r!)).toBe(0)
+  })
+
+  it('counts By kind and things bought again at what was paid; the offers line stays as it was', () => {
+    const month = shoppingMonth([read(OFFER)], '2026-10', TODAY)
+    expect(month.kinds!.others.map((k) => [k.kind, inWords(k.spent)])).toEqual([
+      ['Snacks and sweets', '£2.80'],
+      ['Household', '£5.00'],
+      ['Toiletries and health', '£2.50'],
+    ])
+    expect(month.offers.saved).toEqual([{ currency: '£', minor: 320 }])
+    expect(month.spent).toEqual([{ currency: '£', minor: 1030 }])
+  })
+
+  it('leaves a saving on the whole receipt: a multi-buy, more off than the item cost, or after "Balance before saving"', () => {
+    expect(read([['Apples', 150], ['Pears', 150], ['Multibuy 2 for £2.50', -50]]).items.map((item) => [item.name, item.saving])).toEqual([
+      ['Apples', undefined],
+      ['Pears', undefined],
+      ['Multibuy 2 for £2.50', undefined],
+    ])
+    expect(read([['Mints', 100], ['Saving', -60], ['Saving', -60]]).items.map((item) => [item.name, item.price, item.saving])).toEqual([
+      ['Mints', 100, 60],
+      ['Saving', -60, undefined],
+    ])
+    const sparks = read([['Bread', 150], ['Cheese', 300], ['Sparks saving', -50]], 'BREAD 1.50\nCHEESE 3.00\nBALANCE BEFORE SAVING 4.50\nSPARKS SAVING -0.50\nTOTAL 4.00')
+    expect(sparks.items.map((item) => item.saving)).toEqual([undefined, undefined, undefined])
+    const month = shoppingMonth([sparks], '2026-10', TODAY)
+    expect(month.offers.saved).toEqual([{ currency: '£', minor: 50 }])
   })
 })
 

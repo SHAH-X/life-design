@@ -1,6 +1,6 @@
 import { DURATION_LABELS, ENERGY_OPTIONS } from '../domain/feelings'
 import { purposeInfo } from '../domain/purposes'
-import { itemShown } from '../domain/receipts'
+import { itemShown, paidFor } from '../domain/receipts'
 import type { KnownReceipt } from '../domain/shopping'
 import { stepLine } from '../domain/steps'
 import { PART_ORDER, toDateKey } from '../lib/dates'
@@ -82,13 +82,14 @@ export function csvFileName(now: Date): string {
   return `life-design-entries-${toDateKey(now)}.csv`
 }
 
-const RECEIPT_HEADER = ['date', 'shop', 'item', 'as_printed', 'kind', 'quantity', 'price', 'currency', 'receipt_total', 'adds_up', 'date_read', 'read_by', 'returned']
+const RECEIPT_HEADER = ['date', 'shop', 'item', 'as_printed', 'kind', 'quantity', 'price', 'currency', 'receipt_total', 'adds_up', 'date_read', 'read_by', 'returned', 'saving']
 
 /** Pence as a plain number a spreadsheet adds up, "1.45" or "-0.50"; the currency has a column of its own. */
 const pounds = (minor: number) => `${minor < 0 ? '-' : ''}${(Math.abs(minor) / 100).toFixed(2)}`
 
 /** Every item on your receipts (Shopping, v0.19), a row each, oldest first: what your AI took it for and as printed
- *  (v0.19.3); a receipt's total is the one it printed; an item you returned says so (v0.20.18). */
+ *  (v0.19.3); a receipt's total is the one it printed; an item you returned says so (v0.20.18). An item's price is what
+ *  was paid for it, its offer's saving in a column of its own (v0.20.19). */
 export function receiptsToCsv(receipts: readonly KnownReceipt[]): string {
   const rows = [...receipts]
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -101,13 +102,14 @@ export function receiptsToCsv(receipts: readonly KnownReceipt[]): string {
           cell(item.name, true),
           cell(item.kind ?? ''),
           cell(item.quantity),
-          cell(pounds(item.price)),
+          cell(pounds(paidFor(item))),
           cell(r.currency),
           cell(r.total === null ? '' : pounds(r.total)),
           cell(r.adds ? 'yes' : 'no'),
           cell(r.dated ? 'yes' : 'no'),
           cell(r.readBy ?? 'the phone', true),
           cell(item.returned ? 'yes' : ''),
+          cell(item.saving ? pounds(item.saving) : ''),
         ].join(','),
       ),
     )
