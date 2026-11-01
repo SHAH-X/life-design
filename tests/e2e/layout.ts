@@ -23,9 +23,15 @@ export async function layoutReport(page: Page): Promise<{ faults: string[]; smal
     .include(scope)
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
     .analyze()
-  const axeFaults = axe.violations.map(
-    (v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(', ')}${v.nodes.length > 3 ? ', …' : ''})`,
-  )
+  // axe's target-size also fails a button that is big enough but has scrolled half under the pinned bar, leaving a sliver
+  // of it showing (Money, v0.20.22: the sticky switch over the row below it). Scrolling clears it, and the own check
+  // above still fails what is stuck behind a bar, so only a target under 24px is left to axe.
+  const underBar = new Set(await page.evaluate(partlyUnderBar, axe.violations.filter((v) => v.id === 'target-size').flatMap((v) => v.nodes.map((n) => n.target.join(' ')))))
+  const axeFaults = axe.violations.flatMap((v) => {
+    const nodes = v.id === 'target-size' ? v.nodes.filter((n) => !underBar.has(n.target.join(' '))) : v.nodes
+    if (!nodes.length) return []
+    return [`${v.id}: ${v.help} (${nodes.map((n) => n.target.join(' ')).slice(0, 3).join(', ')}${nodes.length > 3 ? ', …' : ''})`]
+  })
   return { faults: [...own.faults, ...axeFaults], small: own.small }
 }
 
@@ -36,6 +42,22 @@ export async function expectCleanLayout(page: Page, screen: string) {
   const { faults, small } = await layoutReport(page)
   if (small.length) test.info().annotations.push({ type: 'under 44px', description: `${screen}: ${small.join(', ')}` })
   expect.soft(faults, `layout faults on ${screen}`).toEqual([])
+}
+
+/** Runs in the page. Of these elements (by selector), those at least 24px each way that sit partly under a fixed or sticky layer. */
+function partlyUnderBar(selectors: string[]): string[] {
+  const layers = [...document.querySelectorAll('*')].filter((el) => /fixed|sticky/.test(getComputedStyle(el).position) && el.checkVisibility())
+  return selectors.filter((selector) => {
+    const el = document.querySelector(selector)
+    if (!el) return false
+    const r = el.getBoundingClientRect()
+    if (r.width < 24 || r.height < 24) return false
+    return layers.some((layer) => {
+      if (layer.contains(el) || el.contains(layer)) return false
+      const b = layer.getBoundingClientRect()
+      return r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top
+    })
+  })
 }
 
 /** Runs in the page. Self-contained: Playwright sends its source to the browser. */
