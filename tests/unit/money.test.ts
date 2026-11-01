@@ -837,7 +837,7 @@ describe('searchPayments: find a payment across every month and account (v0.20.3
   describe('paymentYears', () => {
     it('groups what was found by year, newest first: payments out, what they come to, what came in', () => {
       const years = paymentYears(searchPayments(all, 'amazon'))
-      expect(years.map((y) => [y.year, y.payments, y.out, y.in, y.moved])).toEqual([
+      expect(years.map((y) => [y.year, y.payments, y.out, y.in, y.moves.length])).toEqual([
         ['2026', 0, -1250, 0, 0], // only a refund: money back, no payment
         ['2025', 2, 3499, 0, 0],
       ])
@@ -847,11 +847,26 @@ describe('searchPayments: find a payment across every month and account (v0.20.3
       // "co": a .co.uk payment, the corner shop, Tesco, a refund from .co.uk and the coffee place; 2025 has the first only.
       const years = paymentYears(searchPayments(all, 'co'))
       // 2026: 3 payments (£8.00 + £3.00 + £24.99) less the £12.50 back.
-      expect(years.map((y) => [y.year, y.payments, y.out, y.in, y.moved])).toEqual([
+      expect(years.map((y) => [y.year, y.payments, y.out, y.in, y.moves.length])).toEqual([
         ['2026', 3, 800 + 300 + 2499 - 1250, 0, 0],
         ['2025', 1, 2499, 0, 0],
       ])
-      expect(paymentYears(searchPayments(all, 'savings')).map((y) => [y.year, y.payments, y.out, y.in, y.moved])).toEqual([['2026', 0, 0, 0, 1]])
+      expect(paymentYears(searchPayments(all, 'savings')).map((y) => [y.year, y.payments, y.out, y.in, y.moves.length])).toEqual([['2026', 0, 0, 0, 1]])
+    })
+    it('keeps money moved apart from the payments, so a purchase and its Flex side are not two rows of one list (v0.20.34)', () => {
+      const flex = classify(
+        [
+          line(BANK, '2026-10-08', -41, 'EXAMPLE PASSPORT OFFICE'),
+          line(BANK, '2026-10-08', 41, 'Flex'),
+          line('Monzo Flex', '2026-10-08', -41, 'EXAMPLE PASSPORT OFFICE moved to Flex'),
+        ],
+        new Set(),
+      )
+      const [year] = paymentYears(searchPayments(flex, 'passport'))
+      expect(year!.payments).toBe(1)
+      expect(year!.out).toBe(4100)
+      expect(year!.lines.map((l) => [l.account, l.moving])).toEqual([[BANK, null]])
+      expect(year!.moves.map((l) => [l.account, l.moving])).toEqual([['Monzo Flex', 'flex']])
     })
     it('says nothing for nothing found', () => {
       expect(paymentYears([])).toEqual([])

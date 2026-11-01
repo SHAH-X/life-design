@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useId, useState } from 'react'
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { markOwnPayee, namePayee } from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
 import {
@@ -306,23 +306,35 @@ function Overview({
 /** Search results show at most this many payments, newest first: a search for one letter-pair can match thousands. */
 const SEARCH_LIMIT = 200
 
-/** What a year of a search says: payments out and what they come to, money back, money in, money moved left out. */
+/** What a year of a search says: payments out and what they come to, money back, money in. Money moved is under it. */
 function yearWords(y: PaymentYear): string {
   const out = y.out >= 0 ? pounds(y.out) : `${pounds(-y.out)} back`
-  return [y.payments ? `${paymentsWord(y.payments)} · ${out}` : y.out < 0 ? out : '', y.in ? `${pounds(y.in)} in` : '', y.moved ? `${movesWord(y.moved)} left out` : ''].filter(Boolean).join(' · ')
+  return [y.payments ? `${paymentsWord(y.payments)} · ${out}` : y.out < 0 ? out : '', y.in ? `${pounds(y.in)} in` : ''].filter(Boolean).join(' · ')
 }
 
-/** Every payment a search found, by year with what each year comes to, newest first. */
+/** Every payment a search found, by year with what each year comes to, newest first. Each row names its payee, since the
+ *  search is why it is here; money moved is apart, closed, as it is in a month (v0.20.34). */
 function SearchResults({ found }: { found: readonly MoneyLine[] }) {
   if (!found.length) return <p className="acc-status">Nothing found.</p>
   const shown = new Set(found.slice(0, SEARCH_LIMIT))
   return (
     <>
-      {paymentYears(found).map((y) => (
-        <Block key={y.year} title={y.year} status={yearWords(y)}>
-          <LineList lines={y.lines.filter((l) => shown.has(l))} />
-        </Block>
-      ))}
+      {paymentYears(found).map((y) => {
+        const moves = y.moves.filter((l) => shown.has(l))
+        const lines = y.lines.filter((l) => shown.has(l))
+        return (
+          <Block key={y.year} title={y.year} status={yearWords(y)}>
+            {lines.length ? <LineList lines={lines} named /> : null}
+            {moves.length ? (
+              <ul className="acc-list">
+                <Item title="Moved between your accounts" sub={`${movesWord(y.moves.length)}, left out`}>
+                  <LineList lines={moves} named />
+                </Item>
+              </ul>
+            ) : null}
+          </Block>
+        )
+      })}
       {found.length > SEARCH_LIMIT ? <p className="acc-status">Showing the newest {SEARCH_LIMIT} of {found.length}. Type more to narrow it down.</p> : null}
     </>
   )
@@ -331,16 +343,30 @@ function SearchResults({ found }: { found: readonly MoneyLine[] }) {
 function Spending({ its, lines, query, onQuery }: { its: Its; lines: readonly MoneyLine[]; query: string; onQuery: (query: string) => void }) {
   const { notes } = useMoney()
   const searchId = useId()
+  const box = useRef<HTMLInputElement>(null)
   const searching = query.trim().length >= MIN_SEARCH
   return (
     <>
-      {/* The same look as Logs' search box. */}
+      {/* The same look as Logs' search box, with a ✕ to clear it (owner, 2026-11-01: say what it searches). */}
       <div className="logs-search">
         <span aria-hidden="true">⌕</span>
         <label className="visually-hidden" htmlFor={searchId}>
-          Search every payment
+          Search every payment, by name, note or amount
         </label>
-        <input id={searchId} type="search" placeholder="Search every payment" value={query} onChange={(e) => onQuery(e.target.value)} />
+        <input ref={box} id={searchId} type="search" placeholder="Search by name, note or amount" value={query} onChange={(e) => onQuery(e.target.value)} />
+        {query ? (
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Clear the search"
+            onClick={() => {
+              onQuery('')
+              box.current?.focus()
+            }}
+          >
+            ✕
+          </button>
+        ) : null}
       </div>
       {searching ? <SearchResults found={searchPayments(lines, query, notes)} /> : <SpendingMonth its={its} />}
     </>
@@ -703,16 +729,21 @@ function OwnRows({ lines }: { lines: readonly MoneyLine[] }) {
 
 /** Payments, newest first, one per row: the day, where the money went in words, the amount (owner, 2026-10-26: the
  *  same in every section, never a sign that comes and goes). `moves` joins the two sides of a move between your accounts
- *  ("Savings pot → Monzo"). The payee is named only where the rows' payees differ. A payment with its receipt opens it;
+ *  ("Savings pot → Monzo"). The payee is named only where the rows' payees differ, or always with `named` (a search's
+ *  results). A payment with its receipt opens it;
  *  with why, when it needs a look. */
-export function LineList({ lines, why, moves = false }: { lines: readonly MoneyLine[]; why?: string; moves?: boolean }) {
+export function LineList({ lines, why, moves = false, named = false }: { lines: readonly MoneyLine[]; why?: string; moves?: boolean; named?: boolean }) {
   const { links, receiptReasons, names, notes, openPayment } = useMoney()
   const rows = moves ? joinMoves(lines) : [...lines].sort((a, b) => b.date.localeCompare(a.date)).map((line) => ({ line }))
   const name = (account: string) => names.get(account) ?? account
-  const payees = new Set(lines.map((l) => l.payee.key)).size > 1
+  const payees = named || new Set(lines.map((l) => l.payee.key)).size > 1
   const where = ({ line: l, to }: PaymentRow) => {
     if (to) return `${name(l.account)} → ${name(to.account)}`
-    if (l.moving === 'flex') return l.amount > 0 ? 'Spread with Flex' : `Paid off, from ${name(l.account)}`
+    if (l.moving === 'flex') {
+      const flex = l.amount > 0 ? 'Spread with Flex' : `Paid off, from ${name(l.account)}`
+      // Flex's own statement words it "… moved to Flex": the purchase's name is what's before that.
+      return named && l.amount < 0 ? `${l.payee.name.replace(/\s+moved to Flex$/i, '')} · ${flex[0]!.toLowerCase()}${flex.slice(1)}` : flex
+    }
     if (l.moving === 'own') return l.amount < 0 ? `${name(l.account)} → ${l.payee.name}` : `${l.payee.name} → ${name(l.account)}`
     const way = l.amount < 0 ? `out of ${name(l.account)}` : l.refund ? `back into ${name(l.account)}` : `into ${name(l.account)}`
     return payees ? `${l.payee.name} · ${way}` : way[0]!.toUpperCase() + way.slice(1)
