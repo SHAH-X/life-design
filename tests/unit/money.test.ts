@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges, moneyYear, monthEndBalances, monthCoverage, averageOfComplete } from '../../src/domain/money'
+import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges, moneyYear, monthEndBalances, monthCoverage, averageOfComplete, searchPayments, paymentYears } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
@@ -785,6 +785,76 @@ describe('monthCoverage: which months have every statement in (v0.20.32: the cha
     it('says nothing from fewer than 2 complete months', () => {
       expect(averageOfComplete(totals, covered('2026-08'))).toBeNull()
       expect(averageOfComplete(totals, covered())).toBeNull()
+    })
+  })
+})
+
+describe('searchPayments: find a payment across every month and account (v0.20.33)', () => {
+  const all = classify(
+    [
+      line(BANK, '2025-03-02', -24.99, 'AMAZON.CO.UK*AB12 LONDON'),
+      line(BANK, '2025-11-05', -10, 'AMAZON* 9X8 LUXEMBOURG'),
+      line(CURRENT, '2026-02-10', -24.99, 'EXAMPLE SHOP SOMETOWN GBR'),
+      line(BANK, '2026-03-03', -3, 'TESCO STORES 1234 GBR'),
+      line(BANK, '2026-04-04', 12.5, 'Refund for AMAZON.CO.UK'),
+      line(BANK, '2026-05-05', -400, 'MY OWN SAVINGS'),
+      line(BANK, '2026-06-06', -8, 'COFFEE PLACE'),
+    ],
+    new Set(['my own savings']),
+    { 'example shop sometown': 'The Corner Shop' },
+  )
+  const noted = all.find((l) => l.description === 'COFFEE PLACE')!
+  const found = (query: string, notes: Record<string, string> = {}) => searchPayments(all, query, notes).map((l) => l.date)
+
+  it('finds a payee by its name or the statement’s words, whatever the case, newest first', () => {
+    expect(found('amazon')).toEqual(['2026-04-04', '2025-11-05', '2025-03-02'])
+    expect(found('AMAZON.co')).toEqual(['2026-04-04', '2025-03-02'])
+  })
+  it('finds a payee you renamed by the name you gave it and by the name as printed', () => {
+    expect(found('corner shop')).toEqual(['2026-02-10'])
+    expect(found('sometown')).toEqual(['2026-02-10'])
+  })
+  it('finds an amount, with or without the £, and as far as you have typed it', () => {
+    expect(found('24.99')).toEqual(['2026-02-10', '2025-03-02'])
+    expect(found('£24.99')).toEqual(['2026-02-10', '2025-03-02'])
+    expect(found('24.9')).toEqual(['2026-02-10', '2025-03-02'])
+    expect(found('12.50')).toEqual(['2026-04-04'])
+  })
+  it('finds your note on a payment', () => {
+    expect(found('birthday')).toEqual([])
+    expect(found('birthday', { [noted.id]: 'Birthday present' })).toEqual(['2026-06-06'])
+  })
+  it('finds money moved between your own accounts too, since it is on a statement', () => {
+    expect(searchPayments(all, 'own savings').map((l) => l.moving)).toEqual(['own'])
+  })
+  it('needs two characters, and finds nothing for a blank search', () => {
+    expect(found('a')).toEqual([])
+    expect(found('  ')).toEqual([])
+    expect(found('')).toEqual([])
+    expect(found('zzz')).toEqual([])
+  })
+
+  describe('paymentYears', () => {
+    it('groups what was found by year, newest first: payments out, what they come to, what came in', () => {
+      const years = paymentYears(searchPayments(all, 'amazon'))
+      expect(years.map((y) => [y.year, y.payments, y.out, y.in, y.moved])).toEqual([
+        ['2026', 0, -1250, 0, 0], // only a refund: money back, no payment
+        ['2025', 2, 3499, 0, 0],
+      ])
+      expect(years[1]!.lines.map((l) => l.date)).toEqual(['2025-11-05', '2025-03-02'])
+    })
+    it('takes a refund off what was paid, and counts money moved apart from both', () => {
+      // "co": a .co.uk payment, the corner shop, Tesco, a refund from .co.uk and the coffee place; 2025 has the first only.
+      const years = paymentYears(searchPayments(all, 'co'))
+      // 2026: 3 payments (£8.00 + £3.00 + £24.99) less the £12.50 back.
+      expect(years.map((y) => [y.year, y.payments, y.out, y.in, y.moved])).toEqual([
+        ['2026', 3, 800 + 300 + 2499 - 1250, 0, 0],
+        ['2025', 1, 2499, 0, 0],
+      ])
+      expect(paymentYears(searchPayments(all, 'savings')).map((y) => [y.year, y.payments, y.out, y.in, y.moved])).toEqual([['2026', 0, 0, 0, 1]])
+    })
+    it('says nothing for nothing found', () => {
+      expect(paymentYears([])).toEqual([])
     })
   })
 })

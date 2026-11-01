@@ -65,6 +65,8 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const [view, setView] = useState<'accounts' | 'receipts'>(legacyView ?? 'accounts')
   // Which part of Accounts is open lives here, so stepping to another month keeps you where you were.
   const [section, setSection] = useState<AccountsSection>('overview')
+  // What's typed in Spending's search box lives here too, for the same reason.
+  const [query, setQuery] = useState('')
   const earlierId = useId()
   useEffect(() => {
     if (legacyView) setView(legacyView)
@@ -147,7 +149,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
           <AccountsYear key={`accounts-year-${year}`} lines={lines} year={year} today={today} statements={statements} closed={closed} years={accountYears} />
         ) : view === 'accounts' && lines.length ? (
           // Keyed by month: a month opened from another starts afresh (a tapped chart column doesn't carry over).
-          <AccountsMonth key={`accounts-${month}`} lines={lines} month={month} today={today} statements={statements} closed={closed} months={accountMonths} section={section} onSection={setSection} />
+          <AccountsMonth key={`accounts-${month}`} lines={lines} month={month} today={today} statements={statements} closed={closed} months={accountMonths} section={section} onSection={setSection} query={query} onQuery={setQuery} />
         ) : view === 'receipts' ? (
           <ReceiptsMonth
             key={`receipts-${month}`}

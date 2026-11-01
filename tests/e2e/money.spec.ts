@@ -595,6 +595,57 @@ test('a month with an account’s statements missing, or not begun, is left out 
   await expect(chart.locator('.chart-readout')).toHaveText('November so far: no payments')
 })
 
+test('Spending finds any payment across every month and year: by name, by amount, by your note; each year says what it comes to', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const bankLines = [
+    ...monthlyPayments('AMAZON.CO.UK*AB12 LONDON', ['2025-03-02'], [-2499]),
+    ...monthlyPayments('AMAZON* 9X8 LUXEMBOURG', ['2025-11-05'], [-1000]),
+    ...monthlyPayments('EXAMPLE SHOP SOMETOWN GBR', ['2026-02-10'], [-2499]),
+    ...monthlyPayments('EXAMPLE EMPLOYER', ['2026-09-26', '2026-10-26'], [100000, 100000]),
+  ]
+  await restoreBackup(page, testInfo.outputPath('search.json'), backupWith({ bankLines }, now))
+  await page.goto('./#/money')
+  await accountView(page, 'Spending')
+  const search = page.getByRole('searchbox', { name: 'Search every payment' })
+  // The month's own lists, until you search (October has only the employer's payment in).
+  await expect(page.getByRole('region', { name: 'Money in' })).toBeVisible()
+
+  // By name: both amazon payments, in two years, each year with what it comes to.
+  await search.fill('amazon')
+  await expect(page.getByRole('region', { name: 'Money in' })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: '2025' })).toContainText('2 payments · £34.99')
+  await expect(page.getByRole('region', { name: '2025' }).getByRole('button')).toHaveCount(2)
+  await expect(page.getByRole('region', { name: '2026' })).toHaveCount(0)
+
+  // By amount, as far as typed: £24.99 in 2025 and again in 2026, newest year first.
+  await search.fill('24.9')
+  await expect(page.getByRole('region')).toContainText(['1 payment · £24.99', '1 payment · £24.99'])
+  await expect(page.getByRole('heading', { level: 2, name: /^20/ })).toHaveText(['2026', '2025'])
+
+  // A payment opens, as everywhere else, and your note on it can be found.
+  await page.getByRole('region', { name: '2026' }).getByRole('button').first().click()
+  const sheet = page.getByRole('dialog')
+  await sheet.getByRole('textbox').fill('birthday present')
+  await sheet.getByRole('button', { name: 'Save', exact: true }).click()
+  await search.fill('birthday')
+  await expect(page.getByRole('region', { name: '2026' })).toContainText('1 payment · £24.99')
+  await expect(page.getByRole('region', { name: '2025' })).toHaveCount(0)
+
+  // Money in, and nothing found.
+  await search.fill('employer')
+  await expect(page.getByRole('region', { name: '2026' })).toContainText('£2000.00 in')
+  await search.fill('zzzz')
+  await expect(page.getByText('Nothing found.')).toBeVisible()
+
+  // One character is not a search, and clearing brings the month's lists back.
+  await search.fill('a')
+  await expect(page.getByRole('region', { name: 'Money in' })).toBeVisible()
+  await search.fill('amazon')
+  await search.fill('')
+  await expect(page.getByRole('region', { name: 'Money in' })).toBeVisible()
+})
+
 test('a card payment with its receipt opens the receipt', async ({ page }, testInfo) => {
   const now = new Date(2026, 8, 30, 12, 0)
   await page.clock.setFixedTime(now)

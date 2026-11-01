@@ -583,6 +583,54 @@ export function averageOfComplete(totals: readonly { month: string; out: number 
   return these.length >= 2 ? { value: Math.round(these.reduce((sum, t) => sum + t.out, 0) / these.length), months: these.length } : null
 }
 
+/** A search needs at least this many characters: one letter matches nearly everything. */
+export const MIN_SEARCH = 2
+
+/** Every line (money moved too, as it's on a statement) that a search finds, newest first (v0.20.33): the payee as you
+ *  named it or as printed, the statement's own words, your note on it, or its amount, as far as you've typed it
+ *  ("24.9" finds £24.99). */
+export function searchPayments(lines: readonly MoneyLine[], query: string, notes: Readonly<Record<string, string>> = {}): MoneyLine[] {
+  const wanted = query.trim().toLowerCase().replace(/^£/, '')
+  if (wanted.length < MIN_SEARCH) return []
+  const amountLike = /^\d+(\.\d{0,2})?$/.test(wanted)
+  return lines
+    .filter((l) => {
+      const words = [l.payee.name, l.payee.original ?? '', l.description, notes[l.id] ?? ''].join(' ').toLowerCase()
+      return words.includes(wanted) || (amountLike && (Math.abs(l.amount) / 100).toFixed(2).startsWith(wanted))
+    })
+    .sort((a, b) => b.date.localeCompare(a.date))
+}
+
+/** What a search found in one year: payments out and what they come to (a refund taking off), what came in, and how many
+ *  lines were money moved, which is in neither. */
+export interface PaymentYear {
+  year: string
+  payments: number
+  /** In pence; negative when only money came back. */
+  out: number
+  in: number
+  moved: number
+  lines: MoneyLine[]
+}
+
+/** What a search found, by year, newest first. */
+export function paymentYears(found: readonly MoneyLine[]): PaymentYear[] {
+  return groupBy(found, (l) => l.date.slice(0, 4))
+    .map((lines): PaymentYear => {
+      const counted = lines.filter((l) => !l.moving)
+      const out = counted.filter((l) => l.amount < 0 || l.refund)
+      return {
+        year: lines[0]!.date.slice(0, 4),
+        payments: out.filter((l) => l.amount < 0).length,
+        out: sumOut(out),
+        in: counted.filter((l) => l.amount > 0 && !l.refund).reduce((sum, l) => sum + l.amount, 0),
+        moved: lines.length - counted.length,
+        lines,
+      }
+    })
+    .sort((a, b) => b.year.localeCompare(a.year))
+}
+
 export interface Regular {
   payee: Payee
   every: 'month' | 'week'
