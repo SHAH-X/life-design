@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming } from '../../src/domain/money'
+import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
@@ -493,5 +493,71 @@ describe('linkReceipts: a card payment and the receipt for it (v0.20.2)', () => 
     expect(links.get(paymentId)?.id).toBe(second.id)
     expect([...links.values()].map((item) => item.id)).toHaveLength(2)
     expect(new Set(links.keys()).size).toBe(2)
+  })
+})
+
+describe('regularChanges: regular payments that started or stopped (v0.20.26)', () => {
+  const monthly = (dates: string[], description: string, account = BANK) => dates.map((d) => line(account, d, -10, description))
+  const weekly = (dates: string[], description: string, account = BANK) => dates.map((d) => line(account, d, -5, description))
+  const changes = (lines: BankLine[], month: string, statements: StatementRecord[], closed: ReadonlySet<string> = new Set(), today = TODAY) =>
+    regularChanges(classify(lines, new Set()), month, today, statements, closed)
+  const names = (found: { payee: { name: string } }[]) => found.map((f) => f.payee.name)
+
+  describe('lapsed: no payment for a cycle and a few days over', () => {
+    const lines = monthly(['2026-03-10', '2026-04-10', '2026-05-10'], 'GYM CLUB')
+    const covered = [statement(BANK, '2026-01-01', '2026-08-31')]
+
+    it('is told once its next payment is a week late (35 days between payments and 7 over), for the 3 months from then', () => {
+      // Last paid 10 May: still on time until 21 June.
+      expect(names(changes(lines, '2026-05', covered).lapsed)).toEqual([])
+      expect(names(changes(lines, '2026-06', covered).lapsed)).toEqual(['GYM CLUB'])
+      expect(changes(lines, '2026-06', covered).lapsed[0]).toMatchObject({ every: 'month', last: '2026-05-10', amount: 1000 })
+      expect(names(changes(lines, '2026-08', covered).lapsed)).toEqual(['GYM CLUB'])
+      expect(names(changes(lines, '2026-09', covered).lapsed)).toEqual([])
+    })
+    it('is told for the month you are in, up to today', () => {
+      expect(names(changes(monthly(['2026-06-10', '2026-07-10', '2026-08-10'], 'GYM CLUB'), '2026-10', [statement(BANK, '2026-01-01', TODAY)]).lapsed)).toEqual(['GYM CLUB'])
+    })
+    it('is never told when statements are missing for the days it should have been paid, only for a missing one', () => {
+      expect(names(changes(lines, '2026-08', [statement(BANK, '2026-01-01', '2026-05-31'), statement(BANK, '2026-07-20', '2026-08-31')]).lapsed)).toEqual([])
+      expect(names(changes(lines, '2026-06', [statement(BANK, '2026-01-01', '2026-05-31')]).lapsed)).toEqual([])
+      expect(names(changes(lines, '2026-08', []).lapsed)).toEqual([])
+    })
+    it('is never told for a closed account', () => {
+      expect(names(changes(lines, '2026-08', covered, new Set([BANK])).lapsed)).toEqual([])
+    })
+    it('is not told for a payment that carries on', () => {
+      expect(names(changes(monthly(['2026-08-10', '2026-09-10', '2026-10-10'], 'GYM CLUB'), '2026-10', [statement(BANK, '2026-01-01', TODAY)]).lapsed)).toEqual([])
+    })
+    it('knows a weekly one a few days late (8 days between payments and 3 over)', () => {
+      const box = weekly(['2026-03-04', '2026-03-11', '2026-03-18', '2026-03-25'], 'WEEKLY BOX')
+      expect(names(changes(box, '2026-03', [statement(BANK, '2026-01-01', '2026-04-30')]).lapsed)).toEqual([])
+      const april = changes(box, '2026-04', [statement(BANK, '2026-01-01', '2026-04-30')]).lapsed
+      expect(names(april)).toEqual(['WEEKLY BOX'])
+      expect(april[0]).toMatchObject({ every: 'week', last: '2026-03-25' })
+      expect(names(changes(box, '2026-04', [statement(BANK, '2026-01-01', '2026-03-31')]).lapsed)).toEqual([])
+    })
+  })
+
+  describe('started: regular for the first time, with statements from before it began', () => {
+    const lines = monthly(['2026-08-12', '2026-09-12', '2026-10-12'], 'NEW SUB')
+
+    it('is told in the month it became regular (its 3rd payment, or the 4th of a weekly one), with when it began', () => {
+      const from = [statement(BANK, '2026-06-01', TODAY)]
+      expect(names(changes(lines, '2026-09', from).started)).toEqual([])
+      const october = changes(lines, '2026-10', from).started
+      expect(names(october)).toEqual(['NEW SUB'])
+      expect(october[0]).toMatchObject({ every: 'month', first: '2026-08-12', amount: 1000 })
+      const box = weekly(['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22'], 'NEW BOX')
+      expect(changes(box, '2026-10', [statement(BANK, '2026-09-01', TODAY)]).started[0]).toMatchObject({ every: 'week', first: '2026-10-01' })
+    })
+    it('is not told when the statements begin too late to know it is new (less than a cycle before its first payment)', () => {
+      expect(names(changes(lines, '2026-10', [statement(BANK, '2026-08-01', TODAY)]).started)).toEqual([])
+      expect(names(changes(lines, '2026-10', []).started)).toEqual([])
+    })
+    it('is not told for a payee paid before, even long before', () => {
+      const before = [line(BANK, '2026-06-12', -10, 'NEW SUB'), ...lines]
+      expect(names(changes(before, '2026-10', [statement(BANK, '2026-05-01', TODAY)]).started)).toEqual([])
+    })
   })
 })

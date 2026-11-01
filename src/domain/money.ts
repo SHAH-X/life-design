@@ -384,27 +384,49 @@ function nextDue(r: Pick<Regular, 'every' | 'last'>, today: string): string {
 /** Days between payments for each, and how many make it regular. */
 const CADENCE = { week: { least: 4, from: 6, to: 8 }, month: { least: 3, from: 26, to: 35 } } as const
 
-/** Payees paid every week or month, their latest payment in the month or the one before: the latest run of payments
- *  that far apart, 4 a week or 3 a month at least. A shop paid on many days isn't regular; money moved isn't either. */
-export function regularPayments(lines: readonly MoneyLine[], month: string, today: string): Regular[] {
-  // An older Money page describes what was regular at that time. Payments from later statements must not make its
-  // latest run look too new and disappear (for example, viewing September after importing October).
+/** A payee's latest run of payments that far apart, however long ago it ended. */
+interface Run {
+  every: 'month' | 'week'
+  /** The run: its last payment is the payee's last. */
+  run: MoneyLine[]
+  /** Every payment to the payee up to the month, oldest first. */
+  history: MoneyLine[]
+}
+
+/** Payees whose latest payments are 4 a week or 3 a month at least that far apart. A shop paid on many days isn't
+ *  regular; money moved isn't either. An older Money page describes what was regular at that time: payments from later
+ *  statements must not make its latest run look too new and disappear (for example, viewing September after
+ *  importing October). */
+function regularRuns(lines: readonly MoneyLine[], month: string): Run[] {
   const out = lines.filter((l) => !l.moving && l.amount < 0 && l.date.slice(0, 7) <= month).sort((a, b) => a.date.localeCompare(b.date))
-  const found: Regular[] = []
-  for (const paid of groupBy(out, (l) => l.payee.key)) {
+  const found: Run[] = []
+  for (const history of groupBy(out, (l) => l.payee.key)) {
     for (const every of ['week', 'month'] as const) {
       const { least, from, to } = CADENCE[every]
-      let start = paid.length - 1
+      let start = history.length - 1
       while (start > 0) {
-        const gap = dayNumber(paid[start]!.date) - dayNumber(paid[start - 1]!.date)
+        const gap = dayNumber(history[start]!.date) - dayNumber(history[start - 1]!.date)
         if (gap < from || gap > to) break
         start--
       }
-      const run = paid.slice(start)
+      const run = history.slice(start)
+      if (run.length < least) continue
+      found.push({ every, run, history })
+      break
+    }
+  }
+  return found
+}
+
+/** Payees paid every week or month, their latest payment in the month or the one before. */
+export function regularPayments(lines: readonly MoneyLine[], month: string, today: string): Regular[] {
+  const recent = shiftMonth(month, -1)
+  return regularRuns(lines, month)
+    .filter(({ run }) => run.at(-1)!.date.slice(0, 7) >= recent)
+    .map(({ every, run }): Regular => {
       const last = run.at(-1)!
-      if (run.length < least || last.date.slice(0, 7) < shiftMonth(month, -1)) continue
       const before = run.at(-2)!
-      found.push({
+      return {
         payee: last.payee,
         every,
         amount: -last.amount,
@@ -413,11 +435,63 @@ export function regularPayments(lines: readonly MoneyLine[], month: string, toda
         next: nextDue({ every, last: last.date }, today),
         changed: before.amount !== last.amount ? { from: -before.amount, to: -last.amount, date: last.date, year: (before.amount - last.amount) * PER_YEAR[every] } : null,
         lines: run,
-      })
-      break
+      }
+    })
+    .sort((a, b) => b.amount - a.amount || byName(a, b))
+}
+
+/** A regular payment that started or stopped (v0.20.26). */
+export interface RegularChange {
+  payee: Payee
+  every: 'month' | 'week'
+  /** The latest payment, in pence. */
+  amount: number
+  /** The first payment of the run, and the last. */
+  first: string
+  last: string
+  lines: MoneyLine[]
+}
+
+/** How many days past the longest gap a regular payment can be late before it counts as stopped. */
+const GRACE = { week: 3, month: 7 } as const
+
+/** Regular payments that started or stopped, for the month you're on (v0.20.26). Neither is said when statements could
+ *  hide the truth: a payment is "stopped" only when its account's statements cover the days it should have been paid on
+ *  (a missing statement is never a cancelled bill) and the account isn't closed; it is "started" only when the
+ *  account's statements begin at least a cycle before its first payment (otherwise it is only the oldest we have).
+ *  - Stopped: no payment for the longest gap and a few days over, told for the 3 months from then.
+ *  - Started: the payee's first payments ever, told in the month its run became regular (3rd payment, or 4th a week). */
+export function regularChanges(
+  lines: readonly MoneyLine[],
+  month: string,
+  today: string,
+  statements: readonly StatementRecord[],
+  closed: ReadonlySet<string>,
+): { started: RegularChange[]; lapsed: RegularChange[] } {
+  const asOf = month === today.slice(0, 7) ? today : addDays(addMonths(`${month}-01`, 1), -1)
+  const news = `${shiftMonth(month, -2)}-01`
+  const covered = (account: string, from: string, to: string) => {
+    const its = statements.filter((s) => s.account === account)
+    return its.length > 0 && !notBroughtIn(its, to).some((gap) => gap.from <= to && gap.to >= from)
+  }
+  const started: RegularChange[] = []
+  const lapsed: RegularChange[] = []
+  for (const { every, run, history } of regularRuns(lines, month)) {
+    const { least, to } = CADENCE[every]
+    const first = run[0]!
+    const last = run.at(-1)!
+    const change: RegularChange = { payee: last.payee, every, amount: -last.amount, first: first.date, last: last.date, lines: run }
+
+    const noticedBy = addDays(last.date, to + GRACE[every])
+    if (!closed.has(last.account) && noticedBy < asOf && noticedBy >= news && covered(last.account, addDays(last.date, 1), noticedBy)) lapsed.push(change)
+
+    if (run.length === history.length && run[least - 1]!.date.slice(0, 7) === month) {
+      const begins = statements.filter((s) => s.account === first.account).map((s) => s.from).sort()[0]
+      if (begins !== undefined && begins <= (every === 'month' ? addMonths(first.date, -1) : addDays(first.date, -7))) started.push(change)
     }
   }
-  return found.sort((a, b) => b.amount - a.amount || byName(a, b))
+  const order = (a: RegularChange, b: RegularChange) => b.amount - a.amount || byName(a, b)
+  return { started: started.sort(order), lapsed: lapsed.sort(order) }
 }
 
 export interface RegularTotals {
