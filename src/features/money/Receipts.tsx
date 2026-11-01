@@ -38,6 +38,77 @@ const REPEATS_SHOWN = 10
 export const receiptsWord = (n: number) => `${n} receipt${n === 1 ? '' : 's'}`
 const itemsWord = (n: number) => `${n} item${n === 1 ? '' : 's'}`
 
+// The page's look (v0.20.21): every line is a two-line row, its words on the left and its amount on the right, the whole
+// row opening. The " · " between a row's parts stays in the text (for a screen reader and the tests) and is hidden by
+// the styles, which set the parts apart instead.
+const Sep = () => <span className="rc-sep"> · </span>
+
+/** A line that opens: its label (and a badge), what it is in small words below, its amount on the right. */
+function RowSummary(props: { label: ReactNode; badge?: ReactNode; sub?: ReactNode; amount?: ReactNode }) {
+  const { label, badge, sub, amount } = props
+  return (
+    <summary className="rc-row">
+      <span className="rc-text">
+        <span className="rc-label">{label}</span>
+        {badge}
+        {sub ? (
+          <span className="rc-sub">
+            <Sep />
+            {sub}
+          </span>
+        ) : null}
+      </span>
+      {amount ? (
+        <span className="rc-amount">
+          <Sep />
+          {amount}
+        </span>
+      ) : null}
+    </summary>
+  )
+}
+
+/** A line that opens one receipt: its day, what it is, what was paid and a small flag. Words, set out as a row. */
+function RowButton(props: { date: string; title: string; sub?: string; amount: string; flag?: string; onClick: () => void }) {
+  const { date, title, sub, amount, flag, onClick } = props
+  return (
+    <button type="button" className="line-button rc-line" onClick={onClick}>
+      <span className="rc-date">{date}</span> <span className="rc-name">{title}</span>
+      {sub ? (
+        <span className="rc-sub">
+          <Sep />
+          {sub}
+        </span>
+      ) : null}
+      <span className="rc-amount">
+        <Sep />
+        {amount}
+      </span>
+      {flag ? (
+        <span className="rc-flag">
+          <Sep />
+          {flag}
+        </span>
+      ) : null}
+    </button>
+  )
+}
+
+/** A titled group of lines on one white sheet; `count` marks one that needs you. */
+function Group({ title, status, count, children }: { title: string; status?: string; count?: number; children: ReactNode }) {
+  const headingId = useId()
+  return (
+    <section aria-labelledby={headingId} className="rc-group">
+      <h2 id={headingId} className="rc-title">
+        {title}
+        {count ? <span className="rc-count"> {count}</span> : null}
+      </h2>
+      {status ? <p className="rc-status">{status}</p> : null}
+      <div className="rc-body">{children}</div>
+    </section>
+  )
+}
+
 /** A month of your receipts, top to bottom: how much, each month, shops, what changed, what came back, to check. */
 export function ReceiptsMonth(props: {
   receipts: readonly KnownReceipt[]
@@ -64,11 +135,13 @@ export function ReceiptsMonth(props: {
         <h2 id={headingId} className="week-title">
           From your receipts
         </h2>
-        <p className="muted">{receipts.length || refunds.length ? `No receipts in ${monthYear(month)}.` : 'Receipts you photograph show here.'}</p>
+        <p className="muted rc-empty">{receipts.length || refunds.length ? `No receipts in ${monthYear(month)}.` : 'Receipts you photograph show here.'}</p>
         {refunds.length ? (
-          <ul className="plain-list compact">
-            <RefundLine refunds={refunds} onOpen={onOpen} />
-          </ul>
+          <div className="rc-body">
+            <ul>
+              <RefundLine refunds={refunds} onOpen={onOpen} />
+            </ul>
+          </div>
         ) : null}
       </section>
     )
@@ -87,7 +160,7 @@ export function ReceiptsMonth(props: {
           <strong>{inWords(its.spent)} <span>spent</span></strong>
         </p>
         <ul className="plain-list compact money-overview-breakdown">
-          {its.before ? <ReceiptLine label={`By ${dayMonthLong(its.before.until)}`} detail={inWords(its.before.spent)} receipts={its.before.receipts} onOpen={onOpen} /> : null}
+          {its.before ? <ReceiptLine label={`By ${dayMonthLong(its.before.until)}`} amount={inWords(its.before.spent)} receipts={its.before.receipts} onOpen={onOpen} /> : null}
           <ReceiptLine label={`${receiptsWord(its.receipts.length)} from ${shops} shop${shops === 1 ? '' : 's'}`} receipts={its.receipts} onOpen={onOpen} />
           {refunds.length ? <RefundLine refunds={refunds} onOpen={onOpen} /> : null}
           {its.offers.saved.length ? <ReceiptLine label={`${inWords(its.offers.saved)} off with offers`} receipts={its.offers.receipts} onOpen={onOpen} /> : null}
@@ -96,30 +169,8 @@ export function ReceiptsMonth(props: {
       <div className="card">
         <Months receipts={receipts} month={month} today={today} />
       </div>
-      <Shops its={its} onOpen={onOpen} />
-      {its.kinds ? <ByKind kinds={its.kinds} onOpen={onOpen} /> : null}
-      {its.priceChanges.length ? (
-        <Section title="Price changes at the same shop">
-          <ul className="plain-list compact">
-            {its.priceChanges.map((c) => (
-              <ReceiptLine
-                key={`${c.shop}-${c.name}`}
-                label={c.name}
-                detail={`${c.shop}: ${money(c.before.price, c.before.receipt.currency)} on ${dayMonth(c.before.receipt.date)}, ${money(c.now.price, c.now.receipt.currency)} on ${dayMonth(c.now.receipt.date)}`}
-                receipts={[c.before.receipt, c.now.receipt]}
-                onOpen={onOpen}
-              />
-            ))}
-          </ul>
-        </Section>
-      ) : null}
-      {its.repeats.length ? (
-        <Section title="Bought again and again" status="Over the last 3 months">
-          <Repeats its={its} onOpen={onOpen} />
-        </Section>
-      ) : null}
       {its.toCheck.length ? (
-        <Section title="Receipts to check">
+        <Group title="Receipts to check" count={its.toCheck.length}>
           <ReceiptList
             receipts={its.toCheck.map((c) => c.receipt)}
             why={new Map(its.toCheck.map((c) => [c.receipt.id, c.why]))}
@@ -130,7 +181,29 @@ export function ReceiptsMonth(props: {
             onMatchPayment={props.onMatchPayment}
             onOpen={onOpen}
           />
-        </Section>
+        </Group>
+      ) : null}
+      <Shops its={its} onOpen={onOpen} />
+      {its.kinds ? <ByKind kinds={its.kinds} onOpen={onOpen} /> : null}
+      {its.priceChanges.length ? (
+        <Group title="Price changes at the same shop">
+          <ul>
+            {its.priceChanges.map((c) => (
+              <ReceiptLine
+                key={`${c.shop}-${c.name}`}
+                label={c.name}
+                sub={`${c.shop}: ${money(c.before.price, c.before.receipt.currency)} on ${dayMonth(c.before.receipt.date)}, ${money(c.now.price, c.now.receipt.currency)} on ${dayMonth(c.now.receipt.date)}`}
+                receipts={[c.before.receipt, c.now.receipt]}
+                onOpen={onOpen}
+              />
+            ))}
+          </ul>
+        </Group>
+      ) : null}
+      {its.repeats.length ? (
+        <Group title="Bought again and again" status="Over the last 3 months">
+          <Repeats its={its} onOpen={onOpen} />
+        </Group>
       ) : null}
     </section>
   )
@@ -187,74 +260,69 @@ function Months({ receipts, month, today }: { receipts: readonly KnownReceipt[];
 /** Shops: those with 3+ receipts by what was spent, the rest by name; then shops under £10. */
 function Shops({ its, onOpen }: { its: ShoppingMonth; onOpen: (r: KnownReceipt) => void }) {
   const line = (s: ShoppingMonth['shops']['ranked'][number]) => (
-    <ReceiptLine key={s.key || 'none'} label={s.name ?? 'No shop read'} detail={`${receiptsWord(s.receipts.length)} · ${inWords(s.spent)}`} receipts={s.receipts} onOpen={onOpen} />
+    <ReceiptLine key={s.key || 'none'} label={s.name ?? 'No shop read'} sub={receiptsWord(s.receipts.length)} amount={inWords(s.spent)} receipts={s.receipts} onOpen={onOpen} />
   )
   return (
-    <Section title="Shops">
-      {its.shops.ranked.length ? <ul className="plain-list compact">{its.shops.ranked.map(line)}</ul> : null}
-      {its.shops.ranked.length && its.shops.others.length ? <p className="muted small">Fewer than 3 receipts, by name</p> : null}
-      {its.shops.others.length ? <ul className="plain-list compact">{its.shops.others.map(line)}</ul> : null}
+    <Group title="Shops">
+      {its.shops.ranked.length ? <ul>{its.shops.ranked.map(line)}</ul> : null}
+      {its.shops.ranked.length && its.shops.others.length ? <p className="rc-note">Fewer than 3 receipts, by name</p> : null}
+      {its.shops.others.length ? <ul>{its.shops.others.map(line)}</ul> : null}
       {its.small ? (
-        <ul className="plain-list compact">
+        <ul>
           <ReceiptLine
             label={`${its.small.receipts.length} shops under £${SMALL_SHOP / 100}`}
-            detail={`${inWords(its.small.spent)} in all`}
+            amount={`${inWords(its.small.spent)} in all`}
             receipts={its.small.receipts}
             onOpen={onOpen}
           />
         </ul>
       ) : null}
-    </Section>
+    </Group>
   )
 }
 
 /** What was bought, by the kind your AI gave each item: kinds with 3+ items by what was spent, the rest in the list's
  *  order; then what has no kind yet. */
 function ByKind({ kinds, onOpen }: { kinds: Kinds; onOpen: (r: KnownReceipt) => void }) {
-  const line = (k: KindLine) => <ItemLine key={k.kind} label={k.kind} detail={`${itemsWord(k.items.length)} · ${inWords(k.spent)}`} items={k.items} onOpen={onOpen} />
+  const line = (k: KindLine) => <ItemLine key={k.kind} label={k.kind} sub={itemsWord(k.items.length)} amount={inWords(k.spent)} items={k.items} onOpen={onOpen} />
   return (
-    <Section title="By kind" status="Items at what you paid, after offers">
-      {kinds.ranked.length ? <ul className="plain-list compact">{kinds.ranked.map(line)}</ul> : null}
-      {kinds.ranked.length && kinds.others.length ? <p className="muted small">Fewer than 3 items</p> : null}
-      {kinds.others.length ? <ul className="plain-list compact">{kinds.others.map(line)}</ul> : null}
+    <Group title="By kind" status="Items at what you paid, after offers">
+      {kinds.ranked.length ? <ul>{kinds.ranked.map(line)}</ul> : null}
+      {kinds.ranked.length && kinds.others.length ? <p className="rc-note">Fewer than 3 items</p> : null}
+      {kinds.others.length ? <ul>{kinds.others.map(line)}</ul> : null}
       {kinds.notSorted ? (
-        <ul className="plain-list compact">
+        <ul>
           <ReceiptLine
             label="Not sorted"
-            detail={`${itemsWord(kinds.notSorted.items)} on ${receiptsWord(kinds.notSorted.receipts.length)} · ${inWords(kinds.notSorted.spent)}`}
+            sub={`${itemsWord(kinds.notSorted.items)} on ${receiptsWord(kinds.notSorted.receipts.length)}`}
+            amount={inWords(kinds.notSorted.spent)}
             receipts={kinds.notSorted.receipts}
             onOpen={onOpen}
           />
         </ul>
       ) : null}
-    </Section>
+    </Group>
   )
 }
 
 /** A kind's line, opening to its items, newest first: day, item, shop and price, each opening its receipt. */
-function ItemLine(props: { label: string; detail: string; items: KindLine['items']; onOpen: (r: KnownReceipt) => void }) {
-  const { label, detail, items, onOpen } = props
+function ItemLine(props: { label: string; sub: string; amount: string; items: KindLine['items']; onOpen: (r: KnownReceipt) => void }) {
+  const { label, sub, amount, items, onOpen } = props
   const listed = [...items].sort((a, b) => b.receipt.date.localeCompare(a.receipt.date))
   return (
     <li>
       <details className="week-line">
-        <summary>
-          <span>{label}</span>
-          <span className="muted small"> · {detail}</span>
-        </summary>
+        <RowSummary label={label} sub={sub} amount={amount} />
         <ul className="plain-list compact evidence-list">
           {listed.map(({ item, receipt }, i) => (
             <li key={`${receipt.id}-${i}`}>
-              <button type="button" className="line-button" onClick={() => onOpen(receipt)}>
-                <span>
-                  <span className="muted small">{shortDayMonth(receipt.date)} </span>
-                  {itemShown(item)}
-                  <span className="muted small">
-                    {' '}
-                    · {receipt.shop || 'No shop read'} · {money(paidFor(item), receipt.currency)}
-                  </span>
-                </span>
-              </button>
+              <RowButton
+                date={shortDayMonth(receipt.date)}
+                title={itemShown(item)}
+                sub={receipt.shop || 'No shop read'}
+                amount={money(paidFor(item), receipt.currency)}
+                onClick={() => onOpen(receipt)}
+              />
             </li>
           ))}
         </ul>
@@ -267,18 +335,16 @@ function Repeats({ its, onOpen }: { its: ShoppingMonth; onOpen: (r: KnownReceipt
   const line = (r: ShoppingMonth['repeats'][number]) => (
     <li key={r.name} className="receipt-repeat-row">
       <details className="week-line">
-        <summary className="receipt-repeat-summary">
-          <span className="receipt-repeat-header">
-            <span className="receipt-repeat-name">{r.name}</span>
-            <span className="receipt-repeat-count" aria-hidden="true">
+        <RowSummary
+          label={r.name}
+          badge={
+            <span className="rc-badge" aria-hidden="true">
               {r.receipts.length}×
             </span>
-          </span>
-          <span className="muted small">
-            {' · '}
-            on {receiptsWord(r.receipts.length)} · {inWords(r.spent)}
-          </span>
-        </summary>
+          }
+          sub={`on ${receiptsWord(r.receipts.length)}`}
+          amount={inWords(r.spent)}
+        />
         <ReceiptList receipts={r.receipts} onOpen={onOpen} />
       </details>
     </li>
@@ -286,11 +352,11 @@ function Repeats({ its, onOpen }: { its: ShoppingMonth; onOpen: (r: KnownReceipt
   const rest = its.repeats.slice(REPEATS_SHOWN)
   return (
     <>
-      <ul className="plain-list compact">{its.repeats.slice(0, REPEATS_SHOWN).map(line)}</ul>
+      <ul>{its.repeats.slice(0, REPEATS_SHOWN).map(line)}</ul>
       {rest.length ? (
         <details className="week-line">
-          <summary>{rest.length} more</summary>
-          <ul className="plain-list compact">{rest.map(line)}</ul>
+          <summary className="rc-row rc-more">{rest.length} more</summary>
+          <ul>{rest.map(line)}</ul>
         </details>
       ) : null}
     </>
@@ -298,15 +364,12 @@ function Repeats({ its, onOpen }: { its: ShoppingMonth; onOpen: (r: KnownReceipt
 }
 
 /** A line that opens to its receipts. */
-function ReceiptLine(props: { label: string; detail?: string; receipts: readonly KnownReceipt[]; onOpen: (r: KnownReceipt) => void }) {
-  const { label, detail, receipts, onOpen } = props
+function ReceiptLine(props: { label: string; sub?: string; amount?: string; receipts: readonly KnownReceipt[]; onOpen: (r: KnownReceipt) => void }) {
+  const { label, sub, amount, receipts, onOpen } = props
   return (
     <li>
       <details className="week-line">
-        <summary>
-          <span>{label}</span>
-          {detail ? <span className="muted small"> · {detail}</span> : null}
-        </summary>
+        <RowSummary label={label} sub={sub} amount={amount} />
         <ReceiptList receipts={receipts} onOpen={onOpen} />
       </details>
     </li>
@@ -326,27 +389,19 @@ function RefundLine(props: { refunds: readonly KnownReceipt[]; onOpen: (r: Known
   return (
     <li>
       <details className="week-line">
-        <summary>
-          <span>
-            {refunds.length} refund{refunds.length === 1 ? '' : 's'} · {inWords(back)} back
-          </span>
-          <span className="muted small"> · not counted</span>
-        </summary>
+        <RowSummary label={`${refunds.length} refund${refunds.length === 1 ? '' : 's'} · ${inWords(back)} back`} sub="not counted" />
         <ul className="plain-list compact evidence-list">
           {[...refunds]
             .sort((a, b) => b.date.localeCompare(a.date))
             .map((r) => (
               <li key={r.id}>
-                <button type="button" className="line-button" onClick={() => onOpen(r)}>
-                  <span>
-                    <span className="muted small">{shortDayMonth(r.date)} </span>
-                    {r.shop || 'No shop read'}
-                    <span className="muted small">
-                      {' '}
-                      · {money(givenBack(r), r.currency)} back · refund of {itemsWord(r.items.length)}
-                    </span>
-                  </span>
-                </button>
+                <RowButton
+                  date={shortDayMonth(r.date)}
+                  title={r.shop || 'No shop read'}
+                  sub={`refund of ${itemsWord(r.items.length)}`}
+                  amount={`${money(givenBack(r), r.currency)} back`}
+                  onClick={() => onOpen(r)}
+                />
               </li>
             ))}
         </ul>
@@ -396,10 +451,7 @@ function ReceiptList(props: {
           <li key={r.id}>
             {needsReview ? (
               <details className="week-line receipt-check">
-                <summary>
-                  <span className="receipt-check-title">{title}</span>
-                  <span className="muted small">{r.shop || 'Unknown shop'} · {money(paid(r), r.currency)}</span>
-                </summary>
+                <RowSummary label={title} sub={r.shop || 'Unknown shop'} amount={money(paid(r), r.currency)} />
                 <div className="receipt-check-body">
                   {duplicateOf ? (
                     <>
@@ -450,17 +502,13 @@ function ReceiptList(props: {
                 </div>
               </details>
             ) : (
-              <button type="button" className="line-button" onClick={() => onOpen(r)}>
-                <span>
-                  <span className="muted small">{shortDayMonth(r.date)} </span>
-                  {r.shop || 'No shop read'}
-                  <span className="muted small">
-                    {' '}
-                    · {money(spentOn(r), r.currency)}
-                    {returnedCount(r) ? ` · ${returnedCount(r)} returned` : ''}
-                  </span>
-                </span>
-              </button>
+              <RowButton
+                date={shortDayMonth(r.date)}
+                title={r.shop || 'No shop read'}
+                amount={money(spentOn(r), r.currency)}
+                flag={returnedCount(r) ? `${returnedCount(r)} returned` : undefined}
+                onClick={() => onOpen(r)}
+              />
             )}
           </li>
         )

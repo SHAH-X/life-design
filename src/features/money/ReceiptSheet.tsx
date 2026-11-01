@@ -31,11 +31,11 @@ export function ReceiptSheet(props: { receipt: KnownReceipt; onOpenEntry: () => 
         {dayMonthLong(receipt.date)} · {receipt.readBy ? 'Read by your AI' : 'Read by the phone'}
       </p>
       {receipt.items.length ? (
-        <ul className="plain-list compact receipt-items" aria-label="Items">
+        <ul className="plain-list compact receipt-items rc-items" aria-label="Items">
           {receipt.items.map((it, i) => (
             <li key={keys[i]}>
               {it.price > 0 ? (
-                <button type="button" className="line-button" onClick={() => setChosen(i)}>
+                <button type="button" className="line-button rc-item-button" onClick={() => setChosen(i)}>
                   <ItemText item={it} currency={receipt.currency} />
                 </button>
               ) : (
@@ -47,10 +47,15 @@ export function ReceiptSheet(props: { receipt: KnownReceipt; onOpenEntry: () => 
       ) : (
         <p>No items read.</p>
       )}
-      <p>
-        Total {money(paid(receipt), receipt.currency)}
-        {offers ? ` · ${money(offers, receipt.currency)} off with offers` : ''}
-        {returned ? ` · ${money(returned, receipt.currency)} returned · ${money(spentOn(receipt), receipt.currency)} spent` : ''}
+      <p className="rc-total">
+        <span className="rc-total-main">
+          Total <strong>{money(paid(receipt), receipt.currency)}</strong>
+        </span>
+        {offers ? <TotalNote>{`${money(offers, receipt.currency)} off with offers`}</TotalNote> : null}
+        {returned ? <TotalNote>{`${money(returned, receipt.currency)} returned`}</TotalNote> : null}
+        {returned ? (
+          <TotalNote strong>{`${money(spentOn(receipt), receipt.currency)} spent`}</TotalNote>
+        ) : null}
       </p>
     </Dialog>
   )
@@ -65,45 +70,59 @@ function RefundSheet(props: { receipt: KnownReceipt; footer: ReactNode; onClose:
       <p className="muted small">
         {dayMonthLong(receipt.date)} · {receipt.readBy ? 'Read by your AI' : 'Read by the phone'}
       </p>
-      <ul className="plain-list compact receipt-items" aria-label="Items">
+      <ul className="plain-list compact receipt-items rc-items" aria-label="Items">
         {receipt.items.map((it, i) => (
           <li key={`${it.name}#${i}`}>
-            <span>
-              {itemShown(it)}
-              <span className="muted small"> · {money(it.price, receipt.currency)} back</span>
-              <br />
-              <span className="muted small">{it.kind ?? 'Not sorted'}</span>
+            <span className="rc-item">
+              <span className="rc-name">{itemShown(it)}</span>
+              <span className="rc-price">
+                <span className="rc-sep"> · </span>
+                {money(it.price, receipt.currency)} back
+              </span>
+              <span className="rc-kind">{it.kind ?? 'Not sorted'}</span>
             </span>
           </li>
         ))}
       </ul>
-      <p>
-        Total {money(givenBack(receipt), receipt.currency)} back{receipt.giftCard ? ' · to a gift card' : ''}
+      <p className="rc-total">
+        <span className="rc-total-main">
+          Total <strong>{money(givenBack(receipt), receipt.currency)}</strong> back
+        </span>
+        {receipt.giftCard ? <TotalNote>to a gift card</TotalNote> : null}
       </p>
       <p className="muted small">Not counted. Say “I returned it” on the receipt you bought them on.</p>
     </Dialog>
   )
 }
 
+/** What follows the total, set apart: an offer, a return, what was spent. */
+function TotalNote({ children, strong }: { children: string; strong?: boolean }) {
+  return (
+    <span className={strong ? 'rc-total-note rc-total-spent' : 'rc-total-note'}>
+      <span className="rc-sep"> · </span>
+      {children}
+    </span>
+  )
+}
+
+/** One item: its name and price, what an offer took off, and its kind: the row's words, in a grid. */
 function ItemText({ item, currency }: { item: ReceiptItem; currency: string }) {
   return (
-    <span>
-      {item.returned ? <s>{itemShown(item)}</s> : itemShown(item)}
-      <span className="muted small">
-        {' '}
-        · {item.quantity > 1 ? `${item.quantity} × ` : ''}
+    <span className="rc-item">
+      <span className="rc-name">{item.returned ? <s>{itemShown(item)}</s> : itemShown(item)}</span>
+      <span className="rc-price">
+        <span className="rc-sep"> · </span>
+        {item.quantity > 1 ? `${item.quantity} × ` : ''}
         {money(paidFor(item), currency)}
       </span>
       {item.saving ? (
-        <>
-          <br />
-          <span className="muted small">
-            Was {money(item.price, currency)} · {money(item.saving, currency)} off
-          </span>
-        </>
+        <span className="rc-was">
+          Was {money(item.price, currency)} · {money(item.saving, currency)} off
+        </span>
       ) : null}
-      <br />
-      <span className="muted small">{item.price < 0 ? 'Offer on the whole receipt' : [item.kind ?? 'Not sorted', ...(item.returned ? ['Returned'] : [])].join(' · ')}</span>
+      <span className="rc-kind" data-returned={item.returned ? 'true' : undefined}>
+        {item.price < 0 ? 'Offer on the whole receipt' : [item.kind ?? 'Not sorted', ...(item.returned ? ['Returned'] : [])].join(' · ')}
+      </span>
     </span>
   )
 }
