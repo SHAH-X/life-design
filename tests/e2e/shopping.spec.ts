@@ -250,6 +250,40 @@ test('an item can be filed under who it was for, on every receipt at that shop, 
   await expect(page.getByRole('region', { name: 'Who it was for' }).locator('summary')).toHaveText(['Riya · 3 items · £42.99', 'Nobody in particular · 1 item · £0.95'])
 })
 
+// Owner, 2026-11-01: a multi-buy offer printed as a saving said "Offer on the whole receipt" and only what it took off; it is
+// for those 2 items, and says what the pair cost. The sums are as they were.
+test('a "2 for £3.00" offer says it is for 2 items and what they cost together, and the receipt still adds up', async ({ page }, testInfo) => {
+  const entries = [
+    receiptEntry('c1', '2026-10-12', reading('EXAMPLE CASH & CARRY', '2026-10-12', [
+      ['Example snack A, 200g', 199, 'Snacks and sweets'],
+      ['Example snack B, 200g', 199, 'Snacks and sweets'],
+      ['Snack, 2 for £3.00', -98],
+      ['Example snack C, 200g', 199, 'Snacks and sweets'],
+      ['Example snack D, 200g', 229, 'Snacks and sweets'],
+      ['Snack, 2 for £3.00', -128],
+      ['Clubcard saving', -10],
+    ])),
+  ]
+  await restoreBackup(page, testInfo.outputPath('multibuy.json'), backupWith({ entries }, SATURDAY))
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  await line(page, /1 receipt from 1 shop/).click()
+  await page.getByRole('button', { name: /Mon 12 Oct EXAMPLE CASH/ }).click()
+  const receipt = page.getByRole('dialog', { name: 'EXAMPLE CASH & CARRY' })
+  const items = receipt.getByRole('list', { name: 'Items' }).getByRole('listitem')
+  await expect(items).toHaveText([
+    'Example snack A, 200g · £1.99Snacks and sweets',
+    'Example snack B, 200g · £1.99Snacks and sweets',
+    'Snack, 2 for £3.00 · -£0.98Offer on 2 items: £3.00 for the pair',
+    'Example snack C, 200g · £1.99Snacks and sweets',
+    'Example snack D, 200g · £2.29Snacks and sweets',
+    'Snack, 2 for £3.00 · -£1.28Offer on 2 items: £3.00 for the pair',
+    'Clubcard saving · -£0.10Offer on the whole receipt',
+  ])
+  // £8.26 of items less £2.36 of offers: unchanged by the wording.
+  await expect(receipt.getByText(/Total £5\.90/)).toBeVisible()
+})
+
 // Owner, 2026-11-01: a return slip showed as spent; "just show it as refund receipt at max, don't include in any
 // calculation, as I will also be marking it as returned in the original receipt".
 test('a refund slip is shown as money back, counted nowhere, and opens to what came back', async ({ page }, testInfo) => {

@@ -8,6 +8,7 @@ import {
   itemKeys,
   type KnownReceipt,
   monthTotals,
+  offerWords,
   paid,
   receiptsAndCopies,
   receiptsOf,
@@ -581,5 +582,22 @@ describe('who an item was for (v0.20.39)', () => {
   })
   it('has nothing to say until something is filed', () => {
     expect(shoppingMonth(RECEIPTS, '2026-10', TODAY).forWho).toBeNull()
+  })
+})
+
+describe('offerWords: what an offer row says it is for (v0.20.40)', () => {
+  const off = (name: string, plain?: string) => ({ name, ...(plain ? { plain } : {}), price: -49, quantity: 1 })
+
+  it('says how many items an "N for £X" offer is for and what they cost together, whatever the print', () => {
+    expect(offerWords(off('Snack, 2 for £3.00'), '£')).toBe('Offer on 2 items: £3.00 for the pair')
+    expect(offerWords(off('SNACK 2 FOR 3.00'), '£')).toBe('Offer on 2 items: £3.00 for the pair')
+    expect(offerWords(off('SNACK2FOR£3.00'), '£')).toBe('Offer on 2 items: £3.00 for the pair')
+    expect(offerWords(off('Crisps 3 for £5'), '£')).toBe('Offer on 3 items: £5.00 for the 3')
+    expect(offerWords(off('Cafe deal 2 for €4,50'), '€')).toBe('Offer on 2 items: €4.50 for the pair')
+    // The words shown are your AI's plain name, else as printed.
+    expect(offerWords(off('SNACK 2FOR', 'Snack, 2 for £3.00'), '£')).toBe('Offer on 2 items: £3.00 for the pair')
+  })
+  it('keeps saying the whole receipt for any other offer, and where "for" has no price ("3 for 2")', () => {
+    for (const name of ['Clubcard saving', 'Meal deal', 'Buy 3 for 2', '3 for 2 on crisps', 'Staff discount', 'Coupon for 1.50']) expect(offerWords(off(name), '£')).toBe('Offer on the whole receipt')
   })
 })

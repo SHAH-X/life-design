@@ -47,6 +47,21 @@ export const givenBack = (r: Pick<Receipt, 'total' | 'items'>) => r.total ?? r.i
 /** Whether a refund slip names a gift card after its total, where the money went back to. */
 const backToGiftCard =(text: string) => /\btotal\b[\s\S]*\bgift\s*card\b/i.test(text)
 
+/** "2 for £3.00", "2 FOR 3.00", "3 for €5": how many items, and what they cost together. "3 for 2" has no price in it
+ *  (nor a currency sign or pence), so it isn't one. */
+const MULTI_BUY = /(?<!\d)(\d+)\s*for\s*(?:[£$€]\s*(\d+(?:[.,]\d{1,2})?)|(\d+[.,]\d{2}))/i
+
+/** What an offer row (a saving as its own row) says it is for (v0.20.40, owner 2026-11-01: a multi-buy offer showed only
+ *  what it took off, and "the whole receipt"): "2 for £3.00" is for 2 items, and what they cost together; any other is
+ *  for the whole receipt. */
+export function offerWords(item: Pick<ReceiptItem, 'name' | 'plain'>, currency: string): string {
+  const said = [itemShown(item as ReceiptItem), item.name].map((words) => words.match(MULTI_BUY)).find(Boolean)
+  const count = said ? Number(said[1]) : 0
+  if (!said || count < 2) return 'Offer on the whole receipt'
+  const together = Math.round(Number((said[2] ?? said[3]!).replace(',', '.')) * 100)
+  return `Offer on ${count} items: ${money(together, currency)} for ${count === 2 ? 'the pair' : `the ${count}`}`
+}
+
 /** A saving for the whole basket, never for the item printed before it. */
 const BASKET_SAVING = /multi[\s-]?buy|meal\s*deal|\b\d+\s*for\b|bundle|mix\s*(?:&|and)?\s*match|staff|colleague|coupon|voucher/i
 /** M&S prints the Sparks savings for the whole receipt after this line. */
