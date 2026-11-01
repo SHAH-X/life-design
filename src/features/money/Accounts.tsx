@@ -6,7 +6,7 @@ import type { StatementRecord } from '../../db/types'
 import { notBroughtIn } from '../../domain/money'
 import { formatPeriod, toDateKey } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
-import { StatementImport } from './StatementImport'
+import { useMoney } from './MoneyContext'
 import { useAccountNames } from './useAccountNames'
 
 // Your accounts (v0.20, step 1 of Money): each account a statement was brought in for, its lines and the days they
@@ -45,55 +45,56 @@ async function accounts(): Promise<Account[]> {
 export function Accounts() {
   const list = useLiveQuery(accounts, [])
   const names = useAccountNames()
-  const [importing, setImporting] = useState(false)
+  const { importStatement } = useMoney()
   const [naming, setNaming] = useState<Account | null>(null)
   const today = toDateKey(new Date())
   const headingId = useId()
+  const some = Boolean(list?.length && names)
   return (
-    <section aria-labelledby={headingId}>
-      <h2 id={headingId} className="week-title">
-        Your accounts
-      </h2>
+    <section className="acc-block" aria-labelledby={headingId}>
+      <div className="acc-block-head">
+        <h2 id={headingId}>Your accounts</h2>
+        {some ? (
+          <button type="button" className="acc-link" onClick={importStatement}>
+            Bring in a statement
+          </button>
+        ) : null}
+      </div>
       {list?.length && names ? (
-        <div className="card">
-          <ul className="plain-list compact">
-            {list.map((a) => {
-              const missing = notBroughtIn(a.statements, today, a.closed)
-              return (
-                <li key={a.name} className="account-row account-card">
-                  <div className="account-card-body">
-                    <div className="account-card-header">
-                      <span className="account-name">{names.get(a.name) ?? a.name}</span>
-                      {a.closed ? (
-                        <span className="account-badge closed" aria-hidden="true">Closed</span>
-                      ) : missing.length ? (
-                        <span className="account-badge missing" aria-hidden="true">Needs statement</span>
-                      ) : (
-                        <span className="account-badge synced" aria-hidden="true">Up to date</span>
-                      )}
-                    </div>
-                    <span className="muted small account-period">
-                      {formatPeriod(a.from, a.to)}
-                      {a.closed ? ' · Closed' : ''}
-                      {a.notAdding ? ` · ${a.notAdding} ${a.notAdding === 1 ? 'doesn’t match its' : 'don’t match their'} printed balance` : ''}
+        <ul className="acc-list">
+          {list.map((a) => {
+            const missing = notBroughtIn(a.statements, today, a.closed)
+            const state = a.closed ? 'closed' : missing.length ? 'missing' : 'ok'
+            return (
+              <li key={a.name} className="acc-li acc-account">
+                <div className="acc-account-main">
+                  <div className="acc-account-top">
+                    <span className="acc-account-name">{names.get(a.name) ?? a.name}</span>
+                    <span className="acc-state" data-state={state}>
+                      {a.closed ? 'Closed' : missing.length ? 'Needs statement' : 'Up to date'}
                     </span>
-                    {missing.length ? <span className="muted small account-missing">Missing: {missing.map((g) => formatPeriod(g.from, g.to)).join('; ')}</span> : null}
                   </div>
-                  <button type="button" className="small-link account-change-btn" aria-label={`Change ${names.get(a.name) ?? a.name}`} onClick={() => setNaming(a)}>
-                    Change
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
+                  <span className="acc-account-line">
+                    {formatPeriod(a.from, a.to)}
+                    {a.notAdding ? ` · ${a.notAdding} ${a.notAdding === 1 ? 'doesn’t match its' : 'don’t match their'} printed balance` : ''}
+                  </span>
+                  {missing.length ? <span className="acc-account-line acc-account-missing">Missing: {missing.map((g) => formatPeriod(g.from, g.to)).join('; ')}</span> : null}
+                </div>
+                <button type="button" className="acc-link" aria-label={`Change ${names.get(a.name) ?? a.name}`} onClick={() => setNaming(a)}>
+                  Change
+                </button>
+              </li>
+            )
+          })}
+        </ul>
       ) : list && names ? (
-        <p className="muted small account-empty">Bring in your bank and card statements to see all your spending.</p>
+        <div className="acc-empty">
+          <p>Bring in your bank and card statements to see all your spending.</p>
+          <button type="button" className="primary wide" onClick={importStatement}>
+            Bring in a statement
+          </button>
+        </div>
       ) : null}
-      <button type="button" className="wide top-gap" onClick={() => setImporting(true)}>
-        Bring in a statement
-      </button>
-      {importing ? <StatementImport onClose={() => setImporting(false)} /> : null}
       {naming && names ? (
         <RenameSheet
           title="Change this account"

@@ -49,11 +49,13 @@ export function PaymentSheet(props: {
   kind?: string | null
   onKind?: (() => void) | null
   onRename?: (() => void) | null
+  /** Offered for a payee that could be you moving money: says so, and the sheet closes. */
+  onOwn?: (() => Promise<void>) | null
   onReceipt: (() => void) | null
   onUnlinkReceipt: (() => Promise<void>) | null
   onClose: () => void
 }) {
-  const { line, way, receiptSummary, kind, onKind, onRename, onReceipt, onUnlinkReceipt, onClose } = props
+  const { line, way, receiptSummary, kind, onKind, onRename, onOwn, onReceipt, onUnlinkReceipt, onClose } = props
   const [note, setNote] = useState(props.note)
   const isRenamed = Boolean(line.payee.original && line.payee.original !== line.payee.name)
   const id = useId()
@@ -82,6 +84,11 @@ export function PaymentSheet(props: {
         {onKind ? (
           <button type="button" className="small-link" onClick={onKind}>
             {kind ? `Category: ${kind}` : '+ Assign category'}
+          </button>
+        ) : null}
+        {onOwn ? (
+          <button type="button" className="small-link" onClick={() => void onOwn()}>
+            It’s me, moving money
           </button>
         ) : null}
       </div>

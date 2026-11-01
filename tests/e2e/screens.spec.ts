@@ -203,6 +203,13 @@ for (const scheme of ['light'] as const) {
       await expect(statementSheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveCount(2)
       await statementSheet.getByRole('button', { name: 'Done', exact: true }).click()
       await look(page, at('money-accounts'))
+      // The other two parts of Accounts: where September's money went (the statement is September's), and the accounts.
+      const part = (name: string) => page.locator('.acc-tabs').getByRole('button', { name, exact: true })
+      await page.goto('./#/money/2026-09')
+      await part('Spending').click()
+      await look(page, at('money-spending'))
+      await part('Statements').click()
+      await look(page, at('money-statements'))
     })
 
     test(`Money regular payment rename, ${scheme}`, async ({ page }, testInfo) => {
@@ -223,8 +230,9 @@ for (const scheme of ['light'] as const) {
       await restoreBackup(page, testInfo.outputPath('money-regular-rename.json'), backupWith({ bankLines }, EVENING))
       await page.goto('./#/money')
       const regularPayments = page.getByRole('region', { name: 'Regular payments' })
-      const regular = regularPayments.locator('li.regular-payment-line')
+      const regular = regularPayments.locator('details.acc-item')
       await look(page, `${scheme}-money-regular-payment`)
+      await regular.locator('summary').click()
       await regular.getByRole('button', { name: 'Rename EXAMPLE STREAMING' }).click()
       const sheet = page.getByRole('dialog', { name: 'Rename regular payment' })
       const field = sheet.getByRole('textbox', { name: 'What do you call it?' })

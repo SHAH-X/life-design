@@ -1753,19 +1753,6 @@ button.line-button {
   font-variant-numeric: tabular-nums;
 }
 
-/* An account's days still to bring in, on a line of their own. */
-.account-missing {
-  display: block;
-}
-
-/* An account and its Change button, side by side. */
-.account-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: space-between;
-}
-
 .money-screen h1 {
   margin-bottom: 24px;
 }
@@ -1797,38 +1784,6 @@ button.line-button {
   background: var(--surface);
   color: var(--text);
   box-shadow: var(--list-shadow);
-}
-
-/* Accounts has three distinct jobs. Keeping one job on screen at a time gives the totals room to breathe and puts
-   statement management where people expect it, without burying any calculation behind a new page. */
-.money-screen .money-detail-switch {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-  margin: 12px 0 18px;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--bg);
-}
-
-.money-screen .money-detail-switch button {
-  min-width: 0;
-  min-height: 42px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 12px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 650;
-  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.money-screen .money-detail-switch button[aria-pressed='true'] {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: 0 1px 3px rgb(31 30 28 / 0.1);
 }
 
 .money-screen .week-title {
@@ -1967,35 +1922,6 @@ button.line-button {
   border-top: 0;
 }
 
-.money-screen .money-overview-breakdown .money-overview-comparison {
-  grid-column: 1 / -1;
-  border-block: 0;
-  margin-bottom: 2px;
-}
-
-.money-screen .money-overview-breakdown .money-overview-comparison details.week-line > summary.money-overview-summary {
-  display: flex !important;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 48px;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg);
-}
-
-.money-screen .money-overview-breakdown .money-overview-comparison .money-overview-summary > span:first-child {
-  font-weight: 600;
-  color: var(--muted);
-  font-size: 0.84rem;
-}
-
-.money-screen .money-overview-breakdown .money-overview-comparison .money-overview-summary .money-overview-value {
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: var(--text);
-}
-
 .money-screen .receipt-overview .money-overview-breakdown {
   grid-template-columns: 1fr;
 }
@@ -2015,23 +1941,6 @@ button.line-button {
   align-content: center;
   min-height: 56px;
   padding: 8px 20px 8px 2px;
-}
-
-.money-screen .money-overview-stat details.week-line > summary.money-overview-summary {
-  display: flex !important;
-  flex-direction: column;
-  justify-content: center;
-  gap: 3px;
-  min-height: 66px;
-  padding: 11px 14px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
-  box-shadow: 0 1px 3px rgb(31 30 28 / 0.03);
-}
-
-.money-screen .money-overview-stat details.week-line > summary.money-overview-summary:active {
-  background: var(--viz-hover);
 }
 
 .money-screen .money-overview-summary > span:first-child {
@@ -2068,296 +1977,6 @@ button.line-button {
 }
 
 .money-screen details.week-line > summary:active {
-  background: var(--viz-hover);
-}
-
-/* Category proportion meter */
-.money-screen .money-kind-row {
-  padding: 2px 0;
-}
-
-.money-screen .money-kind-summary {
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 6px 8px;
-  padding: 10px 4px;
-}
-
-.money-screen .money-kind-header {
-  grid-column: 1 / 2;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 2px 6px;
-  min-width: 0;
-}
-
-.money-screen .money-kind-label {
-  font-weight: 650;
-  color: var(--text);
-}
-
-.money-screen .money-kind-summary::after {
-  grid-column: 2 / 3;
-  grid-row: 1 / 2;
-}
-
-.money-screen .money-kind-meter {
-  grid-column: 1 / -1;
-  display: block;
-  height: 5px;
-  background: var(--accent-soft);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.money-screen .money-kind-meter-fill {
-  display: block;
-  height: 100%;
-  background: var(--viz-seq);
-  border-radius: 999px;
-  transition: width 0.3s ease;
-}
-
-/* Spending rise insight row */
-.money-screen .money-rise-row {
-  padding: 2px 0;
-}
-
-.money-screen .money-rise-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 9px 4px;
-}
-
-.money-screen .money-rise-top {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.money-screen .money-rise-label {
-  font-weight: 650;
-  color: var(--text);
-  flex: 1;
-  min-width: 0;
-}
-
-.money-screen .money-rise-amount {
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  color: var(--text);
-}
-
-.money-screen .money-rise-delta {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #7c4a00;
-}
-
-.money-screen .money-rise-prev {
-  font-size: 0.82rem;
-  color: var(--muted);
-}
-
-/* Regular payments total summary banner inside card */
-.money-screen .regular-payments-total-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 14px;
-  margin-bottom: 10px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--bg);
-}
-
-.money-screen .regular-payments-total-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.money-screen .regular-payments-total-label {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.money-screen .regular-payments-total-figure {
-  font-size: 1.18rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--text);
-  white-space: nowrap;
-}
-
-/* Regular payment card row */
-.money-screen .regular-payment-line {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-}
-
-.money-screen .regular-payment-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 8px 4px;
-}
-
-.money-screen .regular-payment-top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-}
-
-.money-screen .regular-payment-header {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex: 1;
-}
-
-.money-screen .regular-payment-name {
-  font-weight: 650;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.money-screen .regular-payment-amount {
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  color: var(--text);
-}
-
-.money-screen .regular-payment-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  flex-shrink: 0;
-}
-
-.money-screen .regular-payment-line > button.small-link {
-  min-height: 36px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 0.8rem;
-  font-weight: 600;
-  margin: 0;
-  align-self: center;
-}
-
-.money-screen .regular-payment-line > button.small-link:active {
-  background: var(--viz-hover);
-}
-
-/* Account card in Accounts list */
-.money-screen .account-card {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 0;
-}
-
-.money-screen .account-card-body {
-  flex: 1 1 auto;
-  min-width: 0;
-  line-height: 1.45;
-}
-
-.money-screen .account-card-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 8px;
-  margin-bottom: 3px;
-}
-
-.money-screen .account-name {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.money-screen .account-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 7px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 650;
-  letter-spacing: 0.02em;
-}
-
-.money-screen .account-badge.synced {
-  background: rgb(31 122 51 / 0.1);
-  color: var(--success);
-}
-
-.money-screen .account-badge.missing {
-  background: var(--warn-bg);
-  color: #7c4a00;
-}
-
-.money-screen .account-badge.closed {
-  background: var(--border);
-  color: var(--muted);
-}
-
-.money-screen .account-period {
-  display: block;
-}
-
-.money-screen .account-missing {
-  display: block;
-  margin-top: 6px;
-  padding: 5px 9px;
-  border-radius: 8px;
-  background: var(--warn-bg);
-  color: #7c4a00;
-  font-size: 0.82rem;
-  line-height: 1.35;
-  border: 1px solid #ebd9b0;
-}
-
-.money-screen .account-change-btn {
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 0.82rem;
-  font-weight: 600;
-  margin: 0;
-  flex: 0 0 auto;
-}
-
-.money-screen .account-change-btn:active {
   background: var(--viz-hover);
 }
 
@@ -2398,147 +2017,6 @@ button.line-button {
   border: 1px solid var(--evening-border);
 }
 
-.money-screen .account-row {
-  align-items: flex-start;
-  padding: 8px 0;
-}
-
-/* One payment is shown as a complete, tappable record. */
-.money-screen .payee-single {
-  padding: 4px 0 8px;
-}
-
-.money-screen .payee-single details.week-line > summary {
-  min-height: 36px;
-  padding: 6px 4px;
-}
-
-.money-screen .payee-single-body {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.money-screen .payee-single-payment {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  width: 100%;
-  padding: 6px 4px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  text-align: left;
-}
-
-.money-screen .payee-single-payment:active {
-  background: var(--viz-hover);
-}
-
-.money-screen .payee-single-copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.money-screen .payee-single-name {
-  overflow: hidden;
-  font-size: 0.95rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.money-screen .payee-original {
-  font-size: 0.78rem;
-  color: var(--muted);
-  font-weight: 500;
-}
-
-.money-screen .payee-single-detail {
-  overflow-wrap: anywhere;
-  color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.35;
-}
-
-.money-screen .payee-single-amount {
-  align-self: center;
-  padding-left: 12px;
-  font-size: 1.05rem;
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-}
-
-.money-screen .payee-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding: 2px 4px 4px;
-}
-
-.money-screen .payee-action-chip {
-  min-height: 28px;
-  padding: 2px 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 0.76rem;
-  font-weight: 650;
-  cursor: pointer;
-  margin: 0;
-}
-
-.money-screen .payee-action-chip:active {
-  background: var(--viz-hover);
-}
-
-.money-screen .payee-multi {
-  padding: 4px 0 8px;
-}
-
-.money-screen .payee-multi-title {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.money-screen .payee-kind-action {
-  min-height: 30px;
-  padding: 0 10px;
-  border-color: var(--border);
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 0.76rem;
-  font-weight: 700;
-}
-
-.money-screen .payee-own-action {
-  margin-left: 2px;
-}
-
-.money-screen .account-row > span:first-child {
-  min-width: 0;
-  line-height: 1.45;
-}
-
-.money-screen .account-name,
-.money-screen .account-period {
-  display: block;
-}
-
-.money-screen .account-empty {
-  margin: 0 0 12px;
-  padding: 14px 16px;
-  border: 1px dashed var(--border);
-  border-radius: 16px;
-  background: var(--surface);
-}
-
 .money-screen button.wide,
 .money-screen .button.wide {
   min-height: 50px;
@@ -2565,6 +2043,465 @@ button.line-button {
 
 .money-screen .payment-told {
   overflow-wrap: anywhere;
+}
+
+/* ---------- Money → Accounts (v0.20.22) ----------
+   Flat lists on the page, not cards: a month's figure first, then three parts that each do one job. Every list is one
+   kind of row (a name, what it says underneath, its figure on the right, a chevron when it opens), so figures line up
+   down the screen. The only colour is the amber of "needs a statement" and a rise, and the green of "up to date". */
+.money-screen .acc-hero {
+  margin: 4px 0 0;
+}
+
+.money-screen .acc-hero-top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.money-screen .acc-label {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.money-screen .acc-stepper {
+  display: flex;
+  margin-right: -10px;
+}
+
+.money-screen .acc-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: var(--accent);
+  font-size: 1.8rem;
+  line-height: 1;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.money-screen a.acc-step:active {
+  background: var(--viz-hover);
+}
+
+/* The end of the months: still drawn, so the pair reads as a stepper, and dimmed. */
+.money-screen .acc-step[data-off] {
+  opacity: 0.3;
+}
+
+.money-screen .acc-figure {
+  margin: 0;
+  font-size: clamp(2.2rem, 12vw, 3rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.money-screen .acc-figure span {
+  color: var(--muted);
+  font-size: 0.45em;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.money-screen .acc-caption {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.money-screen .acc-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 18px;
+  border-block: 1px solid var(--border);
+}
+
+.money-screen .acc-stat {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-height: 68px;
+  padding: 10px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.money-screen .acc-stat + .acc-stat {
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
+}
+
+.money-screen .acc-stat:active {
+  background: var(--viz-hover);
+}
+
+.money-screen .acc-stat-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.money-screen .acc-stat-value {
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+
+.money-screen .acc-notice {
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 8px 14px;
+  border: 1px solid #ebd9b0;
+  border-radius: 12px;
+  background: var(--warn-bg);
+  color: #7c4a00;
+  font-size: 0.88rem;
+  text-align: left;
+}
+
+.money-screen .acc-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 20px 0 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.money-screen .acc-tab {
+  position: relative;
+  min-width: 0;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.money-screen .acc-tab[aria-pressed='true'] {
+  color: var(--text);
+}
+
+.money-screen .acc-tab[aria-pressed='true']::before {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--text);
+  content: '';
+}
+
+.money-screen .acc-tab[data-attention]::after {
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: #7c4a00;
+  content: '';
+}
+
+.money-screen .acc-chart {
+  margin-top: 22px;
+}
+
+.money-screen .acc-chart .chart:last-child {
+  margin-bottom: 0;
+}
+
+.money-screen .acc-block {
+  margin-top: 30px;
+  scroll-margin-top: calc(var(--safe-top) + 76px);
+}
+
+.money-screen .acc-block h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.money-screen .acc-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.money-screen .acc-status {
+  margin: 2px 0 6px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.money-screen .acc-fewer {
+  margin-top: 14px;
+}
+
+.money-screen .acc-list {
+  margin: 8px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+}
+
+.money-screen .acc-li {
+  border-bottom: 1px solid var(--border);
+}
+
+/* One row: text on the left, its figure, a chevron's room (blank on a row that doesn't open). */
+.money-screen .acc-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 18px;
+  align-items: center;
+  column-gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 9px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-weight: 400;
+  text-align: left;
+}
+
+.money-screen summary.acc-row,
+.money-screen button.acc-row {
+  cursor: pointer;
+  list-style: none;
+}
+
+.money-screen summary.acc-row::-webkit-details-marker {
+  display: none;
+}
+
+.money-screen summary.acc-row:active,
+.money-screen button.acc-row:active {
+  background: var(--viz-hover);
+}
+
+.money-screen summary.acc-row::after,
+.money-screen button.acc-row::after {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--viz-muted);
+  border-bottom: 2px solid var(--viz-muted);
+  transform: rotate(-45deg);
+  content: '';
+}
+
+.money-screen details[open] > summary.acc-row::after {
+  transform: rotate(45deg);
+}
+
+.money-screen .acc-row-text {
+  display: flex;
+  grid-column: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.money-screen .acc-row-title {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.money-screen .acc-row-sub {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.money-screen .acc-row-value {
+  display: flex;
+  grid-column: 2;
+  flex-direction: column;
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.money-screen .acc-delta {
+  color: #7c4a00;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.money-screen .acc-meter {
+  display: block;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  height: 4px;
+  margin-top: 8px;
+  border-radius: 2px;
+  background: var(--accent-soft);
+  overflow: hidden;
+}
+
+.money-screen .acc-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--viz-seq);
+}
+
+/* The regular payments' total (owner, 2026-10-28: a prominent summary at the top of the list): the first row, its figure larger. */
+.money-screen .acc-total .acc-row-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.money-screen .acc-open {
+  padding: 0 0 10px;
+}
+
+.money-screen .acc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 18px;
+  margin-bottom: 2px;
+}
+
+.money-screen .acc-link {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+.money-screen .acc-link:active {
+  background: var(--viz-hover);
+}
+
+.money-screen .acc-lines {
+  margin: 0 0 4px 2px;
+  padding: 0 0 0 12px;
+  border-left: 2px solid var(--border);
+  list-style: none;
+}
+
+.money-screen .acc-lines li {
+  padding: 0;
+}
+
+/* The day in a column of its own width, so what each payment says starts at the same place down the list. */
+.money-screen .acc-lines .payment-row {
+  grid-template-columns: 5.4em minmax(0, 1fr) max-content;
+}
+
+.money-screen .acc-lines .payment-day,
+.money-screen .acc-lines .payment-told {
+  font-size: 0.85rem;
+}
+
+/* Payments listed under a heading rather than under a row: a list of their own. */
+.money-screen .acc-block > .acc-lines {
+  margin: 8px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+  border-left: 0;
+}
+
+.money-screen .acc-block > .acc-lines li + li {
+  border-top: 1px solid var(--border);
+}
+
+.money-screen .acc-account {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0 2px;
+}
+
+.money-screen .acc-account-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-bottom: 8px;
+}
+
+.money-screen .acc-account-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 10px;
+}
+
+.money-screen .acc-account-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.money-screen .acc-state {
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.money-screen .acc-state::before {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: currentcolor;
+  content: '';
+}
+
+.money-screen .acc-state[data-state='ok'] {
+  color: var(--success);
+}
+
+.money-screen .acc-state[data-state='missing'] {
+  color: #7c4a00;
+}
+
+.money-screen .acc-state[data-state='closed'] {
+  color: var(--muted);
+}
+
+.money-screen .acc-account-line {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.money-screen .acc-account-missing {
+  color: #7c4a00;
+}
+
+.money-screen .acc-empty {
+  padding: 8px 0 0;
+}
+
+.money-screen .acc-empty p {
+  margin: 0 0 14px;
+  color: var(--muted);
 }
 
 .money-screen .receipt-check > summary {

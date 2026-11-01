@@ -296,7 +296,7 @@ test('an undated receipt can be accepted or matched to a statement payment, then
   await page.getByRole('button', { name: 'Accounts', exact: true }).click()
   const moneyOut = page.getByRole('region', { name: 'Money out' })
   // Money out is under Spending (v0.20.14); one payment is its own row (v0.20.17), opening directly.
-  await page.locator('.money-detail-switch').getByRole('button', { name: 'Spending', exact: true }).click()
+  await page.locator('.acc-tabs').getByRole('button', { name: 'Spending', exact: true }).click()
   await moneyOut.getByRole('button', { name: /CORNER SHOP.*Receipt £4\.20/i }).click()
   const paymentSheet = page.getByRole('dialog', { name: 'CORNER SHOP' })
   await paymentSheet.getByRole('button', { name: 'Unlink receipt' }).click()
@@ -353,7 +353,7 @@ test('a dated receipt can be matched to a smaller debit with an owner-recorded r
   await page.getByRole('button', { name: 'Accounts', exact: true }).click()
   await expect(page.getByRole('strong')).toHaveText('£90.71 out')
   const moneyOut = page.getByRole('region', { name: 'Money out' })
-  await page.locator('.money-detail-switch').getByRole('button', { name: 'Spending', exact: true }).click()
+  await page.locator('.acc-tabs').getByRole('button', { name: 'Spending', exact: true }).click()
   // The row says it has a receipt, at the debit's amount; the sheet gives both amounts and why they differ.
   await moneyOut.getByRole('button', { name: /CORNER SHOP.*Receipt £90\.71$/i }).click()
   const paymentSheet = page.getByRole('dialog', { name: 'CORNER SHOP' })
@@ -373,7 +373,7 @@ test('a dated receipt can be matched to a smaller debit with an owner-recorded r
   await reason.fill('Part paid with a stored-value card')
   await secondMatch.getByRole('button', { name: 'Match receipt' }).click()
   await page.getByRole('button', { name: 'Accounts', exact: true }).click()
-  await page.locator('.money-detail-switch').getByRole('button', { name: 'Spending', exact: true }).click()
+  await page.locator('.acc-tabs').getByRole('button', { name: 'Spending', exact: true }).click()
   await moneyOut.getByRole('button', { name: /CORNER SHOP.*Receipt £90\.71$/i }).click()
   await expect(paymentSheet).toContainText('Receipt £96.50 · debit £90.71 · difference £5.79 · Part paid with a stored-value card')
 })

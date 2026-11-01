@@ -17,14 +17,17 @@ async function pdf(path: string, pages: Placed[][]) {
 }
 
 async function bringIn(page: Page, path: string) {
+  // With statements in, "Bring in a statement" is under Statements; with none, it's the whole page.
+  const statements = page.locator('.acc-tabs').getByRole('button', { name: 'Statements', exact: true })
+  if (await statements.count()) await statements.click()
   await page.getByRole('button', { name: 'Bring in a statement' }).click()
   const sheet = page.getByRole('dialog', { name: 'Bring in a statement' })
   await sheet.locator('input[type="file"]').setInputFiles(path)
   return sheet
 }
 
-async function accountView(page: Page, name: 'Overview' | 'Spending' | 'Accounts') {
-  await page.locator('.money-detail-switch').getByRole('button', { name, exact: true }).click()
+async function accountView(page: Page, name: 'Overview' | 'Spending' | 'Statements') {
+  await page.locator('.acc-tabs').getByRole('button', { name, exact: true }).click()
 }
 
 test('a statement’s PDF is read on the phone and its accounts kept, each line once; nothing leaves this site', async ({ page, baseURL }, testInfo) => {
@@ -40,7 +43,7 @@ test('a statement’s PDF is read on the phone and its accounts kept, each line 
   let sheet = await bringIn(page, lloyds)
   await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveText([/^Lloyds: 4 new · 1 ?– ?30 Sept?$/])
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
-  await accountView(page, 'Accounts')
+  await accountView(page, 'Statements')
   const lloydsRow = accounts.getByRole('listitem')
   await expect(lloydsRow).toContainText('Lloyds')
   await expect(lloydsRow).toContainText(/1\s+–\s+30 Sep 2026/)
@@ -104,7 +107,7 @@ test('a Monzo Flex statement reads as Monzo Flex, every line matching; an accoun
   const sheet = await bringIn(page, await pdf(testInfo.outputPath('flex.pdf'), FLEX_LIKE))
   await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveText([/^Monzo Flex: 5 new · 1 ?– ?30 Sept?$/])
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
-  await accountView(page, 'Accounts')
+  await accountView(page, 'Statements')
   const accounts = page.getByRole('region', { name: 'Your accounts', exact: true })
   await expect(accounts.getByRole('listitem')).toContainText(/1\s+–\s+30 Sep 2026/)
 
@@ -140,42 +143,45 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   // Out: energy 45.00, streaming 10.99, corner shop 12.40, supermarket 23.10, software 4.00, gym 25.00, two coffees 3.00.
   // In: A N Other 100.00, the employer 1,500.00, the pot's interest 1.25. Flex and the pot's moves are left out.
   await expect(page.getByRole('strong')).toHaveText('£126.49 out')
-  const summary = page.locator('.card').first().locator('summary')
+  const summary = page.getByRole('group', { name: 'Money in and payments out' }).getByRole('button')
   await expect(summary).toHaveText(['Money in £1601.25', 'Payments out 8 payments'])
   await accountView(page, 'Spending')
 
-  // A N OTHER is you, paying yourself: once said, its money leaves the totals; and comes back when unsaid.
+  // A N OTHER is you, paying yourself: once said, its money leaves the totals; and comes back when unsaid. Paid once,
+  // it's its payment: one tap opens it, and the sheet says so.
   const moneyIn = page.getByRole('region', { name: 'Money in' })
-  await moneyIn.locator('summary', { hasText: 'A N OTHER' }).click()
-  await moneyIn.getByRole('button', { name: 'It’s me, moving money' }).click()
+  await moneyIn.getByRole('button', { name: /^A N OTHER/ }).click()
+  await page.getByRole('dialog', { name: 'A N OTHER' }).getByRole('button', { name: 'It’s me, moving money' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(summary).toHaveText(['Money in £1501.25', 'Payments out 8 payments'])
-  await accountView(page, 'Accounts')
   const moved = page.getByRole('region', { name: 'Moved between your accounts' })
-  await expect(moved.locator('summary')).toHaveText(['Monzo Flex · 2 moves', 'Pots · 1 move', 'A N OTHER · Your own account · 1 move'])
+  await expect(moved.locator('summary')).toHaveText(['Monzo Flex 2 moves', 'Pots 1 move', 'A N OTHER Your own account · 1 move'])
   // A statement prints your name, not which account: named your way, it's remembered.
   // Each row says where the money went; a pot's move is one row (owner, 2026-10-26).
   await moved.locator('summary', { hasText: 'Pots' }).click()
-  await expect(moved.locator('details', { hasText: 'Pots' }).locator('.evidence-list li')).toHaveText([/^Tue,? 8 Sept? ?Monzo Savings pot → Monzo ?£50\.00$/])
+  await expect(moved.locator('details', { hasText: 'Pots' }).locator('.acc-lines li')).toHaveText([/^Tue,? 8 Sept? ?Monzo Savings pot → Monzo ?£50\.00$/])
   await moved.locator('summary', { hasText: 'Monzo Flex' }).click()
-  await expect(moved.locator('details', { hasText: 'Monzo Flex' }).locator('.evidence-list li')).toHaveText([/^Thu,? 10 Sept? ?Paid off, from Monzo ?£12\.40$/, /^Wed,? 2 Sept? ?Spread with Flex ?£12\.40$/])
+  await expect(moved.locator('details', { hasText: 'Monzo Flex' }).locator('.acc-lines li')).toHaveText([/^Thu,? 10 Sept? ?Paid off, from Monzo ?£12\.40$/, /^Wed,? 2 Sept? ?Spread with Flex ?£12\.40$/])
   await moved.locator('summary', { hasText: 'A N OTHER' }).click()
   await moved.getByRole('button', { name: 'Rename A N OTHER' }).click()
   const naming = page.getByRole('dialog', { name: 'Rename where it went' })
   await naming.getByRole('textbox').fill('Example savings')
   await naming.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(moved.locator('summary').last()).toHaveText('Example savings · Your own account · 1 move')
+  await expect(moved.locator('summary').last()).toHaveText('Example savings Your own account · 1 move')
   // Money that came into Lloyds says so (owner, 2026-10-26: "All from Lloyds" read as leaving it).
   await moved.locator('summary', { hasText: 'Example savings' }).click()
-  await expect(moved.locator('details', { hasText: 'Example savings' }).locator('.evidence-list li')).toHaveText([/^Sat,? 5 Sept? ?Example savings → Lloyds ?£100\.00$/])
+  await expect(moved.locator('details', { hasText: 'Example savings' }).locator('.acc-lines li')).toHaveText([/^Sat,? 5 Sept? ?Example savings → Lloyds ?£100\.00$/])
   await moved.getByRole('button', { name: 'It’s not me: count it again' }).click()
   await expect(summary).toHaveText(['Money in £1601.25', 'Payments out 8 payments'])
   // Paid by card or direct debit: never asked.
-  await accountView(page, 'Spending')
   const moneyOut = page.getByRole('region', { name: 'Money out' })
-  await moneyOut.locator('summary', { hasText: 'EXAMPLE STREAMING' }).click()
-  await expect(moneyOut.getByRole('button', { name: 'It’s me, moving money' })).toHaveCount(0)
+  await moneyOut.getByRole('button', { name: /^EXAMPLE STREAMING/ }).click()
+  const streaming = page.getByRole('dialog', { name: 'EXAMPLE STREAMING' })
+  await expect(streaming.getByRole('button', { name: 'Rename transaction' })).toBeVisible()
+  await expect(streaming.getByRole('button', { name: 'It’s me, moving money' })).toHaveCount(0)
+  await streaming.getByRole('button', { name: 'Close' }).click()
 
-  for (const line of await page.locator('details.week-line > summary').all()) await line.click()
+  for (const line of await page.locator('details.acc-item > summary').all()) await line.click()
   await expectNoScores(page, 'Money, from statements, opened', true)
 })
 
@@ -198,8 +204,9 @@ test('a regular payment can be renamed across existing transactions and a later 
   await page.goto('./#/money')
 
   const regularPayments = page.getByRole('region', { name: 'Regular payments' })
-  const regular = regularPayments.locator('li.regular-payment-line')
+  const regular = regularPayments.locator('details.acc-item')
   await expect(regular.locator('summary')).toContainText('EXAMPLE STREAMING')
+  await regular.locator('summary').click()
   await regular.getByRole('button', { name: 'Rename EXAMPLE STREAMING' }).click()
   const naming = page.getByRole('dialog', { name: 'Rename regular payment' })
   await naming.getByRole('textbox').fill('Example streaming')
@@ -210,7 +217,7 @@ test('a regular payment can be renamed across existing transactions and a later 
     await page.goto(`./#/money/${month}`)
     await accountView(page, 'Spending')
     const monthOut = page.getByRole('region', { name: 'Money out' })
-    await expect(monthOut.locator('details.week-line summary').filter({ hasText: 'Example streaming' })).toContainText('Example streaming')
+    await expect(monthOut.getByRole('button', { name: /^Example streaming/ })).toBeVisible()
   }
 
   const octoberPages = LLOYDS_LIKE.map((page) =>
@@ -227,8 +234,7 @@ test('a regular payment can be renamed across existing transactions and a later 
   await page.goto('./#/money')
   await accountView(page, 'Spending')
   const octoberOut = page.getByRole('region', { name: 'Money out' })
-  await expect(octoberOut.locator('details.week-line summary').filter({ hasText: 'Example streaming' })).toContainText('Example streaming')
-  await expect(octoberOut.locator('details.week-line summary').filter({ hasText: 'Example streaming' })).toContainText('1 payment')
+  await expect(octoberOut.getByRole('button', { name: /^Example streaming.* £10\.99$/ })).toBeVisible()
 })
 
 test('the accounts spending chart shows its six-month average and pages through earlier months', async ({ page }, testInfo) => {
@@ -310,7 +316,7 @@ test('a card payment with its receipt opens the receipt', async ({ page }, testI
 
   const out = page.getByRole('region', { name: 'Money out' })
   // One payment is already its complete row: it opens directly, with no empty disclosure to expand.
-  const payment = out.getByRole('button', { name: /^EXAMPLE STREAMING Sat,? 12 Sept? Out of Lloyds · Receipt £10\.99$/ })
+  const payment = out.getByRole('button', { name: /^EXAMPLE STREAMING Sat,? 12 Sept? · Out of Lloyds · Receipt £10\.99$/ })
   await payment.click()
   await page.getByRole('dialog', { name: 'EXAMPLE STREAMING' }).getByRole('button', { name: 'Open its receipt' }).click()
   // The receipt opens to its items (v0.20.18), and from there its entry.
@@ -320,18 +326,69 @@ test('a card payment with its receipt opens the receipt', async ({ page }, testI
   await expect(page.getByRole('dialog', { name: 'Photo' })).toBeVisible()
   // A payment with no receipt is still a direct row.
   await page.getByRole('dialog', { name: 'Photo' }).getByRole('button', { name: 'Done', exact: true }).click()
-  const energy = out.locator('.payee-single', { hasText: 'EXAMPLE ENERGY' })
-  await expect(energy.getByRole('button', { name: /^EXAMPLE ENERGY Wed,? 2 Sept? Out of Lloyds £45\.00$/ })).toBeVisible()
+  const energy = out.getByRole('button', { name: /^EXAMPLE ENERGY Wed,? 2 Sept? · Out of Lloyds £45\.00$/ })
+  await expect(energy).toBeVisible()
 
   // What a payment was for (owner, 2026-10-26): a kind for its payee, kept for all its payments, and a note on one.
-  await energy.getByRole('button', { name: 'What EXAMPLE ENERGY is for' }).click()
-  await page.getByRole('dialog', { name: 'What is EXAMPLE ENERGY for?' }).getByRole('radio', { name: 'Energy', exact: true }).click()
-  await expect(energy.getByRole('button', { name: 'What EXAMPLE ENERGY is for' })).toHaveText('Energy · Change')
-  await expect(page.getByRole('region', { name: 'By what it was for' }).locator('summary', { hasText: 'Energy' })).toHaveText('Energy · 1 payment · £45.00')
-  await energy.locator('.payee-single-payment').click()
+  await energy.click()
   const paymentSheet = page.getByRole('dialog', { name: 'EXAMPLE ENERGY' })
-  await expect(paymentSheet.getByRole('textbox', { name: 'What was it for?' })).toBeFocused()
-  await paymentSheet.getByRole('textbox').fill('Winter bill')
+  await paymentSheet.getByRole('button', { name: /^(\+ Assign category|Category: )/ }).click()
+  await page.getByRole('dialog', { name: 'What is EXAMPLE ENERGY for?' }).getByRole('radio', { name: 'Energy', exact: true }).click()
+  await expect(paymentSheet.getByRole('button', { name: 'Category: Energy' })).toBeVisible()
+  await paymentSheet.getByRole('textbox', { name: 'What was it for?' }).fill('Winter bill')
   await paymentSheet.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(energy.getByRole('button', { name: /Winter bill/ })).toBeVisible()
+  await expect(out.getByRole('button', { name: /Winter bill/ })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'By what it was for' }).locator('summary', { hasText: 'Energy' })).toHaveText('Energy 1 payment £45.00')
+})
+
+// Accounts (v0.20.22): the month's figure first, the months either side a tap away, what's open staying open between
+// them, the two small figures opening their lists, and a line (and a dot on Statements) when an account needs a statement.
+test('Accounts steps between months, keeps its part open, and says when an account needs a statement', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const bankLines = ['2026-08-10', '2026-09-10', '2026-10-10'].map((date, index) => ({
+    id: `step-${index}`,
+    account: 'Example Current',
+    date,
+    amount: -1000 * (index + 1),
+    description: 'EXAMPLE SHOP',
+    type: 'DEB',
+    balance: null,
+    adds: true,
+    createdAt: index + 1,
+    updatedAt: index + 1,
+  }))
+  const statements = [{ id: 'example:2026-08-01:2026-09-30', account: 'Example Current', from: '2026-08-01', to: '2026-09-30', lines: 2, createdAt: 1, updatedAt: 1 }]
+  await restoreBackup(page, testInfo.outputPath('months.json'), backupWith({ bankLines, statements }, now))
+  await page.goto('./#/money')
+  const months = page.getByRole('navigation', { name: 'Months' })
+  const tab = (name: string) => page.locator('.acc-tabs').getByRole('button', { name, exact: true })
+
+  // October is the latest month: nothing later to step to. Its statements stop at 30 Sep, and it says so.
+  await expect(page.getByRole('strong')).toHaveText('£30.00 out')
+  await expect(months.getByRole('link', { name: /^Later: / })).toHaveCount(0)
+  const notice = page.getByRole('button', { name: /1 account needs a newer statement/ })
+  await expect(notice).toBeVisible()
+  await expect(tab('Statements')).toHaveAttribute('data-attention', '')
+
+  // The payments figure opens Spending at Money out.
+  await page.getByRole('group', { name: 'Money in and payments out' }).getByRole('button', { name: /^Payments out/ }).click()
+  await expect(tab('Spending')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('region', { name: 'Money out' })).toBeInViewport()
+
+  // Stepping back keeps Spending open, down to the first month with anything in it, and forward again.
+  await months.getByRole('link', { name: 'Earlier: September 2026' }).click()
+  await expect(page.getByRole('strong')).toHaveText('£20.00 out')
+  await expect(tab('Spending')).toHaveAttribute('aria-pressed', 'true')
+  await months.getByRole('link', { name: 'Earlier: August 2026' }).click()
+  await expect(page.getByRole('strong')).toHaveText('£10.00 out')
+  await expect(months.getByRole('link', { name: /^Earlier: / })).toHaveCount(0)
+  await months.getByRole('link', { name: 'Later: September 2026' }).click()
+  await months.getByRole('link', { name: 'Later: October 2026' }).click()
+  await expect(page.getByRole('strong')).toHaveText('£30.00 out')
+
+  // Review opens Statements, where the account and what it's missing are.
+  await notice.click()
+  await expect(tab('Statements')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('region', { name: 'Your accounts' }).getByRole('listitem')).toContainText('Needs statement')
 })
