@@ -143,7 +143,7 @@ describe('drawMapWithAi (v0.23)', () => {
     const { fn, calls } = fakeFetch(() => json({ choices: [{ message: { content: ' {"ideas": []} ' } }] }))
     expect(await drawMapWithAi(request, fn)).toBe('{"ideas": []}')
     const body = JSON.parse(String(calls[0]?.init.body))
-    expect(body).toMatchObject({ model: 'openai/gpt-oss-120b', response_format: { type: 'json_object' } })
+    expect(body.model).toBe('openai/gpt-oss-120b')
     expect(body.messages).toEqual([
       { role: 'system', content: 'Reply with JSON only.' },
       { role: 'user', content: '[E1] 5 Oct 2026: Rushing again.' },
@@ -166,6 +166,20 @@ describe('drawMapWithAi (v0.23)', () => {
   it('a refused key is still said as a refused key', async () => {
     const refused = fakeFetch(() => json({ error: { message: 'Invalid API Key' } }, 401))
     await expect(drawMapWithAi(request, refused.fn)).rejects.toMatchObject({ problem: 'key' })
+  })
+
+  // v0.23.2: on the owner's phone, Groq's own JSON check refused the map (json_validate_failed), as its gpt-oss models
+  // are reported to now and then. The phone checks every part of a map itself (parseIdeaMap, which reads JSON wrapped
+  // in words), so Groq isn't asked for its check; Gemini and OpenAI, whose JSON mode reads receipts, still are.
+  it('asks Gemini and OpenAI for a JSON reply, never Groq: its JSON check refused the owner’s map', async () => {
+    const asked = async (provider: 'groq' | 'gemini' | 'openai') => {
+      const { fn, calls } = fakeFetch(() => json({ choices: [{ message: { content: '{"ideas": []}' } }] }))
+      await drawMapWithAi({ ...request, provider }, fn)
+      return JSON.parse(String(calls[0]?.init.body)).response_format
+    }
+    expect(await asked('groq')).toBeUndefined()
+    expect(await asked('gemini')).toEqual({ type: 'json_object' })
+    expect(await asked('openai')).toEqual({ type: 'json_object' })
   })
 
   // v0.23.1: on the owner's phone, Groq's reply "couldn't be read as a map", one line for four different faults. Each

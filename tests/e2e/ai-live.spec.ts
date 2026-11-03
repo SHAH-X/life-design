@@ -38,7 +38,7 @@ test('Ask your journal reaches the real Groq with its tools, and a fake key is r
   await expect(ask.getByText("The key wasn't accepted. Check it in More → AI review.")).toBeVisible({ timeout: 20_000 })
 })
 
-test('the map of your ideas reaches the real Groq asking for JSON, and a fake key is refused in plain words', async ({ page }, testInfo) => {
+test('the map of your ideas reaches the real Groq without its JSON check, and a fake key is refused in plain words', async ({ page }, testInfo) => {
   const notes = ['Rushing the morning makes everything tense.', 'A short walk at lunch eases the tension.', 'Writing the worry down shrinks it.']
   await restoreBackup(page, testInfo.outputPath('map.json'), backupWith({ entries: notes.map((note, i) => freeWriting(`live-map-${i}`, note, i + 1)) }))
   await page.evaluate(async () => {
@@ -55,7 +55,9 @@ test('the map of your ideas reaches the real Groq asking for JSON, and a fake ke
   await page.goto('./#/insights/map')
   await page.reload()
   await page.getByRole('button', { name: 'Draw my map' }).click()
-  expect(JSON.parse((await sent).postData() ?? '{}')).toMatchObject({ response_format: { type: 'json_object' } })
+  const body = JSON.parse((await sent).postData() ?? '{}')
+  expect(body.messages[0].content).toContain('Reply with JSON only')
+  expect(body.response_format).toBeUndefined()
   await expect(page.getByRole('alert')).toHaveText("The key wasn't accepted. Check it in More → AI review.", { timeout: 20_000 })
 })
 
