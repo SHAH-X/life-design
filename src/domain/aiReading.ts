@@ -40,7 +40,7 @@ function kindOf(value: unknown): ItemKind | undefined {
 }
 
 /** The first {...} in a reply (some services wrap JSON in words or ```). */
-function jsonIn(reply: string): Record<string, unknown> | null {
+export function jsonIn(reply: string): Record<string, unknown> | null {
   const start = reply.indexOf('{')
   const end = reply.lastIndexOf('}')
   if (start < 0 || end <= start) return null

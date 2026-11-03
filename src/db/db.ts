@@ -7,6 +7,7 @@ import {
   type BankLine,
   type Day,
   type Entry,
+  type IdeaMap,
   entryDefaults,
   type IkigaiItem,
   type LoopVector,
@@ -43,6 +44,7 @@ export type LifeDesignDB = Dexie & {
   questions: EntityTable<Question, 'id'>
   bankLines: EntityTable<BankLine, 'id'>
   statements: EntityTable<StatementRecord, 'id'>
+  ideaMaps: EntityTable<IdeaMap, 'id'>
 }
 
 export const DB_NAME = 'life-design'
@@ -184,6 +186,10 @@ export function openDb(name = DB_NAME): LifeDesignDB {
   database.version(12).stores({
     bankLines: 'id, account, date',
     statements: 'id, account',
+  })
+  // v0.23: maps of your ideas, drawn by your AI: yours, so in a backup. A new, empty table.
+  database.version(13).stores({
+    ideaMaps: 'id, createdAt, updatedAt',
   })
   return database
 }

@@ -11,6 +11,7 @@ import {
   type BankLine,
   type Day,
   type Entry,
+  type IdeaMap,
   type IkigaiItem,
   type OdysseyPlan,
   type Photo,
@@ -313,6 +314,35 @@ export function isAiReview(x: unknown): x is AiReview {
   )
 }
 
+/** A map of your ideas (v0.23): every idea, link and count in its shape, or it's left out. */
+export function isIdeaMap(x: unknown): x is IdeaMap {
+  const isCount = (v: unknown) => Number.isInteger(v) && (v as number) >= 0
+  const isIdea = (i: unknown) => isObj(i) && isNonEmptyStr(i.id) && isNonEmptyStr(i.label) && isOneOf(['weighs', 'helps', 'idea'])(i.kind) && isStrList(i.entryIds)
+  const isLink = (l: unknown) => isObj(l) && isNonEmptyStr(l.from) && isNonEmptyStr(l.to) && isStr(l.words) && isNonEmptyStr(l.entryId) && isStr(l.quote)
+  return (
+    isObj(x) &&
+    isNonEmptyStr(x.id) &&
+    isOneOf(['30', '90', 'all'])(x.range) &&
+    isDateKey(x.start) &&
+    isDateKey(x.end) &&
+    Array.isArray(x.ideas) &&
+    x.ideas.every(isIdea) &&
+    Array.isArray(x.links) &&
+    x.links.every(isLink) &&
+    isObj(x.dropped) &&
+    isCount(x.dropped.ideas) &&
+    isCount(x.dropped.links) &&
+    isCount(x.dropped.cut) &&
+    isCount(x.entryCount) &&
+    isObj(x.sent) &&
+    isStr(x.sent.instructions) &&
+    isStr(x.sent.data) &&
+    isProvider(x.provider) &&
+    isNonEmptyStr(x.model) &&
+    hasTimes(x)
+  )
+}
+
 export function isSetting(x: unknown): x is Setting {
   return isObj(x) && isNonEmptyStr(x.key) && 'value' in x && isNum(x.updatedAt)
 }
@@ -334,6 +364,7 @@ export const VALIDATORS: { [K in TableName]: (x: unknown) => x is BackupData[K][
   questions: isQuestion,
   bankLines: isBankLine,
   statements: isStatementRecord,
+  ideaMaps: isIdeaMap,
 }
 
 /** Fills in fields that older files don't have yet, after validation. */

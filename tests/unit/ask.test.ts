@@ -8,6 +8,7 @@ import {
   type Chat,
   askInstructions,
   askJournal,
+  asksForPicture,
   cite,
   notFromPhoneLine,
   runTool,
@@ -321,5 +322,21 @@ describe('chatWithTools: one turn with the AI service', () => {
     const error = await chatWithTools({ provider: 'groq', key: 'gsk_test_abcd', model: 'm', messages: [], tools: [] }, refused).catch((e: unknown) => e)
     expect(error).toBeInstanceOf(AiError)
     expect(String((error as Error).message)).not.toContain('gsk_test_abcd')
+  })
+})
+
+// v0.23: asked to "draw a picture of my thoughts", Ask could only say it can't draw. It still can't; the app links to
+// the map of your ideas under such an answer, and the AI says so in one line.
+describe('asking for a picture', () => {
+  it('knows a request to draw, picture, map or visualise your thinking', () => {
+    for (const q of ['Draw a picture of my thoughts', 'Can you visualise how my ideas connect?', 'Make a mind map of my worries', 'map my thinking', 'Sketch a diagram of what I wrote', 'visualize my month'])
+      expect(asksForPicture(q), q).toBe(true)
+  })
+  it('leaves questions about spending and other words alone', () => {
+    for (const q of ['What groceries did I buy this month?', 'Show my spending as a chart', 'How is the roadmap going?', 'What did I write about pottery classes?', 'When did I last go to the bank?'])
+      expect(asksForPicture(q), q).toBe(false)
+  })
+  it('tells the AI it can’t draw, to say so in one line and answer in words', () => {
+    expect(askInstructions('2026-11-03')).toMatch(/You can't draw/)
   })
 })

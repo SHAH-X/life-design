@@ -1,3 +1,4 @@
+import type { MapDropped, MapIdea, MapLink, MapRange } from '../domain/ideaMap'
 import type { ItemKind } from '../domain/receipts'
 import type { Energy, Engagement } from '../domain/scales'
 import type { DayPart } from '../lib/dates'
@@ -131,6 +132,25 @@ export interface Question {
   cited: { receipts: string[]; entries: string[] }
   /** Every part sent, in order ("What was sent"). */
   sent: { label: string; text: string }[]
+  provider: AiProvider
+  model: string
+  createdAt: number
+  updatedAt: number
+}
+
+/** A map of your ideas (v0.23), drawn by your AI from a period's writing and checked on the phone: yours, so in a
+ *  backup. Kept as drawn, with what was sent, so it opens again without sending anything. */
+export interface IdeaMap {
+  id: string
+  range: MapRange
+  start: string
+  end: string
+  ideas: MapIdea[]
+  links: MapLink[]
+  dropped: MapDropped
+  /** Entries sent. */
+  entryCount: number
+  sent: { instructions: string; data: string }
   provider: AiProvider
   model: string
   createdAt: number
@@ -458,6 +478,7 @@ export interface BackupData {
   questions: Question[]
   bankLines: BankLine[]
   statements: StatementRecord[]
+  ideaMaps: IdeaMap[]
 }
 
 export type TableName = keyof BackupData
@@ -479,6 +500,7 @@ export const TABLE_NAMES: readonly TableName[] = [
   'questions',
   'bankLines',
   'statements',
+  'ideaMaps',
 ]
 
 export const TABLE_LABELS: Record<TableName, string> = {
@@ -498,4 +520,5 @@ export const TABLE_LABELS: Record<TableName, string> = {
   questions: 'Questions asked',
   bankLines: 'Bank and card lines',
   statements: 'Statements brought in',
+  ideaMaps: 'Maps of your ideas',
 }

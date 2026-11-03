@@ -38,6 +38,27 @@ test('Ask your journal reaches the real Groq with its tools, and a fake key is r
   await expect(ask.getByText("The key wasn't accepted. Check it in More → AI review.")).toBeVisible({ timeout: 20_000 })
 })
 
+test('the map of your ideas reaches the real Groq asking for JSON, and a fake key is refused in plain words', async ({ page }, testInfo) => {
+  const notes = ['Rushing the morning makes everything tense.', 'A short walk at lunch eases the tension.', 'Writing the worry down shrinks it.']
+  await restoreBackup(page, testInfo.outputPath('map.json'), backupWith({ entries: notes.map((note, i) => freeWriting(`live-map-${i}`, note, i + 1)) }))
+  await page.evaluate(async () => {
+    const open = indexedDB.open('life-design')
+    await new Promise((resolve) => (open.onsuccess = resolve))
+    const tx = open.result.transaction('settings', 'readwrite')
+    const store = tx.objectStore('settings')
+    store.put({ key: 'aiKey', value: 'gsk_fake_live_check', updatedAt: 1 })
+    store.put({ key: 'aiModel', value: 'openai/gpt-oss-120b', updatedAt: 1 })
+    await new Promise((resolve) => (tx.oncomplete = resolve))
+    open.result.close()
+  })
+  const sent = page.waitForRequest((r) => r.url() === 'https://api.groq.com/openai/v1/chat/completions' && r.method() === 'POST')
+  await page.goto('./#/insights/map')
+  await page.reload()
+  await page.getByRole('button', { name: 'Draw my map' }).click()
+  expect(JSON.parse((await sent).postData() ?? '{}')).toMatchObject({ response_format: { type: 'json_object' } })
+  await expect(page.getByRole('alert')).toHaveText("The key wasn't accepted. Check it in More → AI review.", { timeout: 20_000 })
+})
+
 test('a receipt photo reaches the real Gemini by itself and on a tap, and a fake key is refused in plain words', async ({ page }, testInfo) => {
   // A fictional receipt, its text as the phone read it, so it goes to the AI by itself.
   const data = readFileSync('tests/fixtures/photos/receipt-clean.png').toString('base64')

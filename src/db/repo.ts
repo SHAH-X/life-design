@@ -10,6 +10,7 @@ import {
   type Answer,
   type Entry,
   type EntrySource,
+  type IdeaMap,
   entryDefaults,
   type OdysseyPlan,
   type Photo,
@@ -227,6 +228,22 @@ export async function restoreAiReview(review: AiReview, database: LifeDesignDB =
   await guardWrite(() => database.aiReviews.put(review))
 }
 
+/** Keeps a map of your ideas as drawn (v0.23), to open again without sending anything. */
+export async function saveIdeaMap(input: Omit<IdeaMap, 'id' | 'createdAt' | 'updatedAt'>, database: LifeDesignDB = defaultDb): Promise<IdeaMap> {
+  const now = Date.now()
+  const map: IdeaMap = { ...input, id: crypto.randomUUID(), createdAt: now, updatedAt: now }
+  await guardWrite(() => database.ideaMaps.put(map))
+  return map
+}
+
+export async function deleteIdeaMap(id: string, database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() => database.ideaMaps.delete(id))
+}
+
+export async function restoreIdeaMap(map: IdeaMap, database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() => database.ideaMaps.put(map))
+}
+
 /** Puts a deleted entry back exactly as it was (Undo after a swipe to delete). */
 export async function restoreEntry(entry: Entry, photos: readonly Photo[] = [], database: LifeDesignDB = defaultDb): Promise<void> {
   await guardWrite(() =>
@@ -359,7 +376,7 @@ export async function loadSuggestions(database: LifeDesignDB = defaultDb): Promi
   return computeSuggestions(recent)
 }
 
-/** Entries, days, evening answers, reviews, plans and views created or changed after `since` (everything when never backed up). */
+/** Entries, days, evening answers, reviews, plans, views and maps created or changed after `since` (everything when never backed up). */
 export async function countChangesSince(since: number | null, database: LifeDesignDB = defaultDb): Promise<number> {
   const tables = [
     database.entries,
@@ -371,6 +388,7 @@ export async function countChangesSince(since: number | null, database: LifeDesi
     database.weeks,
     database.steps,
     database.aiReviews,
+    database.ideaMaps,
   ] as const
   const counts = await Promise.all(tables.map((t) => (since === null ? t.count() : t.where('updatedAt').above(since).count())))
   return counts.reduce((sum, n) => sum + n, 0)

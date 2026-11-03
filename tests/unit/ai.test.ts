@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { AiError, chatModels, dailyReset, defaultModel, lighterGemini, listModels, PROVIDERS, reviewWithAi } from '../../src/lib/ai'
+import { AiError, chatModels, dailyReset, defaultModel, drawMapWithAi, lighterGemini, listModels, MAP_PROBLEMS, PROVIDERS, reviewWithAi } from '../../src/lib/ai'
 
 // Review with AI (v0.12): our own small client for Groq and OpenAI (both speak the OpenAI chat format). The key is
 // fake: real keys never go into the repo (the privacy scan refuses them).
@@ -133,6 +133,39 @@ describe('reviewWithAi', () => {
       new Promise<Response>((_, reject) => call.init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))))
     const { fn } = fakeFetch(never)
     await expect(reviewWithAi({ provider: 'groq', key: KEY, model: 'm', instructions: 'i', data: 'd' }, fn, 20)).rejects.toMatchObject({ problem: 'timeout' })
+  })
+})
+
+describe('drawMapWithAi (v0.23)', () => {
+  const request = { provider: 'groq' as const, key: KEY, model: 'openai/gpt-oss-120b', instructions: 'Reply with JSON only.', data: '[E1] 5 Oct 2026: Rushing again.' }
+
+  it('sends the instructions and your words, asks for a JSON reply, and returns its text', async () => {
+    const { fn, calls } = fakeFetch(() => json({ choices: [{ message: { content: ' {"ideas": []} ' } }] }))
+    expect(await drawMapWithAi(request, fn)).toBe('{"ideas": []}')
+    const body = JSON.parse(String(calls[0]?.init.body))
+    expect(body).toMatchObject({ model: 'openai/gpt-oss-120b', response_format: { type: 'json_object' } })
+    expect(body.messages).toEqual([
+      { role: 'system', content: 'Reply with JSON only.' },
+      { role: 'user', content: '[E1] 5 Oct 2026: Rushing again.' },
+    ])
+    expect(body.temperature).toBeUndefined()
+  })
+
+  it('words a limit, a timeout and an unreadable reply about a map, never "copy it to an AI chat" (the map page has no copy)', async () => {
+    const limit = fakeFetch(() => json({ error: { message: 'too large' } }, 413))
+    await expect(drawMapWithAi(request, limit.fn)).rejects.toThrow(MAP_PROBLEMS.limit)
+    const slow = (async (_url: string | URL | Request, init: RequestInit = {}) =>
+      new Promise<Response>((_, reject) => init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))))) as typeof fetch
+    await expect(drawMapWithAi(request, slow, 5)).rejects.toThrow(MAP_PROBLEMS.timeout)
+    const unreadable = fakeFetch(() => json({ error: { message: 'json_validate_failed' } }, 400))
+    await expect(drawMapWithAi(request, unreadable.fn)).rejects.toThrow(MAP_PROBLEMS.other)
+    for (const said of Object.values(MAP_PROBLEMS)) expect(said).not.toMatch(/AI chat/)
+    expect(MAP_PROBLEMS.timeout).toMatch(/two minutes/)
+  })
+
+  it('a refused key is still said as a refused key', async () => {
+    const refused = fakeFetch(() => json({ error: { message: 'Invalid API Key' } }, 401))
+    await expect(drawMapWithAi(request, refused.fn)).rejects.toMatchObject({ problem: 'key' })
   })
 })
 
