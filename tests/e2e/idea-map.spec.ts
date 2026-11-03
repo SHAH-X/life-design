@@ -88,7 +88,9 @@ test('nothing is sent until Draw; the map keeps only what is in your words, open
   await page.getByRole('button', { name: 'Draw my map' }).click()
   await expect(box(page, /^Rushing, weighs on you: 2 entries$/)).toBeVisible()
   expect(chats).toHaveLength(1)
-  expect(chats[0]).toMatchObject({ model: 'openai/gpt-oss-120b', response_format: { type: 'json_object' } })
+  // Groq isn't asked for its JSON check (it refused the owner's map, v0.23.2): the phone reads the reply itself.
+  expect(chats[0]).toMatchObject({ model: 'openai/gpt-oss-120b' })
+  expect(chats[0]!.response_format).toBeUndefined()
   expect(JSON.stringify(chats[0])).toContain('[E5]')
 
   // The made-up link is left out, and said to be.

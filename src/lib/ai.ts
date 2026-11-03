@@ -357,11 +357,12 @@ export const MAP_PROBLEMS = {
 }
 
 /** A map of your ideas (v0.23): the instructions as the system message, your words as the message, a JSON reply.
- *  Returns its text, for the phone to check (parseIdeaMap). */
+ *  Returns its text, for the phone to check (parseIdeaMap). Groq isn't asked for its JSON mode: its own check refused
+ *  the owner's map (json_validate_failed, 2026-11-03), and the phone reads JSON wrapped in words anyway (v0.23.2). */
 export async function drawMapWithAi(request: ReviewRequest, fetchImpl: Fetch = fetch, timeoutMs = MAP_TIMEOUT_MS): Promise<string> {
   const body = {
     model: request.model,
-    response_format: { type: 'json_object' },
+    ...(request.provider === 'groq' ? {} : { response_format: { type: 'json_object' } }),
     messages: [
       { role: 'system', content: request.instructions },
       { role: 'user', content: request.data },
