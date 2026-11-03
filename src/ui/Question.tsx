@@ -1,4 +1,5 @@
 import { type ReactNode, type Ref, useId, useState } from 'react'
+import { Icon } from './Icon'
 
 interface Props {
   /** The question, in words that explain themselves. */
@@ -10,18 +11,25 @@ interface Props {
   /** The deeper "why", shown only when the ⓘ button is tapped. */
   info?: string
   infoLabel?: string
-  /** Extra controls on the question's line, e.g. "↻ Another". */
+  /** Extra controls at the end of the question's line, e.g. a refresh icon; the ⓘ comes right after the words. */
   actions?: ReactNode
   headingRef?: Ref<HTMLHeadingElement>
+  /** A small icon before the words (the evening card's moon). */
+  lead?: ReactNode
 }
 
-export function Question({ children, as = 'h2', id, htmlFor, info, infoLabel = 'What does this mean?', actions, headingRef }: Props) {
+export function Question({ children, as = 'h2', id, htmlFor, info, infoLabel = 'What does this mean?', actions, headingRef, lead }: Props) {
   const [open, setOpen] = useState(false)
   const panelId = useId()
 
   return (
     <div className="question">
       <div className="question-row">
+        {lead ? (
+          <span className="question-lead" aria-hidden="true">
+            {lead}
+          </span>
+        ) : null}
         {as === 'label' ? (
           <label className="question-text" id={id} htmlFor={htmlFor}>
             {children}
@@ -42,7 +50,7 @@ export function Question({ children, as = 'h2', id, htmlFor, info, infoLabel = '
             aria-controls={panelId}
             onClick={() => setOpen((v) => !v)}
           >
-            i
+            <Icon name="info" />
           </button>
         ) : null}
         {actions}

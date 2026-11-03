@@ -35,7 +35,7 @@ test('a next step joins the list, says where it came from, and a one-off is tick
   // In Insights: on the first page, and in the whole list.
   await page.goto('./#/insights')
   await expect(page.getByRole('region', { name: 'Next steps' })).toContainText('Before the meeting: Ask for an agenda first')
-  await page.getByRole('link', { name: 'All next steps ›' }).click()
+  await page.getByRole('link', { name: 'All next steps' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Next steps' })).toBeVisible()
   const row = page.getByRole('button', { name: /^Before the meeting: Ask for an agenda first/ })
   await expect(row).toContainText('Once · from Free writing')

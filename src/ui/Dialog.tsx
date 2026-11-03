@@ -1,4 +1,5 @@
-import { type ReactNode, useEffect, useId, useRef } from 'react'
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
+import { Icon } from './Icon'
 import { isTextField, keepInView } from './keepInView'
 import { useKeyboardInset } from './useKeyboardInset'
 import { useScrollLock } from './useScrollLock'
@@ -19,25 +20,25 @@ interface Props {
   full?: boolean
   /** Let one box (class `fill`) take the body's spare height, so it never runs under the footer. */
   fillBody?: boolean
+  /** A small, muted header title (the writer: the page is the writing, not the title). */
+  quietTitle?: boolean
 }
 
-/** A modal sheet built on the native <dialog>. Mount it to open it; unmount it to close it. */
-export function Dialog({ title, titleHidden = false, toolbar, onClose, children, footer, full = false, fillBody = false }: Props) {
+/** A modal sheet built on the native <dialog>. Mount it to open it; close it only on an explicit user action. */
+export function Dialog({ title, titleHidden = false, toolbar, onClose, children, footer, full = false, fillBody = false, quietTitle = false }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
+  // The header's hairline shows only once the content has scrolled under it.
+  const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
     const dialog = ref.current
-    if (dialog && !dialog.open) {
-      dialog.showModal()
-      // Start on a field marked data-autofocus, or on the sheet itself: never on ✕ Close, where a stray
-      // Enter would close the sheet (the browser's default picks the first button, which is Close).
-      ;(dialog.querySelector<HTMLElement>('[data-autofocus]') ?? dialog).focus()
-    }
-    return () => {
-      dialog?.close()
-    }
-  }, [title])
+    if (!dialog || dialog.open) return
+    dialog.showModal()
+    // Start on a field marked data-autofocus, or on the sheet itself: never on ✕ Close, where a stray
+    // Enter would close the sheet (the browser's default picks the first button, which is Close).
+    ;(dialog.querySelector<HTMLElement>('[data-autofocus]') ?? dialog).focus()
+  }, [])
   useKeyboardInset(ref)
   useScrollLock()
 
@@ -64,7 +65,7 @@ export function Dialog({ title, titleHidden = false, toolbar, onClose, children,
     <dialog
       ref={ref}
       tabIndex={-1}
-      className={full ? 'sheet full' : 'sheet'}
+      className={['sheet', full && 'full', quietTitle && 'quiet-title'].filter(Boolean).join(' ')}
       aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault()
@@ -73,16 +74,18 @@ export function Dialog({ title, titleHidden = false, toolbar, onClose, children,
     >
       <div className="sheet-inner">
         <div className="sheet-handle" aria-hidden="true" />
-        <header className="sheet-header">
+        <header className="sheet-header" data-scrolled={scrolled || undefined}>
           <h2 id={titleId} className={titleHidden ? 'visually-hidden' : undefined}>
             {title}
           </h2>
           {toolbar ? <div className="sheet-toolbar">{toolbar}</div> : null}
           <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
-            ✕
+            <Icon name="close" />
           </button>
         </header>
-        <div className={fillBody ? 'sheet-body fill' : 'sheet-body'}>{children}</div>
+        <div className={fillBody ? 'sheet-body fill' : 'sheet-body'} onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
+          {children}
+        </div>
         {footer ? <footer className="sheet-footer">{footer}</footer> : null}
       </div>
     </dialog>

@@ -233,6 +233,11 @@ export async function expectInSheetView(sheet: Locator, target: Locator) {
 }
 
 /** Fails unless the sheet fills the visible screen: all of it, or all above the (fake) keyboard. */
+/** Waits for a sheet's 280ms rise to finish, so a measurement of where things sit isn't taken while it moves. */
+export async function sheetSettled(sheet: Locator) {
+  await sheet.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)).then(() => undefined))
+}
+
 export async function expectSheetFillsScreen(page: Page, sheet: Locator) {
   await expect
     .poll(

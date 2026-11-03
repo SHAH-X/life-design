@@ -4,6 +4,7 @@ import type { AiProvider } from '../../db/types'
 import { AI_PROBLEMS, AiError, defaultModel, listModels, PROVIDERS } from '../../lib/ai'
 import { Loading } from '../../ui/Loading'
 import { type KeySlot, REVIEW_SLOT, type AiSettings as Saved, useAiSettings } from './useAiSettings'
+import { Icon } from '../../ui/Icon'
 
 /** Behind ⓘ on More → AI review: how your keys are kept (owner: "make sure API key is secured"). */
 export const KEY_SAFETY =
@@ -129,7 +130,7 @@ export function AiForm({ saved, slot }: { saved: Saved; slot: KeySlot }) {
           />
           <p className="small">
             <a className="small-link" href={PROVIDERS[provider].keyUrl} target="_blank" rel="noreferrer">
-              Get a {PROVIDERS[provider].label} key ›
+              Get a {PROVIDERS[provider].label} key<Icon name="chevron-right" size={16} />
             </a>
           </p>
           <button type="button" className="primary wide" disabled={busy || !key.trim()} onClick={() => void check(key)}>

@@ -37,11 +37,11 @@ export function EntryRow({ entry, onOpen, dated = false }: { entry: Entry; onOpe
   )
   const energy = free ? undefined : energyEdge(entry.energy)
   return onOpen ? (
-    <button type="button" className="entry-row" data-energy={energy} onClick={onOpen}>
+    <button type="button" className="entry-row" data-energy={energy} data-kind={entry.kind} onClick={onOpen}>
       {content}
     </button>
   ) : (
-    <div className="entry-row" data-energy={energy}>
+    <div className="entry-row" data-energy={energy} data-kind={entry.kind}>
       {content}
     </div>
   )

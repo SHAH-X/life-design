@@ -1,8 +1,36 @@
 :root {
   /* Light only (owner, 2026-10-24: no dark mode, no Appearance choice). tests/unit/palette.test.ts keeps it so. */
   color-scheme: light;
-  --radius: 14px;
-  --tabbar-height: 68px;
+  /* Shape: three radii and a pill (restyle, 2026-11-02). */
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
+  --radius-pill: 999px;
+  /* Spacing scale: 4, 8, 12, 16, 24, 32, 48. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --gutter: 20px;
+  /* Type scale: nothing else is used. 2.75rem is for money figures only. */
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.85rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.25rem;
+  --fs-2xl: 1.5rem;
+  --fs-3xl: 2rem;
+  --fs-money: 2.75rem;
+  /* Motion: press, colour and opacity 150ms; the question fade 200ms; sheets 280ms; nothing longer. */
+  --t-fast: 150ms ease;
+  --t-fade: 200ms ease;
+  --t-sheet: 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* The floating dock (64px) and the 8px under it; the page keeps clear of both. */
+  --dock-height: 64px;
+  --tabbar-height: 72px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -12,17 +40,22 @@
      drains, aqua = engagement; blue/red stays distinguishable with colour blindness. The evening's pale sand
      (evening card, small joys): text, muted text and links on it pass WCAG AA. */
   --bg: #f6f4ef;
-  --surface: #ffffff;
+  --surface: #fffdf9;
   --text: #1f1e1c;
-  --muted: #6b6a65;
+  --muted: #5f5e58;
   --border: #e4e1d8;
-  --accent: #2f5fb3;
+  --accent: #365a4a;
   --accent-text: #ffffff;
-  --accent-soft: #e6eefb;
+  --accent-soft: #e3ece5;
+  --accent-line: #b9cdc0;
+  /* The edge of a control (chip, choice card, segmented track): 3:1 on the card and on the page, where --border is a 1.2:1 hairline. */
+  --control-border: #8f8c83;
+  --field: #fbf9f4;
   --danger: #b3261e;
   --danger-text: #ffffff;
-  --success: #1f7a33;
   --warn-bg: #fff3d6;
+  --warn-border: #ebd9b0;
+  --warn-text: #7c4a00;
   --viz-pos: #2a78d6;
   --viz-neg: #e34948;
   --viz-seq: #1baf7a;
@@ -32,9 +65,22 @@
   --viz-hover: rgb(11 11 11 / 0.05);
   --evening-bg: #f8eedb;
   --evening-border: #e8d9b8;
-  --card-shadow: 0 1px 2px rgb(31 30 28 / 0.03), 0 8px 24px rgb(31 30 28 / 0.035);
-  --list-shadow: 0 1px 2px rgb(31 30 28 / 0.03), 0 6px 18px rgb(31 30 28 / 0.025);
-  --capture-shadow: 0 8px 20px rgb(47 95 179 / 0.08);
+  /* The two icons CSS draws itself (a row's chevron, a chip's tick): masks, so they take the text colour. */
+  --icon-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 5 7 7-7 7'/%3E%3C/svg%3E");
+  /* A select's arrow is a background, so it can't take the text colour: its stroke is --muted, written as %23 (tests/unit/palette.test.ts keeps them equal). */
+  --icon-chevron-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235f5e58' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  --icon-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+  --shadow-thumb: 0 1px 3px rgb(0 0 0 / 0.3);
+  --button-shadow: 0 4px 12px rgb(54 90 74 / 0.22);
+  /* Glass (restyle G1-G5): only the tab dock, sticky day headers, sheet headers and footers, and floating banners. */
+  --wash-sage: #dfe9e1;
+  --glass-bg: rgb(255 253 249 / 0.72);
+  --glass-border: rgb(31 30 28 / 0.06);
+  --glass-highlight: rgb(255 255 255 / 0.7);
+  --float-shadow: 0 8px 32px rgb(60 50 30 / 0.12);
+  --scrim: rgb(31 30 28 / 0.32);
+  --card-shadow: 0 1px 2px rgb(60 50 30 / 0.05), 0 10px 28px rgb(60 50 30 / 0.06);
+  --list-shadow: var(--card-shadow);
   --sheet-shadow: 0 -12px 36px rgb(31 30 28 / 0.14);
 }
 
@@ -56,10 +102,23 @@ body {
   min-height: 100%;
   min-height: 100dvh;
   margin: 0;
-  background: var(--bg);
+  /* No background here: html paints --bg, and a body background would cover the wash behind it (body::before). */
   color: var(--text);
   line-height: 1.45;
   overscroll-behavior-y: none;
+}
+
+/* The ambient layer: two soft washes (sage top left, sand bottom right) fixed behind the app, so glass has something to
+   show through. Static: nothing animates, which keeps the battery. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(70% 45% at 0% 0%, var(--wash-sage) 0%, transparent 100%),
+    radial-gradient(75% 50% at 100% 100%, color-mix(in srgb, var(--evening-bg) 70%, transparent) 0%, transparent 100%);
+  pointer-events: none;
 }
 
 #root {
@@ -72,18 +131,21 @@ body {
   max-width: 640px;
   min-height: 100dvh;
   margin: 0 auto;
-  padding: calc(var(--safe-top) + 16px) max(16px, var(--safe-right)) calc(var(--tabbar-height) + var(--safe-bottom) + 24px) max(16px, var(--safe-left));
+  padding: calc(var(--safe-top) + 16px) max(var(--gutter), var(--safe-right)) calc(var(--tabbar-height) + var(--safe-bottom) + 24px) max(var(--gutter), var(--safe-left));
 }
 
 h1 {
-  font-size: clamp(1.75rem, 7vw, 2.15rem);
-  letter-spacing: -0.025em;
+  font-size: var(--fs-3xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-align: left;
   line-height: 1.12;
   margin: 4px 0 20px;
 }
 
 h2 {
-  font-size: 1.05rem;
+  font-size: var(--fs-md);
+  font-weight: 600;
   margin: 0 0 6px;
 }
 
@@ -92,6 +154,26 @@ h1,
 h2,
 .question-text {
   font-family: ui-serif, 'New York', Georgia, serif;
+}
+
+strong,
+b,
+th,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
+}
+
+/* Links (a base style: a bare <a> was the browser's default blue). */
+a {
+  color: var(--accent);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: var(--accent-line);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 
 p {
@@ -121,7 +203,7 @@ p:last-child {
 }
 
 .small {
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
 }
 
 .center {
@@ -158,7 +240,7 @@ p:last-child {
 }
 
 .success {
-  color: var(--success);
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -169,10 +251,55 @@ p:last-child {
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 18px;
+  border-radius: var(--radius-md);
+  padding: var(--gutter);
   margin-bottom: 16px;
   box-shadow: var(--card-shadow);
+}
+
+/* ---------- Segmented control: one component, two sizes ---------- */
+
+/* Money's two sections are the large one (44px); an Accounts month's three parts are the small one (36px). The chosen
+   segment is a raised card, so the state isn't colour alone. */
+.segmented {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+}
+
+.segmented button {
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.segmented button[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--list-shadow);
+}
+
+.segmented.small button {
+  min-height: 36px;
+  padding: 0 8px;
+  font-size: var(--fs-sm);
+}
+
+/* ---------- Icons (src/ui/Icon.tsx) ---------- */
+
+.icon {
+  display: block;
+  flex: none;
 }
 
 /* ---------- Buttons ---------- */
@@ -186,16 +313,16 @@ button,
   gap: 6px;
   min-height: 44px;
   padding: 0 16px;
-  border-radius: 10px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  font-weight: 600;
+  font-weight: 500;
   text-decoration: none;
   text-align: center;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s ease, opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  transition: transform var(--t-fast), opacity var(--t-fast), background-color var(--t-fast), border-color var(--t-fast);
 }
 
 button:not(:disabled):active,
@@ -207,17 +334,43 @@ button:not(:disabled):active,
   transform: scale(0.98);
 }
 
+/* Primary: a sage pill, 48px (52px in a sheet), white 600 text, no border. Secondary is the plain button above; tertiary is button.link. */
 button.primary,
 .button.primary {
+  min-height: 48px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: var(--radius-pill);
   background: var(--accent);
-  border-color: var(--accent);
+  box-shadow: var(--button-shadow);
   color: var(--accent-text);
+  font-weight: 600;
+}
+
+dialog.sheet button.primary,
+dialog.sheet .button.primary {
+  min-height: 52px;
+}
+
+/* A primary that can't be used yet: a pale fill and muted words, not the same button at 45% (it read as broken). */
+button.primary:disabled {
+  background: var(--accent-soft);
+  box-shadow: none;
+  color: var(--muted);
+  opacity: 1;
+}
+
+/* Destructive is red words; it is filled only on its confirm step (button.danger). */
+button.destructive {
+  color: var(--danger);
+  font-weight: 500;
 }
 
 button.danger {
-  background: var(--danger);
   border-color: var(--danger);
+  background: var(--danger);
   color: var(--danger-text);
+  font-weight: 600;
 }
 
 button.link {
@@ -225,6 +378,7 @@ button.link {
   border: 0;
   padding: 0 4px;
   color: var(--accent);
+  font-weight: 500;
 }
 
 button.link.danger-text {
@@ -249,7 +403,6 @@ button:disabled {
   border: 0;
   background: transparent;
   color: var(--text);
-  font-size: 1.6rem;
   line-height: 1;
 }
 
@@ -261,40 +414,54 @@ textarea {
   font: inherit;
   font-size: max(16px, 1rem); /* below 16px, iOS zooms the page on focus */
   width: 100%;
-  min-height: 48px;
-  padding: 12px 14px;
-  border-radius: 14px;
+  min-height: 52px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--field);
   color: var(--text);
   line-height: 1.35;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
 
+/* A select is drawn like any other input: iOS gave it its own small grey look (23px tall, 5px corners) until the
+   native appearance was switched off and the arrow drawn here. */
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 44px;
+  background-image: var(--icon-chevron-down);
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  background-size: 16px;
+}
+
+/* No resize grip: a box is 52px and grows with what is written (field-sizing), within the room above the keyboard. */
 textarea {
-  min-height: 96px;
-  resize: vertical;
+  min-height: 52px;
+  resize: none;
+  field-sizing: content;
 }
 
+/* Solid --muted (6.4:1): the 80% it had was 4.0:1, under AA. */
 input::placeholder,
 textarea::placeholder {
   color: var(--muted);
-  opacity: 0.8;
 }
 
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
 button:focus-visible,
 .button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
+/* A field has one focus ring: the border turns sage and a 4px soft halo grows round it (no second outline). */
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
+  outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: 0 0 0 4px var(--accent-soft);
 }
 
 .field {
@@ -305,7 +472,7 @@ textarea:focus-visible {
 .field > span {
   display: block;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
   margin-bottom: 6px;
 }
 
@@ -316,7 +483,7 @@ textarea:focus-visible {
 
 .field-help {
   margin: -2px 0 8px;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   color: var(--muted);
 }
 
@@ -326,40 +493,34 @@ textarea:focus-visible {
   position: relative;
   flex: none; /* beside a long question it was squeezed into an oval (13px wide, since Phase 2.5) */
   min-height: 0;
-  width: 22px;
-  height: 22px;
-  margin-left: 8px;
+  width: 20px;
+  height: 20px;
+  margin-left: 4px;
   padding: 0;
+  border: 0;
   border-radius: 50%;
-  border: 1.5px solid var(--accent);
   background: transparent;
-  color: var(--accent);
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 0.8rem;
-  font-style: italic;
-  font-weight: 700;
+  color: var(--muted);
   line-height: 1;
-  vertical-align: 1px;
 }
 
-/* Keep the tap target at least 44px without making the circle bigger. */
+/* Keep the tap target at least 44px without making the icon bigger. */
 .info-button::after {
   content: '';
   position: absolute;
-  inset: -11px;
+  inset: -12px;
 }
 
 .info-button[aria-expanded='true'] {
-  background: var(--accent);
-  color: var(--accent-text);
+  color: var(--accent);
 }
 
 .info-panel {
   margin: 0 0 10px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--accent-soft);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 fieldset {
@@ -371,7 +532,7 @@ fieldset {
 
 legend {
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
   padding: 0;
   margin-bottom: 6px;
 }
@@ -396,6 +557,7 @@ legend {
 }
 
 .question-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -404,9 +566,14 @@ legend {
 .question-text {
   display: block;
   margin: 18px 0 8px;
-  font-size: 1.05rem;
-  font-weight: 600;
+  font-size: var(--fs-xl);
+  font-weight: 500;
   line-height: 1.3;
+}
+
+.question-row .question-text,
+.question-row h1 {
+  min-width: 0;
 }
 
 .question .question-text {
@@ -419,7 +586,7 @@ legend {
 
 .question-row .link {
   margin-left: auto;
-  min-height: 36px;
+  min-height: 44px;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -438,17 +605,41 @@ legend {
 }
 
 .chip {
-  min-height: 36px;
-  padding: 0 12px;
-  border-radius: 999px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1.5px solid var(--control-border);
+  border-radius: var(--radius-pill);
   font-weight: 500;
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
+}
+
+/* A chip you can choose always holds a place for its tick, so choosing it never widens it and re-wraps the row. */
+.chip[aria-pressed] {
+  position: relative;
+  padding: 0 22px;
+}
+
+.chip[aria-pressed]::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 6px;
+  width: 12px;
+  height: 12px;
+  background: transparent;
+  transform: translateY(-50%);
+  -webkit-mask: var(--icon-check) center / contain no-repeat;
+  mask: var(--icon-check) center / contain no-repeat;
 }
 
 .chip[aria-pressed='true'] {
   background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.chip[aria-pressed='true']::before {
+  background: currentColor;
 }
 
 .chip-add {
@@ -491,7 +682,7 @@ legend {
   height: 31px;
   border-radius: 999px;
   background: var(--border);
-  transition: background 0.2s;
+  transition: background-color var(--t-fast);
 }
 
 .switch-thumb {
@@ -501,13 +692,13 @@ legend {
   width: 27px;
   height: 27px;
   border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
-  transition: transform 0.2s;
+  background: var(--accent-text);
+  box-shadow: var(--shadow-thumb);
+  transition: transform var(--t-fast);
 }
 
 .switch input:checked + .switch-track {
-  background: #34c759;
+  background: var(--accent);
 }
 
 .switch input:checked + .switch-track .switch-thumb {
@@ -526,7 +717,7 @@ legend {
 .switch-hint {
   display: block;
   font-weight: 400;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   color: var(--muted);
 }
 
@@ -543,7 +734,7 @@ dialog.sheet {
   padding: 0;
   border: 1px solid var(--border);
   border-bottom: 0;
-  border-radius: 24px 24px 0 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   background: var(--surface);
   color: var(--text);
   /* Down to the keyboard, the sheet's own surface, never the page behind: iOS 27 leaves a gap below the visible
@@ -556,14 +747,33 @@ dialog.sheet:focus {
 }
 
 dialog.sheet::backdrop {
-  background: rgb(0 0 0 / 0.45);
+  background: var(--scrim);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+dialog.sheet.full::backdrop {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* A sheet rises for 280ms; with reduced motion it just appears. */
+dialog.sheet[open] {
+  animation: sheet-rise var(--t-sheet);
+}
+
+@keyframes sheet-rise {
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+  }
 }
 
 @media (min-width: 700px) {
   dialog.sheet {
     margin: auto;
     border: 1px solid var(--border);
-    border-radius: 24px;
+    border-radius: var(--radius-lg);
   }
 }
 
@@ -577,8 +787,8 @@ dialog.sheet::backdrop {
 
 .sheet-handle {
   flex: none;
-  width: 38px;
-  height: 5px;
+  width: 36px;
+  height: 4px;
   margin: 10px auto 2px;
   border-radius: 999px;
   background: var(--border);
@@ -590,17 +800,23 @@ dialog.sheet::backdrop {
   justify-content: space-between;
   min-height: 52px;
   padding: 4px 8px 8px 20px;
-  border-bottom: 1px solid var(--border);
+  /* The hairline shows only once the content has scrolled under it (Dialog sets data-scrolled). */
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--t-fast);
+}
+
+.sheet-header[data-scrolled] {
+  border-bottom-color: var(--border);
 }
 
 .sheet-header h2 {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: var(--fs-lg);
   letter-spacing: -0.01em;
 }
 
 .sheet-header .icon-button {
-  font-size: 1.1rem;
+  color: var(--muted);
 }
 
 .sheet-body {
@@ -619,6 +835,7 @@ dialog.sheet::backdrop {
 dialog.sheet.full {
   height: var(--visible-height, 100dvh);
   max-height: var(--visible-height, 100dvh);
+  border: 0;
   border-radius: 0;
 }
 
@@ -650,7 +867,46 @@ dialog.sheet.full .sheet-header {
   flex: 1 1 auto;
   min-height: 96px;
   resize: none;
+  field-sizing: fixed;
 }
+
+/* The writer is a page, not a form: no box, serif at reading size; focus is one 2px sage line down the left. */
+dialog.sheet .sheet-body.fill > textarea.fill {
+  padding: 8px 0 8px 14px;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: ui-serif, 'New York', Georgia, serif;
+  font-size: var(--fs-lg);
+  line-height: 1.65;
+}
+
+dialog.sheet .sheet-body.fill > textarea.fill:focus-visible {
+  border-left-color: var(--accent);
+  box-shadow: none;
+}
+
+dialog.sheet.quiet-title .sheet-header h2 {
+  color: var(--muted);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+/* Photos in the writer's footer: a round camera button beside the Save pill. */
+.photo-add.icon-only {
+  flex: none;
+  align-self: center;
+  margin-top: 0;
+  width: 52px;
+  min-height: 52px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+}
+
 
 .sheet-footer {
   display: flex;
@@ -670,24 +926,33 @@ dialog.sheet.full .sheet-header {
   align-items: center;
   gap: 8px;
   min-height: 60px;
-  margin: 0 0 18px;
+  margin: 0 0 var(--space-5);
+}
+
+/* The day's arrows are bare 44px icons, not boxes. */
+.day-nav {
+  display: flex;
+  flex: none;
+  margin-right: -10px;
 }
 
 .day-header .icon-button {
   flex: none;
   min-width: 44px;
   min-height: 44px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
-  font-family: ui-serif, 'New York', Georgia, serif;
-  font-size: 2rem;
-  box-shadow: var(--list-shadow);
+  border: 0;
+  background: transparent;
+  color: var(--text);
+}
+
+.day-header .icon-button:disabled {
+  opacity: 0.3;
 }
 
 .day-title {
   flex: 1;
-  text-align: center;
+  min-width: 0;
+  text-align: left;
 }
 
 .day-title h1 {
@@ -695,37 +960,45 @@ dialog.sheet.full .sheet-header {
 }
 
 .day-title p {
-  display: inline-flex;
-  margin: 4px 0 0;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--surface);
-  font-size: 0.78rem;
+  margin: 2px 0 0;
+  font-size: var(--fs-sm);
 }
 
-/* The day's activities: one rounded list with thin lines between them, like iPhone Settings. */
 .entry-list {
   list-style: none;
   margin: 0 0 16px;
   padding: 0;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: var(--list-shadow);
 }
 
-.entry-list li + li {
-  border-top: 1px solid var(--border);
+.entry-list li {
+  position: relative;
+}
+
+.entry-list li + li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 20px;
+  left: 20px;
+  z-index: 1; /* above the next row's opaque .swipe-content, which would otherwise cover it */
+  height: 1px;
+  background: var(--border);
+  pointer-events: none;
 }
 
 .entry-row {
   display: flex;
   width: 100%;
   justify-content: flex-start;
+  position: relative;
   gap: 14px;
-  padding: 14px 16px 14px 12px;
-  min-height: 68px;
+  padding: 14px 20px 14px 24px;
+  min-height: 72px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -745,10 +1018,14 @@ button.entry-row:focus-visible {
    The words say it too, in ink: red text read like an error. */
 .entry-row::before {
   content: '';
-  flex: none;
-  align-self: stretch;
-  width: 5px;
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  width: 3px;
+  height: 28px;
   border-radius: 2px;
+  background: var(--border);
+  transform: translateY(-50%);
 }
 
 [data-energy='gives']::before {
@@ -780,16 +1057,16 @@ button.entry-row:focus-visible {
   overflow: auto;
   margin: 6px 0 0;
   padding: 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--bg);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
 }
 
 .plain-markdown h4 {
   margin: 14px 0 4px;
-  font-size: 1rem;
+  font-size: var(--fs-md);
 }
 
 .plain-markdown p,
@@ -812,7 +1089,7 @@ button.entry-row:focus-visible {
 .md-table table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
 }
 
@@ -843,7 +1120,7 @@ button.entry-row:focus-visible {
   position: relative;
   background: var(--surface);
   touch-action: pan-y;
-  transition: transform 0.2s ease;
+  transition: transform var(--t-fade);
 }
 
 .swipe-content[data-dragging] {
@@ -887,19 +1164,19 @@ button.entry-row:focus-visible {
 .entry-time {
   flex: none;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }
 
 .entry-activity {
-  font-weight: 650;
+  font-weight: 500;
   overflow-wrap: anywhere;
 }
 
 /* At most two lines of what you wrote, in plain text: the whole of it opens with the entry (v0.12.2). */
 .entry-note {
   margin-top: 2px;
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -907,7 +1184,7 @@ button.entry-row:focus-visible {
 }
 
 .entry-feelings {
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--muted);
 }
 
@@ -918,23 +1195,20 @@ button.entry-row:focus-visible {
 }
 
 .notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
   margin-bottom: 16px;
   padding: 14px 16px;
   border: 1px solid transparent;
-  border-radius: 18px;
+  border-radius: var(--radius-md);
   background: var(--accent-soft);
 }
 
 .notice.warn {
   background: var(--warn-bg);
-  border-color: var(--evening-border);
-}
-
-.notice {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
+  border-color: var(--warn-border);
 }
 
 .notice p {
@@ -942,10 +1216,54 @@ button.entry-row:focus-visible {
   margin: 0;
 }
 
+/* Today's notice: a glass strip (the glass recipe, below), 48px at least, with a small sage dot (a warning's dot is
+   amber-brown). Its words are balanced across the lines they need. */
+.notice.strip {
+  flex-wrap: nowrap;
+  min-height: 48px;
+  padding: 4px 16px;
+  font-size: var(--fs-sm);
+}
+
+.notice.strip p {
+  text-wrap: balance;
+}
+
+.notice.strip::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.notice.strip.warn::before {
+  background: var(--warn-text);
+}
+
+.notice.strip .row {
+  flex: none;
+  flex-wrap: nowrap;
+}
+
+.notice.strip button {
+  min-height: 44px;
+  font-size: var(--fs-sm);
+}
+
+.notice.strip button.primary {
+  min-height: 44px;
+  padding: 0 16px;
+  box-shadow: none;
+}
+
+
+
 /* The evening card: small joy and the changing question */
 
 .evening {
-  margin-top: 24px;
+  margin-top: var(--space-6);
   background: var(--evening-bg);
   border-color: var(--evening-border);
   box-shadow: none;
@@ -953,6 +1271,20 @@ button.entry-row:focus-visible {
 
 .evening textarea {
   background: var(--surface);
+}
+
+.question-lead {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  display: flex;
+  color: var(--warn-text);
+  transform: translateY(-50%);
+}
+
+/* The moon sits at the end of its row, in the card's corner, with the room the words keep clear of it. */
+.question-row:has(.question-lead) {
+  padding-right: 28px;
 }
 
 .chip.static.joy {
@@ -967,16 +1299,23 @@ button.entry-row:focus-visible {
   flex-wrap: wrap;
   align-items: center;
   gap: 0 12px;
-  min-height: 36px;
 }
 
 .field-foot .save-status {
   margin: 0 0 0 auto;
 }
 
+.field-foot {
+  min-height: 44px;
+}
+
+/* A link, so it looks like one (sage, not the muted caption it was): its text lines up with the box above, and its
+   hit area is 44px. */
 .field-foot button.link {
-  min-height: 36px;
-  font-size: 0.85rem;
+  min-height: 44px;
+  margin-left: -4px;
+  color: var(--accent);
+  font-size: var(--fs-sm);
   font-weight: 500;
 }
 
@@ -996,7 +1335,7 @@ button.entry-row:focus-visible {
 .save-status {
   min-height: 1.2em;
   margin-top: 4px;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   color: var(--muted);
 }
 
@@ -1009,13 +1348,12 @@ button.entry-row:focus-visible {
   align-items: center;
   gap: 14px;
   width: 100%;
-  min-height: 116px;
+  min-height: 96px;
   margin-bottom: 16px;
-  padding: 20px;
+  padding: var(--gutter);
   border-color: transparent;
-  border-radius: 24px;
+  border-radius: var(--radius-lg);
   background: var(--accent-soft);
-  box-shadow: var(--capture-shadow);
   text-align: left;
 }
 
@@ -1027,31 +1365,28 @@ button.entry-row:focus-visible {
 }
 
 .capture-prompt {
-  color: var(--accent);
+  color: var(--text);
   font-family: ui-serif, 'New York', Georgia, serif;
-  font-size: 1.3rem;
-  font-weight: 700;
-  letter-spacing: -0.015em;
+  font-size: var(--fs-xl);
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 .capture-hint {
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
   font-weight: 400;
 }
 
 .capture-mark {
   display: grid;
   flex: none;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   border-radius: 50%;
   background: var(--accent);
   color: var(--accent-text);
-  font-size: 1.7rem;
-  font-weight: 400;
-  line-height: 1;
 }
 
 /* Today's question from your writing (v0.16), above the box: the question opens the writer; two quiet links below.
@@ -1064,7 +1399,7 @@ button.entry-row:focus-visible {
   width: 100%;
   min-height: 72px;
   padding: 14px 16px;
-  border-radius: 18px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   text-align: left;
   font-weight: 400;
@@ -1096,7 +1431,7 @@ button.entry-row:focus-visible {
   display: block;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   background: var(--border);
 }
 
@@ -1159,7 +1494,7 @@ button.entry-row:focus-visible {
 }
 
 .entry-status {
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--accent);
 }
@@ -1170,7 +1505,7 @@ button.entry-row:focus-visible {
   align-items: center;
   gap: 8px;
   margin: 14px 0 4px;
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
   color: var(--muted);
 }
 
@@ -1178,7 +1513,7 @@ button.entry-row:focus-visible {
   width: auto;
   min-height: 36px;
   padding: 4px 8px;
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
 }
 
 .field-help.gentle {
@@ -1189,14 +1524,14 @@ button.entry-row:focus-visible {
 .plans {
   margin: 4px 0 10px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--accent-soft);
 }
 
 .plans-title {
   margin: 0 0 4px;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
 }
 
 .plans li {
@@ -1212,7 +1547,7 @@ button.entry-row:focus-visible {
   align-items: center;
   gap: 6px;
   min-height: 44px;
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
 }
 
 .did-it input {
@@ -1225,7 +1560,7 @@ button.entry-row:focus-visible {
 .same-as {
   margin-top: 10px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--bg);
 }
 
@@ -1243,7 +1578,7 @@ button.entry-row:focus-visible {
 }
 
 .finished-steps > summary {
-  min-height: 36px;
+  min-height: 44px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -1255,14 +1590,14 @@ button.entry-row:focus-visible {
 
 .helper-focus {
   margin: 6px 0 0;
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
 }
 
 .helper-list {
   margin: 6px 0 2px;
   padding-left: 20px;
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: var(--fs-md);
 }
 
 .helper-list li + li {
@@ -1281,7 +1616,7 @@ button.entry-row:focus-visible {
 
 .chip-row.energy-choices .chip {
   justify-content: flex-start;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   min-height: 44px;
 }
 
@@ -1296,8 +1631,8 @@ button.entry-row:focus-visible {
   align-items: flex-start;
   gap: 12px;
   padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
   background: var(--surface);
   cursor: pointer;
 }
@@ -1354,20 +1689,17 @@ input[type='search'] {
   gap: 8px;
   min-height: 52px;
   margin-bottom: 4px;
-  padding: 0 14px;
+  padding: 0 16px;
   border: 1px solid transparent;
-  border-radius: 16px;
+  border-radius: var(--radius-pill);
   background: var(--surface);
   box-shadow: var(--list-shadow);
 }
 
 .logs-search > span {
+  display: flex;
   flex: none;
   color: var(--muted);
-  font-family: ui-serif, Georgia, serif;
-  font-size: 1.8rem;
-  line-height: 1;
-  transform: rotate(-20deg);
 }
 
 .logs-search input[type='search'] {
@@ -1396,12 +1728,19 @@ input[type='search'] {
   min-height: 44px;
   margin-right: -10px;
   color: var(--muted);
-  font-size: 1.25rem;
+  font-size: var(--fs-xl);
 }
 
 .logs-search:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft), var(--list-shadow);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+/* Free writing is read in serif, two lines of it. */
+.entry-row[data-kind='free'] .entry-note {
+  font-family: ui-serif, 'New York', Georgia, serif;
+  font-size: var(--fs-md);
+  line-height: 1.45;
 }
 
 .logs-screen .list-section {
@@ -1409,16 +1748,25 @@ input[type='search'] {
 }
 
 .logs-screen .list-section h2 {
-  display: flex;
-  align-items: center;
-  min-height: 28px;
-  margin-bottom: 10px;
-  color: var(--muted);
-  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.055em;
-  text-transform: uppercase;
+  position: sticky;
+  top: calc(var(--safe-top) + 8px);
+  z-index: 2;
+  width: fit-content;
+  min-height: 32px;
+  margin: 0 0 10px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  color: var(--text);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* Only the header that is stuck at the top is a glass pill (Logs sets data-stuck on it); the rest are plain words. The
+   pill reaches 14px into the margin, so the words don't move when it appears. */
+.logs-screen .list-section h2[data-stuck] {
+  margin-left: -14px;
+  padding: 0 14px;
 }
 
 .logs-screen .entry-list {
@@ -1431,16 +1779,8 @@ input[type='search'] {
   margin-bottom: 16px;
 }
 
-.ask-composer {
-  padding: 20px;
-  border-color: transparent;
-  background: var(--accent-soft);
-  box-shadow: none;
-}
-
 .ask-composer .question-text {
   margin-top: 0;
-  color: var(--accent);
 }
 
 .ask-composer textarea {
@@ -1451,8 +1791,31 @@ input[type='search'] {
 
 .ask-submit {
   width: 100%;
-  min-height: 50px;
-  border-radius: 14px;
+}
+
+/* Nothing set up yet: a card with an icon tile, one sentence and the button that goes there. */
+.ask-setup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.ask-setup p {
+  margin: 0;
+}
+
+.ask-setup .icon-tile {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+}
+
+/* The answer is read, so it's set in serif at reading size. */
+.ask-answer .plain-markdown {
+  font-family: ui-serif, 'New York', Georgia, serif;
+  font-size: var(--fs-lg);
+  line-height: 1.6;
 }
 
 .ask-composer-note {
@@ -1487,20 +1850,20 @@ input[type='search'] {
 
 .ask-earlier .plain-list li.card {
   margin: 0;
-  padding: 16px 18px;
+  padding: 16px var(--gutter);
 }
 
 /* An entry read back (v0.9): your entry first (the words you tapped, then what you wrote), then a possible
    insight in its own card, then a next step. */
 .saved-line {
   font-weight: 600;
-  color: var(--success);
+  color: var(--accent);
 }
 
 .entry-when {
   margin: 0 0 10px;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
 }
 
 .entry-parts {
@@ -1517,8 +1880,8 @@ input[type='search'] {
   justify-content: center;
   gap: 2px;
   width: 100%;
-  min-height: 52px;
-  padding: 9px 26px 9px 0;
+  min-height: 64px;
+  padding: 12px 28px 12px 0;
   border: 0;
   border-bottom: 1px solid var(--border);
   border-radius: 0;
@@ -1536,24 +1899,26 @@ input[type='search'] {
   top: 50%;
   transform: translateY(-50%);
   color: var(--muted);
-  font-size: 1.2rem;
+  font-size: var(--fs-xl);
 }
 
 .part-label {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
 }
 
 .part-value {
   overflow-wrap: anywhere;
+  font-weight: 500;
 }
 
 /* What you wrote, at reading size. */
 .part-value.writing {
   white-space: pre-wrap;
   font-family: ui-serif, 'New York', Georgia, serif;
-  font-size: 1.06rem;
-  line-height: 1.55;
+  font-size: var(--fs-lg);
+  font-weight: 400;
+  line-height: 1.65;
 }
 
 /* The energy answer's thin edge, as beside each activity in the lists (blue gave, red took). */
@@ -1571,7 +1936,7 @@ input[type='search'] {
   position: relative;
   margin: 6px 0 10px;
   padding: 12px 14px 6px 20px;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   background: var(--bg);
 }
 
@@ -1588,7 +1953,7 @@ input[type='search'] {
 .insight-card h3 {
   margin: 0 0 4px;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 .insight-card p {
@@ -1597,7 +1962,7 @@ input[type='search'] {
 
 .next-step h3 {
   margin: 14px 0 4px;
-  font-size: 0.95rem;
+  font-size: var(--fs-md);
 }
 
 /* Two actions side by side: the sheet's body keeps more room. */
@@ -1631,11 +1996,11 @@ dialog.sheet textarea:not(.fill) {
 }
 
 details.evidence summary {
-  min-height: 36px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   color: var(--accent);
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
   cursor: pointer;
 }
 
@@ -1646,25 +2011,32 @@ details.evidence summary {
 }
 
 button.small-link {
-  min-height: 36px;
-  font-size: 0.85rem;
+  min-height: 44px;
+  font-size: var(--fs-sm);
 }
 
 /* A small link to another page, in the app's link look (v0.11's "All next steps ›" had none: browser blue). */
 a.small-link {
   display: inline-flex;
   align-items: center;
+  gap: 2px;
   min-height: 44px;
   color: var(--accent);
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: 500;
   text-decoration: none;
+}
+
+.notice-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
 }
 
 /* The week (v0.9): its energy by day on top, then one card per section, each line opening to its entries. */
 .week-title {
   margin: 8px 4px 4px;
-  font-size: 1.35rem;
+  font-size: var(--fs-2xl);
 }
 
 .week-period {
@@ -1674,13 +2046,13 @@ a.small-link {
 .week-count {
   margin: 0 0 6px;
   font-family: ui-serif, 'New York', Georgia, serif;
-  font-size: 1.2rem;
+  font-size: var(--fs-xl);
 }
 
 .week-card h3 {
   margin: 0 0 8px;
   font-family: ui-serif, 'New York', Georgia, serif;
-  font-size: 1.1rem;
+  font-size: var(--fs-lg);
 }
 
 .week-card .entry-list {
@@ -1707,16 +2079,23 @@ details.week-line > summary::-webkit-details-marker {
 
 /* A quiet sign that the line opens: a chevron that turns when it's open. */
 details.week-line > summary::after {
-  content: ' ›';
+  content: '';
+  flex: none;
   color: var(--accent);
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  -webkit-mask: var(--icon-chevron) center / contain no-repeat;
+  mask: var(--icon-chevron) center / contain no-repeat;
+  transition: transform var(--t-fast);
 }
 
 details[open].week-line > summary::after {
-  content: ' ⌄';
+  transform: rotate(90deg);
 }
 
 details.week-line > summary {
-  min-height: 32px;
+  min-height: 44px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1759,7 +2138,7 @@ button.line-button {
   flex: 1 1 auto;
   min-width: 0;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
 }
 
 .payment-amount {
@@ -1771,38 +2150,36 @@ button.line-button {
   margin-bottom: 24px;
 }
 
+/* The title and the month arrows share one row. */
+.money-screen .money-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  /* As tall as the arrows, with the title at the top like every other page's (its 4px margin), with or without the arrows. */
+  min-height: 44px;
+  margin-bottom: 24px;
+}
+
+.money-screen .money-title h1 {
+  flex: 1;
+  min-width: 0;
+  margin: 4px 0 0;
+}
+
+.money-screen .money-title .acc-stepper {
+  margin-top: -2px;
+}
+
 .money-screen .money-switch {
   position: sticky;
   top: var(--safe-top);
   z-index: 10;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
   margin: -8px 0 14px;
-  padding: 6px 4px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--bg);
-}
-
-.money-screen .money-switch button {
-  min-height: 44px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 12px;
-  background: transparent;
-  color: var(--muted);
-}
-
-.money-screen .money-switch button[aria-pressed='true'] {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: var(--list-shadow);
 }
 
 .money-screen .week-title {
   margin: 22px 4px 8px;
-  font-size: 1.22rem;
+  font-size: var(--fs-xl);
 }
 
 /* Earlier months are a history to browse, not a long settings list. A horizontal rail keeps the current month’s
@@ -1830,7 +2207,7 @@ button.line-button {
   min-height: 82px;
   padding: 14px 16px;
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text);
   scroll-snap-align: start;
@@ -1840,7 +2217,7 @@ button.line-button {
 
 .money-screen .money-month-card .list-title {
   font-family: ui-serif, 'New York', Georgia, serif;
-  font-size: 1.05rem;
+  font-size: var(--fs-md);
 }
 
 .money-screen .money-month-card .list-status {
@@ -1850,17 +2227,17 @@ button.line-button {
 .money-screen .money-month-card .list-chevron {
   margin-left: auto;
   color: var(--accent);
-  font-size: 1.5rem;
+  font-size: var(--fs-2xl);
 }
 
 .money-screen .card {
   padding: 18px;
-  border-radius: 22px;
+  border-radius: var(--radius-md);
 }
 
 .money-screen .money-overview {
   padding: 22px;
-  background: linear-gradient(180deg, var(--surface) 0%, #faf8f5 100%);
+  background: var(--surface);
   border: 1px solid var(--border);
   box-shadow: var(--card-shadow);
 }
@@ -1874,12 +2251,12 @@ button.line-button {
 
 .money-screen .money-overview-heading p {
   margin: 0;
-  font-size: 0.72rem;
-  font-weight: 650;
+  font-size: var(--fs-xs);
+  font-weight: 600;
 }
 
 .money-screen .money-overview-heading p:first-child {
-  letter-spacing: 0.045em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
@@ -1895,7 +2272,7 @@ button.line-button {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  font-size: clamp(1.7rem, 8vw, 2.2rem);
+  font-size: var(--fs-3xl);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.04em;
   line-height: 1.08;
@@ -1959,8 +2336,8 @@ button.line-button {
 
 .money-screen .money-overview-summary > span:first-child {
   color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   line-height: 1.3;
@@ -1968,9 +2345,9 @@ button.line-button {
 
 .money-screen .money-overview-summary .money-overview-value {
   color: var(--text);
-  font-size: 1.08rem;
+  font-size: var(--fs-lg);
   font-variant-numeric: tabular-nums;
-  font-weight: 750;
+  font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.3;
 }
@@ -1986,8 +2363,8 @@ button.line-button {
   min-height: 44px;
   gap: 0 6px;
   padding: 7px 2px;
-  border-radius: 10px;
-  transition: background-color 0.15s ease;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--t-fast);
 }
 
 .money-screen details.week-line > summary:active {
@@ -2014,7 +2391,7 @@ button.line-button {
 }
 
 .money-screen .receipt-repeat-name {
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -2025,8 +2402,8 @@ button.line-button {
   border-radius: 999px;
   background: var(--evening-bg);
   color: var(--text);
-  font-size: 0.74rem;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   border: 1px solid var(--evening-border);
 }
@@ -2034,14 +2411,13 @@ button.line-button {
 .money-screen button.wide,
 .money-screen .button.wide {
   min-height: 50px;
-  border-radius: 14px;
 }
 
 .money-screen button.line-button {
   min-height: 44px;
   padding: 8px 4px;
-  border-radius: 10px;
-  transition: background-color 0.15s ease;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--t-fast);
 }
 
 .money-screen button.line-button:active {
@@ -2077,9 +2453,9 @@ button.line-button {
   flex: 1 1 auto;
   margin: 0;
   color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
@@ -2094,9 +2470,9 @@ button.line-button {
   justify-content: center;
   width: 44px;
   height: 44px;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   color: var(--accent);
-  font-size: 1.8rem;
+  font-size: var(--fs-3xl);
   line-height: 1;
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
@@ -2113,7 +2489,7 @@ button.line-button {
 
 .money-screen .acc-figure {
   margin: 0;
-  font-size: clamp(2.2rem, 12vw, 3rem);
+  font-size: var(--fs-money);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.04em;
   line-height: 1.05;
@@ -2129,7 +2505,7 @@ button.line-button {
 .money-screen .acc-caption {
   margin: 6px 0 0;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 .money-screen .acc-stats {
@@ -2163,16 +2539,16 @@ button.line-button {
 
 .money-screen .acc-stat-label {
   color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .money-screen .acc-stat-value {
-  font-size: 1.15rem;
+  font-size: var(--fs-lg);
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 
@@ -2182,44 +2558,16 @@ button.line-button {
   width: 100%;
   margin-top: 14px;
   padding: 8px 14px;
-  border: 1px solid #ebd9b0;
-  border-radius: 12px;
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-sm);
   background: var(--warn-bg);
-  color: #7c4a00;
-  font-size: 0.88rem;
+  color: var(--warn-text);
+  font-size: var(--fs-sm);
   text-align: left;
 }
 
 .money-screen .acc-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 20px 0 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.money-screen .acc-tab {
-  position: relative;
-  min-width: 0;
-  padding: 0 4px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.95rem;
-}
-
-.money-screen .acc-tab[aria-pressed='true'] {
-  color: var(--text);
-}
-
-.money-screen .acc-tab[aria-pressed='true']::before {
-  position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-  height: 2px;
-  background: var(--text);
-  content: '';
 }
 
 .money-screen .acc-tab[data-attention]::after {
@@ -2227,7 +2575,7 @@ button.line-button {
   height: 7px;
   margin-left: 6px;
   border-radius: 50%;
-  background: #7c4a00;
+  background: var(--warn-text);
   content: '';
 }
 
@@ -2246,7 +2594,7 @@ button.line-button {
 
 .money-screen .acc-block h2 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: var(--fs-xl);
 }
 
 .money-screen .acc-block-head {
@@ -2259,7 +2607,7 @@ button.line-button {
 .money-screen .acc-status {
   margin: 2px 0 6px;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
 }
 
 .money-screen .acc-fewer {
@@ -2284,8 +2632,8 @@ button.line-button {
   align-items: center;
   column-gap: 10px;
   width: 100%;
-  min-height: 56px;
-  padding: 9px 0;
+  min-height: 64px;
+  padding: 12px 0;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -2345,7 +2693,7 @@ button.line-button {
 
 .money-screen .acc-row-sub {
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
@@ -2356,13 +2704,13 @@ button.line-button {
   flex-direction: column;
   align-items: flex-end;
   font-variant-numeric: tabular-nums;
-  font-weight: 650;
+  font-weight: 600;
   white-space: nowrap;
 }
 
 .money-screen .acc-delta {
-  color: #7c4a00;
-  font-size: 0.8rem;
+  color: var(--warn-text);
+  font-size: var(--fs-sm);
   font-weight: 600;
 }
 
@@ -2384,10 +2732,14 @@ button.line-button {
   background: var(--viz-seq);
 }
 
+.money-screen .acc-meter[data-unsorted] > span {
+  background: color-mix(in srgb, var(--text) 30%, transparent);
+}
+
 /* The regular payments' total (owner, 2026-10-28: a prominent summary at the top of the list): the first row, its figure larger. */
 .money-screen .acc-total .acc-row-value {
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: var(--fs-xl);
+  font-weight: 600;
 }
 
 .money-screen .acc-open {
@@ -2405,10 +2757,10 @@ button.line-button {
   min-height: 44px;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--accent);
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
 }
 
 .money-screen .acc-link:active {
@@ -2433,7 +2785,7 @@ button.line-button {
 
 .money-screen .acc-lines .payment-day,
 .money-screen .acc-lines .payment-told {
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 /* Payments listed under a heading rather than under a row: a list of their own. */
@@ -2478,8 +2830,8 @@ button.line-button {
 }
 
 .money-screen .acc-state {
-  font-size: 0.78rem;
-  font-weight: 650;
+  font-size: var(--fs-xs);
+  font-weight: 600;
 }
 
 .money-screen .acc-state::before {
@@ -2493,11 +2845,11 @@ button.line-button {
 }
 
 .money-screen .acc-state[data-state='ok'] {
-  color: var(--success);
+  color: var(--accent);
 }
 
 .money-screen .acc-state[data-state='missing'] {
-  color: #7c4a00;
+  color: var(--warn-text);
 }
 
 .money-screen .acc-state[data-state='closed'] {
@@ -2506,11 +2858,11 @@ button.line-button {
 
 .money-screen .acc-account-line {
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 .money-screen .acc-account-missing {
-  color: #7c4a00;
+  color: var(--warn-text);
 }
 
 .money-screen .acc-empty {
@@ -2533,7 +2885,7 @@ button.line-button {
 .money-screen .receipt-check-body {
   padding: 0 4px 8px;
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: var(--fs-sm);
   line-height: 1.4;
 }
 
@@ -2551,7 +2903,7 @@ button.line-button {
   min-height: 44px;
   padding: 8px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
 }
 
 .money-screen .receipt-check-actions button:active {
@@ -2590,7 +2942,7 @@ button.line-button:active {
 
 h2.section-title {
   margin: 22px 0 2px;
-  font-size: 1.2rem;
+  font-size: var(--fs-xl);
 }
 
 /* A note written to carry into the next week (the box until v0.13), shown as written. */
@@ -2633,7 +2985,7 @@ input[type='date']:disabled {
   display: block;
   margin: 8px 0 4px;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 .inline-field > span {
@@ -2642,13 +2994,49 @@ input[type='date']:disabled {
 }
 
 .reminder-list {
-  border-top: 1px solid var(--border);
-  margin-top: 12px;
+  margin: 0;
 }
 
 .reminder-row {
-  padding: 4px 0 8px;
-  border-bottom: 1px solid var(--border);
+  padding-top: 8px;
+  padding-bottom: 12px;
+}
+
+/* One collapsed row for the date range: most people never change it. */
+.range-card > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-weight: 500;
+  list-style: none;
+  cursor: pointer;
+}
+
+.range-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.range-now {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.range-card > summary::after {
+  content: '';
+  flex: none;
+  width: 16px;
+  height: 16px;
+  background: var(--muted);
+  -webkit-mask: var(--icon-chevron) center / contain no-repeat;
+  mask: var(--icon-chevron) center / contain no-repeat;
+  transition: transform var(--t-fast);
+}
+
+.range-card[open] > summary::after {
+  transform: rotate(90deg);
 }
 
 /* Day and time side by side; "Repeats" takes its own row. */
@@ -2671,7 +3059,7 @@ input[type='date']:disabled {
 .summary {
   margin-top: 14px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--bg);
 }
 
@@ -2692,7 +3080,7 @@ input[type='date']:disabled {
 .schedule {
   margin-top: 12px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--bg);
 }
 
@@ -2709,6 +3097,7 @@ button.action {
   align-items: flex-start;
   gap: 2px;
   padding: 10px 14px;
+  border-radius: var(--radius-md); /* two lines of words: a rounded card, not a capsule */
   text-align: left;
 }
 
@@ -2718,7 +3107,7 @@ button.action {
 
 .action-desc {
   font-weight: 400;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   opacity: 0.85;
 }
 
@@ -2756,7 +3145,7 @@ details.more-ways summary {
   justify-content: space-between;
   gap: 8px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   border: 1px dashed var(--border);
   background: var(--bg);
   overflow-wrap: anywhere;
@@ -2777,23 +3166,18 @@ details.more-ways summary {
 
 .tabbar {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  right: max(12px, var(--safe-right));
+  bottom: calc(8px + var(--safe-bottom));
+  left: max(12px, var(--safe-left));
   z-index: 20;
-  background: rgb(255 255 255 / 0.88);
-  border-top: 1px solid var(--border);
-  padding: 6px max(8px, var(--safe-right)) calc(6px + var(--safe-bottom)) max(8px, var(--safe-left));
-  backdrop-filter: blur(18px) saturate(1.4);
-  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  max-width: 616px;
+  margin: 0 auto;
+  border-radius: var(--radius-lg);
 }
 
 .tabbar-inner {
   display: flex;
-  width: min(100%, 640px);
-  min-height: var(--tabbar-height);
-  margin: 0 auto;
-  gap: 2px;
+  height: var(--dock-height);
 }
 
 .tabbar a {
@@ -2802,28 +3186,34 @@ details.more-ways summary {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  min-height: var(--tabbar-height);
-  padding: 5px 2px;
-  border-radius: 14px;
-  color: var(--muted);
+  gap: 2px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 2px;
+  border-radius: var(--radius-lg);
+  color: var(--text);
   text-decoration: none;
-  font-size: 0.68rem;
-  font-weight: 550;
+  font-size: var(--fs-xs);
+  font-weight: 500;
   line-height: 1;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s ease, opacity 0.15s ease, background-color 0.15s ease;
+  transition: transform var(--t-fast), opacity var(--t-fast);
 }
 
-.tabbar a[aria-current='page'] {
+/* The active tab is a 56x32 sage pill behind its icon, not a slab. */
+.tabbar svg {
+  box-sizing: content-box;
+  width: 24px;
+  height: 24px;
+  padding: 4px 16px;
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  transition: background-color var(--t-fast), color var(--t-fast);
+}
+
+.tabbar a[aria-current='page'] svg {
   background: var(--accent-soft);
   color: var(--accent);
-  font-weight: 700;
-}
-
-.tabbar svg {
-  width: 23px;
-  height: 23px;
 }
 
 /* A screen opens into its eventual title, card and list shape instead of a blank pane. After four seconds, it gives
@@ -2871,13 +3261,13 @@ details.more-ways summary {
   gap: 12px;
   padding: 20px;
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: var(--radius-md);
   box-shadow: var(--card-shadow);
 }
 
 .skeleton-list {
   gap: 20px;
-  border-radius: 18px;
+  border-radius: var(--radius-md);
   box-shadow: var(--list-shadow);
 }
 
@@ -2923,10 +3313,8 @@ details.more-ways summary {
   align-items: center;
   gap: 8px;
   padding: 10px 12px 10px 16px;
-  border-radius: 12px;
-  background: var(--text);
-  color: var(--bg);
-  box-shadow: 0 6px 24px rgb(0 0 0 / 0.18);
+  border-radius: var(--radius-md);
+  color: var(--text);
 }
 
 .banner span {
@@ -2934,15 +3322,70 @@ details.more-ways summary {
 }
 
 .banner button {
-  background: var(--bg);
+  background: var(--surface);
   color: var(--text);
-  border-color: var(--bg);
 }
 
 .banner button.ghost {
   background: transparent;
-  color: var(--bg);
-  border-color: var(--bg);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+/* ---------- Glass: the one recipe ---------- */
+
+.tabbar,
+.banner,
+.notice.strip,
+dialog.sheet.full .sheet-header,
+dialog.sheet.full .sheet-footer,
+.logs-screen .list-section h2[data-stuck] {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  backdrop-filter: blur(24px) saturate(1.5);
+}
+
+.tabbar,
+.banner,
+.notice.strip {
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--float-shadow);
+}
+
+/* Under a full-screen sheet the page is covered: its glass stops blurring, so a screen never has more than three layers. */
+body:has(dialog.sheet.full[open]) :is(.tabbar, .banner, .notice.strip) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Where the browser can't blur what is behind, or the person asked for less transparency: solid. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .tabbar,
+  .banner,
+  .notice.strip,
+  dialog.sheet.full .sheet-header,
+  dialog.sheet.full .sheet-footer,
+  .logs-screen .list-section h2[data-stuck] {
+    background: var(--surface);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .tabbar,
+  .banner,
+  .notice.strip,
+  dialog.sheet.full .sheet-header,
+  dialog.sheet.full .sheet-footer,
+  .logs-screen .list-section h2[data-stuck] {
+    background: var(--surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  dialog.sheet::backdrop {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 /* ---------- Charts (dataviz rules: thin marks, hairline grid, readout + table view) ---------- */
@@ -2962,7 +3405,7 @@ details.more-ways summary {
 .chart-readout {
   min-height: 2.6em; /* reserved, so tapping a column never shifts the layout */
   margin: 2px 0 6px;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--muted);
 }
 
@@ -3023,7 +3466,7 @@ details.more-ways summary {
   min-height: 1.5em;
   margin: 0 0 8px;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
 }
 
@@ -3047,7 +3490,7 @@ details.more-ways summary {
   padding: 6px 2px;
   border: 0;
   color: var(--accent);
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
 }
 
 .chart-range button:first-child {
@@ -3065,7 +3508,7 @@ details.more-ways summary {
 
 .chart-range span {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -3095,7 +3538,7 @@ details.more-ways summary {
   margin: -6px 0 -12px;
   padding: 12px 0;
   color: var(--accent);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
   cursor: pointer;
 }
@@ -3108,7 +3551,7 @@ details.more-ways summary {
   width: 100%;
   margin-top: 6px;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
 }
 
@@ -3135,17 +3578,15 @@ details.more-ways summary {
 }
 
 .wizard-head h1 {
-  margin: 4px 0 0;
+  margin: 4px 0 var(--space-4);
 }
 
 .wizard-head .link {
-  min-height: 36px;
-  padding: 0;
+  min-height: 44px;
+  margin-right: -12px;
+  padding: 0 12px;
 }
 
-.wizard-step {
-  margin: 8px 0 6px;
-}
 
 /* The welcome: its step count on the left, Skip on the right. */
 .welcome-top {
@@ -3155,33 +3596,61 @@ details.more-ways summary {
   min-height: 44px;
 }
 
-.welcome-top .wizard-step {
-  margin: 0;
+.welcome-top .step-dots {
+  margin-left: 0;
+}
+
+/* The app's mark opens the welcome; the washes behind the whole app show round it. */
+.welcome-mark {
+  display: block;
+  width: 64px;
+  height: 64px;
+  margin: var(--space-4) 0 var(--space-3);
 }
 
 .welcome-lead {
-  font-size: 1.05rem;
+  font-size: var(--fs-md);
 }
 
-.progress {
-  height: 4px;
-  margin-bottom: 14px;
-  border-radius: 999px;
-  background: var(--border);
-  overflow: hidden;
+/* The two examples are stacked like papers, the second 8px lower and to the right of the first. */
+.example-stack {
+  margin: var(--space-4) 0 var(--space-5);
+  padding: 0;
+  list-style: none;
 }
 
-.progress span {
-  display: block;
-  height: 100%;
-  background: var(--accent);
+.example-stack li {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
 }
 
+.example-stack li:first-child {
+  margin-right: 8px;
+}
+
+.example-stack li + li {
+  margin: -8px 0 0 8px;
+}
+
+.example-stack .entry-row {
+  min-height: 0;
+}
+
+/* One primary across the width, Back a quiet link under it. */
 .wizard-nav {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 10px;
-  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  margin-top: var(--space-5);
+}
+
+.wizard-nav .link {
+  align-self: center;
+  min-height: 44px;
 }
 
 /* ---------- One question at a time ---------- */
@@ -3216,7 +3685,7 @@ details.more-ways summary {
 
 /* A new question fades in; it also ignores taps for a moment (see EntryFlow), so a double tap can't answer it. */
 .step {
-  animation: step-in 0.2s ease-out;
+  animation: step-in var(--t-fade) ease-out;
 }
 
 @keyframes step-in {
@@ -3230,7 +3699,8 @@ details.more-ways summary {
   .step,
   .skeleton-line,
   .skeleton-card,
-  .skeleton-list {
+  .skeleton-list,
+  dialog.sheet[open] {
     animation: none;
   }
 
@@ -3244,7 +3714,7 @@ details.more-ways summary {
 .step-context {
   margin: 8px 0 0;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
 }
 
 .step > .question-text:first-child {
@@ -3265,25 +3735,34 @@ details.more-ways summary {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   overflow: hidden;
   box-shadow: var(--list-shadow);
 }
 
+/* The one row (restyle S4): 64px at least, 16px above and below, 20px at the sides, a title at 500 and a muted subline,
+   a divider inset 20px and a 16px chevron. part-row (an entry's parts) and the Money rows share its measures. */
 .list-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 62px;
-  padding: 12px 16px;
+  min-height: 64px;
+  padding: 16px 20px;
   color: var(--text);
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
 }
 
-.list-row + .list-row {
-  border-top: 1px solid var(--border);
+.list-row + .list-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 20px;
+  left: 20px;
+  height: 1px;
+  background: var(--border);
 }
 
 .list-row.danger-text {
@@ -3298,17 +3777,39 @@ details.more-ways summary {
 }
 
 .list-title {
-  font-weight: 650;
+  font-size: var(--fs-md);
+  font-weight: 500;
 }
 
 .list-status {
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   color: var(--muted);
+}
+
+/* A sage tile with the row's icon (More). */
+.icon-tile {
+  display: grid;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.list-row.danger-text .icon-tile {
+  background: var(--warn-bg);
+  color: var(--danger);
+}
+
+.list-apart {
+  margin-top: var(--space-5);
 }
 
 .list-chevron {
   color: var(--muted);
-  font-size: 1.3rem;
+  font-size: var(--fs-xl);
 }
 
 .back-link {
@@ -3318,17 +3819,21 @@ details.more-ways summary {
   min-height: 44px;
   margin: -4px 0 2px -8px;
   padding: 0 8px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 500;
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+.back-link .icon {
+  margin-left: -4px;
 }
 
 /* ---------- Feeling words ---------- */
 
 .chip-row.words .chip {
-  min-height: 40px;
+  min-height: 44px;
 }
 
 .chip.add-word {
@@ -3353,7 +3858,7 @@ details.more-ways summary {
 .link.swap {
   min-width: 44px;
   min-height: 44px;
-  font-size: 1.25rem;
+  color: var(--muted);
 }
 
 /* Receipts (v0.20.21). One look for every line: its words on the left (a label, what it is in small words below), its
@@ -3377,9 +3882,9 @@ details.more-ways summary {
   gap: 6px;
   margin: 0 6px 8px;
   color: var(--muted);
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
@@ -3388,7 +3893,7 @@ details.more-ways summary {
   padding: 1px 7px;
   border-radius: 999px;
   background: var(--warn-bg);
-  color: #7a5200;
+  color: var(--warn-text);
   font-size: 0.9em;
   letter-spacing: 0;
   text-align: center;
@@ -3397,13 +3902,13 @@ details.more-ways summary {
 .money-screen .rc-status {
   margin: -4px 6px 8px;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
 }
 
 .money-screen .rc-body {
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
@@ -3435,7 +3940,7 @@ details.more-ways summary {
   padding: 8px 14px;
   background: var(--bg);
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
 }
 
@@ -3445,7 +3950,7 @@ details.more-ways summary {
   grid-template-columns: minmax(0, 1fr) auto 14px;
   align-items: center;
   column-gap: 10px;
-  min-height: 56px;
+  min-height: 64px;
   padding: 10px 14px;
   border-radius: 0;
 }
@@ -3456,13 +3961,16 @@ details.more-ways summary {
 
 .money-screen details.week-line > summary.rc-row::after,
 .money-screen details[open].week-line > summary.rc-row::after {
-  content: '›';
+  content: '';
   grid-column: 3;
   grid-row: 1;
   color: var(--muted);
-  font-size: 1.3rem;
-  line-height: 1;
-  transition: transform 0.15s ease;
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  -webkit-mask: var(--icon-chevron) center / contain no-repeat;
+  mask: var(--icon-chevron) center / contain no-repeat;
+  transition: transform var(--t-fast);
 }
 
 .money-screen details[open].week-line > summary.rc-row::after {
@@ -3475,8 +3983,8 @@ details.more-ways summary {
 }
 
 .money-screen .rc-row .rc-label {
-  font-size: 0.98rem;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: 500;
   overflow-wrap: anywhere;
 }
 
@@ -3484,7 +3992,7 @@ details.more-ways summary {
   display: block;
   margin-top: 1px;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   line-height: 1.3;
   overflow-wrap: anywhere;
 }
@@ -3492,16 +4000,16 @@ details.more-ways summary {
 .money-screen .rc-row .rc-amount {
   grid-column: 2;
   grid-row: 1;
-  font-size: 0.98rem;
+  font-size: var(--fs-md);
   font-variant-numeric: tabular-nums;
-  font-weight: 650;
+  font-weight: 600;
   text-align: right;
   white-space: nowrap;
 }
 
 .money-screen .rc-row.rc-more {
   color: var(--accent);
-  font-size: 0.9rem;
+  font-size: var(--fs-md);
   font-weight: 600;
 }
 
@@ -3511,8 +4019,8 @@ details.more-ways summary {
   border-radius: 999px;
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: 0.74rem;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: 600;
 }
 
 .money-screen .rc-body details.week-line > ul,
@@ -3524,7 +4032,7 @@ details.more-ways summary {
 .money-screen .receipt-overview details.week-line > ul {
   margin-bottom: 8px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   background: var(--bg);
   overflow: hidden;
 }
@@ -3544,7 +4052,7 @@ details.more-ways summary {
   height: 7px;
   margin-right: 8px;
   border-radius: 50%;
-  background: #d99a1e;
+  background: var(--warn-text);
   vertical-align: 1px;
 }
 
@@ -3572,15 +4080,15 @@ details.more-ways summary {
   grid-area: date;
   padding-top: 0.2em;
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   line-height: 1.3;
 }
 
 .money-screen .rc-line .rc-name {
   grid-area: name;
-  font-size: 0.96rem;
-  font-weight: 550;
+  font-size: var(--fs-md);
+  font-weight: 500;
   line-height: 1.3;
   overflow-wrap: anywhere;
 }
@@ -3588,7 +4096,7 @@ details.more-ways summary {
 .money-screen .rc-line .rc-sub {
   grid-area: sub;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   line-height: 1.3;
   overflow-wrap: anywhere;
 }
@@ -3596,15 +4104,15 @@ details.more-ways summary {
 .money-screen .rc-line .rc-flag {
   grid-area: flag;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
 }
 
 .money-screen .rc-line .rc-amount {
   grid-area: amount;
-  font-size: 0.96rem;
+  font-size: var(--fs-md);
   font-variant-numeric: tabular-nums;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.3;
   white-space: nowrap;
 }
@@ -3657,16 +4165,16 @@ details.more-ways summary {
 
 .rc-item .rc-name {
   grid-area: name;
-  font-size: 1rem;
-  font-weight: 550;
+  font-size: var(--fs-md);
+  font-weight: 500;
   overflow-wrap: anywhere;
 }
 
 .rc-item .rc-price {
   grid-area: price;
-  font-size: 1rem;
+  font-size: var(--fs-md);
   font-variant-numeric: tabular-nums;
-  font-weight: 650;
+  font-weight: 600;
   text-align: right;
   white-space: nowrap;
 }
@@ -3674,7 +4182,7 @@ details.more-ways summary {
 .rc-item .rc-was {
   grid-area: was;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
 }
 
 .rc-item .rc-kind {
@@ -3684,20 +4192,23 @@ details.more-ways summary {
   border-radius: 999px;
   background: var(--bg);
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
 }
 
 .rc-item .rc-kind[data-returned='true'] {
-  background: #fbe9e7;
+  background: var(--warn-bg);
   color: var(--danger);
 }
 
 .rc-items .rc-item-button::after {
-  content: '›';
+  content: '';
   color: var(--muted);
-  font-size: 1.3rem;
-  line-height: 1;
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  -webkit-mask: var(--icon-chevron) center / contain no-repeat;
+  mask: var(--icon-chevron) center / contain no-repeat;
 }
 
 .rc-total {
@@ -3707,10 +4218,10 @@ details.more-ways summary {
   gap: 4px 12px;
   margin: 14px 0 12px;
   padding: 14px 16px;
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   background: var(--bg);
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: var(--fs-sm);
 }
 
 .rc-total-main {
@@ -3721,14 +4232,14 @@ details.more-ways summary {
 
 .rc-total-main strong {
   margin-left: 4px;
-  font-size: 1.35rem;
+  font-size: var(--fs-2xl);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
 
 .rc-total-spent {
   color: var(--text);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .money-screen .receipt-overview ul.money-overview-breakdown {

@@ -9,6 +9,7 @@ import { AI_PROBLEMS, AiError, chatWithTools, PROVIDERS } from '../../lib/ai'
 import { embed } from '../../lib/embedder'
 import { shortDate, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
+import { Icon } from '../../ui/Icon'
 import { Loading } from '../../ui/Loading'
 import { useEntryTitle } from '../areas/AreasProvider'
 import { useMeaningSearch } from '../meaning/useMeaning'
@@ -90,9 +91,15 @@ export function AskScreen() {
           ) : null}
         </section>
       ) : (
-        <p className="muted">
-          To ask your journal questions, <a href={hashFor('more', 'ai')}>set up an AI service</a>.
-        </p>
+        <section className="card ask-setup" aria-label="Set up an AI service">
+          <span className="icon-tile" aria-hidden="true">
+            <Icon name="sparkle" size={22} />
+          </span>
+          <p>To ask your journal questions, set up an AI service.</p>
+          <a className="button primary" href={hashFor('more', 'ai')}>
+            Set up AI
+          </a>
+        </section>
       )}
 
       {answered ? (

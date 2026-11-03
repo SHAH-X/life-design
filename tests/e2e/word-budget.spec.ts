@@ -120,7 +120,7 @@ test('every main screen stays within its word budget', async ({ page }, testInfo
     ['backup', 'More → Backup and restore [67]'],
   ] as const) {
     await page.goto(`./#/more/${path}`)
-    await expect(page.getByRole('link', { name: '‹ More' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Back to More' })).toBeVisible()
     await measure(screen, main)
   }
 

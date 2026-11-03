@@ -12,6 +12,7 @@ import {
   LONG_WRITING,
   openPart,
   showKeyboard,
+  sheetSettled,
   smallJoy,
   writeEntry,
 } from './helpers'
@@ -223,6 +224,9 @@ test('editing and writing freely keep every field in sight, on the whole screen'
   await showKeyboard(page)
   await expectSheetFillsScreen(page, free)
   await expectInSheetView(free, free.getByLabel("What's on your mind?"))
+  // The mic hint is behind the ⓘ (a permanent help line broke "no help paragraphs"), and in sight when opened.
+  await expect(free.getByText('Tap the mic on the keyboard to speak.')).toHaveCount(0)
+  await free.getByRole('button', { name: 'How to speak it' }).click()
   await expectInSheetView(free, free.getByText('Tap the mic on the keyboard to speak.'))
 })
 
@@ -375,4 +379,97 @@ test('an entry is one screen: tap a part to change just that, "To remember" too'
   await expect(view.getByRole('button', { name: /^How you felt/ })).toContainText('happy · calm')
   await expect(view.getByRole('button', { name: /^What it was like/ })).toContainText('absorbed')
   await expect(view.getByRole('button', { name: /^What it did to your energy/ })).toContainText('It gave me energy')
+})
+
+test('the writer is a page: no box, serif at reading size, one sage line on focus; a camera and Save share the footer', async ({ page }) => {
+  await captureBox(page).click()
+  const sheet = page.getByRole('dialog', { name: 'Write freely' })
+  const box = sheet.getByLabel("What's on your mind?")
+  await expect(box).toBeFocused()
+  const look = await box.evaluate((el) => {
+    const css = getComputedStyle(el)
+    const root = parseFloat(getComputedStyle(document.documentElement).fontSize)
+    return {
+      top: css.borderTopWidth,
+      left: css.borderLeftWidth,
+      leftColour: css.borderLeftColor,
+      bg: css.backgroundColor,
+      shadow: css.boxShadow,
+      resize: css.resize,
+      family: css.fontFamily,
+      size: parseFloat(css.fontSize) / root,
+      line: parseFloat(css.lineHeight) / parseFloat(css.fontSize),
+    }
+  })
+  expect(look.top).toBe('0px')
+  expect(look.left).toBe('2px')
+  expect(look.leftColour).toBe('rgb(54, 90, 74)') // the focus line
+  expect(look.bg).toBe('rgba(0, 0, 0, 0)')
+  expect(look.shadow).toBe('none')
+  expect(look.resize).toBe('none')
+  expect(look.family).toMatch(/New York|Georgia|serif/)
+  expect(look.size).toBeCloseTo(1.125, 2)
+  expect(look.line).toBeCloseTo(1.65, 2)
+
+  // One footer row: the camera, then Save across the rest.
+  await sheetSettled(sheet)
+  const camera = sheet.locator('.sheet-footer label.photo-add')
+  await expect(camera).toContainText('Add a photo')
+  const save = sheet.getByRole('button', { name: 'Save' })
+  const [c, v] = [(await camera.boundingBox())!, (await save.boundingBox())!]
+  expect(c.x).toBeLessThan(v.x)
+  expect(Math.abs(c.y + c.height / 2 - (v.y + v.height / 2))).toBeLessThan(1)
+  expect(c.width).toBe(52)
+  expect(v.width).toBeGreaterThan(200)
+  // The header title is small and muted.
+  const title = await sheet.locator('.sheet-header h2').evaluate((el) => ({ colour: getComputedStyle(el).color, size: parseFloat(getComputedStyle(el).fontSize) / parseFloat(getComputedStyle(document.documentElement).fontSize) }))
+  expect(title.colour).toBe('rgb(95, 94, 88)')
+  expect(title.size).toBeCloseTo(0.85, 2)
+})
+
+test('Today: the title is left, its date a muted line with no pill, bare day arrows; the box is 96px, serif ink, a 40px sage disc', async ({ page }) => {
+  const title = page.locator('.day-title')
+  const h1 = (await title.locator('h1').boundingBox())!
+  expect(h1.x).toBeLessThanOrEqual(21) // the 20px gutter: left aligned, not centred
+  const date = await title.locator('p').evaluate((el) => ({ bg: getComputedStyle(el).backgroundColor, radius: getComputedStyle(el).borderRadius }))
+  expect(date).toEqual({ bg: 'rgba(0, 0, 0, 0)', radius: '0px' })
+  const arrow = page.getByRole('button', { name: 'Previous day' })
+  expect(await arrow.evaluate((el) => getComputedStyle(el).borderTopWidth)).toBe('0px')
+  expect((await arrow.boundingBox())!.width).toBeGreaterThanOrEqual(44)
+  const box = captureBox(page)
+  expect(Math.round((await box.boundingBox())!.height)).toBeLessThanOrEqual(100)
+  expect(await box.locator('.capture-prompt').evaluate((el) => getComputedStyle(el).color)).toBe('rgb(31, 30, 28)')
+  const disc = (await box.locator('.capture-mark').boundingBox())!
+  expect([Math.round(disc.width), Math.round(disc.height)]).toEqual([40, 40])
+})
+
+test('the install notice is a 48px glass strip with a sage dot', async ({ page }) => {
+  const strip = page.locator('aside.notice.strip')
+  await expect(strip).toBeVisible()
+  const look = await strip.evaluate((el) => ({ blur: getComputedStyle(el).backdropFilter, bg: getComputedStyle(el).backgroundColor, dot: getComputedStyle(el, '::before').backgroundColor }))
+  expect(look.blur).toContain('blur(24px)')
+  expect(look.bg).toBe('rgba(255, 253, 249, 0.72)')
+  expect(look.dot).toBe('rgb(54, 90, 74)')
+  expect((await strip.boundingBox())!.height).toBeGreaterThanOrEqual(48)
+})
+
+test('an entry row is 72px with a 3x28 edge inset 4px: blue, red, or a plain line for free writing; the evening card is 32px below', async ({ page }) => {
+  await addEntries(page, [
+    { activity: 'Walk', during: ['Absorbed'], energy: 'It gave me energy', after: ['Happy'] },
+    { activity: 'Meeting', during: ['Distracted'], energy: 'It used up my energy', after: ['Frustrated'] },
+  ])
+  await writeEntry(page, 'A free thought.')
+  const edge = (name: string | RegExp) =>
+    entryButton(page, name as string).evaluate((el) => {
+      const css = getComputedStyle(el, '::before')
+      return { w: css.width, h: css.height, left: css.left, bg: css.backgroundColor, row: el.getBoundingClientRect().height }
+    })
+  const walk = await edge('Walk')
+  expect([walk.w, walk.h, walk.left, walk.bg]).toEqual(['3px', '28px', '4px', 'rgb(42, 120, 214)'])
+  expect(walk.row).toBeGreaterThanOrEqual(72)
+  expect((await edge('Meeting')).bg).toBe('rgb(227, 73, 72)')
+  expect((await edge('Free writing')).bg).toBe('rgb(228, 225, 216)')
+  const list = (await page.locator('main .entry-list').boundingBox())!
+  const evening = (await page.locator('section.evening').boundingBox())!
+  expect(Math.round(evening.y - (list.y + list.height))).toBe(32)
 })

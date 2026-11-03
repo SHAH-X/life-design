@@ -78,7 +78,31 @@ const REFUND = /^(?:refund|adjustment) for\b/i
 
 const COUNTRY = /\s+(?:GBR|GB|IRL|USA|US|FRA|DEU|ESP|ITA|NLD|BEL|PRT)$/i
 
-/** "EXAMPLE SOFTWARE DUBLIN IRL Amount: USD -5.00. …" is EXAMPLE SOFTWARE DUBLIN; "Example Gym (Faster Payments)
+/** Words that stay as capitals in a shouted name (restyle T5: "TFL TRAVEL" is "TFL Travel", not "Tfl Travel"). */
+const ACRONYMS = new Set(['TFL', 'NHS', 'HMRC', 'BBC', 'DVLA', 'ATM', 'VAT', 'UK', 'USA', 'PDF', 'DD'])
+/** Small words that stay lower case inside a title-cased name. */
+const SMALL_WORDS = new Set(['and', 'of', 'the', 'to', 'at', 'on', 'in', 'for'])
+
+/** A bank prints names in capitals ("EXAMPLE SOFTWARE DUBLIN"); they are shown in title case ("Example Software Dublin"),
+ *  at display time: what is stored, and every key, is as printed. A name that already has lower case is left alone
+ *  (CSS `capitalize` can't lowercase the rest, so it is done here). A word with a digit, a known acronym and a single
+ *  letter stay as printed. */
+export function titleCaseShouted(name: string): string {
+  if (!name || /[a-z]/.test(name)) return name
+  let word = 0
+  return name
+    .split(/([\s*/&-]+)/)
+    .map((token) => {
+      if (!token || /^[\s*/&-]+$/.test(token)) return token
+      const first = word++ === 0
+      if (/\d/.test(token) || ACRONYMS.has(token) || token.length === 1) return token
+      const lower = token.toLowerCase()
+      return !first && SMALL_WORDS.has(lower) ? lower : lower[0]!.toUpperCase() + lower.slice(1)
+    })
+    .join('')
+}
+
+/** "EXAMPLE SOFTWARE DUBLIN IRL Amount: USD -5.00. …" is Example Software Dublin; "Example Gym (Faster Payments)
  *  Reference: …" is Example Gym; "TESCO SOMETOWN GBR" is Tesco. */
 export function payeeOf(description: string): Payee {
   const name = description
@@ -92,7 +116,7 @@ export function payeeOf(description: string): Payee {
     .replace(COUNTRY, '')
     .trim()
   const chain = chainOf(name)
-  return chain ? { key: chain.key, name: chain.name } : { key: name.toLowerCase(), name }
+  return chain ? { key: chain.key, name: chain.name } : { key: name.toLowerCase(), name: titleCaseShouted(name) }
 }
 
 function movingOf(line: BankLine, payee: Payee, own: ReadonlySet<string>): Moving | null {
@@ -125,10 +149,10 @@ export const mayBeOwn = (lines: readonly MoneyLine[]): boolean =>
 export function accountNames(accounts: readonly string[], chosen: Readonly<Record<string, string>> = {}): Map<string, string> {
   const short = (account: string) => account.replace(/ ···\d{4}$/, '')
   const given = (account: string) => chosen[account]?.trim() || null
-  const wanted = (account: string) => given(account) ?? short(account)
+  const wanted = (account: string) => given(account) ?? titleCaseShouted(short(account))
   const uses = new Map<string, number>()
   for (const account of accounts) uses.set(wanted(account), (uses.get(wanted(account)) ?? 0) + 1)
-  return new Map(accounts.map((account) => [account, uses.get(wanted(account))! > 1 && !given(account) ? account : wanted(account)]))
+  return new Map(accounts.map((account) => [account, uses.get(wanted(account))! > 1 && !given(account) ? titleCaseShouted(account) : wanted(account)]))
 }
 
 /** The days an account has no statement for (owner, 2026-10-26: "for which month the data is yet not imported"): gaps

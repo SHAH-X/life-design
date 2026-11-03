@@ -17,6 +17,8 @@ import { Switch } from '../../ui/Switch'
 import { useMeaningResults, useMeaningSearch, workingText } from '../meaning/useMeaning'
 import { useAiSettings } from '../more/useAiSettings'
 import { usePurposeSettings } from '../today/usePurpose'
+import { Icon } from '../../ui/Icon'
+import { BackLink } from '../../ui/BackLink'
 
 // Review a period (v0.12, owner's two ways): copy it (or share it as a file) to any AI chat yourself, or "Review with
 // AI" here with your own key. Nothing leaves the phone until you tap, and "See what's sent" shows exactly what.
@@ -140,9 +142,7 @@ export function ReviewPeriod() {
 
   return (
     <>
-      <a className="back-link" href={hashFor('insights')}>
-        ‹ Insights
-      </a>
+      <BackLink href={hashFor('insights')}>Insights</BackLink>
       <h1>Review a period</h1>
       <div className="chip-row" role="group" aria-label="Period">
         {PRESETS.map((p) => (
@@ -222,9 +222,7 @@ export function ReviewPeriod() {
               <span className="list-title">Set up AI review</span>
               <span className="list-status">With your own free Groq key</span>
             </span>
-            <span className="list-chevron" aria-hidden="true">
-              ›
-            </span>
+            <span className="list-chevron" aria-hidden="true"><Icon name="chevron-right" size={16} /></span>
           </a>
         )}
         {problem ? (

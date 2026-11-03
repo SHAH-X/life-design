@@ -10,6 +10,8 @@ import { revealOnMount } from '../../ui/keepInView'
 import { SwipeRow } from '../../ui/SwipeRow'
 import { useEntryTitle } from '../areas/AreasProvider'
 import { Evidence } from './Evidence'
+import { Icon } from '../../ui/Icon'
+import { BackLink } from '../../ui/BackLink'
 
 // Next steps you can manage (v0.11, owner: "a separate section … where I can see and manage them"). See
 // src/domain/steps.ts for why they work the way they do.
@@ -37,7 +39,7 @@ export function NextStepsCard({ steps }: { steps: readonly Step[] }) {
         <p className="muted small">What you decide to do after an entry lands here.</p>
       )}
       <a className="small-link" href={hashFor('insights', 'steps')}>
-        All next steps ›
+        All next steps<Icon name="chevron-right" size={16} />
       </a>
     </section>
   )
@@ -89,9 +91,7 @@ export function NextStepsPage({ steps, entries }: { steps: readonly Step[]; entr
 
   return (
     <>
-      <a className="back-link" href={hashFor('insights')}>
-        ‹ Insights
-      </a>
+      <BackLink href={hashFor('insights')}>Insights</BackLink>
       <h1>Next steps</h1>
       <button type="button" className="primary wide" onClick={() => setEditing('new')}>
         + Add a next step

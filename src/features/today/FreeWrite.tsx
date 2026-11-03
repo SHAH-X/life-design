@@ -8,9 +8,11 @@ import { PhotoError, shrinkPhoto } from '../../lib/photo'
 import type { Ask } from '../../prompts/provoke'
 import { eveningStarters } from '../../prompts/starters'
 import { Dialog } from '../../ui/Dialog'
+import { Question } from '../../ui/Question'
 import { Starters, typeInto } from '../../ui/Starters'
 import { PhotoView, StoredPhoto } from '../photos/PhotoView'
 import { setPhotoText, usePhotoText } from '../photos/usePhotoText'
+import { Icon } from '../../ui/Icon'
 
 /** A draft is saved this long after the last change. */
 const DRAFT_DELAY_MS = 500
@@ -33,7 +35,6 @@ export function FreeWrite(props: { date: string; draft?: Entry; ask?: Ask; onClo
   const { date, draft, ask, onClose, onSaved } = props
   const replyTo = ask ? { id: ask.id, question: ask.question } : (draft?.replyTo ?? null)
   const id = useId()
-  const hintId = useId()
   const box = useRef<HTMLTextAreaElement>(null)
   const reading = usePhotoText()
   const [text, setText] = useState(draft?.note ?? '')
@@ -163,25 +164,45 @@ export function FreeWrite(props: { date: string; draft?: Entry; ask?: Ask; onClo
     }
   }
 
+  // One row: a camera for photos, then the Save pill.
   const footer = (
-    <button type="button" className="primary wide" disabled={busy || adding || !hasSomething} onClick={() => void save()}>
-      Save
-    </button>
+    <div className="footer-row">
+      <label className="button photo-add icon-only">
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          disabled={adding}
+          onChange={(e) => {
+            const files = [...(e.target.files ?? [])]
+            e.target.value = ''
+            if (files.length) void addPhotos(files)
+          }}
+        />
+        <Icon name="camera" size={22} />
+        <span className="visually-hidden">Add a photo</span>
+      </label>
+      <button type="button" className="primary wide" disabled={busy || adding || !hasSomething} onClick={() => void save()}>
+        Save
+      </button>
+    </div>
   )
 
   return (
-    <Dialog title="Write freely" onClose={onClose} footer={footer} full fillBody>
-      <label className="question-text" htmlFor={id}>
+    <Dialog title="Write freely" onClose={onClose} footer={footer} full fillBody quietTitle>
+      {/* The mic hint is behind the ⓘ: a permanent help line was against "no help paragraphs". */}
+      <Question as="label" htmlFor={id} info="Tap the mic on the keyboard to speak." infoLabel="How to speak it">
         {replyTo?.question ?? "What's on your mind?"}
-      </label>
-      <textarea ref={box} id={id} aria-describedby={hintId} className="fill" data-autofocus value={text} rows={10} maxLength={20000} onChange={(e) => setText(e.target.value)} />
+      </Question>
+      <textarea ref={box} id={id} className="fill" data-autofocus value={text} rows={10} maxLength={20000} onChange={(e) => setText(e.target.value)} />
       <div className="field-foot">
         {text.trim() === '' ? <Starters starters={eveningStarters('free')} onPick={(t) => typeInto(box.current, t, setText)} /> : null}
       </div>
-      {/* Right under the box, so it stays in sight with the keyboard up (photos come after it). */}
-      <p id={hintId} className="field-help">
-        Tap the mic on the keyboard to speak.
-      </p>
+      {adding ? (
+        <p className="muted small" role="status">
+          Adding the photo…
+        </p>
+      ) : null}
       {photos.length ? (
         <ul className="photo-strip" aria-label="Photos">
           {photos.map((ref, i) => {
@@ -190,22 +211,12 @@ export function FreeWrite(props: { date: string; draft?: Entry; ask?: Ask; onClo
             return (
               <li key={ref.id}>
                 {shot ? <PhotoView data={shot.data} width={shot.width} height={shot.height} className="photo-thumb" alt={alt} /> : <StoredPhoto id={ref.id} className="photo-thumb" alt={alt} />}
-                <button type="button" className="photo-remove" aria-label={`Remove photo ${i + 1}`} onClick={() => removePhoto(ref.id)}>
-                  ✕
-                </button>
+                <button type="button" className="photo-remove" aria-label={`Remove photo ${i + 1}`} onClick={() => removePhoto(ref.id)}><Icon name="close" size={16} /></button>
               </li>
             )
           })}
         </ul>
       ) : null}
-      <label className="button photo-add">
-        <input type="file" accept="image/*" multiple disabled={adding} onChange={(e) => {
-          const files = [...(e.target.files ?? [])]
-          e.target.value = ''
-          if (files.length) void addPhotos(files)
-        }} />
-        {adding ? 'Adding the photo…' : 'Add a photo'}
-      </label>
       {photoError ? (
         <p className="error small" role="alert">
           {photoError}

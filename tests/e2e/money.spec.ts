@@ -166,20 +166,20 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   // A N OTHER is you, paying yourself: once said, its money leaves the totals; and comes back when unsaid. Paid once,
   // it's its payment: one tap opens it, and the sheet says so.
   const moneyIn = page.getByRole('region', { name: 'Money in' })
-  await moneyIn.getByRole('button', { name: /^A N OTHER/ }).click()
-  await page.getByRole('dialog', { name: 'A N OTHER' }).getByRole('button', { name: 'It’s me, moving money' }).click()
+  await moneyIn.getByRole('button', { name: /^A N Other/ }).click()
+  await page.getByRole('dialog', { name: 'A N Other' }).getByRole('button', { name: 'It’s me, moving money' }).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(summary).toHaveText(['Money in £1501.25', 'Payments out 8 payments'])
   const moved = page.getByRole('region', { name: 'Moved between your accounts' })
-  await expect(moved.locator('summary')).toHaveText(['Monzo Flex 2 moves', 'Pots 1 move', 'A N OTHER Your own account · 1 move'])
+  await expect(moved.locator('summary')).toHaveText(['Monzo Flex 2 moves', 'Pots 1 move', 'A N Other Your own account · 1 move'])
   // A statement prints your name, not which account: named your way, it's remembered.
   // Each row says where the money went; a pot's move is one row (owner, 2026-10-26).
   await moved.locator('summary', { hasText: 'Pots' }).click()
   await expect(moved.locator('details', { hasText: 'Pots' }).locator('.acc-lines li')).toHaveText([/^Tue,? 8 Sept? ?Monzo Savings pot → Monzo ?£50\.00$/])
   await moved.locator('summary', { hasText: 'Monzo Flex' }).click()
   await expect(moved.locator('details', { hasText: 'Monzo Flex' }).locator('.acc-lines li')).toHaveText([/^Thu,? 10 Sept? ?Paid off, from Monzo ?£12\.40$/, /^Wed,? 2 Sept? ?Spread with Flex ?£12\.40$/])
-  await moved.locator('summary', { hasText: 'A N OTHER' }).click()
-  await moved.getByRole('button', { name: 'Rename A N OTHER' }).click()
+  await moved.locator('summary', { hasText: 'A N Other' }).click()
+  await moved.getByRole('button', { name: 'Rename A N Other' }).click()
   const naming = page.getByRole('dialog', { name: 'Rename where it went' })
   await naming.getByRole('textbox').fill('Example savings')
   await naming.getByRole('button', { name: 'Save', exact: true }).click()
@@ -191,8 +191,8 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   await expect(summary).toHaveText(['Money in £1601.25', 'Payments out 8 payments'])
   // Paid by card or direct debit: never asked.
   const moneyOut = page.getByRole('region', { name: 'Money out' })
-  await moneyOut.getByRole('button', { name: /^EXAMPLE STREAMING/ }).click()
-  const streaming = page.getByRole('dialog', { name: 'EXAMPLE STREAMING' })
+  await moneyOut.getByRole('button', { name: /^Example Streaming/ }).click()
+  const streaming = page.getByRole('dialog', { name: 'Example Streaming' })
   await expect(streaming.getByRole('button', { name: 'Rename transaction' })).toBeVisible()
   await expect(streaming.getByRole('button', { name: 'It’s me, moving money' })).toHaveCount(0)
   await streaming.getByRole('button', { name: 'Close' }).click()
@@ -222,9 +222,9 @@ test('a regular payment can be renamed across existing transactions and a later 
   const regularPayments = page.getByRole('region', { name: 'Regular payments' })
   // Coming up is a row of its own above the payments, so pick the payment's row: it says "every month".
   const regular = regularPayments.locator('details.acc-item', { hasText: 'every month' })
-  await expect(regular.locator('summary')).toContainText('EXAMPLE STREAMING')
+  await expect(regular.locator('summary')).toContainText('Example Streaming')
   await regular.locator('summary').click()
-  await regular.getByRole('button', { name: 'Rename EXAMPLE STREAMING' }).click()
+  await regular.getByRole('button', { name: 'Rename Example Streaming' }).click()
   const naming = page.getByRole('dialog', { name: 'Rename regular payment' })
   await naming.getByRole('textbox').fill('Example streaming')
   await naming.getByRole('button', { name: 'Save', exact: true }).click()
@@ -326,7 +326,7 @@ test('Money splits the month into committed and everyday, says when each regular
   await expect(coming.locator('summary')).toContainText('£35.99')
   await coming.locator('summary').click()
   await expect(coming.locator('li.acc-li')).toHaveCount(6)
-  await expect(coming.locator('li.acc-li').first()).toContainText('EXAMPLE WEEKLY BOX')
+  await expect(coming.locator('li.acc-li').first()).toContainText('Example Weekly Box')
   await expect(coming.locator('li.acc-li').first()).toContainText('around 29 Oct')
 
   // An earlier month says nothing of what's next: no Coming up, no "next around".
@@ -357,18 +357,18 @@ test('What changed tells of a regular payment that went up, one that is new and 
   const changed = page.getByRole('region', { name: 'What changed' })
   const row = (name: string) => changed.locator('details.acc-item', { hasText: name })
   const summary = (name: string) => row(name).locator(':scope > summary')
-  await expect(summary('EXAMPLE BROADBAND')).toContainText('went up from £32.50 to £36.50 · +£48.00 a year')
-  await expect(summary('EXAMPLE NEW SUB')).toContainText('new · first paid 12 Aug · every month')
-  await expect(summary('EXAMPLE GYM CLUB')).toContainText('no payment since 10 Aug · was every month')
+  await expect(summary('Example Broadband')).toContainText('went up from £32.50 to £36.50 · +£48.00 a year')
+  await expect(summary('Example New Sub')).toContainText('new · first paid 12 Aug · every month')
+  await expect(summary('Example Gym Club')).toContainText('no payment since 10 Aug · was every month')
   // It opens to its payments.
   await summary('EXAMPLE GYM CLUB').click()
-  await expect(row('EXAMPLE GYM CLUB')).toContainText('10 Jul')
+  await expect(row('Example Gym Club')).toContainText('10 Jul')
 
   // The stopped one is no longer a regular payment: not in the list, the total or Coming up. The others are.
   const regularPayments = page.getByRole('region', { name: 'Regular payments' })
-  await expect(regularPayments).toContainText('EXAMPLE BROADBAND')
-  await expect(regularPayments).toContainText('EXAMPLE NEW SUB')
-  await expect(regularPayments).not.toContainText('EXAMPLE GYM CLUB')
+  await expect(regularPayments).toContainText('Example Broadband')
+  await expect(regularPayments).toContainText('Example New Sub')
+  await expect(regularPayments).not.toContainText('Example Gym Club')
   await expect(regularPayments.locator('li.acc-total')).toContainText('2 payments, all monthly')
 })
 
@@ -418,14 +418,14 @@ test('each month says what came in against what went out, and Overview opens the
 
   // The regular payment it paid in the year, and the month with no statement.
   const regular = page.getByRole('region', { name: 'Regular payments' })
-  await expect(regular).toContainText('EXAMPLE STREAMING')
+  await expect(regular).toContainText('Example Streaming')
   await expect(regular).toContainText('every month · 3 payments')
   await expect(regular).toContainText('£32.97')
   const missing = page.getByRole('region', { name: 'Not brought in' })
   await expect(missing).toContainText('Lloyds')
   await expect(missing).toContainText('Jun 2026')
   // The biggest payees are those paid 3 times or more.
-  await expect(page.getByRole('region', { name: 'Biggest payees' })).toContainText('EXAMPLE STREAMING')
+  await expect(page.getByRole('region', { name: 'Biggest payees' })).toContainText('Example Streaming')
 
   // The years either side: 2025 had one payment out of £30.00 and nothing to say about missing statements after it.
   await page.getByRole('link', { name: 'Earlier: 2025' }).click()
@@ -436,7 +436,7 @@ test('each month says what came in against what went out, and Overview opens the
   await expect(page.getByRole('heading', { level: 1, name: '2026' })).toBeVisible()
 
   // And back to Money.
-  await page.getByRole('link', { name: '‹ Money' }).click()
+  await page.getByRole('link', { name: 'Back to Money' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Money' })).toBeVisible()
 })
 
@@ -494,7 +494,7 @@ test('a purchase moved to Flex counts once even when its Flex statement came in 
   // The month's headline: £41.17 once, not £82.34.
   await expect(page.locator('.acc-figure')).toHaveText('£41.17 out')
   await accountView(page, 'Spending')
-  await expect(page.getByRole('region', { name: 'Money out' }).getByRole('button', { name: /EXAMPLE VISA CENTRE/ })).toHaveCount(1)
+  await expect(page.getByRole('region', { name: 'Money out' }).getByRole('button', { name: /Example Visa Centre/ })).toHaveCount(1)
   await expect(page.getByRole('region', { name: 'Money out' }).getByText('moved to Flex')).toHaveCount(0)
   await expect(page.getByRole('region', { name: 'Moved between your accounts' })).toContainText('Monzo Flex')
 })
@@ -674,12 +674,12 @@ test('Spending’s search lists a purchase once, its Flex side apart and named; 
   const year = page.getByRole('region', { name: '2026' })
   // One payment, one row, naming where it went; money moved is not counted in the year's line.
   await expect(year.locator('.acc-status')).toHaveText('1 payment · £41.17')
-  await expect(year.locator(':scope > ul.acc-lines > li')).toHaveText([/^Thu,? 8 Oct ?EXAMPLE PASSPORT OFFICE · out of Example Current ?£41\.17$/])
+  await expect(year.locator(':scope > ul.acc-lines > li')).toHaveText([/^Thu,? 8 Oct ?Example Passport Office · out of Example Current ?£41\.17$/])
   // Its Flex side is under money moved, closed until asked for, and says whose purchase it paid off.
   const moved = year.locator('details', { hasText: 'Moved between your accounts' })
   await expect(moved.locator('summary')).toHaveText('Moved between your accounts 1 move, left out')
   await moved.locator('summary').click()
-  await expect(moved.locator('.acc-lines li')).toHaveText([/^Thu,? 8 Oct ?EXAMPLE PASSPORT OFFICE · paid off, from Monzo Flex ?£41\.17$/])
+  await expect(moved.locator('.acc-lines li')).toHaveText([/^Thu,? 8 Oct ?Example Passport Office · paid off, from Monzo Flex ?£41\.17$/])
 
   // A ✕ clears the search and the keyboard stays up for the next one; the month's lists come back.
   await expect(clear).toBeVisible()
@@ -700,7 +700,7 @@ test('a payment can be named alone: the others to the same shop keep their name,
   await page.goto('./#/money')
   await accountView(page, 'Spending')
   const out = page.getByRole('region', { name: 'Money out' })
-  const group = out.locator('details', { hasText: 'EXAMPLE PHARMACY LEICESTER' })
+  const group = out.locator('details', { hasText: 'Example Pharmacy Leicester' })
   await group.locator('summary').click()
   const rows = group.locator('.acc-lines li')
   const open = async (day: string) => {
@@ -709,18 +709,18 @@ test('a payment can be named alone: the others to the same shop keep their name,
 
   // The 7th: renamed for this payment only.
   await open('7 Oct')
-  await page.getByRole('dialog', { name: 'EXAMPLE PHARMACY LEICESTER' }).getByRole('button', { name: 'Rename transaction' }).click()
+  await page.getByRole('dialog', { name: 'Example Pharmacy Leicester' }).getByRole('button', { name: 'Rename transaction' }).click()
   const naming = page.getByRole('dialog', { name: 'Rename transaction' })
-  await expect(naming.getByRole('radio', { name: /All payments to EXAMPLE PHARMACY LEICESTER/ })).toBeChecked()
+  await expect(naming.getByRole('radio', { name: /All payments to Example Pharmacy Leicester/ })).toBeChecked()
   await naming.getByRole('radio', { name: /Only this payment/ }).check()
   await naming.getByRole('textbox').fill('Fever medicine')
   await naming.getByRole('button', { name: 'Save', exact: true }).click()
   // The sheet it was named from shows the new name at once, and who was paid under it.
   const named = page.getByRole('dialog', { name: 'Fever medicine' })
-  await expect(named).toContainText('Paid to: EXAMPLE PHARMACY LEICESTER')
+  await expect(named).toContainText('Paid to: Example Pharmacy Leicester')
   await named.getByRole('button', { name: 'Close' }).click()
   // It is still one payee of three payments; only that row has a name of its own.
-  await expect(group.locator('summary')).toContainText('EXAMPLE PHARMACY LEICESTER')
+  await expect(group.locator('summary')).toContainText('Example Pharmacy Leicester')
   await expect(group.locator('summary')).toContainText('3 payments')
   await expect(rows).toHaveText([/^Thu,? 15 Oct ?Out of Lloyds[^£]*£4\.99$/, /^Wed,? 7 Oct ?Fever medicine · out of Lloyds[^£]*£4\.99$/, /^Sat,? 3 Oct ?Out of Lloyds[^£]*£5\.00$/])
 
@@ -737,14 +737,14 @@ test('a payment can be named alone: the others to the same shop keep their name,
   await group.locator('summary').click()
   await open('7 Oct')
   const sheet = page.getByRole('dialog', { name: 'Fever medicine' })
-  await expect(sheet).toContainText('Paid to: EXAMPLE PHARMACY LEICESTER')
+  await expect(sheet).toContainText('Paid to: Example Pharmacy Leicester')
   await sheet.getByRole('button', { name: 'Rename transaction' }).click()
   await expect(naming.getByRole('radio', { name: /Only this payment/ })).toBeChecked()
   await expect(naming.getByRole('textbox')).toHaveValue('Fever medicine')
 
   // All payments to the shop can still be named together, and the one named alone keeps its own name.
   await naming.getByRole('radio', { name: /All payments to/ }).check()
-  await expect(naming.getByRole('textbox')).toHaveValue('EXAMPLE PHARMACY LEICESTER')
+  await expect(naming.getByRole('textbox')).toHaveValue('Example Pharmacy Leicester')
   await naming.getByRole('textbox').fill('The pharmacy')
   await naming.getByRole('button', { name: 'Save', exact: true }).click()
   await sheet.getByRole('button', { name: 'Close' }).click()
@@ -784,11 +784,11 @@ test('a payment can be filed under who it was for, alone or for all its shop’s
   await expect(who).toHaveCount(0)
 
   const open = async (day: string) => {
-    const group = out.locator('details', { hasText: 'EXAMPLE PHARMACY LEICESTER' })
+    const group = out.locator('details', { hasText: 'Example Pharmacy Leicester' })
     if (!(await group.evaluate((el) => (el as HTMLDetailsElement).open))) await group.locator('summary').click()
     await group.locator('.acc-lines li').filter({ hasText: day }).getByRole('button').click()
   }
-  const sheet = page.getByRole('dialog', { name: 'EXAMPLE PHARMACY LEICESTER' })
+  const sheet = page.getByRole('dialog', { name: 'Example Pharmacy Leicester' })
   const forSheet = page.getByRole('dialog', { name: 'Who was it for?' })
 
   // The 7th, for itself alone, under a name typed; a person from an entry is offered.
@@ -805,7 +805,7 @@ test('a payment can be filed under who it was for, alone or for all its shop’s
   // The 15th, for all the pharmacy's payments, under the name now in the list.
   await open('15 Oct')
   await sheet.getByRole('button', { name: '+ Who was it for?' }).click()
-  await forSheet.getByRole('radio', { name: /All payments to EXAMPLE PHARMACY LEICESTER/ }).check()
+  await forSheet.getByRole('radio', { name: /All payments to Example Pharmacy Leicester/ }).check()
   await forSheet.getByRole('radio', { name: 'Riya' }).click()
   await sheet.getByRole('button', { name: 'Close' }).click()
   await expect(who.locator('summary')).toHaveText(['Riya 3 payments £14.98', 'Nobody in particular 1 payment £20.00'])
@@ -813,7 +813,7 @@ test('a payment can be filed under who it was for, alone or for all its shop’s
   // The 3rd says nobody, alone, over the pharmacy's name.
   await open('3 Oct')
   await sheet.getByRole('button', { name: 'For: Riya' }).click()
-  await expect(forSheet.getByRole('radio', { name: /All payments to EXAMPLE PHARMACY LEICESTER/ })).toBeChecked()
+  await expect(forSheet.getByRole('radio', { name: /All payments to Example Pharmacy Leicester/ })).toBeChecked()
   await forSheet.getByRole('radio', { name: 'Only this payment' }).check()
   await forSheet.getByRole('radio', { name: 'Nobody in particular' }).click()
   await expect(sheet.getByRole('button', { name: '+ Who was it for?' })).toBeVisible()
@@ -844,9 +844,9 @@ test('a card payment with its receipt opens the receipt', async ({ page }, testI
 
   const out = page.getByRole('region', { name: 'Money out' })
   // One payment is already its complete row: it opens directly, with no empty disclosure to expand.
-  const payment = out.getByRole('button', { name: /^EXAMPLE STREAMING Sat,? 12 Sept? · Out of Lloyds · Receipt £10\.99$/ })
+  const payment = out.getByRole('button', { name: /^Example Streaming Sat,? 12 Sept? · Out of Lloyds · Receipt £10\.99$/ })
   await payment.click()
-  await page.getByRole('dialog', { name: 'EXAMPLE STREAMING' }).getByRole('button', { name: 'Open its receipt' }).click()
+  await page.getByRole('dialog', { name: 'Example Streaming' }).getByRole('button', { name: 'Open its receipt' }).click()
   // The receipt opens to its items (v0.20.18), and from there its entry.
   const receipt = page.getByRole('dialog', { name: 'Example Streaming' })
   await expect(receipt.getByRole('list', { name: 'Items' })).toContainText('Monthly plan · £10.99')
@@ -854,14 +854,14 @@ test('a card payment with its receipt opens the receipt', async ({ page }, testI
   await expect(page.getByRole('dialog', { name: 'Photo' })).toBeVisible()
   // A payment with no receipt is still a direct row.
   await page.getByRole('dialog', { name: 'Photo' }).getByRole('button', { name: 'Done', exact: true }).click()
-  const energy = out.getByRole('button', { name: /^EXAMPLE ENERGY Wed,? 2 Sept? · Out of Lloyds £45\.00$/ })
+  const energy = out.getByRole('button', { name: /^Example Energy Wed,? 2 Sept? · Out of Lloyds £45\.00$/ })
   await expect(energy).toBeVisible()
 
   // What a payment was for (owner, 2026-10-26): a kind for its payee, kept for all its payments, and a name for one.
   await energy.click()
-  const paymentSheet = page.getByRole('dialog', { name: 'EXAMPLE ENERGY' })
+  const paymentSheet = page.getByRole('dialog', { name: 'Example Energy' })
   await paymentSheet.getByRole('button', { name: /^(\+ Assign category|Category: )/ }).click()
-  await page.getByRole('dialog', { name: 'What is EXAMPLE ENERGY for?' }).getByRole('radio', { name: 'Energy', exact: true }).click()
+  await page.getByRole('dialog', { name: 'What is Example Energy for?' }).getByRole('radio', { name: 'Energy', exact: true }).click()
   await expect(paymentSheet.getByRole('button', { name: 'Category: Energy' })).toBeVisible()
   await paymentSheet.getByRole('button', { name: 'Rename transaction' }).click()
   const naming = page.getByRole('dialog', { name: 'Rename transaction' })
@@ -923,4 +923,45 @@ test('Accounts steps between months, keeps its part open, and says when an accou
   await notice.click()
   await expect(tab('Statements')).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('region', { name: 'Your accounts' }).getByRole('listitem')).toContainText('Needs statement')
+})
+
+test('Money: one segmented control in two sizes, the month arrows in the title row, names in title case, "Not sorted yet" in neutral ink', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date(2026, 8, 30, 12, 0))
+  await page.goto('./#/money')
+  for (const [name, layout] of [['lloyds.pdf', LLOYDS_LIKE], ['monzo.pdf', MONZO_LIKE]] as const) {
+    const sheet = await bringIn(page, await pdf(testInfo.outputPath(name), layout))
+    await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  }
+
+  // The same component twice: Accounts / Receipts (44px) and Overview / Spending / Statements (36px), as pills, not underlines.
+  const large = page.locator('.money-switch')
+  const small = page.locator('.acc-tabs')
+  for (const [bar, height] of [[large, 44], [small, 36]] as const) {
+    await expect(bar).toHaveClass(/segmented/)
+    expect(await bar.evaluate((el) => getComputedStyle(el).borderTopLeftRadius)).toBe('999px')
+    const pressed = bar.locator('button[aria-pressed="true"]')
+    expect(Math.round((await pressed.boundingBox())!.height)).toBe(height)
+    expect(await pressed.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(255, 253, 249)')
+    expect(await pressed.evaluate((el) => getComputedStyle(el, '::before').content)).not.toBe('""') // no underline bar
+  }
+
+  // The month arrows share the title's row (and are 44px), no longer in the figure's block.
+  const title = (await page.locator('.money-title h1').boundingBox())!
+  const stepper = (await page.locator('.money-title .acc-stepper').boundingBox())!
+  expect(Math.abs(title.y + title.height / 2 - (stepper.y + stepper.height / 2))).toBeLessThan(2)
+  expect(stepper.x).toBeGreaterThan(title.x)
+  await expect(page.locator('.acc-hero .acc-stepper')).toHaveCount(0)
+  expect((await page.locator('.money-title .acc-step').first().boundingBox())!.width).toBeGreaterThanOrEqual(44)
+
+  // The bank prints names in capitals; they are shown in title case, and an acronym-free name has no capitals left over.
+  await accountView(page, 'Spending')
+  const out = page.getByRole('region', { name: 'Money out' })
+  await expect(out).toContainText('Example Energy')
+  await expect(out).not.toContainText('EXAMPLE ENERGY')
+
+  // The kind still to sort has a neutral bar (ink at 30%), not the green that reads as success.
+  const unsorted = page.locator('.acc-meter[data-unsorted] > span').first()
+  await expect(unsorted).toBeAttached()
+  const ink = await unsorted.evaluate((el) => getComputedStyle(el).backgroundColor)
+  expect(ink).toMatch(/^rgba\(31, 30, 28, 0\.3\)$|^color\(srgb 0\.12\d* 0\.11\d* 0\.10\d* \/ 0\.3\)$/)
 })

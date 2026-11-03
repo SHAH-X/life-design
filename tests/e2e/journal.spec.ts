@@ -16,7 +16,7 @@ test("an earlier activity's words: the purpose's questions above its box as help
   const helpers = sheet.getByRole('list', { name: 'Questions to think about' })
   await expect(helpers.getByRole('listitem')).toHaveCount(3)
   const before = await helpers.getByRole('listitem').allTextContents()
-  await sheet.getByRole('button', { name: '↻ Other questions' }).click()
+  await sheet.getByRole('button', { name: 'Other questions' }).click()
   await expect.poll(() => helpers.getByRole('listitem').allTextContents()).not.toEqual(before)
 
   // Helpers to think with, not fields to fill: one box, and no openers (the questions do that job).

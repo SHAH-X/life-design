@@ -27,6 +27,7 @@ import { WordPicker } from '../../ui/WordPicker'
 import { EarlierAnswers } from './EarlierAnswers'
 import { EntryDetails } from './EntryDetails'
 import { WriteBox } from './WriteBox'
+import { Icon } from '../../ui/Icon'
 
 const STEPS = 5
 /** A new question ignores taps this long, so a quick double tap can't answer it by accident. */
@@ -227,7 +228,7 @@ export function EntryFlow({ date, suggestions, own, purpose: primary, goal, focu
     <>
       {step > 0 ? (
         <button type="button" className="link" onClick={() => goTo(step - 1)}>
-          ‹ Back
+          <Icon name="chevron-left" size={16} />Back
         </button>
       ) : null}
       <span className="step-dots" role="img" aria-label={`Question ${step + 1} of ${STEPS}`}>

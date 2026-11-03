@@ -75,25 +75,26 @@ export function Welcome({ onDone }: { onDone: (exit: Exit) => void }) {
     <>
       <div className="wizard-head">
         <div className="welcome-top">
-          <p className="muted wizard-step">
-            {step + 1} of {STEPS.length}
-          </p>
+          {/* Three dots, the same as the sheets' steps: the ones up to this step are filled. */}
+          <span className="step-dots" role="img" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
+            {STEPS.map((name, i) => (
+              <i key={name} className={i <= step ? 'on' : undefined} />
+            ))}
+          </span>
           {step < last ? (
             <button type="button" className="link" onClick={() => onDone({ tab: 'today' })}>
               Skip
             </button>
           ) : null}
         </div>
+        {step === 0 ? <img className="welcome-mark" src={`${import.meta.env.BASE_URL}logo.svg`} width={64} height={64} alt="" /> : null}
         <h1 id={headingId}>{STEPS[step]}</h1>
-        <div className="progress" aria-hidden="true">
-          <span style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
-        </div>
       </div>
 
       {step === 0 ? (
         <>
           <p className="welcome-lead">Write whatever is on your mind, with nothing to sort or fill in. Find it again later by its words.</p>
-          <ul className="entry-list" aria-label="Examples">
+          <ul className="example-stack" aria-label="Examples">
             {EXAMPLES.map((entry) => (
               <li key={entry.id}>
                 <EntryRow entry={entry} />
@@ -113,10 +114,8 @@ export function Welcome({ onDone }: { onDone: (exit: Exit) => void }) {
         </section>
       )}
 
+      {/* One primary, and Back as a quiet link under it (not there on the first step). */}
       <div className="wizard-nav">
-        <button type="button" disabled={step === 0} onClick={() => go(step - 1)}>
-          Back
-        </button>
         {step < last ? (
           <button type="button" className="primary" onClick={() => go(step + 1)}>
             Next
@@ -126,6 +125,11 @@ export function Welcome({ onDone }: { onDone: (exit: Exit) => void }) {
             Start
           </button>
         )}
+        {step > 0 ? (
+          <button type="button" className="link" onClick={() => go(step - 1)}>
+            Back
+          </button>
+        ) : null}
       </div>
       {step === 0 ? (
         <p className="muted center top-gap">

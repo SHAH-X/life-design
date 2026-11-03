@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import { setSmallJoy } from '../../db/repo'
+import { Icon } from '../../ui/Icon'
 import { Question } from '../../ui/Question'
 import { useAutosave } from '../../ui/useAutosave'
 
@@ -13,13 +14,13 @@ export function SmallJoy({ date, saved }: { date: string; saved: string }) {
 
   return (
     <div className="evening-field">
-      <Question as="label" htmlFor={id} info={SMALL_JOY_INFO} infoLabel="Why a small joy?">
+      <Question as="label" htmlFor={id} info={SMALL_JOY_INFO} infoLabel="Why a small joy?" lead={<Icon name="moon" size={16} />}>
         Small joy of the day?
       </Question>
       <textarea
         id={id}
         value={field.text}
-        rows={2}
+        rows={1}
         maxLength={280}
         placeholder="e.g. Coffee in the sun"
         onChange={(e) => field.onChange(e.target.value)}

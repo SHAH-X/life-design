@@ -4,12 +4,16 @@ import { captureShareSheet, sharedFile } from './helpers'
 test('choose reminders, times and a date range, then get one calendar file with all of them', async ({ page }) => {
   await captureShareSheet(page)
   await page.goto('./#/more/reminders')
-  const card = page.locator('section.card')
+  const card = page.locator('main') // each reminder is a card of its own
 
   // Defaults: all four reminders on, one year from today.
   for (const name of [/^Daily log/, /^Look back/, /^Backup/, /^Quarterly check-in/]) {
     await expect(card.getByRole('switch', { name })).toBeChecked()
   }
+
+  // The date range is a collapsed row until it's opened.
+  await expect(card.getByLabel('From', { exact: true })).toBeHidden()
+  await card.locator('summary', { hasText: 'Date range' }).click()
   await expect(card.getByRole('button', { name: '1 year' })).toHaveAttribute('aria-pressed', 'true')
 
   // 1 October 2026 to 1 October 2027.
@@ -50,6 +54,7 @@ test('choose reminders, times and a date range, then get one calendar file with 
 test('"No end date" leaves the reminders open-ended', async ({ page }) => {
   await captureShareSheet(page)
   await page.goto('./#/more/reminders')
+  await page.locator('summary', { hasText: 'Date range' }).click()
   await page.getByRole('button', { name: 'No end date' }).click()
   await expect(page.getByLabel('To', { exact: true })).toBeDisabled()
   await expect(page.locator('.summary')).toContainText('with no end date')
@@ -108,13 +113,45 @@ test('no link in the app opens a file inside the app (on iPhone that left the ap
 test('More is a short list of pages, each with a way back', async ({ page }) => {
   await page.goto('./#/more')
   const list = page.getByRole('navigation', { name: 'Settings' })
-  for (const name of ['Reminders', 'Your purpose', 'Your feeling words', 'Search by meaning', 'AI review', 'Backup and restore', 'Spreadsheet export', 'This phone', 'Delete everything']) {
+  for (const name of ['Reminders', 'Your purpose', 'Your feeling words', 'Search by meaning', 'AI review', 'Backup and restore', 'Spreadsheet export', 'This phone']) {
     await expect(list.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
   }
+  // Erasing is a group of its own, 24px below the rest.
+  const erase = page.getByRole('navigation', { name: 'Erase' })
+  await expect(erase.getByRole('link', { name: /^Delete everything/ })).toBeVisible()
+  const [above, below] = [(await list.boundingBox())!, (await erase.boundingBox())!]
+  expect(Math.round(below.y - (above.y + above.height))).toBe(24)
   await expect(list.getByRole('link', { name: /^Appearance/ })).toHaveCount(0) // light only since v0.14.1 (owner)
   await list.getByRole('link', { name: /^Reminders/ }).click()
   await expect(page).toHaveURL(/#\/more\/reminders$/)
   await expect(page.getByRole('heading', { level: 1, name: 'Reminders' })).toBeVisible()
-  await page.getByRole('link', { name: '‹ More' }).click()
+  await page.getByRole('link', { name: 'Back to More' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'More' })).toBeVisible()
+})
+
+test('More: every row has a 32px sage tile with its icon', async ({ page }) => {
+  await page.goto('./#/more')
+  const tiles = page.locator('.list-row .icon-tile')
+  await expect(tiles).toHaveCount(10)
+  for (const tile of await tiles.all()) {
+    const box = (await tile.boundingBox())!
+    expect([Math.round(box.width), Math.round(box.height)]).toEqual([32, 32])
+    await expect(tile.locator('svg')).toHaveCount(1)
+  }
+  expect(await tiles.first().evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(227, 236, 229)')
+})
+
+test('Reminders: each reminder is a card of its own, its settings only while its switch is on', async ({ page }) => {
+  await page.goto('./#/more/reminders')
+  // The date range, four reminders, then the calendar file: six cards.
+  await expect(page.locator('main .card')).toHaveCount(6)
+  const backup = page.locator('main .card', { has: page.getByRole('switch', { name: /^Backup/ }) })
+  await expect(backup.getByLabel('Backup repeats')).toBeVisible()
+  await page.getByRole('switch', { name: /^Backup/ }).uncheck()
+  await expect(backup.getByLabel('Backup repeats')).toHaveCount(0)
+  // The other reminders keep theirs.
+  await expect(page.getByLabel('Daily log time')).toBeVisible()
+  // A select is the app's input look, not the grey native one.
+  const select = await page.getByLabel('Daily log time').evaluate((el) => ({ radius: getComputedStyle(el).borderTopLeftRadius, bg: getComputedStyle(el).backgroundColor, h: el.getBoundingClientRect().height }))
+  expect(select).toEqual({ radius: '12px', bg: 'rgb(251, 249, 244)', h: 52 })
 })

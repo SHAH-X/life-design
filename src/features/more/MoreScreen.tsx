@@ -23,6 +23,8 @@ import { PurposeSettings } from './PurposeSettings'
 import { RemindersCard } from './RemindersCard'
 import { StorageCard } from './StorageCard'
 import { useReminderSettings } from './useReminderSettings'
+import { Icon, type IconName } from '../../ui/Icon'
+import { BackLink } from '../../ui/BackLink'
 
 const PAGES = {
   reminders: 'Reminders',
@@ -37,6 +39,20 @@ const PAGES = {
   delete: 'Delete everything',
 } as const
 
+/** The icon in each row's sage tile. */
+const ROW_ICONS = {
+  reminders: 'bell',
+  purpose: 'target',
+  words: 'tag',
+  meaning: 'search',
+  photos: 'image',
+  ai: 'sparkle',
+  backup: 'shield',
+  export: 'table',
+  phone: 'phone',
+  delete: 'trash',
+} as const satisfies Record<keyof typeof PAGES, IconName>
+
 type Page = keyof typeof PAGES
 
 const isPage = (sub: string | null): sub is Page => sub !== null && Object.hasOwn(PAGES, sub)
@@ -49,9 +65,7 @@ export function MoreScreen({ sub }: { sub: string | null }) {
 function MorePage({ page }: { page: Page }) {
   return (
     <>
-      <a className="back-link" href={hashFor('more')}>
-        ‹ More
-      </a>
+      <BackLink href={hashFor('more')}>More</BackLink>
       {page === 'purpose' ? (
         <Question as="h1" info={PURPOSE_EFFECT} infoLabel="What does your purpose change?">
           {PAGES[page]}
@@ -142,24 +156,31 @@ function MoreList() {
     { page: 'backup', status: status.backup },
     { page: 'export' },
     { page: 'phone', status: status.phone },
-    { page: 'delete' },
   ]
+  const link = (row: { page: Page; status?: string }) => (
+    <a key={row.page} className={`list-row${row.page === 'delete' ? ' danger-text' : ''}`} href={hashFor('more', row.page)}>
+      <span className="icon-tile" aria-hidden="true">
+        <Icon name={ROW_ICONS[row.page]} size={18} />
+      </span>
+      <span className="list-text">
+        <span className="list-title">{PAGES[row.page]}</span>
+        {row.status ? <span className="list-status">{row.status}</span> : null}
+      </span>
+      <span className="list-chevron" aria-hidden="true">
+        <Icon name="chevron-right" size={16} />
+      </span>
+    </a>
+  )
 
   return (
     <>
       <h1>More</h1>
       <nav className="list" aria-label="Settings">
-        {rows.map((row) => (
-          <a key={row.page} className={`list-row${row.page === 'delete' ? ' danger-text' : ''}`} href={hashFor('more', row.page)}>
-            <span className="list-text">
-              <span className="list-title">{PAGES[row.page]}</span>
-              {row.status ? <span className="list-status">{row.status}</span> : null}
-            </span>
-            <span className="list-chevron" aria-hidden="true">
-              ›
-            </span>
-          </a>
-        ))}
+        {rows.map(link)}
+      </nav>
+      {/* Erasing is a group of its own, with room above it. */}
+      <nav className="list list-apart" aria-label="Erase">
+        {link({ page: 'delete' })}
       </nav>
       <p className="muted small top-gap">Your journal stays on this phone.</p>
       <p className="muted small">{formatBuildInfo(buildInfo)}</p>

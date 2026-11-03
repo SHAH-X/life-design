@@ -155,6 +155,6 @@ test('the key can be removed, leaving AI review off', async ({ page }) => {
   await setUpGroq(page)
   await page.getByRole('button', { name: 'Remove key' }).click()
   await expect(page.getByLabel('API key')).toBeVisible()
-  await page.getByRole('link', { name: '‹ More' }).click()
+  await page.getByRole('link', { name: 'Back to More' }).click()
   await expect(page.getByRole('link', { name: /^AI review/ })).toContainText('Off')
 })
