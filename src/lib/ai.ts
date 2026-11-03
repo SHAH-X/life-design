@@ -76,11 +76,20 @@ export class AiError extends Error {
   constructor(
     readonly problem: AiProblem,
     message: string = AI_PROBLEMS[problem],
+    /** The service's own code for what went wrong, when it's one the app knows (SERVICE_CODES); never its words. */
+    readonly code?: ServiceCode,
   ) {
     super(message)
     this.name = 'AiError'
   }
 }
+
+/** Service codes the app tells apart (v0.23.1). Only these are ever kept: a code is read from a fixed list, so the
+ *  service's own words (which can repeat the key) never are. */
+const SERVICE_CODES = ['json_validate_failed'] as const
+export type ServiceCode = (typeof SERVICE_CODES)[number]
+
+const serviceCode = (body: string): ServiceCode | undefined => SERVICE_CODES.find((code) => new RegExp(`"code"\\s*:\\s*"${code}"`).test(body))
 
 /** Gemini refuses a key with 400 and says so in its message: read only to tell which problem it is, never shown. */
 const REFUSED_KEY = /api[ _]?key/i
@@ -199,7 +208,10 @@ async function callOnce(url: string, init: RequestInit, fetchImpl: Fetch, timeou
   } finally {
     clearTimeout(timer)
   }
-  if (!response.ok) throw new AiError(problemFor(response.status, await response.text().catch(() => '')))
+  if (!response.ok) {
+    const body = await response.text().catch(() => '')
+    throw new AiError(problemFor(response.status, body), undefined, serviceCode(body))
+  }
   try {
     return await response.json()
   } catch {
@@ -336,8 +348,13 @@ export const MAP_TIMEOUT_MS = 120_000
 export const MAP_PROBLEMS = {
   limit: "That's more than the service takes at once. Try a shorter period, or wait a minute.",
   timeout: 'No answer within two minutes. Try again, or try a shorter period.',
-  other: "The AI's reply couldn't be read as a map. Try again.",
-} satisfies Partial<Record<AiProblem, string>>
+  other: 'The service turned the request down. Try again, or choose another model in More → AI review.',
+  /** Groq's own JSON check failed (a 400, json_validate_failed): reported of its gpt-oss models now and then. */
+  invalidJson: "The AI's reply wasn't valid JSON this time. Try again, or choose another model in More → AI review.",
+  empty: 'The AI sent back an empty reply. Try again, or choose another model in More → AI review.',
+  /** JSON, but not a map: the page shows what came back. */
+  notAMap: "The AI's reply wasn't a map. What came back is below.",
+}
 
 /** A map of your ideas (v0.23): the instructions as the system message, your words as the message, a JSON reply.
  *  Returns its text, for the phone to check (parseIdeaMap). */
@@ -356,10 +373,12 @@ export async function drawMapWithAi(request: ReviewRequest, fetchImpl: Fetch = f
     fetchImpl,
     timeoutMs,
   ).catch((error: unknown) => {
-    const said = error instanceof AiError ? (MAP_PROBLEMS as Partial<Record<AiProblem, string>>)[error.problem] : undefined
-    throw said ? new AiError((error as AiError).problem, said) : error
+    if (!(error instanceof AiError)) throw error
+    if (error.code === 'json_validate_failed') throw new AiError(error.problem, MAP_PROBLEMS.invalidJson, error.code)
+    const said = (MAP_PROBLEMS as Partial<Record<AiProblem, string>>)[error.problem]
+    throw said ? new AiError(error.problem, said) : error
   })) as { choices?: { message?: { content?: unknown } }[] }
   const text = answer.choices?.[0]?.message?.content
-  if (typeof text !== 'string' || !text.trim()) throw new AiError('other', MAP_PROBLEMS.other)
+  if (typeof text !== 'string' || !text.trim()) throw new AiError('other', MAP_PROBLEMS.empty)
   return text.trim()
 }
