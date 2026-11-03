@@ -41,6 +41,8 @@ export function IdeaMapPage({ done, byId, onOpen }: { done: readonly Entry[]; by
   const [picked, setPicked] = useState<MapRange | null>(null)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
+  /** A reply that wasn't a map, shown as it came (on this phone only), so what went wrong can be seen. */
+  const [unread, setUnread] = useState<string | null>(null)
   const [opened, setOpened] = useState<IdeaMap | null>(null)
   // Render only once everything has loaded, so nothing moves under your finger.
   if (maps === undefined || ai === undefined) return <Loading />
@@ -57,16 +59,21 @@ export function IdeaMapPage({ done, byId, onOpen }: { done: readonly Entry[]; by
   const choose = (value: MapRange) => {
     setPicked(value)
     setProblem(null)
+    setUnread(null)
   }
 
   const draw = async () => {
     if (!ai.key || !ai.model) return
     setBusy(true)
     setProblem(null)
+    setUnread(null)
     try {
       const reply = await drawMapWithAi({ provider: ai.provider, key: ai.key, model: ai.model, instructions: pack.instructions, data: pack.data })
       const parsed = parseIdeaMap(reply, pack)
-      if (!parsed) throw new AiError('other', MAP_PROBLEMS.other)
+      if (!parsed) {
+        setUnread(reply)
+        throw new AiError('other', MAP_PROBLEMS.notAMap)
+      }
       if (!parsed.ideas.length) throw new AiError('other', NOTHING_IN_YOUR_WORDS)
       await saveIdeaMap({
         range,
@@ -140,6 +147,12 @@ export function IdeaMapPage({ done, byId, onOpen }: { done: readonly Entry[]; by
           <p className="error small" role="alert">
             {problem}
           </p>
+        ) : null}
+        {unread ? (
+          <details className="evidence">
+            <summary>What came back</summary>
+            <pre className="sent-preview">{unread}</pre>
+          </details>
         ) : null}
       </section>
 

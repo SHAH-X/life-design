@@ -164,9 +164,24 @@ test('an earlier map is listed and opens; a map says how many entries were writt
   await expect(opened).toBeHidden()
 })
 
-test('a refused key, a limit and an unreadable reply are each said about the map', async ({ page }, testInfo) => {
-  const replies = [{ status: 401 }, { status: 413 }, { status: 200, content: 'Here are some thoughts about your journal.' }, { status: 200, content: JSON.stringify({ ideas: [{ id: 'x', label: 'Perfectionism', kind: 'weighs', entries: ['E1'] }], links: [] }) }]
-  await fakeGroq(page, () => replies.shift()!)
+test('a refused key, a limit, a reply that isn’t valid JSON, an empty one and one that isn’t a map are each said apart', async ({ page }, testInfo) => {
+  // v0.23.1: the owner's first real map said only "couldn't be read as a map", whatever went wrong.
+  const replies: { status: number; content?: string; body?: unknown }[] = [
+    { status: 401 },
+    { status: 413 },
+    { status: 400, body: { error: { message: 'Failed to validate JSON.', type: 'invalid_request_error', code: 'json_validate_failed', failed_generation: '' } } },
+    { status: 200, content: '' },
+    { status: 200, content: 'Here are some thoughts about your journal.' },
+    { status: 200, content: JSON.stringify({ ideas: [{ id: 'x', label: 'Perfectionism', kind: 'weighs', entries: ['E1'] }], links: [] }) },
+  ]
+  await page.route('https://api.groq.com/**', async (route: Route) => {
+    const request = route.request()
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
+    if (request.url().endsWith('/models')) return route.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify(MODELS) })
+    const { status, content, body } = replies.shift()!
+    const answer = body ?? (status === 200 ? { choices: [{ message: { content } }] } : { error: { message: `rejected ${KEY}` } })
+    return route.fulfill({ status, headers: CORS, contentType: 'application/json', body: JSON.stringify(answer) })
+  })
   await restoreBackup(page, testInfo.outputPath('map.json'), backupWith({ entries: journal() }, NOW))
   await setUpGroq(page)
   await page.goto('./#/insights/map')
@@ -177,9 +192,16 @@ test('a refused key, a limit and an unreadable reply are each said about the map
   await draw.click()
   await expect(said).toHaveText("That's more than the service takes at once. Try a shorter period, or wait a minute.")
   await draw.click()
-  await expect(said).toHaveText("The AI's reply couldn't be read as a map. Try again.")
+  await expect(said).toHaveText("The AI's reply wasn't valid JSON this time. Try again, or choose another model in More → AI review.")
+  await draw.click()
+  await expect(said).toHaveText('The AI sent back an empty reply. Try again, or choose another model in More → AI review.')
+  await draw.click()
+  await expect(said).toHaveText("The AI's reply wasn't a map. What came back is below.")
+  await page.locator('summary', { hasText: 'What came back' }).click()
+  await expect(page.locator('.sent-preview', { hasText: 'Here are some thoughts about your journal.' })).toBeVisible()
   await draw.click()
   await expect(said).toHaveText("None of what came back was in your words, so there's no map. Try again.")
+  await expect(page.locator('summary', { hasText: 'What came back' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: /weighs on you/ })).toHaveCount(0)
 })
 

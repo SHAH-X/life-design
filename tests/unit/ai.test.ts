@@ -157,8 +157,8 @@ describe('drawMapWithAi (v0.23)', () => {
     const slow = (async (_url: string | URL | Request, init: RequestInit = {}) =>
       new Promise<Response>((_, reject) => init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))))) as typeof fetch
     await expect(drawMapWithAi(request, slow, 5)).rejects.toThrow(MAP_PROBLEMS.timeout)
-    const unreadable = fakeFetch(() => json({ error: { message: 'json_validate_failed' } }, 400))
-    await expect(drawMapWithAi(request, unreadable.fn)).rejects.toThrow(MAP_PROBLEMS.other)
+    const turnedDown = fakeFetch(() => json({ error: { message: 'Bad request' } }, 400))
+    await expect(drawMapWithAi(request, turnedDown.fn)).rejects.toThrow(MAP_PROBLEMS.other)
     for (const said of Object.values(MAP_PROBLEMS)) expect(said).not.toMatch(/AI chat/)
     expect(MAP_PROBLEMS.timeout).toMatch(/two minutes/)
   })
@@ -166,6 +166,20 @@ describe('drawMapWithAi (v0.23)', () => {
   it('a refused key is still said as a refused key', async () => {
     const refused = fakeFetch(() => json({ error: { message: 'Invalid API Key' } }, 401))
     await expect(drawMapWithAi(request, refused.fn)).rejects.toMatchObject({ problem: 'key' })
+  })
+
+  // v0.23.1: on the owner's phone, Groq's reply "couldn't be read as a map", one line for four different faults. Each
+  // is said apart, so the next one shows which it was. Groq's gpt-oss models are reported to fail their own JSON check
+  // now and then (a 400, code json_validate_failed); only the code is read, never the service's words.
+  it('says apart a reply the service found wasn’t valid JSON, an empty reply, and a request turned down', async () => {
+    const invalid = fakeFetch(() => json({ error: { message: 'Failed to validate JSON.', type: 'invalid_request_error', code: 'json_validate_failed', failed_generation: '' } }, 400))
+    await expect(drawMapWithAi(request, invalid.fn)).rejects.toThrow(MAP_PROBLEMS.invalidJson)
+    const empty = fakeFetch(() => json({ choices: [{ message: { content: '' } }] }))
+    await expect(drawMapWithAi(request, empty.fn)).rejects.toThrow(MAP_PROBLEMS.empty)
+    const turnedDown = fakeFetch(() => json({ error: { message: 'something else', code: 'gsk_test_key_in_a_code' } }, 400))
+    const said = await drawMapWithAi(request, turnedDown.fn).catch((e: Error) => e.message)
+    expect(said).toBe(MAP_PROBLEMS.other)
+    expect(new Set([MAP_PROBLEMS.invalidJson, MAP_PROBLEMS.empty, MAP_PROBLEMS.other, MAP_PROBLEMS.limit]).size).toBe(4)
   })
 })
 
