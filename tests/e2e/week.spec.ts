@@ -44,7 +44,7 @@ test("the week's feelings open their entries; next steps show in their own card"
   const week = page.getByRole('region', { name: 'This week' })
   const steps = page.getByRole('region', { name: 'Next steps' })
   await expect(steps).toContainText('Ask for an agenda first')
-  await expect(steps.getByRole('link', { name: 'All next steps ›' })).toBeVisible()
+  await expect(steps.getByRole('link', { name: 'All next steps' })).toBeVisible()
 
   // A feeling is a line like every other: it opens to its entries, and each of those opens.
   const feeling = week.locator('details.week-line', { hasText: 'frustrated' })
@@ -93,6 +93,6 @@ test('earlier weeks are a page of their own, each put together the same way, wit
   const carried = page.locator('.card', { has: page.getByRole('heading', { name: 'To carry into the next week' }) })
   await expect(carried).toContainText('Walk at lunch')
   await expect(page.locator('main textarea, main input')).toHaveCount(0)
-  await page.getByRole('link', { name: '‹ Earlier weeks' }).click()
+  await page.getByRole('link', { name: 'Back to Earlier weeks' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Earlier weeks' })).toBeVisible()
 })

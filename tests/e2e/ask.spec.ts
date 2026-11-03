@@ -63,6 +63,10 @@ test('Ask has its own tab: a question is asked on a tap, answered with the phone
 
   await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Ask' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Ask' })).toBeVisible()
+  // The composer is an opaque card with a serif label (it was a tinted box).
+  const composer = page.getByRole('region', { name: 'Ask your journal' })
+  expect(await composer.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(255, 253, 249)')
+  expect(await composer.locator('label.question-text').evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/New York|Georgia|serif/)
   await page.getByLabel('What would you like to know?').fill(QUESTION)
   await expect(page.getByText('Sends your question, and the receipts and entries it needs, to Gemini.')).toBeVisible()
   expect(sent).toEqual([]) // nothing until the tap
@@ -72,6 +76,17 @@ test('Ask has its own tab: a question is asked on a tap, answered with the phone
   const answer = page.getByRole('region', { name: 'Answer' })
   await expect(answer.getByText('From Greenleaf Market: oat milk and eggs came to 3.55.')).toBeVisible()
   await expect(answer.getByRole('heading', { name: QUESTION })).toBeVisible()
+  // The answer is read in serif at 1.125rem / 1.6; the question above it is a 1.25rem heading.
+  const type = await answer.evaluate((el) => {
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
+    const text = getComputedStyle(el.querySelector('.plain-markdown')!)
+    const head = getComputedStyle(el.querySelector('h2')!)
+    return { family: text.fontFamily, size: parseFloat(text.fontSize) / rem, line: parseFloat(text.lineHeight) / parseFloat(text.fontSize), head: parseFloat(head.fontSize) / rem }
+  })
+  expect(type.family).toMatch(/New York|Georgia|serif/)
+  expect(type.size).toBeCloseTo(1.125, 2)
+  expect(type.line).toBeCloseTo(1.6, 2)
+  expect(type.head).toBeCloseTo(1.25, 2)
   await expect(answer.getByText(/came from the AI, not from the phone/)).toHaveCount(0)
   expect(sent).toHaveLength(3)
   for (const s of sent) {
@@ -87,6 +102,7 @@ test('Ask has its own tab: a question is asked on a tap, answered with the phone
   // Kept: after a reload it's under Earlier, and still opens to its answer.
   await page.reload()
   const earlier = page.getByRole('region', { name: 'Earlier questions' })
+  expect(await earlier.locator('li.card').first().evaluate((el) => getComputedStyle(el).borderTopLeftRadius)).toBe('20px')
   await earlier.locator('summary', { hasText: QUESTION }).click()
   await expect(earlier.getByText('From Greenleaf Market: oat milk and eggs came to 3.55.')).toBeVisible()
 })
@@ -174,6 +190,14 @@ test('Logs’ search only finds again; without an AI set up, Ask says where to s
   await page.getByLabel('Search your logs').fill(QUESTION)
   await expect(page.getByRole('region', { name: 'Ask your journal' })).toHaveCount(0)
   await page.goto('./#/ask')
-  await expect(page.getByRole('link', { name: 'set up an AI service' })).toBeVisible()
+  // A card: an icon tile, one sentence and the button that goes to AI settings (it was a bare line with a link in it).
+  const card = page.getByRole('region', { name: 'Set up an AI service' })
+  await expect(card).toBeVisible()
+  await expect(card.getByText('To ask your journal questions, set up an AI service.')).toBeVisible()
+  const go = card.getByRole('link', { name: 'Set up AI' })
+  await expect(go).toHaveAttribute('href', /#\/more\/ai$/)
+  const look = await go.evaluate((el) => ({ bg: getComputedStyle(el).backgroundColor, radius: getComputedStyle(el).borderTopLeftRadius, text: getComputedStyle(el).color }))
+  expect(look).toEqual({ bg: 'rgb(54, 90, 74)', radius: '999px', text: 'rgb(255, 255, 255)' })
+  expect(await card.locator('.icon-tile').count()).toBe(1)
   expect(sent).toEqual([])
 })

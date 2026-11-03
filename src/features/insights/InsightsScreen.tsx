@@ -19,6 +19,8 @@ import { NextStepsCard, NextStepsPage } from './NextSteps'
 import { PatternLines } from './PatternLines'
 import { ReviewPeriod } from './ReviewPeriod'
 import { WeekReview } from './WeekReview'
+import { Icon } from '../../ui/Icon'
+import { BackLink } from '../../ui/BackLink'
 
 /** Patterns look at the last 30 days: what's true for you now. Review a period takes any dates. */
 const PATTERN_DAYS = 30
@@ -137,7 +139,7 @@ function InsightsHome({ data, onOpen }: { data: Data; onOpen: (entry: Entry) => 
           )}
           {learnings.length > LEARNING_SHOWN ? (
             <a className="small-link" href={hashFor('insights', 'learning')}>
-              All {learnings.length} ›
+              All {learnings.length}<Icon name="chevron-right" size={16} />
             </a>
           ) : null}
         </section>
@@ -149,9 +151,7 @@ function InsightsHome({ data, onOpen }: { data: Data; onOpen: (entry: Entry) => 
             <span className="list-text">
               <span className="list-title">Earlier weeks</span>
             </span>
-            <span className="list-chevron" aria-hidden="true">
-              ›
-            </span>
+            <span className="list-chevron" aria-hidden="true"><Icon name="chevron-right" size={16} /></span>
           </a>
         ) : null}
         <a className="list-row" href={hashFor('insights', 'review')}>
@@ -159,9 +159,7 @@ function InsightsHome({ data, onOpen }: { data: Data; onOpen: (entry: Entry) => 
             <span className="list-title">Review a period</span>
             <span className="list-status">Copy it for an AI chat, or review it with AI</span>
           </span>
-          <span className="list-chevron" aria-hidden="true">
-            ›
-          </span>
+          <span className="list-chevron" aria-hidden="true"><Icon name="chevron-right" size={16} /></span>
         </a>
       </nav>
     </>
@@ -287,9 +285,7 @@ function LearningPage({ data, onOpen }: { data: Data; onOpen: (entry: Entry) => 
   const learnings = learningsOf(data, entryTitle)
   return (
     <>
-      <a className="back-link" href={hashFor('insights')}>
-        ‹ Insights
-      </a>
+      <BackLink href={hashFor('insights')}>Insights</BackLink>
       <h1>What you're learning</h1>
       <section className="card">
         {learnings.length ? <LearningList learnings={learnings} onOpen={onOpen} /> : <p className="muted small">What you choose to remember lands here.</p>}
@@ -304,9 +300,7 @@ function WeeksPage({ data }: { data: Data }) {
   const weeks = weeksWithEntries(data.done).filter((w) => w < thisWeek)
   return (
     <>
-      <a className="back-link" href={hashFor('insights')}>
-        ‹ Insights
-      </a>
+      <BackLink href={hashFor('insights')}>Insights</BackLink>
       <h1>Earlier weeks</h1>
       {weeks.length ? (
         <nav className="list" aria-label="Earlier weeks">
@@ -320,9 +314,7 @@ function WeeksPage({ data }: { data: Data }) {
                     {summary.entries} {summary.entries === 1 ? 'entry' : 'entries'} on {summary.days} {summary.days === 1 ? 'day' : 'days'}
                   </span>
                 </span>
-                <span className="list-chevron" aria-hidden="true">
-                  ›
-                </span>
+                <span className="list-chevron" aria-hidden="true"><Icon name="chevron-right" size={16} /></span>
               </a>
             )
           })}
@@ -337,9 +329,7 @@ function WeeksPage({ data }: { data: Data }) {
 function WeekPage({ data, start, onOpen }: { data: Data; start: string; onOpen: (entry: Entry) => void }) {
   return (
     <>
-      <a className="back-link" href={hashFor('insights', 'weeks')}>
-        ‹ Earlier weeks
-      </a>
+      <BackLink href={hashFor('insights', 'weeks')}>Earlier weeks</BackLink>
       <h1>Your week</h1>
       <WeekReview
         summary={weekSummary(data.done, start, data.steps)}

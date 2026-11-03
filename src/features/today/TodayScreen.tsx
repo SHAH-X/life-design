@@ -20,6 +20,7 @@ import { useOwnWords } from './useOwnWords'
 import { Provoker } from './Provoker'
 import { useProvoker } from './useProvoker'
 import { useToday } from './useToday'
+import { Icon } from '../../ui/Icon'
 
 const byTimeOfDay = (a: Entry, b: Entry) => PART_ORDER[a.part] - PART_ORDER[b.part] || a.createdAt - b.createdAt
 
@@ -67,16 +68,18 @@ export function TodayScreen() {
       <Notices nudge={nudge} />
 
       <header className="day-header">
-        <button type="button" className="icon-button" aria-label="Previous day" onClick={() => setDate(addDays(date, -1))}>
-          ‹
-        </button>
         <div className="day-title">
           <h1>{dayHeading(date, today)}</h1>
           <p className="muted">{dayMonthLong(date)}</p>
         </div>
-        <button type="button" className="icon-button" aria-label="Next day" disabled={date >= today} onClick={() => setDate(addDays(date, 1))}>
-          ›
-        </button>
+        <div className="day-nav">
+          <button type="button" className="icon-button" aria-label="Previous day" onClick={() => setDate(addDays(date, -1))}>
+            <Icon name="chevron-left" />
+          </button>
+          <button type="button" className="icon-button" aria-label="Next day" disabled={date >= today} onClick={() => setDate(addDays(date, 1))}>
+            <Icon name="chevron-right" />
+          </button>
+        </div>
       </header>
       {!isToday ? (
         <p className="center">
@@ -97,9 +100,7 @@ export function TodayScreen() {
             <span className="capture-prompt">What's on your mind?</span>
             <span className="capture-hint">A thought, a worry, a plan…</span>
           </span>
-          <span className="capture-mark" aria-hidden="true">
-            +
-          </span>
+          <span className="capture-mark" aria-hidden="true"><Icon name="pen" size={20} /></span>
         </button>
         {sorted.length === 0 ? null : (
           <ul className="entry-list">

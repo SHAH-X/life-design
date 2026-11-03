@@ -9,6 +9,7 @@ import { hashFor } from '../../lib/route'
 import { Dialog } from '../../ui/Dialog'
 import { revealOnMount } from '../../ui/keepInView'
 import { useEntryTitle } from '../areas/AreasProvider'
+import { Icon } from '../../ui/Icon'
 
 /**
  * "Anything you'd like to do with this?" (Stage F): optional, never forced. A step to do or try joins your list of
@@ -38,18 +39,14 @@ export function NextStep({ entry, onRemember }: { entry: Entry; onRemember: () =
           <a key={s.id} className="part-row" href={hashFor('insights', 'steps')}>
             <span className="part-label">Next step</span>{' '}
             <span className="part-value">{stepLine(s)}</span>
-            <span className="part-chevron" aria-hidden="true">
-              ›
-            </span>
+            <span className="part-chevron" aria-hidden="true"><Icon name="chevron-right" size={16} /></span>
           </a>
         ))}
         {remember ? (
           <button type="button" className="part-row" onClick={onRemember}>
             <span className="part-label">To remember</span>{' '}
             <span className="part-value">{remember.text || THE_WHOLE_ENTRY}</span>
-            <span className="part-chevron" aria-hidden="true">
-              ›
-            </span>
+            <span className="part-chevron" aria-hidden="true"><Icon name="chevron-right" size={16} /></span>
           </button>
         ) : null}
       </section>

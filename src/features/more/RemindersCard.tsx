@@ -112,62 +112,71 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
   const backupSchedule = plan.backup.schedule
 
   return (
-    <section className="card">
-      <fieldset className="range">
-        <legend>Date range</legend>
-        <div className="range-row">
-          <div>
-            <label className="inline-field" htmlFor={fromId}>
-              <span>From</span>
-            </label>
-            <input
-              id={fromId}
-              type="date"
-              value={plan.from}
-              onChange={(e) => {
-                const from = e.target.value
-                if (!isDateKey(from)) return
-                savePlan({ ...plan, from, to: plan.to && plan.to < from ? addMonths(from, 12) : plan.to })
-              }}
-            />
+    <>
+      {/* The date range is one collapsed row: most people never change it. */}
+      <details className="card range-card">
+        <summary>
+          <span>Date range</span>
+          <span className="range-now">
+            {formatDateKey(plan.from)} – {plan.to ? formatDateKey(plan.to) : 'No end date'}
+          </span>
+        </summary>
+        <fieldset className="range">
+          <legend className="visually-hidden">Date range</legend>
+          <div className="range-row">
+            <div>
+              <label className="inline-field" htmlFor={fromId}>
+                <span>From</span>
+              </label>
+              <input
+                id={fromId}
+                type="date"
+                value={plan.from}
+                onChange={(e) => {
+                  const from = e.target.value
+                  if (!isDateKey(from)) return
+                  savePlan({ ...plan, from, to: plan.to && plan.to < from ? addMonths(from, 12) : plan.to })
+                }}
+              />
+            </div>
+            <div>
+              <label className="inline-field" htmlFor={toId}>
+                <span>To</span>
+              </label>
+              <input
+                id={toId}
+                type="date"
+                value={plan.to ?? ''}
+                min={plan.from}
+                disabled={plan.to === null}
+                onChange={(e) => {
+                  const to = e.target.value
+                  if (isDateKey(to) && to >= plan.from) savePlan({ ...plan, to })
+                }}
+              />
+            </div>
           </div>
-          <div>
-            <label className="inline-field" htmlFor={toId}>
-              <span>To</span>
-            </label>
-            <input
-              id={toId}
-              type="date"
-              value={plan.to ?? ''}
-              min={plan.from}
-              disabled={plan.to === null}
-              onChange={(e) => {
-                const to = e.target.value
-                if (isDateKey(to) && to >= plan.from) savePlan({ ...plan, to })
-              }}
-            />
+          <div className="chip-row">
+            {RANGES.map((r) => {
+              const target = r.months === null ? null : addMonths(plan.from, r.months)
+              return (
+                <button
+                  key={r.label}
+                  type="button"
+                  className="chip"
+                  aria-pressed={plan.to === target}
+                  onClick={() => savePlan({ ...plan, to: target })}
+                >
+                  {r.label}
+                </button>
+              )
+            })}
           </div>
-        </div>
-        <div className="chip-row">
-          {RANGES.map((r) => {
-            const target = r.months === null ? null : addMonths(plan.from, r.months)
-            return (
-              <button
-                key={r.label}
-                type="button"
-                className="chip"
-                aria-pressed={plan.to === target}
-                onClick={() => savePlan({ ...plan, to: target })}
-              >
-                {r.label}
-              </button>
-            )
-          })}
-        </div>
-      </fieldset>
+        </fieldset>
+      </details>
 
       <div className="reminder-list">
-        <div className="reminder-row">
+        <div className="card reminder-row">
           <Switch
             label="Daily log"
             checked={plan.daily.on}
@@ -180,7 +189,7 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
           ) : null}
         </div>
 
-        <div className="reminder-row">
+        <div className="card reminder-row">
           <Switch
             label="Look back"
             checked={plan.review.on}
@@ -240,7 +249,7 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
           ) : null}
         </div>
 
-        <div className="reminder-row">
+        <div className="card reminder-row">
           <Switch
             label="Backup"
             checked={plan.backup.on}
@@ -272,7 +281,7 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
           ) : null}
         </div>
 
-        <div className="reminder-row">
+        <div className="card reminder-row">
           <Switch
             label="Quarterly check-in"
             checked={plan.quarterly.on}
@@ -296,57 +305,59 @@ export function RemindersCard({ settings }: { settings: ReminderSettings }) {
         </div>
       </div>
 
-      <div className="summary" aria-live="polite">
-        <p>
-          <strong>Your calendar file</strong>
-        </p>
-        {planned.length > 0 ? (
-          <ul>
+      <section className="card">
+        <div className="summary" aria-live="polite">
+          <p>
+            <strong>Your calendar file</strong>
+          </p>
+          {planned.length > 0 ? (
+            <ul>
+              {planned.map((p) => (
+                <li key={p.kind}>
+                  {p.title}: {p.when}
+                  {p.event ? '' : ' (none falls in this date range)'}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">No reminders switched on.</p>
+          )}
+          <p>{rangeText}</p>
+        </div>
+
+        <button type="button" className="primary wide top-gap" disabled={events.length === 0} onClick={getFile}>
+          Get calendar file…
+        </button>
+        {sentAt ? <p className="muted small top-gap">Last calendar file: {shortDate(sentAt)}.</p> : null}
+
+        <details className="more-ways">
+          <summary>How to add it to Calendar</summary>
+          <ol className="steps">
+            <li>
+              <strong>Mail</strong> it to yourself, open the email, tap the file, then <strong>Add All</strong>.
+            </li>
+            <li>
+              <strong>AirDrop</strong> it to your Mac: it opens in Calendar, and iCloud brings it to your iPhone.
+            </li>
+            <li>
+              <strong>Save to Files</strong>, then tap it in the Files app (newer iOS offers Add All).
+            </li>
+          </ol>
+          <p className="field-help">
+            To change them later: in Calendar, open an old “Life Design” event → Delete Event → Delete All Future Events, then get a new
+            file here.
+          </p>
+        </details>
+
+        <details className="more-ways">
+          <summary>Or use the Reminders app</summary>
+          <ol className="steps">
             {planned.map((p) => (
-              <li key={p.kind}>
-                {p.title}: {p.when}
-                {p.event ? '' : ' (none falls in this date range)'}
-              </li>
+              <li key={p.kind}>{p.remindersApp}</li>
             ))}
-          </ul>
-        ) : (
-          <p className="muted">No reminders switched on.</p>
-        )}
-        <p>{rangeText}</p>
-      </div>
-
-      <button type="button" className="primary wide top-gap" disabled={events.length === 0} onClick={getFile}>
-        Get calendar file…
-      </button>
-      {sentAt ? <p className="muted small top-gap">Last calendar file: {shortDate(sentAt)}.</p> : null}
-
-      <details className="more-ways">
-        <summary>How to add it to Calendar</summary>
-        <ol className="steps">
-          <li>
-            <strong>Mail</strong> it to yourself, open the email, tap the file, then <strong>Add All</strong>.
-          </li>
-          <li>
-            <strong>AirDrop</strong> it to your Mac: it opens in Calendar, and iCloud brings it to your iPhone.
-          </li>
-          <li>
-            <strong>Save to Files</strong>, then tap it in the Files app (newer iOS offers Add All).
-          </li>
-        </ol>
-        <p className="field-help">
-          To change them later: in Calendar, open an old “Life Design” event → Delete Event → Delete All Future Events, then get a new
-          file here.
-        </p>
-      </details>
-
-      <details className="more-ways">
-        <summary>Or use the Reminders app</summary>
-        <ol className="steps">
-          {planned.map((p) => (
-            <li key={p.kind}>{p.remindersApp}</li>
-          ))}
-        </ol>
-      </details>
-    </section>
+          </ol>
+        </details>
+      </section>
+    </>
   )
 }

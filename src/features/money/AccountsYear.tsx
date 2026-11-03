@@ -6,6 +6,7 @@ import { hashFor } from '../../lib/route'
 import { BalanceChart } from '../../ui/charts/BalanceChart'
 import { Block, ForBlock, Groups, Item, KindRow, LineList, PayeeRow, paymentsWord, pounds, resultWords } from './AccountsMonth'
 import { useMoney } from './MoneyContext'
+import { Icon } from '../../ui/Icon'
 
 // The year of your accounts (v0.20.27, #/money/2026): the same figures as a month, over the months you've brought in,
 // by what it was for, who it went to, what was paid regularly, and the days with no statement. One page, no parts.
@@ -74,22 +75,14 @@ export function AccountsYear(props: {
           <p className="acc-label">{current ? `${year} so far` : year}</p>
           <nav className="acc-stepper" aria-label="Years">
             {earlier ? (
-              <a className="acc-step" href={hashFor('money', earlier)} aria-label={`Earlier: ${earlier}`}>
-                ‹
-              </a>
+              <a className="acc-step" href={hashFor('money', earlier)} aria-label={`Earlier: ${earlier}`}><Icon name="chevron-left" /></a>
             ) : (
-              <span className="acc-step" data-off="" aria-hidden="true">
-                ‹
-              </span>
+              <span className="acc-step" data-off="" aria-hidden="true"><Icon name="chevron-left" /></span>
             )}
             {later ? (
-              <a className="acc-step" href={hashFor('money', later)} aria-label={`Later: ${later}`}>
-                ›
-              </a>
+              <a className="acc-step" href={hashFor('money', later)} aria-label={`Later: ${later}`}><Icon name="chevron-right" /></a>
             ) : (
-              <span className="acc-step" data-off="" aria-hidden="true">
-                ›
-              </span>
+              <span className="acc-step" data-off="" aria-hidden="true"><Icon name="chevron-right" /></span>
             )}
           </nav>
         </div>

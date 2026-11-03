@@ -23,7 +23,7 @@ export function Notices({ nudge }: { nudge: Nudge }) {
 
   if (nudge.due) {
     return (
-      <aside className="notice warn">
+      <aside className="notice strip warn">
         <p>{nudge.daysSinceBackup === null ? 'Nothing is backed up yet.' : `Last backup ${nudge.daysSinceBackup} days ago.`}</p>
         <div className="row">
           <button type="button" className="primary" onClick={() => open('export')}>
@@ -38,7 +38,7 @@ export function Notices({ nudge }: { nudge: Nudge }) {
   }
   if (!installed) {
     return (
-      <aside className="notice">
+      <aside className="notice strip">
         <p>Install: Share → Add to Home Screen, so Safari keeps your data.</p>
       </aside>
     )

@@ -15,6 +15,7 @@ import { PhotoReading } from '../photos/PhotoReading'
 import { StoredPhoto } from '../photos/PhotoView'
 import { usePhotoText } from '../photos/usePhotoText'
 import { NextStep } from './NextStep'
+import { Icon } from '../../ui/Icon'
 
 const words = (list: readonly string[]) => [...new Set(list.map((w) => w.toLowerCase()))].join(' · ')
 
@@ -124,9 +125,7 @@ export function EntryView(props: { entryId: string; fresh?: boolean; onPart: (en
             <span className={p.empty ? 'part-value muted' : p.part === 'writing' ? 'part-value writing' : 'part-value'} data-energy={p.edge}>
               {p.value || 'Add'}
             </span>
-            <span className="part-chevron" aria-hidden="true">
-              ›
-            </span>
+            <span className="part-chevron" aria-hidden="true"><Icon name="chevron-right" size={16} /></span>
           </button>
         ))}
       </section>

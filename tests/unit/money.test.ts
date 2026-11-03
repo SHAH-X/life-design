@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges, moneyYear, monthEndBalances, monthCoverage, averageOfComplete, searchPayments, paymentYears, nameOf, labelsOf, withFor, forNamesOf, suggestedPeople, NOBODY } from '../../src/domain/money'
+import { titleCaseShouted, accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges, moneyYear, monthEndBalances, monthCoverage, averageOfComplete, searchPayments, paymentYears, nameOf, labelsOf, withFor, forNamesOf, suggestedPeople, NOBODY } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
@@ -26,12 +26,35 @@ const POT = 'Monzo Savings pot'
 const BANK = 'Lloyds ···4321'
 const statement = (account: string, from: string, to: string): StatementRecord => ({ id: `${account}:${from}:${to}`, account, from, to, lines: 1, createdAt: 1, updatedAt: 1 })
 
+describe('titleCaseShouted: a bank prints names in capitals; they are shown in title case (restyle T5), at display time', () => {
+  it('title-cases a name that is all capitals, keeping what is not a word as printed', () => {
+    expect(titleCaseShouted('EXAMPLE SOFTWARE DUBLIN')).toBe('Example Software Dublin')
+    expect(titleCaseShouted("EXAMPLE'S BAKERY")).toBe("Example's Bakery")
+    expect(titleCaseShouted('COFFEE-HOUSE AND CAFE')).toBe('Coffee-House and Cafe')
+    expect(titleCaseShouted('EXAMPLE PAY*1A2B3C')).toBe('Example Pay*1A2B3C')
+    expect(titleCaseShouted('TFL TRAVEL')).toBe('TFL Travel')
+    expect(titleCaseShouted('A N OTHER')).toBe('A N Other')
+  })
+
+  it('leaves a name that already has lower case exactly as printed, and a key is never touched', () => {
+    expect(titleCaseShouted('Example Gym')).toBe('Example Gym')
+    expect(titleCaseShouted('ExampleCo ltd')).toBe('ExampleCo ltd')
+    expect(titleCaseShouted('')).toBe('')
+    expect(payeeOf('EXAMPLE SOFTWARE DUBLIN IRL').key).toBe('example software dublin')
+  })
+
+  it('shows a bank-printed account name in title case, but never the name you gave it', () => {
+    expect([...accountNames(['EXAMPLE BANK ···1234'], {}).values()]).toEqual(['Example Bank'])
+    expect([...accountNames(['EXAMPLE BANK ···1234'], { 'EXAMPLE BANK ···1234': 'MY ACCOUNT' }).values()]).toEqual(['MY ACCOUNT'])
+  })
+})
+
 describe('payeeOf: who a line was paid to or from, as one name', () => {
   it('leaves out the country, a foreign amount’s note and a payment’s reference; a UK chain is the chain', () => {
-    expect(payeeOf('EXAMPLE SOFTWARE DUBLIN IRL Amount: USD -5.00. Exchange rate: 1.250000.')).toEqual({ key: 'example software dublin', name: 'EXAMPLE SOFTWARE DUBLIN' })
+    expect(payeeOf('EXAMPLE SOFTWARE DUBLIN IRL Amount: USD -5.00. Exchange rate: 1.250000.')).toEqual({ key: 'example software dublin', name: 'Example Software Dublin' })
     expect(payeeOf('Example Gym (Faster Payments) Reference: GYM00042')).toEqual({ key: 'example gym', name: 'Example Gym' })
     expect(payeeOf('TESCO SOMETOWN GBR')).toEqual({ key: 'tesco', name: 'Tesco' })
-    expect(payeeOf('A N OTHER')).toEqual({ key: 'a n other', name: 'A N OTHER' })
+    expect(payeeOf('A N OTHER')).toEqual({ key: 'a n other', name: 'A N Other' })
   })
 })
 
@@ -59,9 +82,9 @@ describe('accountNames: an account by its bank’s name, or the name you gave it
 describe('classify: a payee by the name you gave it (owner, 2026-10-26)', () => {
   it('shows your name, keeping the payee as it was for what you said about it and recording its original name', () => {
     const [named, other] = classify([line(BANK, '2026-10-02', -50, 'A N OTHER', { type: 'FPO' }), line(BANK, '2026-10-03', -9, 'EXAMPLE GYM')], new Set(['a n other']), { 'a n other': 'Example savings' })
-    expect(named!.payee).toEqual({ key: 'a n other', name: 'Example savings', original: 'A N OTHER' })
+    expect(named!.payee).toEqual({ key: 'a n other', name: 'Example savings', original: 'A N Other' })
     expect(named!.moving).toBe('own')
-    expect(other!.payee.name).toBe('EXAMPLE GYM')
+    expect(other!.payee.name).toBe('Example Gym')
   })
 
   it('uses the same saved name for old and newly imported lines with that payee key', () => {
@@ -71,8 +94,8 @@ describe('classify: a payee by the name you gave it (owner, 2026-10-26)', () => 
       { 'example streaming': 'Example streaming' },
     )
     expect(lines.map((item) => item.payee)).toEqual([
-      { key: 'example streaming', name: 'Example streaming', original: 'EXAMPLE STREAMING' },
-      { key: 'example streaming', name: 'Example streaming', original: 'EXAMPLE STREAMING' },
+      { key: 'example streaming', name: 'Example streaming', original: 'Example Streaming' },
+      { key: 'example streaming', name: 'Example streaming', original: 'Example Streaming' },
     ])
   })
 })
@@ -282,20 +305,20 @@ describe('moneyMonth: a month of your accounts, worked out on the phone', () => 
 
   it('says where spending rose by at least £1 and had spending before, a chain’s names as one; ranked by how much more only with 3+ payments', () => {
     expect(october.rose.ranked.map((r) => [r.payee.name, r.now, r.before])).toEqual([['Tesco', 5500, 2000]])
-    expect(october.rose.others.map((r) => [r.payee.name, r.now, r.before])).toEqual([['EXAMPLE STREAMING', 1299, 1099]])
+    expect(october.rose.others.map((r) => [r.payee.name, r.now, r.before])).toEqual([['Example Streaming', 1299, 1099]])
   })
 
   it('groups money out and in by payee (ranked only with 3+ payments, the rest by name), and lists money moved apart', () => {
     expect(october.payees.out.ranked).toEqual([])
     expect(october.payees.out.others.map((p) => [p.payee.name, p.total, p.lines.length])).toEqual([
-      ['BUS FARE', 500, 1],
-      ['CORNER SHOP', 1500, 1],
-      ['EXAMPLE STREAMING', 1299, 1],
+      ['Bus Fare', 500, 1],
+      ['Corner Shop', 1500, 1],
+      ['Example Streaming', 1299, 1],
       ['Tesco', 5500, 2],
     ])
     const busier = moneyMonth(classify([...lines, line(BANK, '2026-10-14', -8, 'TESCO SOMETOWN GBR')], new Set()), '2026-10', TODAY, statements)
     expect(busier.payees.out.ranked.map((p) => [p.payee.name, p.total, p.lines.length])).toEqual([['Tesco', 6300, 3]])
-    expect(october.payees.in.others.map((p) => [p.payee.name, p.total])).toEqual([['REFUND SHOP', 250]])
+    expect(october.payees.in.others.map((p) => [p.payee.name, p.total])).toEqual([['Refund Shop', 250]])
     expect(october.moved.map((m) => [m.why, m.lines.length])).toEqual([['flex', 1]])
   })
 
@@ -319,18 +342,18 @@ describe('regularPayments: the same payee paid every month or every week', () =>
   it('finds a payment on about the same day of 3 or more months, and says when its amount changed', () => {
     const lines = monthly(['2026-08-10', '2026-09-11', '2026-10-10'], [9.99, 9.99, 10.99])
     expect(regularPayments(classify(lines, new Set()), '2026-10', TODAY).map((r) => [r.payee.name, r.every, r.amount, r.last, r.changed])).toEqual([
-      ['EXAMPLE STREAMING', 'month', 1099, '2026-10-10', { from: 999, to: 1099, date: '2026-10-10', year: 100 * 12 }],
+      ['Example Streaming', 'month', 1099, '2026-10-10', { from: 999, to: 1099, date: '2026-10-10', year: 100 * 12 }],
     ])
   })
 
   it('finds one every week, from 4 payments', () => {
     const lines = ['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22'].map((d) => line(BANK, d, -3.5, 'WEEKLY BOX'))
-    expect(regularPayments(classify(lines, new Set()), '2026-10', TODAY).map((r) => [r.payee.name, r.every, r.amount, r.changed])).toEqual([['WEEKLY BOX', 'week', 350, null]])
+    expect(regularPayments(classify(lines, new Set()), '2026-10', TODAY).map((r) => [r.payee.name, r.every, r.amount, r.changed])).toEqual([['Weekly Box', 'week', 350, null]])
   })
 
   it('keeps a series regular when an earlier month is opened after later statements arrived', () => {
     const lines = monthly(['2026-07-10', '2026-08-10', '2026-09-10', '2026-10-10'], [9.99, 9.99, 9.99, 9.99])
-    expect(regularPayments(classify(lines, new Set()), '2026-09', TODAY).map((r) => [r.payee.name, r.last])).toEqual([['EXAMPLE STREAMING', '2026-09-10']])
+    expect(regularPayments(classify(lines, new Set()), '2026-09', TODAY).map((r) => [r.payee.name, r.last])).toEqual([['Example Streaming', '2026-09-10']])
   })
 
   it('finds none from 2 months, from a shop paid on many days, or from money moved', () => {
@@ -350,9 +373,9 @@ describe('regularPayments: the same payee paid every month or every week', () =>
     ]
     const result = regularPayments(classify(lines, new Set()), '2026-10', TODAY)
     expect(result.map((r) => [r.payee.name, r.amount])).toEqual([
-      ['EXPENSIVE GYM', 12000],
-      ['MEDIUM INTERNET', 3500],
-      ['CHEAPER STREAMING', 999],
+      ['Expensive Gym', 12000],
+      ['Medium Internet', 3500],
+      ['Cheaper Streaming', 999],
     ])
   })
 
@@ -363,8 +386,8 @@ describe('regularPayments: the same payee paid every month or every week', () =>
     ]
     const regular = regularPayments(classify(lines, new Set()), '2026-10', TODAY)
     expect(regular.map((r) => [r.payee.name, r.every, r.amount, r.year])).toEqual([
-      ['STREAMING', 'month', 1000, 1000 * 12],
-      ['WEEKLY BOX', 'week', 500, 500 * 52],
+      ['Streaming', 'month', 1000, 1000 * 12],
+      ['Weekly Box', 'week', 500, 500 * 52],
     ])
     expect(regularPaymentsTotal(regular)).toEqual({ monthly: 1000, weekly: 500, year: 1000 * 12 + 500 * 52, count: 2 })
   })
@@ -432,14 +455,14 @@ describe('upcoming: what regular payments are due in the next days (v0.20.25)', 
     )
     const regular = regularPayments(lines, '2026-10', TODAY)
     expect(upcoming(regular, TODAY, 30).map((u) => [u.date, u.payee.name, u.amount])).toEqual([
-      ['2026-10-29', 'WEEKLY BOX', 350],
-      ['2026-11-05', 'WEEKLY BOX', 350],
-      ['2026-11-10', 'EXAMPLE STREAMING', 1000],
-      ['2026-11-12', 'WEEKLY BOX', 350],
-      ['2026-11-19', 'WEEKLY BOX', 350],
+      ['2026-10-29', 'Weekly Box', 350],
+      ['2026-11-05', 'Weekly Box', 350],
+      ['2026-11-10', 'Example Streaming', 1000],
+      ['2026-11-12', 'Weekly Box', 350],
+      ['2026-11-19', 'Weekly Box', 350],
     ])
     // 26 Oct + 30 days is 25 Nov: the weekly one on 26 Nov is outside, and 26 Nov would be inside from 27 Oct.
-    expect(upcoming(regular, '2026-10-27', 30).filter((u) => u.payee.name === 'WEEKLY BOX').map((u) => u.date).at(-1)).toBe('2026-11-26')
+    expect(upcoming(regular, '2026-10-27', 30).filter((u) => u.payee.name === 'Weekly Box').map((u) => u.date).at(-1)).toBe('2026-11-26')
   })
   it('is empty with nothing regular', () => {
     expect(upcoming([], TODAY, 30)).toEqual([])
@@ -529,13 +552,13 @@ describe('regularChanges: regular payments that started or stopped (v0.20.26)', 
     it('is told once its next payment is a week late (35 days between payments and 7 over), for the 3 months from then', () => {
       // Last paid 10 May: still on time until 21 June.
       expect(names(changes(lines, '2026-05', covered).lapsed)).toEqual([])
-      expect(names(changes(lines, '2026-06', covered).lapsed)).toEqual(['GYM CLUB'])
+      expect(names(changes(lines, '2026-06', covered).lapsed)).toEqual(['Gym Club'])
       expect(changes(lines, '2026-06', covered).lapsed[0]).toMatchObject({ every: 'month', last: '2026-05-10', amount: 1000 })
-      expect(names(changes(lines, '2026-08', covered).lapsed)).toEqual(['GYM CLUB'])
+      expect(names(changes(lines, '2026-08', covered).lapsed)).toEqual(['Gym Club'])
       expect(names(changes(lines, '2026-09', covered).lapsed)).toEqual([])
     })
     it('is told for the month you are in, up to today', () => {
-      expect(names(changes(monthly(['2026-06-10', '2026-07-10', '2026-08-10'], 'GYM CLUB'), '2026-10', [statement(BANK, '2026-01-01', TODAY)]).lapsed)).toEqual(['GYM CLUB'])
+      expect(names(changes(monthly(['2026-06-10', '2026-07-10', '2026-08-10'], 'GYM CLUB'), '2026-10', [statement(BANK, '2026-01-01', TODAY)]).lapsed)).toEqual(['Gym Club'])
     })
     it('is never told when statements are missing for the days it should have been paid, only for a missing one', () => {
       expect(names(changes(lines, '2026-08', [statement(BANK, '2026-01-01', '2026-05-31'), statement(BANK, '2026-07-20', '2026-08-31')]).lapsed)).toEqual([])
@@ -552,7 +575,7 @@ describe('regularChanges: regular payments that started or stopped (v0.20.26)', 
       const box = weekly(['2026-03-04', '2026-03-11', '2026-03-18', '2026-03-25'], 'WEEKLY BOX')
       expect(names(changes(box, '2026-03', [statement(BANK, '2026-01-01', '2026-04-30')]).lapsed)).toEqual([])
       const april = changes(box, '2026-04', [statement(BANK, '2026-01-01', '2026-04-30')]).lapsed
-      expect(names(april)).toEqual(['WEEKLY BOX'])
+      expect(names(april)).toEqual(['Weekly Box'])
       expect(april[0]).toMatchObject({ every: 'week', last: '2026-03-25' })
       expect(names(changes(box, '2026-04', [statement(BANK, '2026-01-01', '2026-03-31')]).lapsed)).toEqual([])
     })
@@ -565,7 +588,7 @@ describe('regularChanges: regular payments that started or stopped (v0.20.26)', 
       const from = [statement(BANK, '2026-06-01', TODAY)]
       expect(names(changes(lines, '2026-09', from).started)).toEqual([])
       const october = changes(lines, '2026-10', from).started
-      expect(names(october)).toEqual(['NEW SUB'])
+      expect(names(october)).toEqual(['New Sub'])
       expect(october[0]).toMatchObject({ every: 'month', first: '2026-08-12', amount: 1000 })
       const box = weekly(['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22'], 'NEW BOX')
       expect(changes(box, '2026-10', [statement(BANK, '2026-09-01', TODAY)]).started[0]).toMatchObject({ every: 'week', first: '2026-10-01' })
@@ -611,12 +634,12 @@ describe('moneyYear: a year of your accounts (v0.20.27)', () => {
   it('groups it by what it was for and by payee, ranked only with 3 or more payments', () => {
     const y = year()
     expect(y.kinds.ranked.map((k) => [k.kind, k.total])).toEqual([['Groceries', 58000]])
-    expect(y.payees.out.ranked.map((g) => [g.payee.name, g.total])).toEqual([['Tesco', 58000], ['EXAMPLE OLD GYM', 7500], ['EXAMPLE STREAMING', 4000]])
+    expect(y.payees.out.ranked.map((g) => [g.payee.name, g.total])).toEqual([['Tesco', 58000], ['Example Old Gym', 7500], ['Example Streaming', 4000]])
   })
   it('lists the regular payments paid in the year, what was paid and how often, a stopped one included', () => {
     expect(year().regular.map((r) => [r.payee.name, r.every, r.total, r.lines.length])).toEqual([
-      ['EXAMPLE OLD GYM', 'month', 7500, 3],
-      ['EXAMPLE STREAMING', 'month', 4000, 4],
+      ['Example Old Gym', 'month', 7500, 3],
+      ['Example Streaming', 'month', 4000, 4],
     ])
   })
   it('names the days with no statement inside the year, per account, and none for a closed account after its last', () => {
@@ -821,7 +844,7 @@ describe('Who it was for: a name on a payee’s payments or on one payment (v0.2
     expect(who.others).toEqual([])
     // The toy shop is nobody in particular; money moved is in nothing.
     expect(who.nobody).toMatchObject({ who: NOBODY, total: 1200 })
-    expect(who.nobody!.lines.map((l) => l.payee.name)).toEqual(['EXAMPLE TOY SHOP'])
+    expect(who.nobody!.lines.map((l) => l.payee.name)).toEqual(['Example Toy Shop'])
   })
   it('lists fewer than 3 payments by name, and has no block until something is filed', () => {
     const lines = filed({}, { [toy!.id]: 'Sam', [first!.id]: 'Riya' })
@@ -863,8 +886,8 @@ describe('classify: a name for one payment alone (v0.20.35)', () => {
     const lines = classify(bought, new Set(), {}, { [second]: 'Fever medicine' })
     expect(lines.map((l) => l.label)).toEqual([undefined, 'Fever medicine', undefined])
     expect(new Set(lines.map((l) => l.payee.key)).size).toBe(1)
-    expect(lines.map(nameOf)).toEqual(['EXAMPLE PHARMACY LEICESTER', 'Fever medicine', 'EXAMPLE PHARMACY LEICESTER'])
-    expect(moneyMonth(lines, '2026-08', TODAY, []).payees.out.others.map((g) => [g.payee.name, g.lines.length])).toEqual([['EXAMPLE PHARMACY LEICESTER', 1]])
+    expect(lines.map(nameOf)).toEqual(['Example Pharmacy Leicester', 'Fever medicine', 'Example Pharmacy Leicester'])
+    expect(moneyMonth(lines, '2026-08', TODAY, []).payees.out.others.map((g) => [g.payee.name, g.lines.length])).toEqual([['Example Pharmacy Leicester', 1]])
   })
   it('is separate from the shop’s name: the label wins for that payment, the shop’s name for the rest', () => {
     const lines = classify(bought, new Set(), { 'example pharmacy leicester': 'The pharmacy' }, { [second]: 'Fever medicine' })

@@ -3,6 +3,7 @@ import type { Purpose, Step } from '../../db/types'
 import { type EntryQuestion, HELPERS_SHOWN, helpersPage, PURPOSE_KEYS, purposeInfo } from '../../domain/purposes'
 import { stepLine } from '../../domain/steps'
 import { Question } from '../../ui/Question'
+import { Icon } from '../../ui/Icon'
 
 export const WRITE_QUESTION = "What's on your mind about it?"
 
@@ -92,7 +93,7 @@ export function WriteBox({ id, describedBy, purpose, onPurpose, candidates, focu
         ) : null}
         {candidates.length > HELPERS_SHOWN ? (
           <button type="button" className="link" onClick={() => setPage((p) => p + 1)}>
-            ↻ Other questions
+            <Icon name="refresh" size={16} />Other questions
           </button>
         ) : null}
       </div>

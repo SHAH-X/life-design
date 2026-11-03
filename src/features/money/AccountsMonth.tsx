@@ -15,6 +15,7 @@ import {
   nameOf,
   moneyMonthTotals,
   MIN_SEARCH,
+  NOT_SORTED,
   monthCoverage,
   type Moving,
   paymentYears,
@@ -31,6 +32,7 @@ import {
   regularPayments,
   regularPaymentsTotal,
   type Rise,
+  titleCaseShouted,
   upcoming,
 } from '../../domain/money'
 import { money, paid, shiftMonth } from '../../domain/shopping'
@@ -39,6 +41,7 @@ import { hashFor } from '../../lib/route'
 import { MonthChart } from '../../ui/charts/MonthChart'
 import { Accounts, RenameSheet } from './Accounts'
 import { useMoney } from './MoneyContext'
+import { Icon } from '../../ui/Icon'
 
 // The Accounts view of Money (redesigned v0.20.22): a month of your accounts, its money out up top with the months
 // either side of it a tap away, then three parts that each do one job: Overview (how it compares: the months, what
@@ -80,6 +83,41 @@ const SECTIONS: readonly { id: AccountsSection; label: string }[] = [
   { id: 'statements', label: 'Statements' },
 ]
 
+/** The months either side of `month` that Accounts steps to: the one before with something in it, and the one after (or this month). */
+export function neighbourMonths(months: readonly string[], month: string, today: string): { earlier?: string; later?: string } {
+  const thisMonth = today.slice(0, 7)
+  return {
+    earlier: months.filter((m) => m < month).at(-1),
+    later: month < thisMonth ? (months.find((m) => m > month && m <= thisMonth) ?? thisMonth) : undefined,
+  }
+}
+
+/** The arrows that step between months, in the title row (restyle F, Money b). */
+export function MonthStepper({ thisMonth, earlier, later }: { thisMonth: string; earlier?: string; later?: string }) {
+  return (
+    <nav className="acc-stepper" aria-label="Months">
+      {earlier ? (
+        <a className="acc-step" href={hashFor('money', earlier)} aria-label={`Earlier: ${monthYear(earlier)}`}>
+          <Icon name="chevron-left" />
+        </a>
+      ) : (
+        <span className="acc-step" data-off="" aria-hidden="true">
+          <Icon name="chevron-left" />
+        </span>
+      )}
+      {later ? (
+        <a className="acc-step" href={hashFor('money', later === thisMonth ? null : later)} aria-label={`Later: ${monthYear(later)}`}>
+          <Icon name="chevron-right" />
+        </a>
+      ) : (
+        <span className="acc-step" data-off="" aria-hidden="true">
+          <Icon name="chevron-right" />
+        </span>
+      )}
+    </nav>
+  )
+}
+
 /** A month of your accounts: out and in, where it rose, regular payments, by payee, money moved, to check. */
 export function AccountsMonth(props: {
   lines: readonly MoneyLine[]
@@ -87,15 +125,13 @@ export function AccountsMonth(props: {
   today: string
   statements: readonly StatementRecord[]
   closed: ReadonlySet<string>
-  /** Every month with something in it, oldest first: the months either side of this one. */
-  months: readonly string[]
   section: AccountsSection
   onSection: (section: AccountsSection) => void
   /** What's typed in Spending's search box: kept by Money, so it stays when you step to another month. */
   query: string
   onQuery: (query: string) => void
 }) {
-  const { lines, month, today, statements, closed, months, section, onSection, query, onQuery } = props
+  const { lines, month, today, statements, closed, section, onSection, query, onQuery } = props
   const { kinds } = useMoney()
   const [jump, setJump] = useState<string | null>(null)
   const its = moneyMonth(lines, month, today, statements, closed, kinds)
@@ -108,8 +144,6 @@ export function AccountsMonth(props: {
   const yearOut = moneyYear(lines, month.slice(0, 4), today, statements, closed, kinds).out
   const thisMonth = today.slice(0, 7)
   const current = month === thisMonth
-  const earlier = months.filter((m) => m < month).at(-1)
-  const later = month < thisMonth ? (months.find((m) => m > month && m <= thisMonth) ?? thisMonth) : undefined
   const stale = its.toCheck.accounts.length
 
   // A figure at the top that opens the list it counts: switch to Spending, then bring that list into view.
@@ -129,26 +163,6 @@ export function AccountsMonth(props: {
       <header className="acc-hero">
         <div className="acc-hero-top">
           <p className="acc-label">{current ? `${monthName(month)} so far` : monthYear(month)}</p>
-          <nav className="acc-stepper" aria-label="Months">
-            {earlier ? (
-              <a className="acc-step" href={hashFor('money', earlier)} aria-label={`Earlier: ${monthYear(earlier)}`}>
-                ‹
-              </a>
-            ) : (
-              <span className="acc-step" data-off="" aria-hidden="true">
-                ‹
-              </span>
-            )}
-            {later ? (
-              <a className="acc-step" href={hashFor('money', later === thisMonth ? null : later)} aria-label={`Later: ${monthYear(later)}`}>
-                ›
-              </a>
-            ) : (
-              <span className="acc-step" data-off="" aria-hidden="true">
-                ›
-              </span>
-            )}
-          </nav>
         </div>
         <p className="acc-figure">
           <strong>
@@ -173,11 +187,11 @@ export function AccountsMonth(props: {
         {stale ? (
           <button type="button" className="acc-notice" onClick={() => onSection('statements')}>
             <span>{stale === 1 ? '1 account needs a newer statement' : `${stale} accounts need a newer statement`}</span>
-            <span aria-hidden="true">Review ›</span>
+            <span aria-hidden="true" className="notice-go">Review<Icon name="chevron-right" size={16} /></span>
           </button>
         ) : null}
       </header>
-      <nav className="acc-tabs" aria-label="Account details">
+      <nav className="acc-tabs segmented small" aria-label="Account details">
         {SECTIONS.map(({ id, label }) => (
           <button key={id} type="button" className="acc-tab" aria-pressed={section === id} data-attention={id === 'statements' && (stale || its.toCheck.lines.length) ? '' : undefined} onClick={() => onSection(id)}>
             {label}
@@ -351,7 +365,9 @@ function Spending({ its, lines, query, onQuery }: { its: Its; lines: readonly Mo
     <>
       {/* The same look as Logs' search box, with a ✕ to clear it (owner, 2026-11-01: say what it searches). */}
       <div className="logs-search">
-        <span aria-hidden="true">⌕</span>
+        <span aria-hidden="true">
+          <Icon name="search" />
+        </span>
         <label className="visually-hidden" htmlFor={searchId}>
           Search every payment, by name or amount
         </label>
@@ -365,9 +381,7 @@ function Spending({ its, lines, query, onQuery }: { its: Its; lines: readonly Mo
               onQuery('')
               box.current?.focus()
             }}
-          >
-            ✕
-          </button>
+          ><Icon name="close" size={16} /></button>
         ) : null}
       </div>
       {searching ? <SearchResults found={searchPayments(lines, query)} /> : <SpendingMonth its={its} />}
@@ -464,7 +478,8 @@ export function Groups<T>({ of, line, fewer }: { of: Ranked<T>; line: (item: T) 
 }
 
 /** The one kind of row: what it is, what it says underneath, and its figure; it opens to what's behind it. */
-export function Item({ title, sub, value, meter, children }: { title: string; sub?: ReactNode; value?: ReactNode; meter?: number; children: ReactNode }) {
+/** `unsorted`: the meter is neutral ink, not the green of a kind (green reads as success, and this is the one to sort). */
+export function Item({ title, sub, value, meter, unsorted = false, children }: { title: string; sub?: ReactNode; value?: ReactNode; meter?: number; unsorted?: boolean; children: ReactNode }) {
   return (
     <li className="acc-li">
       <details className="acc-item">
@@ -485,7 +500,7 @@ export function Item({ title, sub, value, meter, children }: { title: string; su
             </>
           ) : null}
           {meter !== undefined ? (
-            <span className="acc-meter" aria-hidden="true">
+            <span className="acc-meter" data-unsorted={unsorted || undefined} aria-hidden="true">
               <span style={{ width: `${meter}%` }} />
             </span>
           ) : null}
@@ -540,7 +555,7 @@ function Chart({ lines, statements, closed, month, today }: { lines: readonly Mo
         detail={
           tapped && tapped.month !== month && tapped.lines ? (
             <a className="small-link" href={hashFor('money', tapped.month === thisMonth ? null : tapped.month)}>
-              Open {monthYear(tapped.month)} ›
+              Open {monthYear(tapped.month)}<Icon name="chevron-right" size={16} />
             </a>
           ) : null
         }
@@ -599,7 +614,7 @@ export function KindRow({ group, totalOut }: { group: KindGroup; totalOut: numbe
   const count = group.lines.filter((l) => !l.refund).length
   const share = totalOut > 0 ? Math.min(100, Math.max(2, Math.round((group.total / totalOut) * 100))) : 0
   return (
-    <Item title={group.kind} sub={paymentsWord(count)} value={pounds(group.total)} meter={share}>
+    <Item title={group.kind} sub={paymentsWord(count)} value={pounds(group.total)} meter={share} unsorted={group.kind === NOT_SORTED}>
       <LineList lines={group.lines} />
     </Item>
   )
@@ -772,7 +787,9 @@ export function LineList({ lines, why, moves = false, named = false }: { lines: 
     if (l.moving === 'flex') {
       const flex = l.amount > 0 ? 'Spread with Flex' : `Paid off, from ${name(l.account)}`
       // Flex's own statement words it "… moved to Flex": the purchase's name is what's before that.
-      return named && l.amount < 0 ? `${nameOf(l).replace(/\s+moved to Flex$/i, '')} · ${flex[0]!.toLowerCase()}${flex.slice(1)}` : flex
+      // That description has lower case in it, so the bank's capitals are shown in title case here (a name you gave it is as you wrote it).
+      const purchase = l.label ?? titleCaseShouted(l.payee.name.replace(/\s+moved to Flex$/i, ''))
+      return named && l.amount < 0 ? `${purchase} · ${flex[0]!.toLowerCase()}${flex.slice(1)}` : flex
     }
     if (l.moving === 'own') return l.amount < 0 ? `${name(l.account)} → ${l.payee.name}` : `${l.payee.name} → ${name(l.account)}`
     const way = l.amount < 0 ? `out of ${name(l.account)}` : l.refund ? `back into ${name(l.account)}` : `into ${name(l.account)}`

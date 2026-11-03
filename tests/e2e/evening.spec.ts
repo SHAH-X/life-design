@@ -87,6 +87,6 @@ test('More → Your purpose: one purpose, its optional follow-up, and the goal k
   await page.reload()
   await expect(page.getByRole('radio', { name: /^Achieve a goal/ })).toBeChecked()
   await expect(page.getByLabel('What are you working towards?')).toHaveValue('run a half marathon')
-  await page.getByRole('link', { name: '‹ More' }).click()
+  await page.getByRole('link', { name: 'Back to More' }).click()
   await expect(page.getByRole('link', { name: /^Your purpose/ })).toContainText('Achieve a goal')
 })

@@ -7,6 +7,7 @@ import { matchesSearch } from '../../domain/search'
 import { longDate, PART_ORDER } from '../../lib/dates'
 import { Loading } from '../../ui/Loading'
 import { SwipeRow } from '../../ui/SwipeRow'
+import { useStuckHeading } from '../../ui/useStuckHeading'
 import { type MeaningResults, setMeaningSearch, useMeaningResults, useMeaningSearch, workingText } from '../meaning/useMeaning'
 import { useEntryTitle } from '../areas/AreasProvider'
 import { EntryRow } from '../today/EntryRow'
@@ -14,6 +15,7 @@ import { EntrySheet, type EntrySheetState } from '../today/EntrySheet'
 import { usePurposeSettings } from '../today/usePurpose'
 import { useDeleteEntry } from '../today/useDeleteEntry'
 import { useOwnWords } from '../today/useOwnWords'
+import { Icon } from '../../ui/Icon'
 
 /** Days with entries shown at first; "Show earlier" adds as many again. */
 const DAYS_AT_A_TIME = 60
@@ -39,6 +41,7 @@ export function EntriesScreen() {
   const [days, setDays] = useState(DAYS_AT_A_TIME)
   const [sheet, setSheet] = useState<EntrySheetState>(null)
   const remove = useDeleteEntry()
+  useStuckHeading('.logs-screen .list-section h2')
 
   const searching = query.trim() !== ''
   const all = entries ?? NO_ENTRIES
@@ -70,7 +73,9 @@ export function EntriesScreen() {
         <h1>Logs</h1>
       </header>
       <div className="logs-search">
-        <span aria-hidden="true">⌕</span>
+        <span aria-hidden="true">
+          <Icon name="search" />
+        </span>
         <label className="visually-hidden" htmlFor={searchId}>
           Search your logs
         </label>

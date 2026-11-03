@@ -32,7 +32,7 @@ import { Loading } from '../../ui/Loading'
 import { EntrySheet, type EntrySheetState } from '../today/EntrySheet'
 import { useOwnWords } from '../today/useOwnWords'
 import { usePurposeSettings } from '../today/usePurpose'
-import { type AccountsSection, AccountsMonth } from './AccountsMonth'
+import { type AccountsSection, AccountsMonth, MonthStepper, neighbourMonths } from './AccountsMonth'
 import { Accounts, RenameSheet } from './Accounts'
 import { AccountsYear } from './AccountsYear'
 import { MoneyContext } from './MoneyContext'
@@ -41,6 +41,8 @@ import { StatementImport } from './StatementImport'
 import { ForSheet, KindSheet, PaymentSheet } from './PaymentSheets'
 import { ReceiptSheet } from './ReceiptSheet'
 import { useAccountNames } from './useAccountNames'
+import { Icon } from '../../ui/Icon'
+import { BackLink } from '../../ui/BackLink'
 
 /**
  * Money (v0.20, the Shopping tab before): what came in and went out of your accounts, from the statements you bring in,
@@ -125,6 +127,9 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   // The years with money in or out, oldest first: the year page steps between them. A year is the Accounts view's only.
   const accountYears = [...new Set(accountMonths.map((m) => m.slice(0, 4)))]
   const year = view === 'accounts' && lines.length && sub && /^\d{4}$/.test(sub) ? sub : null
+  // The arrows between months sit in the title row (Accounts only, where there is a month of money to step through).
+  const { earlier: earlierMonth, later: laterMonth } = neighbourMonths(accountMonths, month, today)
+  const steps = view === 'accounts' && lines.length ? <MonthStepper thisMonth={thisMonth} earlier={earlierMonth} later={laterMonth} /> : null
   const earlier = shoppingMonths(receipts).filter((m) => m < thisMonth).sort().reverse()
   // The open payment is read afresh from the lines, so a name given to it shows in its sheet at once.
   const shown = payment ? { ...payment, line: lines.find((l) => l.id === payment.line.id) ?? payment.line } : null
@@ -141,22 +146,24 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
       <div className="money-screen">
         {year ? (
           <>
-            <a className="back-link" href={hashFor('money')}>
-              ‹ Money
-            </a>
+            <BackLink href={hashFor('money')}>Money</BackLink>
             <h1>{year}</h1>
           </>
         ) : month === thisMonth ? (
-          <h1>Money</h1>
+          <div className="money-title">
+            <h1>Money</h1>
+            {steps}
+          </div>
         ) : (
           <>
-            <a className="back-link" href={hashFor('money')}>
-              ‹ Money
-            </a>
-            <h1>{monthYear(month)}</h1>
+            <BackLink href={hashFor('money')}>Money</BackLink>
+            <div className="money-title">
+              <h1>{monthYear(month)}</h1>
+              {steps}
+            </div>
           </>
         )}
-        <div className="money-switch" role="group" aria-label="Money sections">
+        <div className="money-switch segmented" role="group" aria-label="Money sections">
           <button type="button" aria-pressed={view === 'accounts'} onClick={() => setView('accounts')}>
             Accounts
           </button>
@@ -168,7 +175,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
           <AccountsYear key={`accounts-year-${year}`} lines={lines} year={year} today={today} statements={statements} closed={closed} years={accountYears} />
         ) : view === 'accounts' && lines.length ? (
           // Keyed by month: a month opened from another starts afresh (a tapped chart column doesn't carry over).
-          <AccountsMonth key={`accounts-${month}`} lines={lines} month={month} today={today} statements={statements} closed={closed} months={accountMonths} section={section} onSection={setSection} query={query} onQuery={setQuery} />
+          <AccountsMonth key={`accounts-${month}`} lines={lines} month={month} today={today} statements={statements} closed={closed} section={section} onSection={setSection} query={query} onQuery={setQuery} />
         ) : view === 'receipts' ? (
           <ReceiptsMonth
             key={`receipts-${month}`}
@@ -200,9 +207,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
                       <span className="list-title">{monthYear(m)}</span>
                       <span className="list-status">{said}</span>
                     </span>
-                    <span className="list-chevron" aria-hidden="true">
-                      ›
-                    </span>
+                    <span className="list-chevron" aria-hidden="true"><Icon name="chevron-right" size={16} /></span>
                   </a>
                 )
               })}

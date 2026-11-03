@@ -178,9 +178,49 @@ for (const scheme of ['light'] as const) {
 
       for (const sub of ['reminders', 'purpose', 'words', 'meaning', 'photos', 'ai', 'backup', 'export', 'phone', 'delete']) {
         await page.goto(`./#/more/${sub}`)
-        await expect(page.getByRole('link', { name: '‹ More' })).toBeVisible()
+        await expect(page.getByRole('link', { name: 'Back to More' })).toBeVisible()
         await look(page, at(`more-${sub}`))
       }
+    })
+
+    // Ask (v0.18, a main tab): until v0.20.41 it had no reference screenshot, which is how its link stayed the browser's
+    // default blue. The AI is a stand-in for Gemini that answers at once; no key is real.
+    test(`Ask, ${scheme}`, async ({ page }, testInfo) => {
+      await fakeKeyboard(page)
+      await page.clock.setFixedTime(EVENING)
+      await restoreSeed(page, testInfo.outputPath('ask-seed.json'), EVENING)
+      const at = (s: string) => `${scheme}-${s}`
+      await page.route('https://generativelanguage.googleapis.com/**', async (route) => {
+        const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization,content-type', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' }
+        if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+        const body = route.request().url().endsWith('/models')
+          ? { data: [{ id: 'models/gemini-2.5-flash' }] }
+          : { choices: [{ message: { content: 'You wrote about the evening run three times this month, and it gave you energy each time.' } }] }
+        return route.fulfill({ status: 200, headers, contentType: 'application/json', body: JSON.stringify(body) })
+      })
+
+      // Nothing set up yet: a card that goes to the setting.
+      await page.goto('./#/ask')
+      await expect(page.getByRole('region', { name: 'Set up an AI service' })).toBeVisible()
+      await look(page, at('ask-setup'))
+
+      await page.goto('./#/more/ai')
+      await page.getByRole('radio', { name: /Gemini/ }).check()
+      await page.getByLabel('API key').fill('AIza_test_abcd')
+      await page.getByRole('button', { name: 'Check key' }).click()
+      await expect(page.getByText('Key saved on this phone only · ends abcd')).toBeVisible()
+      await page.goto('./#/ask')
+      await expect(page.getByLabel('What would you like to know?')).toBeVisible()
+      await look(page, at('ask'))
+      await lookWithKeyboard(page, at('ask-question'), page.getByLabel('What would you like to know?'))
+      await page.getByLabel('What would you like to know?').fill('How often did I run this month?')
+      await page.getByRole('button', { name: 'Ask', exact: true }).click()
+      await expect(page.getByRole('region', { name: 'Answer' })).toBeVisible()
+      await look(page, at('ask-answer'))
+      await page.getByLabel('What would you like to know?').fill('And what gave me energy?')
+      await page.getByRole('button', { name: 'Ask', exact: true }).click()
+      await expect(page.getByRole('region', { name: 'Earlier questions' })).toBeVisible()
+      await look(page, at('ask-earlier'))
     })
 
     test(`Money, ${scheme}`, async ({ page }, testInfo) => {

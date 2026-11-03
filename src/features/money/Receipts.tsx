@@ -26,6 +26,7 @@ import { hashFor } from '../../lib/route'
 import { MonthChart } from '../../ui/charts/MonthChart'
 import { Dialog } from '../../ui/Dialog'
 import { FileActions } from '../backup/FileActions'
+import { Icon } from '../../ui/Icon'
 
 // Money's receipts (v0.19 as the Shopping tab; part of Money from v0.20): what you spent, from the receipts in your
 // photos, worked out on the phone with no AI. Counts and amounts only (no averages, ratings or a limit), and every line
@@ -251,7 +252,7 @@ function Months({ receipts, month, today }: { receipts: readonly KnownReceipt[];
       detail={
         tapped && tapped.month !== month && tapped.receipts ? (
           <a className="small-link" href={hashFor('money', tapped.month === thisMonth ? null : tapped.month)}>
-            Open {monthYear(tapped.month)} ›
+            Open {monthYear(tapped.month)}<Icon name="chevron-right" size={16} />
           </a>
         ) : null
       }

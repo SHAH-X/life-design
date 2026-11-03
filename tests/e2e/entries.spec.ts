@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addEntries, addEntry, captureBox, entryButton, writeEntry } from './helpers'
+import { addEntries, addEntry, captureBox, entryButton, sheetSettled, writeEntry } from './helpers'
 
 // After an entry (Stage E and F) and the Logs tab (Entries until 2026-10-23). Fictional example data. Since v0.15
 // new writing goes in Today's one box; activities from before then are restored, as a phone has them.
@@ -22,6 +22,7 @@ test('after saving, your writing reads back first; a next step is kept, nothing 
   await expect(view.getByRole('region', { name: 'Possible insight' })).toHaveCount(0)
   // Delete and Done share one row, leaving the reading more room; there's no separate Edit (v0.12.3).
   await expect(view.getByRole('button', { name: 'Edit' })).toHaveCount(0)
+  await sheetSettled(view) // the sheet's 280ms rise would move it between the two measurements
   const remove = await view.getByRole('button', { name: 'Delete' }).boundingBox()
   const done = await view.getByRole('button', { name: 'Done', exact: true }).boundingBox()
   expect(remove?.y).toBe(done?.y)
@@ -37,6 +38,27 @@ test('after saving, your writing reads back first; a next step is kept, nothing 
 
   await entryButton(page, 'Free writing').click()
   await expect(page.getByRole('dialog', { name: 'Free writing' }).getByRole('region', { name: 'Next step' })).toContainText('Ask for an agenda first')
+})
+
+test('Logs: a pill search with a magnifier, day headers that stay in view, free writing read in serif', async ({ page }) => {
+  await writeEntry(page, 'A thought about the week, in my own words.')
+  await page.goto('./#/entries')
+  const search = page.locator('.logs-search')
+  expect(await search.evaluate((el) => getComputedStyle(el).borderTopLeftRadius)).toBe('999px')
+  await expect(search.locator('svg')).toHaveCount(1)
+  await expect(search).not.toContainText('⌕')
+  // A day header is plain words (sentence case, serif) that stick at the top; only the stuck one is a glass pill (see polish.spec.ts).
+  const head = await page.locator('.logs-screen .list-section h2').first().evaluate((el) => {
+    const css = getComputedStyle(el)
+    return { position: css.position, blur: css.backdropFilter, bg: css.backgroundColor, transform: css.textTransform, weight: css.fontWeight }
+  })
+  expect(head).toEqual({ position: 'sticky', blur: 'none', bg: 'rgba(0, 0, 0, 0)', transform: 'none', weight: '600' })
+  const note = await page.locator('.entry-row[data-kind="free"] .entry-note').first().evaluate((el) => {
+    const css = getComputedStyle(el)
+    return { family: css.fontFamily, size: parseFloat(css.fontSize) / parseFloat(getComputedStyle(document.documentElement).fontSize) }
+  })
+  expect(note.family).toMatch(/New York|Georgia|serif/)
+  expect(note.size).toBeCloseTo(1, 2)
 })
 
 test('an earlier activity reads as its parts, in plain words, with the red edge of what it did to your energy', async ({ page }) => {
