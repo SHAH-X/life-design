@@ -1,10 +1,13 @@
 import type { Entry, Question } from '../../db/types'
-import { amountsNotFromPhone, notFromPhoneLine } from '../../domain/ask'
+import { amountsNotFromPhone, asksForPicture, notFromPhoneLine } from '../../domain/ask'
+import { hashFor } from '../../lib/route'
+import { Icon } from '../../ui/Icon'
 import { PlainMarkdown } from '../../ui/PlainMarkdown'
 import { useEntryTitle } from '../areas/AreasProvider'
 
-/** An answer: its words, any amount in it the phone didn't give, the receipts and entries it named (each opens), and
- *  every part that was sent for it. */
+/** An answer: its words, any amount in it the phone didn't give, the receipts and entries it named (each opens), a
+ *  link to the map of your ideas when the question asked for a picture (v0.23: Ask can't draw), and every part that
+ *  was sent for it. */
 export function Answer({ question, entries, onOpen }: { question: Question; entries: ReadonlyMap<string, Entry>; onOpen: (entry: Entry) => void }) {
   const title = useEntryTitle()
   const notFromPhone = notFromPhoneLine(amountsNotFromPhone(question.answer, question.sent))
@@ -28,6 +31,17 @@ export function Answer({ question, entries, onOpen }: { question: Question; entr
             </li>
           ))}
         </ul>
+      ) : null}
+      {asksForPicture(question.question) ? (
+        <a className="list-row" href={hashFor('insights', 'map')}>
+          <span className="list-text">
+            <span className="list-title">Map of your ideas</span>
+            <span className="list-status">Your ideas and the links you wrote, drawn on a tap</span>
+          </span>
+          <span className="list-chevron" aria-hidden="true">
+            <Icon name="chevron-right" size={16} />
+          </span>
+        </a>
       ) : null}
       <details className="evidence">
         <summary>What was sent</summary>

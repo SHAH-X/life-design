@@ -8,7 +8,7 @@ import { isAiReview, isBankLine, isEntry, isQuestion } from '../../src/db/valida
 import { emptyPlan } from '../../src/domain/lifeDesign'
 import { ITEM_KINDS } from '../../src/domain/receipts'
 import { PROVIDERS } from '../../src/lib/ai'
-import { type AiReview, type Answer, type Entry, entryDefaults, type Step, TABLE_NAMES } from '../../src/db/types'
+import { type AiReview, type Answer, type Entry, entryDefaults, type IdeaMap, type Step, TABLE_NAMES } from '../../src/db/types'
 
 // Fictional example data.
 const entry = (id: string, updatedAt: number, over: Partial<Entry> = {}): Entry => ({
@@ -49,6 +49,7 @@ const emptyRaw = (): RawData => ({
   questions: [],
   bankLines: [],
   statements: [],
+  ideaMaps: [],
 })
 
 let phone: LifeDesignDB
@@ -419,6 +420,33 @@ describe('backup and restore', () => {
     }
   })
 
+  it('backs up and restores maps of your ideas, Gemini’s too, and leaves out a damaged one (v0.23)', async () => {
+    const map: IdeaMap = {
+      id: 'map1',
+      range: '30',
+      start: '2026-10-05',
+      end: '2026-11-03',
+      ideas: [
+        { id: 'i1', label: 'Rushing', kind: 'weighs', entryIds: ['e1', 'e2'] },
+        { id: 'i2', label: 'A short walk', kind: 'helps', entryIds: ['e2'] },
+      ],
+      links: [{ from: 'i2', to: 'i1', words: 'eases', entryId: 'e2', quote: 'a short walk eases the rushing' }],
+      dropped: { ideas: 0, links: 1, cut: 0 },
+      entryCount: 2,
+      sent: { instructions: 'Reply with JSON only.', data: '[E1] 5 Oct 2026: Rushing again.' },
+      provider: 'gemini',
+      model: 'gemini-flash-latest',
+      createdAt: 5000,
+      updatedAt: 5000,
+    }
+    await phone.ideaMaps.bulkPut([map, { ...map, id: 'broken', ideas: [{ id: 'i1', label: 'Rushing', kind: 'worst', entryIds: [] }] } as unknown as IdeaMap])
+    const detected = detectFile(JSON.stringify(await createBackup(phone)))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    await applyImport(detected.raw, newPhone)
+    expect(await newPhone.ideaMaps.get('map1')).toEqual(map)
+    expect(await newPhone.ideaMaps.get('broken')).toBeUndefined()
+  })
+
   it("never puts search by meaning's numbers or life areas' centres in a backup: they're worked out again on the phone it's restored to", async () => {
     await phone.entries.put(entry('e1', 10, { note: 'Up early' }))
     await phone.vectors.put({ id: 'e1#0', entryId: 'e1', model: 'm', hash: 'h', vector: new Float32Array([0.6, 0.8]) })
@@ -509,8 +537,9 @@ describe('backup and restore', () => {
   })
 
   it('moves to a new backup format with each new item kind: an older version would skip an entry with one, its writing too', () => {
-    // v0.19.2 added Clothes and shoes and format 10; v0.20.37 added Baby and toddler and format 12. A new kind: raise the format, then both numbers here.
-    expect({ format: BACKUP_SCHEMA_VERSION, kinds: ITEM_KINDS.length }).toEqual({ format: 12, kinds: 14 })
+    // v0.19.2 added Clothes and shoes and format 10; v0.20.37 added Baby and toddler and format 12 (v0.23's maps of
+    // your ideas took 13). A new kind: raise the format, then both numbers here.
+    expect({ format: BACKUP_SCHEMA_VERSION, kinds: ITEM_KINDS.length }).toEqual({ format: 13, kinds: 14 })
   })
 
   it('recognises locked backups, v1 files and everything else', async () => {

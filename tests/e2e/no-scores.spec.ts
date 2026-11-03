@@ -39,7 +39,7 @@ test('no screen asks for or shows a rating or score', async ({ page }, testInfo)
   await chart.getByText('Show as table').click()
   for (const line of await page.locator('details.week-line > summary').all()) await line.click()
   await expectNoScores(page, 'Insights, opened')
-  for (const sub of ['steps', 'review', 'learning', 'weeks']) {
+  for (const sub of ['steps', 'review', 'learning', 'weeks', 'map']) {
     await page.goto(`./#/insights/${sub}`)
     await expectNoScores(page, `Insights → ${sub}`)
   }

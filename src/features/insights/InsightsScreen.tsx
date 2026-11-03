@@ -14,10 +14,10 @@ import { EntrySheet, type EntrySheetState } from '../today/EntrySheet'
 import { usePurposeSettings } from '../today/usePurpose'
 import { useOwnWords } from '../today/useOwnWords'
 import { Evidence } from './Evidence'
+import { IdeaMapPage } from './IdeaMapPage'
 import { LifeAreas } from './LifeAreas'
 import { NextStepsCard, NextStepsPage } from './NextSteps'
 import { PatternLines } from './PatternLines'
-import { ThinkingMap } from './ThinkingMap'
 import { ReviewPeriod } from './ReviewPeriod'
 import { WeekReview } from './WeekReview'
 import { Icon } from '../../ui/Icon'
@@ -53,7 +53,8 @@ interface Learning {
  * Insights (v0.13): one page that answers in order: how your week went, your life areas (v0.16) and what gives and
  * uses up your energy over the last 30 days, what you're learning and doing, then a way to look back. Nothing to choose or fill in: the app shows
  * what has something to say, and every line opens to the entries behind it. Earlier weeks (#/insights/weeks,
- * #/insights/week-…), all you're learning (#/insights/learning), next steps and Review a period are their own pages;
+ * #/insights/week-…), all you're learning (#/insights/learning), next steps, the map of your ideas (#/insights/map) and
+ * Review a period are their own pages;
  * old links (#/insights/patterns) open Insights.
  */
 export function InsightsScreen({ sub }: { sub: string | null }) {
@@ -90,6 +91,8 @@ export function InsightsScreen({ sub }: { sub: string | null }) {
         <NextStepsPage steps={data.steps} entries={data.byId} />
       ) : sub === 'review' ? (
         <ReviewPeriod />
+      ) : sub === 'map' ? (
+        <IdeaMapPage done={data.done} byId={data.byId} onOpen={open} />
       ) : (
         <InsightsHome data={data} onOpen={open} />
       )}
@@ -124,7 +127,6 @@ function InsightsHome({ data, onOpen }: { data: Data; onOpen: (entry: Entry) => 
       <h1>Insights</h1>
       <WeekReview summary={weekSummary(data.done, thisWeek, data.steps)} entries={data.byId} title="This week" carry={data.carry.get(thisWeek) ?? ''} onOpen={onOpen} />
       <LifeAreas entries={lastDays} byId={data.byId} onOpen={onOpen} />
-      <ThinkingMap entries={data.done} byId={data.byId} today={today} onOpen={onOpen} />
       <LastDays data={data} today={today} onOpen={onOpen} />
 
       <section aria-labelledby={doingId}>
@@ -156,6 +158,13 @@ function InsightsHome({ data, onOpen }: { data: Data; onOpen: (entry: Entry) => 
             <span className="list-chevron" aria-hidden="true"><Icon name="chevron-right" size={16} /></span>
           </a>
         ) : null}
+        <a className="list-row" href={hashFor('insights', 'map')}>
+          <span className="list-text">
+            <span className="list-title">Map of your ideas</span>
+            <span className="list-status">Drawn by your AI from what you wrote</span>
+          </span>
+          <span className="list-chevron" aria-hidden="true"><Icon name="chevron-right" size={16} /></span>
+        </a>
         <a className="list-row" href={hashFor('insights', 'review')}>
           <span className="list-text">
             <span className="list-title">Review a period</span>

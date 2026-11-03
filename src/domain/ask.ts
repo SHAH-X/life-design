@@ -99,8 +99,13 @@ export function askInstructions(today: string): string {
     "Say only what the journal shows; if it doesn't show something, say that. Never guess. No scores or ratings.",
     'Name the receipts and entries you used by their ids in square brackets, like [r:ID] for a receipt or [e:ID] for an entry (the r: or e: is needed), where you mention them.',
     'Answer briefly, in plain words; a short list helps for items and totals.',
+    "You can't draw. If asked for a picture, drawing, diagram or map, say so in one line (the app links to its Map of your ideas under your answer), then answer in words.",
   ].join('\n')
 }
+
+/** A question asking for a picture of your thinking (v0.23): the app links to the map of your ideas under its answer.
+ *  Not "chart" or "graph": those are asked of spending. */
+export const asksForPicture = (question: string): boolean => /\b(draw|drawing|picture|diagram|mind ?map|map|visuali[sz]e|visuali[sz]ation|sketch)\b/i.test(question)
 
 const inPeriod = (date: string, from?: string, to?: string) => (!from || date >= from) && (!to || date <= to)
 

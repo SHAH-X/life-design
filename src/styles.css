@@ -3533,31 +3533,98 @@ body:has(dialog.sheet.full[open]) :is(.tabbar, .banner, .notice.strip) {
   vector-effect: non-scaling-stroke;
 }
 
-/* The map of your thinking (v0.22): neutral dots and hairline lines; only the chosen dot and its lines take the accent. */
-.map-range {
+/* The map of your ideas (v0.23): neutral boxes and arrows in ink; a box's corners say its kind (square weighs on
+   you, round helps you); only what's chosen, and its arrows, take the accent. */
+.idea-map-range {
   margin-bottom: var(--space-3);
 }
 
-.thinking-map .map-dot {
-  fill: var(--viz-muted);
+.idea-map-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
 
-.thinking-map .map-dot.chosen {
-  fill: var(--accent);
+.idea-map .idea-box {
+  fill: var(--surface);
+  stroke: var(--control-border);
+  stroke-width: 1;
 }
 
-.thinking-map .map-line {
-  stroke: var(--viz-axis);
-  stroke-linecap: round;
+.idea-map .idea-box.lit {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 2;
 }
 
-.thinking-map .map-line.chosen {
+.idea-map .idea-label {
+  fill: var(--text);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+
+.idea-map .idea-count {
+  fill: var(--muted);
+  font-size: 9.5px;
+}
+
+.idea-map .idea-arrow {
+  fill: none;
+  stroke: var(--control-border);
+  stroke-width: 1.5;
+}
+
+.idea-map .idea-arrow.lit {
   stroke: var(--accent);
 }
 
-.thinking-map .map-label {
-  fill: var(--text);
+.idea-map .idea-arrow-head {
+  fill: var(--control-border);
+}
+
+.idea-map .idea-arrow-head.lit {
+  fill: var(--accent);
+}
+
+.idea-map .idea-words-back {
+  fill: var(--surface);
+}
+
+.idea-map .idea-words {
+  fill: var(--muted);
   font-size: 9.5px;
+  font-style: italic;
+}
+
+.idea-map .idea-words.lit {
+  fill: var(--text);
+}
+
+.idea-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+
+.idea-key::before {
+  content: '';
+  display: inline-block;
+  width: 16px;
+  height: 10px;
+  margin-right: var(--space-1);
+  border: 1px solid var(--control-border);
+  vertical-align: -1px;
+}
+
+.idea-key.weighs::before {
+  border-radius: 1px;
+}
+
+.idea-key.helps::before {
+  border-radius: 5px;
+}
+
+.idea-key.idea::before {
+  border-radius: 3.5px;
 }
 
 /* A 40px tap height around 16px of words; the margins keep the words where they were. */

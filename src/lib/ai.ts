@@ -328,3 +328,38 @@ export async function reviewWithAi(request: ReviewRequest, fetchImpl: Fetch = fe
   if (typeof text !== 'string' || !text.trim()) throw new AiError('other')
   return text.trim()
 }
+
+/** How long to wait for a map of your ideas: the reply is long, and some models think first (v0.23). */
+export const MAP_TIMEOUT_MS = 120_000
+
+/** A map's problems in words about a map: its page has a period to shorten but no chat to copy it to. */
+export const MAP_PROBLEMS = {
+  limit: "That's more than the service takes at once. Try a shorter period, or wait a minute.",
+  timeout: 'No answer within two minutes. Try again, or try a shorter period.',
+  other: "The AI's reply couldn't be read as a map. Try again.",
+} satisfies Partial<Record<AiProblem, string>>
+
+/** A map of your ideas (v0.23): the instructions as the system message, your words as the message, a JSON reply.
+ *  Returns its text, for the phone to check (parseIdeaMap). */
+export async function drawMapWithAi(request: ReviewRequest, fetchImpl: Fetch = fetch, timeoutMs = MAP_TIMEOUT_MS): Promise<string> {
+  const body = {
+    model: request.model,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: request.instructions },
+      { role: 'user', content: request.data },
+    ],
+  }
+  const answer = (await call(
+    `${PROVIDERS[request.provider].baseUrl}/chat/completions`,
+    { method: 'POST', headers: headers(request.key), body: JSON.stringify(body) },
+    fetchImpl,
+    timeoutMs,
+  ).catch((error: unknown) => {
+    const said = error instanceof AiError ? (MAP_PROBLEMS as Partial<Record<AiProblem, string>>)[error.problem] : undefined
+    throw said ? new AiError((error as AiError).problem, said) : error
+  })) as { choices?: { message?: { content?: unknown } }[] }
+  const text = answer.choices?.[0]?.message?.content
+  if (typeof text !== 'string' || !text.trim()) throw new AiError('other', MAP_PROBLEMS.other)
+  return text.trim()
+}
