@@ -17,6 +17,7 @@ import { Evidence } from './Evidence'
 import { LifeAreas } from './LifeAreas'
 import { NextStepsCard, NextStepsPage } from './NextSteps'
 import { PatternLines } from './PatternLines'
+import { ThinkingMap } from './ThinkingMap'
 import { ReviewPeriod } from './ReviewPeriod'
 import { WeekReview } from './WeekReview'
 import { Icon } from '../../ui/Icon'
@@ -123,6 +124,7 @@ function InsightsHome({ data, onOpen }: { data: Data; onOpen: (entry: Entry) => 
       <h1>Insights</h1>
       <WeekReview summary={weekSummary(data.done, thisWeek, data.steps)} entries={data.byId} title="This week" carry={data.carry.get(thisWeek) ?? ''} onOpen={onOpen} />
       <LifeAreas entries={lastDays} byId={data.byId} onOpen={onOpen} />
+      <ThinkingMap entries={data.done} byId={data.byId} today={today} onOpen={onOpen} />
       <LastDays data={data} today={today} onOpen={onOpen} />
 
       <section aria-labelledby={doingId}>
