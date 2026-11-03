@@ -3533,6 +3533,33 @@ body:has(dialog.sheet.full[open]) :is(.tabbar, .banner, .notice.strip) {
   vector-effect: non-scaling-stroke;
 }
 
+/* The map of your thinking (v0.22): neutral dots and hairline lines; only the chosen dot and its lines take the accent. */
+.map-range {
+  margin-bottom: var(--space-3);
+}
+
+.thinking-map .map-dot {
+  fill: var(--viz-muted);
+}
+
+.thinking-map .map-dot.chosen {
+  fill: var(--accent);
+}
+
+.thinking-map .map-line {
+  stroke: var(--viz-axis);
+  stroke-linecap: round;
+}
+
+.thinking-map .map-line.chosen {
+  stroke: var(--accent);
+}
+
+.thinking-map .map-label {
+  fill: var(--text);
+  font-size: 9.5px;
+}
+
 /* A 40px tap height around 16px of words; the margins keep the words where they were. */
 .chart-table summary {
   margin: -6px 0 -12px;
