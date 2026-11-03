@@ -4,9 +4,10 @@ import { applyImport, BACKUP_SCHEMA_VERSION, createBackup, detectFile, planImpor
 import { lockText, unlockText } from '../../src/db/crypto'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { newReview } from '../../src/db/repo'
-import { isBankLine, isEntry } from '../../src/db/validate'
+import { isAiReview, isBankLine, isEntry, isQuestion } from '../../src/db/validate'
 import { emptyPlan } from '../../src/domain/lifeDesign'
 import { ITEM_KINDS } from '../../src/domain/receipts'
+import { PROVIDERS } from '../../src/lib/ai'
 import { type AiReview, type Answer, type Entry, entryDefaults, type Step, TABLE_NAMES } from '../../src/db/types'
 
 // Fictional example data.
@@ -385,6 +386,37 @@ describe('backup and restore', () => {
     expect(await newPhone.aiReviews.get('ai1')).toEqual(review)
     expect(await newPhone.settings.get('aiProvider')).toMatchObject({ value: 'groq' })
     expect(await newPhone.settings.get('aiKey')).toBeUndefined()
+  })
+
+  // v0.22.1: a review by Gemini (offered since 2026-10-24) was left out of every restore: its validator knew only
+  // Groq and OpenAI. Every service the app offers must restore, whatever is backed up from it.
+  it('backs up and restores a review by Gemini', async () => {
+    const review: AiReview = {
+      id: 'ai-gemini',
+      start: '2026-10-19',
+      end: '2026-10-25',
+      focus: '',
+      provider: 'gemini',
+      model: 'gemini-flash-latest',
+      text: 'Walks came up on four of your days.',
+      createdAt: 4000,
+      updatedAt: 4000,
+    }
+    await phone.aiReviews.put(review)
+    const detected = detectFile(JSON.stringify(await createBackup(phone)))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    await applyImport(detected.raw, newPhone)
+    expect(await newPhone.aiReviews.get('ai-gemini')).toEqual(review)
+  })
+
+  it('accepts a review and a question from every AI service the app offers', () => {
+    for (const provider of Object.keys(PROVIDERS)) {
+      expect(isAiReview({ id: 'r', start: '2026-10-19', end: '2026-10-25', focus: '', provider, model: 'm', text: 't', createdAt: 1, updatedAt: 1 }), provider).toBe(true)
+      expect(
+        isQuestion({ id: 'q', question: 'q', answer: 'a', cited: { receipts: [], entries: [] }, sent: [], provider, model: 'm', createdAt: 1, updatedAt: 1 }),
+        provider,
+      ).toBe(true)
+    }
   })
 
   it("never puts search by meaning's numbers or life areas' centres in a backup: they're worked out again on the phone it's restored to", async () => {

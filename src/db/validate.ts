@@ -1,6 +1,7 @@
 // Shape checks for records arriving from a backup file. Anything that fails is skipped, never imported.
 import { ITEM_KINDS } from '../domain/receipts'
 import { isEnergy, isEngagement } from '../domain/scales'
+import { PROVIDERS } from '../lib/ai'
 import { isDateKey } from '../lib/dates'
 import {
   type AiReview,
@@ -39,6 +40,8 @@ const isGauge = (x: unknown) => isNum(x) && x >= 0 && x <= 10
 const ENTRY_PURPOSES: readonly unknown[] = ['know', 'calm', 'grow', 'goal', 'learn', 'joy', 'free']
 const isOptional = (x: unknown, check: (y: unknown) => boolean) => x === undefined || check(x)
 const isOneOf = (values: readonly unknown[]) => (x: unknown) => values.includes(x)
+/** Every AI service the app offers: one list, so a new one restores wherever it's kept (a review by Gemini didn't, v0.22.1). */
+const isProvider = isOneOf(Object.keys(PROVIDERS))
 const isReflection = (x: unknown) => isObj(x) && isStr(x.question) && isStr(x.text)
 const isIntention = (x: unknown) =>
   x === null ||
@@ -121,7 +124,7 @@ export function isQuestion(x: unknown): x is Question {
     strings(x.cited.entries) &&
     Array.isArray(x.sent) &&
     x.sent.every((s) => isObj(s) && isStr(s.label) && isStr(s.text)) &&
-    isOneOf(['groq', 'openai', 'gemini'])(x.provider) &&
+    isProvider(x.provider) &&
     isStr(x.model) &&
     isNum(x.createdAt) &&
     isNum(x.updatedAt)
@@ -303,7 +306,7 @@ export function isAiReview(x: unknown): x is AiReview {
     isDateKey(x.start) &&
     isDateKey(x.end) &&
     isStr(x.focus) &&
-    isOneOf(['groq', 'openai'])(x.provider) &&
+    isProvider(x.provider) &&
     isNonEmptyStr(x.model) &&
     isNonEmptyStr(x.text) &&
     hasTimes(x)
