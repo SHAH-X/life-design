@@ -5,7 +5,7 @@
 import { MIN_COUNT } from '../analysis/stats'
 import type { Entry, ItemChange, PhotoRef } from '../db/types'
 import { addMonths } from '../lib/dates'
-import { chainOf, isRefundSlip, ITEM_KINDS, type ItemKind, itemShown, paidFor, type ReceiptItem, readReceipt, type Receipt, receiptTime, shopWords } from './receipts'
+import { type CardPaid, chainOf, isRefundSlip, ITEM_KINDS, type ItemKind, itemShown, paidFor, paymentOf, type ReceiptItem, readReceipt, type Receipt, receiptTime, shopWords } from './receipts'
 
 /** A receipt in a photo of a finished entry. Its id is the photo's; its date is the receipt's, else the entry's. */
 export interface KnownReceipt extends Omit<Receipt, 'date'> {
@@ -29,7 +29,13 @@ function receiptOf(photo: PhotoRef, remembered: Remembered, itemFor: NamesFiled)
   const kept = withRemembered(read.items, read.shop, remembered, itemFor)
   const changed = (photo.items?.length ? withChanges(kept, photo.items) : kept).map((item, i) => ({ ...item, key: keys[i]! }))
   if (read.refund) return { ...asMoneyBack(read, changed), ...(backToGiftCard(photo.ai?.text || photo.text || '') ? { giftCard: true as const } : {}) }
-  return { ...read, items: withSavings(changed, photo.ai?.text || photo.text || '') }
+  return { ...read, items: withSavings(changed, photo.ai?.text || photo.text || ''), ...cardIn(photo) }
+}
+
+/** The card a receipt was paid with (v0.24.0): as your AI wrote its text out, else as the phone read it. */
+function cardIn(photo: PhotoRef): { card?: CardPaid } {
+  const card = paymentOf(photo.ai?.text ?? '').card ?? paymentOf(photo.text ?? '').card
+  return card ? { card } : {}
 }
 
 /** A refund slip's amounts as money back, plus figures whatever signs it was read with (the phone keeps its minus, an

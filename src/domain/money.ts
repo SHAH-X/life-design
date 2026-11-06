@@ -937,27 +937,38 @@ function samePlace(shop: string, payee: Payee): boolean {
   return first.length >= 3 && payee.key.split(' ')[0] === first
 }
 
+/** The account a receipt's card is (v0.24.0): yours to say once for each card (`CARD_ACCOUNTS`, src/db/statements.ts).
+ *  Undefined when no card was read or you haven't said; "" when it is none of the accounts brought in. */
+export const cardAccountOf = (receipt: Pick<KnownReceipt, 'card'>, cards: Readonly<Record<string, string>>): string | undefined =>
+  receipt.card && Object.hasOwn(cards, receipt.card.last4) ? cards[receipt.card.last4] : undefined
+
 /** Each card payment with the receipt for it, by the payment's id (v0.20.2): the same amount, within RECEIPT_DAYS, its
  *  shop the payee. Each payment and each receipt once, the nearest day first; a receipt paid another way (a gift card,
- *  cash) has none. The two are never added together: a payment opens its receipt. */
+ *  cash) has none. The two are never added together: a payment opens its receipt. A receipt whose card you said is one
+ *  of your accounts looks only in that account's lines, and one you said is none of them has none (v0.24.0). */
 export function receiptPaymentCandidates(
   lines: readonly MoneyLine[],
   receipt: KnownReceipt,
   occupied: ReadonlySet<string> = new Set(),
+  cards: Readonly<Record<string, string>> = {},
 ): MoneyLine[] {
   if (receipt.currency && receipt.currency !== '£') return []
+  const account = cardAccountOf(receipt, cards)
+  if (account === '') return []
   const date = receipt.dated ? receipt.date : (receipt.entryDate ?? receipt.date)
   const days = (line: MoneyLine) => Math.abs(dayNumber(line.date) - dayNumber(date))
   return lines
-    .filter((line) => !line.moving && line.amount < 0 && !occupied.has(line.id) && days(line) <= RECEIPT_DAYS && samePlace(receipt.shop, line.payee))
+    .filter((line) => (account === undefined || line.account === account) && !line.moving && line.amount < 0 && !occupied.has(line.id) && days(line) <= RECEIPT_DAYS && samePlace(receipt.shop, line.payee))
     .sort((a, b) => Number(-a.amount !== paid(receipt)) - Number(-b.amount !== paid(receipt)) || days(a) - days(b) || b.date.localeCompare(a.date))
 }
 
-/** Owner-chosen links take precedence; receipts without a printed date are never linked automatically. */
+/** Owner-chosen links take precedence; receipts without a printed date are never linked automatically. A card you said
+ *  is one of your accounts is matched only in it (`cards`, v0.24.0). */
 export function linkReceipts(
   lines: readonly MoneyLine[],
   receipts: readonly KnownReceipt[],
   chosen: Readonly<Record<string, string>> = {},
+  cards: Readonly<Record<string, string>> = {},
 ): Map<string, KnownReceipt> {
   const links = new Map<string, KnownReceipt>()
   const byLine = new Map(lines.map((line) => [line.id, line]))
@@ -970,7 +981,7 @@ export function linkReceipts(
   }
   for (const receipt of [...receipts].filter((r) => r.dated && !chosenReceipts.has(r.id)).sort((a, b) => a.date.localeCompare(b.date))) {
     if (receipt.currency && receipt.currency !== '£') continue
-    const payment = receiptPaymentCandidates(lines, receipt, new Set(links.keys())).find((line) => -line.amount === paid(receipt))
+    const payment = receiptPaymentCandidates(lines, receipt, new Set(links.keys()), cards).find((line) => -line.amount === paid(receipt))
     if (payment) links.set(payment.id, receipt)
   }
   return links

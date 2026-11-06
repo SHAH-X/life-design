@@ -5,6 +5,7 @@ import { loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
 import {
   acceptReceiptDate,
   accountNamesOf,
+  CARD_ACCOUNTS,
   CLOSED_ACCOUNTS,
   markOwnPayee,
   matchReceiptPayment,
@@ -23,7 +24,7 @@ import {
   receiptReviewState,
   unmatchReceiptPayment,
 } from '../../db/statements'
-import { classify, forNamesOf, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, nameOf, type Payee, type PayeeGroup, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
+import { cardAccountOf, classify, forNamesOf, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, nameOf, type Payee, type PayeeGroup, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
 import { inWords, type KnownReceipt, money, paid, receiptsAndCopies, rememberedKindsOf, rememberedNamesOf, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { ITEM_FOR_SETTING, ITEM_KINDS_SETTING } from '../../db/receiptItems'
 import { monthYear, toDateKey } from '../../lib/dates'
@@ -39,7 +40,7 @@ import { MoneyContext } from './MoneyContext'
 import { ReceiptsMonth, ReceiptsShare, receiptsWord } from './Receipts'
 import { StatementImport } from './StatementImport'
 import { ForSheet, KindSheet, PaymentSheet } from './PaymentSheets'
-import { ReceiptSheet } from './ReceiptSheet'
+import { type PaidWith, ReceiptSheet } from './ReceiptSheet'
 import { useAccountNames } from './useAccountNames'
 import { Icon } from '../../ui/Icon'
 import { BackLink } from '../../ui/BackLink'
@@ -67,6 +68,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const remembered = useLiveQuery(async () => rememberedKindsOf((await db.settings.get(ITEM_KINDS_SETTING))?.value), [])
   const itemFor = useLiveQuery(async () => rememberedNamesOf((await db.settings.get(ITEM_FOR_SETTING))?.value), [])
   const receiptReviews = useLiveQuery(async () => receiptReviewState((await db.settings.get(RECEIPT_REVIEWS))?.value), [])
+  const cardAccounts = useLiveQuery(async () => accountNamesOf(await db.settings.get(CARD_ACCOUNTS)), [])
   const [payment, setPayment] = useState<{ line: MoneyLine; way: string; group?: PayeeGroup } | null>(null)
   const [kindFor, setKindFor] = useState<PayeeGroup | null>(null)
   const [renaming, setRenaming] = useState<Payee | null>(null)
@@ -89,7 +91,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
     if (legacyView) setView(legacyView)
   }, [legacyView])
   // Render only once loaded, so nothing jumps under your finger.
-  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || paymentNames === undefined || payeeFor === undefined || paymentFor === undefined || kinds === undefined || notes === undefined || remembered === undefined || itemFor === undefined || receiptReviews === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
+  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || paymentNames === undefined || payeeFor === undefined || paymentFor === undefined || kinds === undefined || notes === undefined || remembered === undefined || itemFor === undefined || receiptReviews === undefined || cardAccounts === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
 
   const byId = new Map(entries.map((e) => [e.id, e]))
   const openEntry = (receipt: KnownReceipt) => {
@@ -105,7 +107,9 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const lines = withFor(classify(bankLines, new Set(own), payeeNames, labelsOf(notes, paymentNames)), payeeFor, paymentFor)
   const forNames = forNamesOf(payeeFor, paymentFor, itemFor)
   const forSuggestions = suggestedPeople(entries.flatMap((e) => e.people), forNames)
-  const links = linkReceipts(lines, receipts, receiptReviews.paymentLinks)
+  // Which account each card is (v0.24.0): only an account still brought in, or none of them.
+  const cards = Object.fromEntries(Object.entries(cardAccounts).filter(([, account]) => account === '' || names.has(account)))
+  const links = linkReceipts(lines, receipts, receiptReviews.paymentLinks, cards)
   const receiptReasons = receiptReviews.paymentReasons
   const manualReceiptByPayment = new Map(
     [...links].flatMap(([paymentId, receipt]) => (receiptReviews.paymentLinks[receipt.id] === paymentId ? [[paymentId, receipt.id] as const] : [])),
@@ -115,10 +119,27 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const matchCandidates = new Map<string, MoneyLine[]>(
     receipts
       .filter((receipt) => !linkedReceiptIds.has(receipt.id) && !receiptReviews.acceptedDates.includes(receipt.id))
-      .map((receipt): [string, MoneyLine[]] => [receipt.id, receiptPaymentCandidates(lines, receipt, new Set(links.keys()))])
+      .map((receipt): [string, MoneyLine[]] => [receipt.id, receiptPaymentCandidates(lines, receipt, new Set(links.keys()), cards)])
       .filter(([, candidates]) => candidates.length > 0),
   )
   const possiblePaymentIds = new Set<string>(matchCandidates.keys())
+  const paymentOfReceipt = new Map([...links].map(([lineId, receipt]) => [receipt.id, lines.find((l) => l.id === lineId)!]))
+  const shownName = (account: string) => names.get(account) ?? account
+  // How a receipt was paid, for its sheet: its card's account (or its payment's), its payment, or that its statement isn't in.
+  const paidWith = (receipt: KnownReceipt): PaidWith => {
+    const said = cardAccountOf(receipt, cards)
+    const payment = paymentOfReceipt.get(receipt.id)
+    const account = said || payment?.account
+    const covered = !account || statements.some((s) => s.account === account && s.from <= receipt.date && receipt.date <= s.to)
+    return {
+      ...(receipt.card ? { card: receipt.card } : {}),
+      ...(said !== undefined ? { said } : {}),
+      ...(account ? { accountName: shownName(account) } : {}),
+      ...(payment ? { payment: { date: payment.date, amount: -payment.amount, accountName: shownName(payment.account) }, paymentAccount: payment.account } : {}),
+      notIn: !payment && !covered,
+      accounts: [...names].sort((a, b) => a[1].localeCompare(b[1], 'en', { sensitivity: 'base' })),
+    }
+  }
   const today = toDateKey(new Date())
   const thisMonth = today.slice(0, 7)
   const month = sub && /^\d{4}-\d{2}$/.test(sub) ? sub : thisMonth
@@ -307,6 +328,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             receipt={openReceipt}
             names={forNames}
             suggestions={forSuggestions}
+            paidWith={openReceipt.refund ? undefined : paidWith(openReceipt)}
             onOpenEntry={() => {
               setReceiptId(null)
               openEntry(openReceipt)

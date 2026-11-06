@@ -2,9 +2,10 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { type ReactNode, useId, useState } from 'react'
 import { db } from '../../db/db'
 import { changeItem, fileItem, ITEM_KINDS_SETTING, rememberItemKind } from '../../db/receiptItems'
-import { ITEM_KINDS, itemShown, paidFor, type ReceiptItem } from '../../domain/receipts'
+import { nameCard } from '../../db/statements'
+import { type CardPaid, ITEM_KINDS, itemShown, paidFor, type ReceiptItem } from '../../domain/receipts'
 import { givenBack, itemKeys, type KnownReceipt, money, offerWords, paid, rememberedKey, rememberedKindsOf, returnedOn, spentOn } from '../../domain/shopping'
-import { dayMonthLong } from '../../lib/dates'
+import { dayMonth, dayMonthLong } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
 import { ForSheet } from './PaymentSheets'
 
@@ -13,13 +14,36 @@ import { ForSheet } from './PaymentSheets'
 // returned item comes off what was spent; what was paid stays as printed, for matching a card payment. An item on
 // offer shows what was paid, then what it was and what the offer took off (v0.20.19, owner's choice).
 
+/** How a receipt was paid, for its sheet (v0.24.0, owner 2026-11-06: "so I know which account to look for the
+ *  statement to see its transaction"): its card, the account you said that is, and the payment matched to it. */
+export interface PaidWith {
+  card?: CardPaid
+  /** The account you said its card is, "" for none of them; undefined when you haven't said. */
+  said?: string
+  /** The account it was paid from, by the name it's shown by: its card's, else its payment's. */
+  accountName?: string
+  /** The payment matched to it, and the account that's in, by its name. */
+  payment?: { date: string; amount: number; accountName: string }
+  /** Its account has no statement for its day yet. */
+  notIn: boolean
+  /** Your accounts, to choose its card's from: each as its statement names it, and by the name it's shown by. */
+  accounts: readonly (readonly [account: string, name: string])[]
+  /** The account its matched payment is in. */
+  paymentAccount?: string
+}
+
+/** "Visa ending 4417": a card in words (a screen reader says "••" as dots). */
+const cardWords = (card: CardPaid) => `${card.scheme ?? 'Card'} ending ${card.last4}`
+
 /** A receipt's items and what it came to; "Open the entry" for its photo and journal. */
-export function ReceiptSheet(props: { receipt: KnownReceipt; names: string[]; suggestions: string[]; onOpenEntry: () => void; onClose: () => void }) {
-  const { receipt, names, suggestions, onOpenEntry, onClose } = props
+export function ReceiptSheet(props: { receipt: KnownReceipt; names: string[]; suggestions: string[]; paidWith?: PaidWith; onOpenEntry: () => void; onClose: () => void }) {
+  const { receipt, names, suggestions, paidWith, onOpenEntry, onClose } = props
   const [chosen, setChosen] = useState<number | null>(null)
+  const [choosingCard, setChoosingCard] = useState(false)
   const keys = itemKeys(receipt.items).map((key, i) => receipt.items[i]!.key ?? key)
   const item = chosen === null ? undefined : receipt.items[chosen]
   if (item && chosen !== null) return <ItemSheet receipt={receipt} item={item} itemKey={keys[chosen]!} names={names} suggestions={suggestions} onClose={() => setChosen(null)} />
+  if (choosingCard && paidWith?.card) return <CardSheet card={paidWith.card} said={paidWith.said} accounts={paidWith.accounts} paymentAccount={paidWith.paymentAccount} onClose={() => setChoosingCard(false)} />
   const returned = returnedOn(receipt)
   const offers = receipt.items.reduce((s, it) => s + (it.saving ?? (it.price < 0 ? -it.price : 0)), 0)
   const footer = (
@@ -33,6 +57,7 @@ export function ReceiptSheet(props: { receipt: KnownReceipt; names: string[]; su
       <p className="muted small">
         {dayMonthLong(receipt.date)} · {receipt.readBy ? 'Read by your AI' : 'Read by the phone'}
       </p>
+      {paidWith ? <Paid paid={paidWith} date={receipt.date} onCard={() => setChoosingCard(true)} /> : null}
       {receipt.items.length ? (
         <ul className="plain-list compact receipt-items rc-items" aria-label="Items">
           {receipt.items.map((it, i) => (
@@ -94,6 +119,70 @@ function RefundSheet(props: { receipt: KnownReceipt; footer: ReactNode; onClose:
         {receipt.giftCard ? <TotalNote>to a gift card</TotalNote> : null}
       </p>
       <p className="muted small">Not counted. Say “I returned it” on the receipt you bought them on.</p>
+    </Dialog>
+  )
+}
+
+/** Which card paid and the account that is, with a tap to say or change it; then its payment, or why there's none yet. */
+function Paid({ paid, date, onCard }: { paid: PaidWith; date: string; onCard: () => void }) {
+  const { card, said, accountName, payment, notIn } = paid
+  if (!card && !payment) return null
+  const how = said === '' && card ? `Paid with ${cardWords(card)} · not one of your accounts` : accountName ? `Paid from ${accountName}${card ? ` · ${cardWords(card)}` : ''}` : card ? `Paid with ${cardWords(card)}` : ''
+  const then = payment
+    ? `Payment on ${dayMonth(payment.date)} · ${money(payment.amount, '£')}${payment.accountName !== accountName ? ` · ${payment.accountName}` : ''}`
+    : notIn
+      ? `${accountName} statement for ${dayMonth(date)} not in yet`
+      : said
+        ? 'No payment matched yet'
+        : null
+  return (
+    <div>
+      <p>
+        {how}
+        {card ? (
+          <>
+            {' '}
+            <button type="button" className="small-link" onClick={onCard}>
+              {said === undefined ? 'Which account?' : 'Change'}
+            </button>
+          </>
+        ) : null}
+      </p>
+      {then ? <p className="muted small">{then}</p> : null}
+    </div>
+  )
+}
+
+/** Which of your accounts a card is (v0.24.0): one tap is kept, for every receipt with that card, earlier ones too. */
+function CardSheet(props: { card: CardPaid; said?: string; accounts: PaidWith['accounts']; paymentAccount?: string; onClose: () => void }) {
+  const { card, said, accounts, paymentAccount, onClose } = props
+  const name = useId()
+  const choose = async (account: string) => {
+    await nameCard(card.last4, account)
+    onClose()
+  }
+  return (
+    <Dialog title="Which account is it?" onClose={onClose}>
+      <p className="muted small">{cardWords(card)} · every receipt with it follows</p>
+      {accounts.length ? null : <p>Bring in a statement for its account, then choose it here.</p>}
+      <div role="radiogroup" aria-label={`The account ${cardWords(card)} is`} className="purpose-list">
+        {accounts.map(([account, shown]) => (
+          <label key={account} className="purpose-option">
+            <input type="radio" name={name} value={account} checked={said === account} onChange={() => void choose(account)} />
+            <span className="purpose-text">
+              <span className="purpose-label">{shown}</span>
+              {account === paymentAccount ? <span className="muted small">Its payment is here</span> : null}
+            </span>
+          </label>
+        ))}
+        <label className="purpose-option">
+          <input type="radio" name={name} value="" checked={said === ''} onChange={() => void choose('')} />
+          <span className="purpose-text">
+            <span className="purpose-label">Not one of my accounts</span>
+            <span className="muted small">Its statements aren’t brought in</span>
+          </span>
+        </label>
+      </div>
     </Dialog>
   )
 }

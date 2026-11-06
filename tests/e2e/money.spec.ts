@@ -873,6 +873,83 @@ test('a card payment with its receipt opens the receipt', async ({ page }, testI
   await expect(page.getByRole('region', { name: 'By what it was for' }).locator('summary', { hasText: 'Energy' })).toHaveText('Energy 1 payment £45.00')
 })
 
+// Which card paid (v0.24.0, owner 2026-11-06: "detect the card from the receipt … so I know which account to look for
+// the statement to see its transaction"). Made-up card number.
+test('a receipt says which card paid; said once which account that is, every receipt with it says so and is matched only there', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 5, 12, 0)
+  await page.clock.setFixedTime(now)
+  const read = (shop: string, date: string, pence: number) => ({
+    by: 'Gemini · gemini-test',
+    at: 1,
+    text: `${shop.toUpperCase()}\nThing £${(pence / 100).toFixed(2)}\nTOTAL £${(pence / 100).toFixed(2)}\nVISA DEBIT\n************4417\nAUTH CODE 000000`,
+    description: '',
+    receipt: { shop, date, currency: '£', items: [{ name: 'Thing', price: pence, quantity: 1 }], total: pence },
+  })
+  const entries = [
+    { ...freeWriting('e-stream', '', 20, now), photos: [{ id: 'p-stream', text: null, ai: read('Example Streaming', '2026-09-12', 1099) }] },
+    { ...freeWriting('e-coffee', '', 14, now), photos: [{ id: 'p-coffee', text: null, ai: read('Coffee Place', '2026-09-20', 300) }] },
+    { ...freeWriting('e-corner', '', 2, now), photos: [{ id: 'p-corner', text: null, ai: read('Corner Shop', '2026-10-03', 500) }] },
+  ]
+  await restoreBackup(page, testInfo.outputPath('cards.json'), backupWith({ entries }, now))
+  await page.goto('./#/money')
+  for (const [name, statement] of [['lloyds', LLOYDS_LIKE], ['monzo', MONZO_LIKE]] as const) {
+    const sheet = await bringIn(page, await pdf(testInfo.outputPath(`${name}.pdf`), statement))
+    await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  }
+  const openReceipt = async (month: string, count: string, shop: string) => {
+    await page.goto(`./#/money${month}`)
+    await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+    await page.locator('details.week-line > summary', { hasText: count }).click()
+    await page.getByRole('button', { name: new RegExp(shop) }).click()
+    return page.getByRole('dialog', { name: shop })
+  }
+  const said = (sheet: ReturnType<Page['getByRole']>, text: string) => expect(sheet.locator('p', { hasText: text })).toBeVisible()
+
+  // Not said yet: the payment found by its amount says which account it's in.
+  let receipt = await openReceipt('/2026-09', '2 receipts from 2 shops', 'Example Streaming')
+  await said(receipt, 'Paid from Lloyds · Visa ending 4417')
+  await expect(receipt.getByText(/^Payment on 12 Sept? · £10\.99$/)).toBeVisible()
+  await receipt.getByRole('button', { name: 'Which account?', exact: true }).click()
+  let which = page.getByRole('dialog', { name: 'Which account is it?' })
+  await expect(which.getByRole('radio', { name: /^Lloyds.*Its payment is here/ })).toBeVisible()
+  // Said to be Monzo, it's looked for in Monzo alone, where there is no such payment.
+  await which.getByRole('radio', { name: 'Monzo', exact: true }).click()
+  await said(receipt, 'Paid from Monzo · Visa ending 4417')
+  await expect(receipt.getByText('No payment matched yet', { exact: true })).toBeVisible()
+  await receipt.getByRole('button', { name: 'Change', exact: true }).click()
+  which = page.getByRole('dialog', { name: 'Which account is it?' })
+  await which.getByRole('radio', { name: /^Lloyds/ }).click()
+  await said(receipt, 'Paid from Lloyds · Visa ending 4417')
+  await expect(receipt.getByText(/^Payment on 12 Sept? · £10\.99$/)).toBeVisible()
+  await receipt.getByRole('button', { name: 'Close', exact: true }).click()
+
+  // Another receipt with that card follows, and isn't matched to Monzo's coffee of the same amount and day.
+  receipt = page.getByRole('dialog', { name: 'Coffee Place' })
+  await page.getByRole('button', { name: /Coffee Place/ }).click()
+  await said(receipt, 'Paid from Lloyds · Visa ending 4417')
+  await expect(receipt.getByText('No payment matched yet', { exact: true })).toBeVisible()
+  await receipt.getByRole('button', { name: 'Close', exact: true }).click()
+
+  // A day its account has no statement for yet says so.
+  receipt = await openReceipt('', '1 receipt from 1 shop', 'Corner Shop')
+  await said(receipt, 'Paid from Lloyds · Visa ending 4417')
+  await expect(receipt.getByText(/^Lloyds statement for 3 Oct not in yet$/)).toBeVisible()
+  // None of your accounts: it's never matched, and nothing is said to be missing.
+  await receipt.getByRole('button', { name: 'Change', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Which account is it?' }).getByRole('radio', { name: /^Not one of my accounts/ }).click()
+  await said(receipt, 'Paid with Visa ending 4417 · not one of your accounts')
+  await expect(receipt.getByText(/not in yet/)).toHaveCount(0)
+  await receipt.getByRole('button', { name: 'Change', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Which account is it?' }).getByRole('radio', { name: /^Lloyds/ }).click()
+  await receipt.getByRole('button', { name: 'Close', exact: true }).click()
+
+  // Your accounts lists the cards you said are each.
+  await page.getByRole('button', { name: 'Accounts', exact: true }).click()
+  await accountView(page, 'Statements')
+  await expect(page.locator('.acc-account', { hasText: 'Lloyds' })).toContainText('Card ending 4417')
+  await expect(page.locator('.acc-account', { hasText: 'Monzo' }).first()).not.toContainText('ending')
+})
+
 // Accounts (v0.20.22): the month's figure first, the months either side a tap away, what's open staying open between
 // them, the two small figures opening their lists, and a line (and a dot on Statements) when an account needs a statement.
 test('Accounts steps between months, keeps its part open, and says when an account needs a statement', async ({ page }, testInfo) => {
