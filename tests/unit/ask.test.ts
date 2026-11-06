@@ -45,6 +45,14 @@ describe('receiptsOf: the receipts in your photos', () => {
       ['p3', '2026-10-21', 'The Daily Grind Cafe'],
     ])
   })
+
+  // v0.24.0: the card a receipt was paid with is read on the phone for Money; Ask's receipt tools never send it.
+  it('reads the card a receipt was paid with, and no receipt tool gives its digits to the AI', async () => {
+    expect(receiptsOf(ENTRIES).find((r) => r.id === 'p3')?.card).toEqual({ last4: '4417', scheme: 'Visa' })
+    for (const c of [call('find_receipts', {}), call('spend_by_shop', {}), call('sum', { receipt_ids: ['p3'], item_ids: ['p3:0'] })]) {
+      expect((await runTool(c, journal())).result, c.function.name).not.toMatch(/4417|Visa/i)
+    }
+  })
 })
 
 describe('the tools: what the phone answers', () => {

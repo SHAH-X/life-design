@@ -527,6 +527,24 @@ describe('linkReceipts: a card payment and the receipt for it (v0.20.2)', () => 
     )
   })
 
+  // v0.24.0 (owner, 2026-11-06): a card you said is one of your accounts is looked for only there; one you said is none
+  // of them is never matched to someone else's purchase.
+  it('looks for a receipt’s payment only in the account its card is, and nowhere for a card that is none of them', () => {
+    const paidBy = (last4: string) => ({ ...receipt('r11', 'Tesco', '2026-10-01', 2500), card: { last4, scheme: 'Visa' as const } })
+    const ids = (cards: Record<string, string>) => [...linkReceipts(lines, [paidBy('4417')], {}, cards).values()].map((r) => r.id)
+    expect(ids({})).toEqual(['r11'])
+    expect(ids({ '4417': BANK })).toEqual(['r11'])
+    expect(ids({ '4417': CURRENT })).toEqual([])
+    expect(receiptPaymentCandidates(lines, paidBy('4417'), new Set(), { '4417': CURRENT })).toEqual([])
+    expect(ids({ '4417': '' })).toEqual([])
+    expect(receiptPaymentCandidates(lines, { ...paidBy('4417'), total: 2000 }, new Set(), { '4417': '' })).toEqual([])
+    // Another card's choice says nothing about this one.
+    expect(ids({ '9999': CURRENT })).toEqual(['r11'])
+    // A link you chose stands whatever the card.
+    const chosen = lines.find((l) => l.description === 'TESCO SOMETOWN GBR')!.id
+    expect([...linkReceipts(lines, [paidBy('4417')], { r11: chosen }, { '4417': CURRENT }).keys()]).toEqual([chosen])
+  })
+
   it('keeps owner-selected matches unique and takes them before automatic matches', () => {
     const first = receipt('r8', 'Tesco', '2026-10-09', 3000)
     const second = receipt('r9', 'Tesco', '2026-10-09', 3000)

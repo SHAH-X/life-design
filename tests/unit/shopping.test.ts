@@ -100,6 +100,16 @@ describe('receiptsOf: whether a date was read, and who read it', () => {
     const [byPhone] = receiptsOf([{ ...areaEntry({ id: 'e2', text: '', expect: [] }, '2026-10-20'), photos: [{ id: 'p2', text: 'GREENLEAF MARKET\n12 Oct 2026\nOat milk 1.65\nTOTAL 1.65' }] }])
     expect(byPhone).toMatchObject({ date: '2026-10-12', dated: true, readBy: null })
   })
+
+  // v0.24.0: the card it was paid with, from your AI's text of it, else the phone's. Made-up numbers.
+  it('says which card paid: as your AI wrote the text out, else as the phone read it', () => {
+    const reading = (text: string) => ({ by: 'Gemini · gemini-test', at: 1, text, description: '', receipt: { shop: 'Greenleaf Market', date: '2026-10-12', currency: '£', items: [{ name: 'Oat milk', price: 165, quantity: 1 }], total: 165 } })
+    const cardOf = (photo: Entry['photos'][number]) => receiptsOf([{ ...areaEntry({ id: 'e1', text: '', expect: [] }, '2026-10-12'), photos: [photo] }])[0]?.card
+    const PHONE = 'GREENLEAF MARKET\n12 Oct 2026\nOat milk 1.65\nTOTAL 1.65\nVISA ************2468'
+    expect(cardOf({ id: 'p1', text: PHONE, ai: reading('GREENLEAF MARKET\nTOTAL 1.65\nMASTERCARD ************1357') })).toEqual({ last4: '1357', scheme: 'Mastercard' })
+    expect(cardOf({ id: 'p1', text: PHONE, ai: reading('GREENLEAF MARKET\nTOTAL 1.65\nPaid contactless') })).toEqual({ last4: '2468', scheme: 'Visa' })
+    expect(cardOf({ id: 'p1', text: 'GREENLEAF MARKET\n12 Oct 2026\nOat milk 1.65\nTOTAL 1.65\nCASH 2.00' })).toBeUndefined()
+  })
 })
 
 // Owner, 2026-10-31: "i cannot see … which category the item … is assigned to" and "certain things … have been returned

@@ -80,6 +80,17 @@ export async function nameAccount(account: string, name: string, database: LifeD
   await setSetting(ACCOUNT_NAMES, name.trim() ? { ...rest, [account]: name.trim() } : rest, database)
 }
 
+/** Which of your accounts each card is (v0.24.0, owner 2026-11-06: "name all those cards … so I know which account to
+ *  look for the statement"), by the last 4 digits a receipt prints: the account as its statement names it, or "" for a
+ *  card that is none of the accounts brought in. A setting, so it's in a backup. Read with `accountNamesOf`. */
+export const CARD_ACCOUNTS = 'cardAccounts'
+
+/** Says which account a card is ("" for none of them), or forgets it (null). */
+export async function nameCard(last4: string, account: string | null, database: LifeDesignDB = defaultDb): Promise<void> {
+  const { [last4]: _, ...rest } = accountNamesOf(await database.settings.get(CARD_ACCOUNTS))
+  await setSetting(CARD_ACCOUNTS, account === null ? rest : { ...rest, [last4]: account }, database)
+}
+
 /** The names you gave payees you move money to (owner, 2026-10-26: a statement prints your own name, not which account), by the
  *  payee's key: a setting, so it's in a backup. Read with `accountNamesOf`; shown by `classify`. */
 export const PAYEE_NAMES = 'payeeNames'

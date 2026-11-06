@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isRefundSlip, readReceipt, receiptDate, receiptTime } from '../../src/domain/receipts'
+import { isRefundSlip, paymentOf, readReceipt, receiptDate, receiptTime } from '../../src/domain/receipts'
 import { type ExpectedReceipt, RECEIPTS, RECEIPTS_UNSEEN, REFUND_SLIP } from '../fixtures/receipts'
 
 /** What the rules made of each fictional receipt, as the fixture writes it. */
@@ -75,5 +75,50 @@ describe('readReceipt: a receipt in the text read from a photo', () => {
 
   it('never reads an amount stuck to letters as a price ("ne.auj9,28M")', () => {
     expect(readReceipt('SHOP\nTea 3.00\nWed 28th Oct ne.auj9,28M ts bneqe\nTOTAL 3.00')?.items.map((i) => i.name)).toEqual(['Tea'])
+  })
+})
+
+// Which card paid (v0.24.0, owner 2026-11-06: "detect the card from the receipt … so I know which account to look for
+// the statement"): the last 4 digits a receipt prints, read on the phone from the text already stored. Made-up numbers.
+describe('paymentOf: the card a receipt was paid with', () => {
+  const card = (text: string) => paymentOf(text).card ?? null
+
+  it.each([
+    ['VISA ending 4417', { last4: '4417', scheme: 'Visa' }],
+    ['Card ending in 5520', { last4: '5520' }],
+    ['DEBIT MASTERCARD\nCARD:465800XXXXXX2913 AUTH:004417', { last4: '2913', scheme: 'Mastercard' }],
+    ['Visa Debit\nCard number: ************7731\nPAN SEQ 01', { last4: '7731', scheme: 'Visa' }],
+    ['PAN: XXXX XXXX XXXX 6620\nMAESTRO', { last4: '6620', scheme: 'Maestro' }],
+    ['AMERICAN EXPRESS\n***********1005', { last4: '1005', scheme: 'Amex' }],
+    ['Contactless •••• 3304', { last4: '3304' }],
+    ['CARD xxxx-xxxx-xxxx-8810 VISA', { last4: '8810', scheme: 'Visa' }],
+  ])('reads %j', (text, expected) => {
+    expect(card(text)).toEqual(expected)
+  })
+
+  it('never takes a gift card’s, the terminal’s, the merchant’s or an account’s number for the card', () => {
+    expect(card('Gift Card *x*x xx*x 0000 £22.75\nNew Balance £0.00')).toBeNull()
+    expect(card('ASDA GIFT CARD\n************4412\nBalance £0.00')).toBeNull()
+    expect(card('MID: ****8812\nTID: ****0042')).toBeNull()
+    expect(card('Merchant ID XXXX1234')).toBeNull()
+    expect(card('Account number ****9087')).toBeNull()
+    // A masked run before a date or a time is not a card.
+    expect(card('**** 2026-10-24')).toBeNull()
+  })
+
+  it('reads no card when two different ones are printed, and one when it is printed twice (both copies of the slip)', () => {
+    expect(card('VISA ************1111\nVISA ************2222')).toBeNull()
+    expect(card('CUSTOMER COPY\nVISA ************3141\nMERCHANT COPY\nVISA ************3141')).toEqual({ last4: '3141', scheme: 'Visa' })
+  })
+
+  it('takes the number on a card’s line over one with no word before it', () => {
+    expect(card('XXXXXXXXXXXX5555\nVISA XXXXXXXXXXXX1234')).toEqual({ last4: '1234', scheme: 'Visa' })
+  })
+
+  it('reads the card on the fixtures that print one, and none on those paid another way', () => {
+    const of = (id: string) => card(RECEIPTS.find((c) => c.id === id)!.text)
+    expect(of('cafe')).toEqual({ last4: '4417', scheme: 'Visa' })
+    expect(of('ms-food-sparks')).toEqual({ last4: '0000', scheme: 'Mastercard' })
+    for (const id of ['greenleaf', 'codes-and-marks', 'asda-price-first', 'ms-order-collection', 'asda-delivery-line', 'quantities-discount']) expect(of(id), id).toBeNull()
   })
 })

@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useId, useState } from 'react'
 import { db } from '../../db/db'
-import { CLOSED_ACCOUNTS, markClosed, nameAccount, ownPayeesOf, removeAccount } from '../../db/statements'
+import { accountNamesOf, CARD_ACCOUNTS, CLOSED_ACCOUNTS, markClosed, nameAccount, ownPayeesOf, removeAccount } from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
 import { notBroughtIn } from '../../domain/money'
 import { formatPeriod, toDateKey } from '../../lib/dates'
@@ -10,7 +10,8 @@ import { useMoney } from './MoneyContext'
 import { useAccountNames } from './useAccountNames'
 
 // Your accounts (v0.20, step 1 of Money): each account a statement was brought in for, its lines and the days they
-// cover and the days still to bring in, a name of your own for it, whether it's closed, and "Bring in a statement".
+// cover and the days still to bring in, a name of your own for it, whether it's closed, the cards you said are it
+// (v0.24.0, said on a receipt, where the number shows), and "Bring in a statement".
 
 interface Account {
   name: string
@@ -45,6 +46,7 @@ async function accounts(): Promise<Account[]> {
 export function Accounts() {
   const list = useLiveQuery(accounts, [])
   const names = useAccountNames()
+  const cards = useLiveQuery(async () => accountNamesOf(await db.settings.get(CARD_ACCOUNTS)), [])
   const { importStatement } = useMoney()
   const [naming, setNaming] = useState<Account | null>(null)
   const today = toDateKey(new Date())
@@ -65,6 +67,7 @@ export function Accounts() {
           {list.map((a) => {
             const missing = notBroughtIn(a.statements, today, a.closed)
             const state = a.closed ? 'closed' : missing.length ? 'missing' : 'ok'
+            const itsCards = Object.entries(cards ?? {}).flatMap(([last4, account]) => (account === a.name ? [last4] : [])).sort()
             return (
               <li key={a.name} className="acc-li acc-account">
                 <div className="acc-account-main">
@@ -79,6 +82,7 @@ export function Accounts() {
                     {a.notAdding ? ` · ${a.notAdding} ${a.notAdding === 1 ? 'doesn’t match its' : 'don’t match their'} printed balance` : ''}
                   </span>
                   {missing.length ? <span className="acc-account-line acc-account-missing">Missing: {missing.map((g) => formatPeriod(g.from, g.to)).join('; ')}</span> : null}
+                  {itsCards.length ? <span className="acc-account-line">{itsCards.length === 1 ? 'Card' : 'Cards'} ending {itsCards.join(' · ')}</span> : null}
                 </div>
                 <button type="button" className="acc-link" aria-label={`Change ${names.get(a.name) ?? a.name}`} onClick={() => setNaming(a)}>
                   Change

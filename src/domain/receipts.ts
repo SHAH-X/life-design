@@ -55,6 +55,67 @@ export interface Receipt {
   refund?: true
   /** A refund slip that names a gift card after its total: the money went back to it, so no bank shows it. */
   giftCard?: true
+  /** The card it was paid with, as printed (v0.24.0, `paymentOf`): read on the phone from the photo's text. */
+  card?: CardPaid
+}
+
+/** A card as a receipt prints it: its last 4 digits, and its scheme when that's printed too. Paid by phone, it's the
+ *  phone's own number for the card (Apple Wallet's "Device Account Number"), not the one on the plastic. */
+export interface CardPaid {
+  last4: string
+  scheme?: 'Visa' | 'Mastercard' | 'Maestro' | 'Amex'
+}
+
+/** A card's number with all but its last 4 hidden ("************1234", "XXXX XXXX XXXX 1234", M&S's
+ *  "465800XXXXXX1234"); not before a date or a time. */
+const MASKED = /(?<![\dA-Za-z])(?:\d{4,6})?(?:[*xX•●×#][\s-]?){4,}(\d{4})(?![\d/.:-])/g
+/** "VISA ending 4417", "Card ending in 1234". */
+const ENDING = /\bending(?:\s+in)?\s*:?\s*(\d{4})(?![\d/.:-])/gi
+/** A gift card's or voucher's line: its number is never the bank card's. */
+const GIFT = /\bgift\b|\bvoucher\b|e-?gift/i
+/** Words right before a number that make it the shop's, the terminal's or an account's, not the card's. */
+const OTHER_NUMBER = new Set(['mid', 'tid', 'merchant', 'terminal', 'term', 'auth', 'authorisation', 'authorization', 'ref', 'reference', 'tc', 'seq', 'loyalty', 'member', 'membership', 'account', 'acct', 'order', 'store', 'till', 'transaction', 'trans', 'receipt', 'tel', 'phone', 'vat'])
+/** A card's own words: a number on such a line, or under one, is the card's. */
+const CARD_WORDS = /\b(?:card|visa|mastercard|master\s*card|maestro|amex|american\s+express|debit|credit|pan|contactless)\b/i
+const SCHEMES: [NonNullable<CardPaid['scheme']>, RegExp][] = [
+  ['Mastercard', /\bmaster\s*card\b/i],
+  ['Maestro', /\bmaestro\b/i],
+  ['Amex', /\bamex\b|\bamerican\s+express\b/i],
+  ['Visa', /\bvisa\b/i],
+]
+
+/** How a receipt was paid (v0.24.0, owner 2026-11-06: "detect the card from the receipt … so I know which account to
+ *  look for the statement"): the card's last 4 digits, read on the phone from the text already stored, so nothing more
+ *  is sent and receipts read before it have theirs at once. A number on a card's line, or under one, comes before one
+ *  with no such word; a gift card's, the terminal's or an account's never counts; two different cards are none. */
+export function paymentOf(text: string): { card?: CardPaid } {
+  const lines = text.split('\n')
+  const found: { last4: string; line: number; strong: boolean }[] = []
+  for (const [i, line] of lines.entries()) {
+    if (GIFT.test(line)) continue
+    const above = lines[i - 1] ?? ''
+    for (const [pattern, ending] of [[MASKED, false], [ENDING, true]] as const) {
+      for (const m of line.matchAll(pattern)) {
+        const before = line.slice(0, m.index).trim()
+        // Nothing before it on its line: the line above says whose it is ("ASDA GIFT CARD", "DEBIT MASTERCARD").
+        const context = /[A-Za-z]/.test(before) ? before : above
+        if (!before && GIFT.test(above)) continue
+        const words = (context.toLowerCase().match(/[a-z]+/g) ?? []).slice(-2)
+        const cardWord = words.some((w) => CARD_WORDS.test(w)) || ending
+        if (!cardWord && words.some((w) => OTHER_NUMBER.has(w))) continue
+        found.push({ last4: m[1]!, line: i, strong: cardWord || CARD_WORDS.test(line) || CARD_WORDS.test(above) })
+      }
+    }
+  }
+  const strong = found.filter((f) => f.strong)
+  const kept = strong.length ? strong : found
+  const numbers = new Set(kept.map((f) => f.last4))
+  if (numbers.size !== 1) return {}
+  const at = kept[0]!.line
+  // Its scheme: on its line, else the nearest line around it.
+  const near = [at, at - 1, at + 1, at - 2, at + 2].map((i) => lines[i] ?? '')
+  const scheme = near.map((line) => SCHEMES.find(([, words]) => words.test(line))?.[0]).find(Boolean)
+  return { card: { last4: kept[0]!.last4, ...(scheme ? { scheme } : {}) } }
 }
 
 /** A slip's own words for a refund: "*** RETURN RECEIPT ***", "ITEMS RETURNED 2", "REFUND REASON". A receipt's refund
