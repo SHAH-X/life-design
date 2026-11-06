@@ -57,6 +57,8 @@ export interface Receipt {
   giftCard?: true
   /** The card it was paid with, as printed (v0.24.0, `paymentOf`): read on the phone from the photo's text. */
   card?: CardPaid
+  /** What went on a gift card, in minor units, never more than its total (v0.24.1, `paymentOf`): no bank shows it. */
+  byGiftCard?: number
 }
 
 /** A card as a receipt prints it: its last 4 digits, and its scheme when that's printed too. Paid by phone, it's the
@@ -77,6 +79,12 @@ const GIFT = /\bgift\b|\bvoucher\b|e-?gift/i
 const OTHER_NUMBER = new Set(['mid', 'tid', 'merchant', 'terminal', 'term', 'auth', 'authorisation', 'authorization', 'ref', 'reference', 'tc', 'seq', 'loyalty', 'member', 'membership', 'account', 'acct', 'order', 'store', 'till', 'transaction', 'trans', 'receipt', 'tel', 'phone', 'vat'])
 /** A card's own words: a number on such a line, or under one, is the card's. */
 const CARD_WORDS = /\b(?:card|visa|mastercard|master\s*card|maestro|amex|american\s+express|debit|credit|pan|contactless)\b/i
+/** A gift card's tender line ("Gift Card £7.25", "Gift Card *x*x 0000 £22.75", "E-GIFT CARD 3.00"), perhaps its shop's
+ *  name first; a balance left on it ("New Balance", "Gift Card Balance") is not money paid. */
+const GIFT_TENDER = /^(?:[A-Za-z&'’]+\s+)?e?-?gift\s*card\b/i
+const LEFT_ON_IT = /\bbal(?:ance)?\b|\bremaining\b/i
+/** An amount at the end of a line, perhaps a VAT mark after it. */
+const LAST_AMOUNT = /(\d{1,5}[.,]\d{2})\s*[A-Za-z*×<]?$/
 const SCHEMES: [NonNullable<CardPaid['scheme']>, RegExp][] = [
   ['Mastercard', /\bmaster\s*card\b/i],
   ['Maestro', /\bmaestro\b/i],
@@ -88,8 +96,26 @@ const SCHEMES: [NonNullable<CardPaid['scheme']>, RegExp][] = [
  *  look for the statement"): the card's last 4 digits, read on the phone from the text already stored, so nothing more
  *  is sent and receipts read before it have theirs at once. A number on a card's line, or under one, comes before one
  *  with no such word; a gift card's, the terminal's or an account's never counts; two different cards are none. */
-export function paymentOf(text: string): { card?: CardPaid } {
+export function paymentOf(text: string): { card?: CardPaid; byGiftCard?: number } {
   const lines = text.split('\n')
+  const gift = giftCardPaid(lines)
+  return { ...cardPaid(lines), ...(gift ? { byGiftCard: gift } : {}) }
+}
+
+/** What the tender lines after the total say went on a gift card (v0.24.1: gift cards bought through Blue Light Card,
+ *  "Blc" on the statement): a gift card bought as an item comes before the total, and none is read with no total. */
+function giftCardPaid(lines: readonly string[]): number {
+  const at = lines.findIndex((line) => TOTAL.test(line) && !NOT_TOTAL.test(line) && LAST_AMOUNT.test(line.trim()))
+  if (at < 0) return 0
+  return lines
+    .slice(at + 1)
+    .map((line) => line.trim())
+    .filter((line) => GIFT_TENDER.test(line) && !LEFT_ON_IT.test(line))
+    .reduce((sum, line) => sum + (line.match(LAST_AMOUNT) ? toMinor(line.match(LAST_AMOUNT)![1]!) : 0), 0)
+}
+
+/** The card's last 4 digits and its scheme. */
+function cardPaid(lines: readonly string[]): { card?: CardPaid } {
   const found: { last4: string; line: number; strong: boolean }[] = []
   for (const [i, line] of lines.entries()) {
     if (GIFT.test(line)) continue

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { titleCaseShouted, accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges, moneyYear, monthEndBalances, monthCoverage, averageOfComplete, searchPayments, paymentYears, nameOf, labelsOf, withFor, forNamesOf, suggestedPeople, NOBODY } from '../../src/domain/money'
+import { titleCaseShouted, accountNames, classify, joinMoves, kindOf, notBroughtIn, linkReceipts, mayBeOwn, moneyMonth, moneyMonthTotals, payeeOf, regularPayments, regularPaymentsTotal, receiptPaymentCandidates, committedOf, upcoming, regularChanges, moneyYear, monthEndBalances, monthCoverage, averageOfComplete, searchPayments, paymentYears, nameOf, labelsOf, withFor, forNamesOf, suggestedPeople, NOBODY, isGiftCardBuy, giftCardsBefore } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 
 // Money (v0.20, step 2): what came in and went out of your accounts, worked out on the phone from statements brought in.
@@ -545,6 +545,17 @@ describe('linkReceipts: a card payment and the receipt for it (v0.20.2)', () => 
     expect([...linkReceipts(lines, [paidBy('4417')], { r11: chosen }, { '4417': CURRENT }).keys()]).toEqual([chosen])
   })
 
+  // v0.24.1 (owner, 2026-11-06): gift cards bought through Blue Light Card. No bank shows what went on one.
+  it('never matches a receipt paid wholly by gift card, and matches one paid partly at the rest', () => {
+    const whole = { ...receipt('r12', 'Tesco', '2026-10-01', 2500), byGiftCard: 2500 }
+    expect(receiptPaymentCandidates(lines, whole)).toEqual([])
+    expect(linkReceipts(lines, [whole])).toEqual(new Map())
+    // £35 at Tesco, £5 of it on a gift card: the £30 payment is its own.
+    const part = { ...receipt('r13', 'Tesco', '2026-10-09', 3500), byGiftCard: 500 }
+    const linked = [...linkReceipts(lines, [part])]
+    expect(linked.map(([id, r]) => [lines.find((l) => l.id === id)!.amount, r.id])).toEqual([[-3000, 'r13']])
+  })
+
   it('keeps owner-selected matches unique and takes them before automatic matches', () => {
     const first = receipt('r8', 'Tesco', '2026-10-09', 3000)
     const second = receipt('r9', 'Tesco', '2026-10-09', 3000)
@@ -553,6 +564,32 @@ describe('linkReceipts: a card payment and the receipt for it (v0.20.2)', () => 
     expect(links.get(paymentId)?.id).toBe(second.id)
     expect([...links.values()].map((item) => item.id)).toHaveLength(2)
     expect(new Set(links.keys()).size).toBe(2)
+  })
+})
+
+// v0.24.1 (owner, 2026-11-06): "payments done through GIFT card, mostly they are marked as starting with Blc in the
+// account statements" (gift cards bought through Blue Light Card; the line doesn't say which shop's). Made-up lines.
+describe('isGiftCardBuy, giftCardsBefore: gift cards bought through Blue Light Card', () => {
+  const lines = classify(
+    [
+      line(BANK, '2026-09-02', -47.5, 'BLC GIFTCARD DEMOTOWN', { type: 'DEB' }),
+      line(CURRENT, '2026-09-20', -95, 'Blc Giftcard Demotown GBR'),
+      line(CURRENT, '2026-10-01', -19, 'blc giftcard demotown'),
+      line(CURRENT, '2026-10-02', 19, 'BLC GIFTCARD DEMOTOWN'),
+      line(CURRENT, '2026-10-03', -12, 'BLACKWELLS BOOKS'),
+      line(CURRENT, '2026-10-04', -12, 'PUBLC HOUSE BLC'),
+    ],
+    new Set(),
+  )
+
+  it('knows a Blc payment whatever its capitals, and nothing else: not money back, nor a name with blc inside it', () => {
+    expect(lines.map(isGiftCardBuy)).toEqual([true, true, true, false, false, false])
+  })
+
+  it('lists the newest up to a day, at most three, from every account', () => {
+    expect(giftCardsBefore(lines, '2026-09-30').map((l) => [l.date, l.account])).toEqual([['2026-09-20', CURRENT], ['2026-09-02', BANK]])
+    expect(giftCardsBefore(lines, '2026-10-31', 2).map((l) => l.date)).toEqual(['2026-10-01', '2026-09-20'])
+    expect(giftCardsBefore(lines, '2026-09-01')).toEqual([])
   })
 })
 

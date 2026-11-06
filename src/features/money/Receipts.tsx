@@ -13,6 +13,7 @@ import {
   type ReceiptCopy,
   money,
   monthTotals,
+  onCard,
   paid,
   shopKey,
   SMALL_SHOP,
@@ -452,7 +453,7 @@ function ReceiptList(props: {
         const missingDate = !duplicateOf && !r.dated && !props.reviewedDates?.has(r.id)
         const candidates = props.matchCandidates?.get(r.id) ?? []
         const hasPaymentCandidates = candidates.length > 0
-        const hasAmountDifference = candidates.some((line) => Math.abs(line.amount) !== paid(r))
+        const hasAmountDifference = candidates.some((line) => Math.abs(line.amount) !== onCard(r))
         const title = duplicateOf
           ? 'Duplicate · counted once'
           : missingDate
@@ -490,11 +491,11 @@ function ReceiptList(props: {
                         <ul className="plain-list compact receipt-check-candidates">
                           {candidates.map((line) => {
                             const debit = Math.abs(line.amount)
-                            const difference = Math.abs(paid(r) - debit)
+                            const difference = Math.abs(onCard(r) - debit)
                             return (
                               <li key={line.id}>
                                 <span>
-                                  {nameOf(line)} · {shortDayMonth(line.date)} · receipt {money(paid(r), r.currency)} · debit {money(debit, '£')}
+                                  {nameOf(line)} · {shortDayMonth(line.date)} · receipt {money(onCard(r), r.currency)}{r.byGiftCard ? ' after gift card' : ''} · debit {money(debit, '£')}
                                   {difference ? ` · difference ${money(difference, r.currency)}` : ''}
                                 </span>
                               </li>
@@ -558,7 +559,7 @@ function MatchPaymentDialog(props: {
   const [otherReason, setOtherReason] = useState('')
   const otherReasonInput = useRef<HTMLInputElement>(null)
   const selected = candidates.find((candidate) => candidate.id === paymentId)
-  const amountDiffers = selected !== undefined && Math.abs(selected.amount) !== paid(receipt)
+  const amountDiffers = selected !== undefined && Math.abs(selected.amount) !== onCard(receipt)
   const reason = amountDiffers ? (reasonChoice === 'other' ? otherReason.trim() : reasonChoice) : ''
   const canMatch = selected !== undefined && (!amountDiffers || (reasonChoice !== '' && (reasonChoice !== 'other' || reason.length > 0)))
   const footer = (
@@ -569,13 +570,16 @@ function MatchPaymentDialog(props: {
   return (
     <Dialog title="Match a payment" onClose={onClose} footer={footer}>
       <p className="muted small">Choose a debit. The receipt and account amounts stay separate; matching never changes what Money counts.</p>
-      <p>Receipt total: {money(paid(receipt), receipt.currency)}</p>
+      <p>
+        Receipt total: {money(paid(receipt), receipt.currency)}
+        {receipt.byGiftCard ? ` · ${money(receipt.byGiftCard, receipt.currency)} by gift card` : ''}
+      </p>
       {candidates.length ? (
         <>
           <div className="purpose-list receipt-match-list" role="radiogroup" aria-label="Statement debit">
             {candidates.map((line) => {
               const debit = Math.abs(line.amount)
-              const difference = Math.abs(paid(receipt) - debit)
+              const difference = Math.abs(onCard(receipt) - debit)
               return (
                 <label key={line.id} className="purpose-option">
                   <input type="radio" name="receipt-payment" value={line.id} checked={paymentId === line.id} onChange={() => setPaymentId(line.id)} />

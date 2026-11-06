@@ -8,7 +8,7 @@ import type { BankLine, StatementRecord } from '../db/types'
 import { addDays, addMonths, dayNumber } from '../lib/dates'
 import { chainOf } from './receipts'
 import { balanceFollows, preferOwed } from './statements'
-import { groupBy, type KnownReceipt, paid, shiftMonth, shopKey } from './shopping'
+import { groupBy, type KnownReceipt, onCard, shiftMonth, shopKey } from './shopping'
 
 /** Who a line was paid to or from, as one name (a UK chain's names as the chain). */
 export interface Payee {
@@ -273,6 +273,19 @@ export function kindOf(line: MoneyLine, chosen: Readonly<Record<string, string>>
   const guess = GUESSES.find(([, words]) => words.test(line.description))?.[0]
   if (guess) return guess
   return chainOf(line.payee.name) ? 'Groceries' : null
+}
+
+/** A gift card bought through Blue Light Card (v0.24.1, owner 2026-11-06: those lines start "Blc" and don't say which
+ *  shop's card it was). Still spending: the money left the account when it was bought. */
+export const isGiftCardBuy = (line: Pick<MoneyLine, 'description' | 'amount'>) => line.amount < 0 && /^\s*blc\b/i.test(line.description)
+
+/** The gift cards bought through Blue Light Card up to a day, newest first, at most `max`: where a receipt paid by gift
+ *  card was paid from, as near as the statements can say. */
+export function giftCardsBefore(lines: readonly MoneyLine[], date: string, max = 3): MoneyLine[] {
+  return lines
+    .filter((line) => isGiftCardBuy(line) && !line.moving && line.date <= date)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, max)
 }
 
 /** A payment with no kind yet. */
@@ -944,8 +957,9 @@ export const cardAccountOf = (receipt: Pick<KnownReceipt, 'card'>, cards: Readon
 
 /** Each card payment with the receipt for it, by the payment's id (v0.20.2): the same amount, within RECEIPT_DAYS, its
  *  shop the payee. Each payment and each receipt once, the nearest day first; a receipt paid another way (a gift card,
- *  cash) has none. The two are never added together: a payment opens its receipt. A receipt whose card you said is one
- *  of your accounts looks only in that account's lines, and one you said is none of them has none (v0.24.0). */
+ *  cash) has none, and one paid partly by gift card is looked for at the rest (`onCard`, v0.24.1). The two are never
+ *  added together: a payment opens its receipt. A receipt whose card you said is one of your accounts looks only in
+ *  that account's lines, and one you said is none of them has none (v0.24.0). */
 export function receiptPaymentCandidates(
   lines: readonly MoneyLine[],
   receipt: KnownReceipt,
@@ -954,12 +968,13 @@ export function receiptPaymentCandidates(
 ): MoneyLine[] {
   if (receipt.currency && receipt.currency !== '£') return []
   const account = cardAccountOf(receipt, cards)
-  if (account === '') return []
+  // None of your accounts, or paid wholly by gift card (v0.24.1): no bank you brought in shows it.
+  if (account === '' || onCard(receipt) === 0) return []
   const date = receipt.dated ? receipt.date : (receipt.entryDate ?? receipt.date)
   const days = (line: MoneyLine) => Math.abs(dayNumber(line.date) - dayNumber(date))
   return lines
     .filter((line) => (account === undefined || line.account === account) && !line.moving && line.amount < 0 && !occupied.has(line.id) && days(line) <= RECEIPT_DAYS && samePlace(receipt.shop, line.payee))
-    .sort((a, b) => Number(-a.amount !== paid(receipt)) - Number(-b.amount !== paid(receipt)) || days(a) - days(b) || b.date.localeCompare(a.date))
+    .sort((a, b) => Number(-a.amount !== onCard(receipt)) - Number(-b.amount !== onCard(receipt)) || days(a) - days(b) || b.date.localeCompare(a.date))
 }
 
 /** Owner-chosen links take precedence; receipts without a printed date are never linked automatically. A card you said
@@ -981,7 +996,7 @@ export function linkReceipts(
   }
   for (const receipt of [...receipts].filter((r) => r.dated && !chosenReceipts.has(r.id)).sort((a, b) => a.date.localeCompare(b.date))) {
     if (receipt.currency && receipt.currency !== '£') continue
-    const payment = receiptPaymentCandidates(lines, receipt, new Set(links.keys()), cards).find((line) => -line.amount === paid(receipt))
+    const payment = receiptPaymentCandidates(lines, receipt, new Set(links.keys()), cards).find((line) => -line.amount === onCard(receipt))
     if (payment) links.set(payment.id, receipt)
   }
   return links

@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import { setPayeeKind } from '../../db/statements'
-import { type MoneyLine, nameOf, PAYMENT_KINDS } from '../../domain/money'
+import { isGiftCardBuy, type MoneyLine, nameOf, PAYMENT_KINDS } from '../../domain/money'
 import { money } from '../../domain/shopping'
 import { dayMonthLong } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
@@ -146,6 +146,7 @@ export function PaymentSheet(props: {
       <p>
         {dayMonthLong(line.date)} · {way} · {money(Math.abs(line.amount), '£')}
       </p>
+      {isGiftCardBuy(line) ? <p className="muted small">A gift card bought through Blue Light Card</p> : null}
       {receiptSummary ? <p className="muted small receipt-payment-summary">{receiptSummary}</p> : null}
       <div className="button-row" style={{ display: 'flex', gap: '8px', margin: '8px 0 16px', flexWrap: 'wrap' }}>
         {onRename ? (
