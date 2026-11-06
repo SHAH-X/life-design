@@ -30,6 +30,11 @@ export interface PaidWith {
   accounts: readonly (readonly [account: string, name: string])[]
   /** The account its matched payment is in. */
   paymentAccount?: string
+  /** What went on a gift card (v0.24.1), what's left for a card, and the gift cards bought through Blue Light Card
+   *  before it, newest first, each by the account it came out of. */
+  byGiftCard?: number
+  onCard?: number
+  giftCards?: readonly { id: string; date: string; amount: number; accountName: string }[]
 }
 
 /** "Visa ending 4417": a card in words (a screen reader says "••" as dots). */
@@ -57,7 +62,7 @@ export function ReceiptSheet(props: { receipt: KnownReceipt; names: string[]; su
       <p className="muted small">
         {dayMonthLong(receipt.date)} · {receipt.readBy ? 'Read by your AI' : 'Read by the phone'}
       </p>
-      {paidWith ? <Paid paid={paidWith} date={receipt.date} onCard={() => setChoosingCard(true)} /> : null}
+      {paidWith ? <Paid paid={paidWith} date={receipt.date} currency={receipt.currency} onCard={() => setChoosingCard(true)} /> : null}
       {receipt.items.length ? (
         <ul className="plain-list compact receipt-items rc-items" aria-label="Items">
           {receipt.items.map((it, i) => (
@@ -123,12 +128,19 @@ function RefundSheet(props: { receipt: KnownReceipt; footer: ReactNode; onClose:
   )
 }
 
-/** Which card paid and the account that is, with a tap to say or change it; then its payment, or why there's none yet. */
-function Paid({ paid, date, onCard }: { paid: PaidWith; date: string; onCard: () => void }) {
-  const { card, said, accountName, payment, notIn } = paid
-  if (!card && !payment) return null
-  const how = said === '' && card ? `Paid with ${cardWords(card)} · not one of your accounts` : accountName ? `Paid from ${accountName}${card ? ` · ${cardWords(card)}` : ''}` : card ? `Paid with ${cardWords(card)}` : ''
-  const then = payment
+/** What went on a gift card; which card paid the rest and the account that is, with a tap to say or change it; then its
+ *  payment, or why there's none yet; and the gift cards bought through Blue Light Card before it, by account. */
+function Paid({ paid, date, currency, onCard }: { paid: PaidWith; date: string; currency: string; onCard: () => void }) {
+  const { card, said, accountName, payment, notIn, byGiftCard, giftCards } = paid
+  if (!card && !payment && !byGiftCard) return null
+  const whole = Boolean(byGiftCard) && paid.onCard === 0
+  const gift = byGiftCard ? (whole ? 'Paid by gift card' : `${money(byGiftCard, currency)} of it by gift card`) : null
+  const how = whole
+    ? ''
+    : said === '' && card ? `Paid with ${cardWords(card)} · not one of your accounts` : accountName ? `Paid from ${accountName}${card ? ` · ${cardWords(card)}` : ''}` : card ? `Paid with ${cardWords(card)}` : ''
+  const then = whole
+    ? null
+    : payment
     ? `Payment on ${dayMonth(payment.date)} · ${money(payment.amount, '£')}${payment.accountName !== accountName ? ` · ${payment.accountName}` : ''}`
     : notIn
       ? `${accountName} statement for ${dayMonth(date)} not in yet`
@@ -137,18 +149,33 @@ function Paid({ paid, date, onCard }: { paid: PaidWith; date: string; onCard: ()
         : null
   return (
     <div>
-      <p>
-        {how}
-        {card ? (
-          <>
-            {' '}
-            <button type="button" className="small-link" onClick={onCard}>
-              {said === undefined ? 'Which account?' : 'Change'}
-            </button>
-          </>
-        ) : null}
-      </p>
+      {gift ? <p>{gift}</p> : null}
+      {how ? (
+        <p>
+          {how}
+          {card ? (
+            <>
+              {' '}
+              <button type="button" className="small-link" onClick={onCard}>
+                {said === undefined ? 'Which account?' : 'Change'}
+              </button>
+            </>
+          ) : null}
+        </p>
+      ) : null}
       {then ? <p className="muted small">{then}</p> : null}
+      {gift && giftCards?.length ? (
+        <>
+          <p className="muted small">Gift cards bought through Blue Light Card before it</p>
+          <ul className="plain-list compact" aria-label="Gift cards bought before it">
+            {giftCards.map((g) => (
+              <li key={g.id} className="muted small">
+                {dayMonth(g.date)} · {money(g.amount, '£')} · {g.accountName}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
     </div>
   )
 }

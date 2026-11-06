@@ -9,6 +9,7 @@ import {
   type KnownReceipt,
   monthTotals,
   offerWords,
+  onCard,
   paid,
   receiptsAndCopies,
   receiptsOf,
@@ -109,6 +110,18 @@ describe('receiptsOf: whether a date was read, and who read it', () => {
     expect(cardOf({ id: 'p1', text: PHONE, ai: reading('GREENLEAF MARKET\nTOTAL 1.65\nMASTERCARD ************1357') })).toEqual({ last4: '1357', scheme: 'Mastercard' })
     expect(cardOf({ id: 'p1', text: PHONE, ai: reading('GREENLEAF MARKET\nTOTAL 1.65\nPaid contactless') })).toEqual({ last4: '2468', scheme: 'Visa' })
     expect(cardOf({ id: 'p1', text: 'GREENLEAF MARKET\n12 Oct 2026\nOat milk 1.65\nTOTAL 1.65\nCASH 2.00' })).toBeUndefined()
+  })
+
+  // v0.24.1: what went on a gift card, never more than the receipt's total; a refund slip is money back, not paid.
+  it('says what went on a gift card, never more than the total, and what is left for a bank to show', () => {
+    const reading = (text: string, total: number) => ({ by: 'Gemini · gemini-test', at: 1, text, description: '', receipt: { shop: 'Greenleaf Market', date: '2026-10-12', currency: '£', items: [{ name: 'Oat milk', price: total, quantity: 1 }], total } })
+    const of = (photo: Entry['photos'][number]) => receiptsOf([{ ...areaEntry({ id: 'e1', text: '', expect: [] }, '2026-10-12'), photos: [photo] }])[0]!
+    const part = of({ id: 'p1', text: null, ai: reading('GREENLEAF MARKET\nTOTAL £8.00\nGift Card £5.00\nVISA ************2468 £3.00', 800) })
+    expect([part.byGiftCard, onCard(part), paid(part)]).toEqual([500, 300, 800])
+    // Printed twice (both copies of the slip), it's still no more than the total.
+    const twice = of({ id: 'p1', text: null, ai: reading('GREENLEAF MARKET\nTOTAL £8.00\nGift Card £8.00\nGift Card £8.00', 800) })
+    expect([twice.byGiftCard, onCard(twice)]).toEqual([800, 0])
+    expect(receiptsAndCopies([{ ...areaEntry({ id: 'e2', text: '', expect: [] }, '2026-10-24'), photos: [{ id: 'slip', text: REFUND_SLIP }] }]).refunds[0]?.byGiftCard).toBeUndefined()
   })
 })
 

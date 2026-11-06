@@ -24,8 +24,8 @@ import {
   receiptReviewState,
   unmatchReceiptPayment,
 } from '../../db/statements'
-import { cardAccountOf, classify, forNamesOf, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, nameOf, type Payee, type PayeeGroup, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
-import { inWords, type KnownReceipt, money, paid, receiptsAndCopies, rememberedKindsOf, rememberedNamesOf, shoppingMonth, shoppingMonths } from '../../domain/shopping'
+import { cardAccountOf, classify, forNamesOf, giftCardsBefore, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, nameOf, type Payee, type PayeeGroup, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
+import { inWords, type KnownReceipt, money, onCard, receiptsAndCopies, rememberedKindsOf, rememberedNamesOf, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { ITEM_FOR_SETTING, ITEM_KINDS_SETTING } from '../../db/receiptItems'
 import { monthYear, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -137,6 +137,13 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
       ...(account ? { accountName: shownName(account) } : {}),
       ...(payment ? { payment: { date: payment.date, amount: -payment.amount, accountName: shownName(payment.account) }, paymentAccount: payment.account } : {}),
       notIn: !payment && !covered,
+      ...(receipt.byGiftCard
+        ? {
+            byGiftCard: receipt.byGiftCard,
+            onCard: onCard(receipt),
+            giftCards: giftCardsBefore(lines, receipt.date).map((l) => ({ id: l.id, date: l.date, amount: -l.amount, accountName: shownName(l.account) })),
+          }
+        : {}),
       accounts: [...names].sort((a, b) => a[1].localeCompare(b[1], 'en', { sensitivity: 'base' })),
     }
   }
@@ -156,10 +163,10 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const shown = payment ? { ...payment, line: lines.find((l) => l.id === payment.line.id) ?? payment.line } : null
   const manualReceiptId = payment ? manualReceiptByPayment.get(payment.line.id) : undefined
   const paymentReceipt = payment ? links.get(payment.line.id) : undefined
-  const paymentReceiptDifference = payment && paymentReceipt ? paid(paymentReceipt) - Math.abs(payment.line.amount) : 0
+  const paymentReceiptDifference = payment && paymentReceipt ? onCard(paymentReceipt) - Math.abs(payment.line.amount) : 0
   const paymentReceiptSummary =
     payment && paymentReceipt && paymentReceiptDifference
-      ? `Receipt ${money(paid(paymentReceipt), paymentReceipt.currency)} · debit ${money(Math.abs(payment.line.amount), '£')} · difference ${money(Math.abs(paymentReceiptDifference), paymentReceipt.currency)}${receiptReasons[paymentReceipt.id] ? ` · ${receiptReasons[paymentReceipt.id]}` : ''}`
+      ? `Receipt ${money(onCard(paymentReceipt), paymentReceipt.currency)}${paymentReceipt.byGiftCard ? ' after gift card' : ''} · debit ${money(Math.abs(payment.line.amount), '£')} · difference ${money(Math.abs(paymentReceiptDifference), paymentReceipt.currency)}${receiptReasons[paymentReceipt.id] ? ` · ${receiptReasons[paymentReceipt.id]}` : ''}`
       : null
 
   return (

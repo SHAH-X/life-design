@@ -122,3 +122,35 @@ describe('paymentOf: the card a receipt was paid with', () => {
     for (const id of ['greenleaf', 'codes-and-marks', 'asda-price-first', 'ms-order-collection', 'asda-delivery-line', 'quantities-discount']) expect(of(id), id).toBeNull()
   })
 })
+
+// Paid by gift card (v0.24.1, owner 2026-11-06: gift cards bought through Blue Light Card, "Blc" on the statement): how
+// much a receipt's tender lines after its total say went on a gift card. Made-up amounts.
+describe('paymentOf: what went on a gift card', () => {
+  const gift = (text: string) => paymentOf(text).byGiftCard ?? null
+
+  it('reads a gift card’s tender line after the total, whatever is printed between', () => {
+    expect(gift('SHOP\nTea £3.00\nTOTAL £3.00\nGift Card £3.00\nNew Balance £0.00')).toBe(300)
+    expect(gift('SHOP\nTea £3.00\nBalance to Pay £3.00\nGift Card *x*x xx*x 0000 £3.00')).toBe(300)
+    expect(gift('SHOP\nTea £3.00\nTOTAL: £3.00\nE-GIFT CARD 3.00')).toBe(300)
+    expect(gift('SHOP\nTea £3.00\nTOTAL: £3.00\nGiftcard -u£3.00')).toBe(300)
+  })
+
+  it('reads part paid by gift card, the rest by card', () => {
+    const paid = paymentOf('SHOP\nTea £23.40\nTOTAL £23.40\nGift Card £20.00\nVISA ************2468 £3.40\nGift Card Balance £0.00')
+    expect(paid).toEqual({ byGiftCard: 2000, card: { last4: '2468', scheme: 'Visa' } })
+  })
+
+  it('never takes a balance left, a gift card bought as an item, or a line with no amount for money paid', () => {
+    expect(gift('SHOP\nTea £3.00\nTOTAL £3.00\nVISA £3.00\nGift Card Balance £12.00\nRemaining balance £12.00')).toBeNull()
+    expect(gift('SHOP\nGift card £20.00\nTOTAL £20.00\nVISA ************2468 £20.00')).toBeNull()
+    expect(gift('SHOP\nTea £3.00\nTOTAL £3.00\nAsda Gift Card Redemption\n0000000000000000\n£3.00')).toBeNull()
+    // No total read: nothing is after it.
+    expect(gift('SHOP\nGift Card £3.00')).toBeNull()
+  })
+
+  it('reads the fixtures paid by gift card at their totals, and none on the rest', () => {
+    const of = (id: string) => gift([...RECEIPTS, ...RECEIPTS_UNSEEN].find((c) => c.id === id)!.text)
+    expect(['codes-and-marks', 'asda-price-first', 'ms-order-collection', 'asda-delivery-line', 'asda-unseen'].map(of)).toEqual([2275, 725, 2000, 700, 395])
+    for (const id of ['cafe', 'ms-food-sparks', 'greenleaf', 'supermarket-vat']) expect(of(id), id).toBeNull()
+  })
+})

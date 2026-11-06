@@ -29,13 +29,17 @@ function receiptOf(photo: PhotoRef, remembered: Remembered, itemFor: NamesFiled)
   const kept = withRemembered(read.items, read.shop, remembered, itemFor)
   const changed = (photo.items?.length ? withChanges(kept, photo.items) : kept).map((item, i) => ({ ...item, key: keys[i]! }))
   if (read.refund) return { ...asMoneyBack(read, changed), ...(backToGiftCard(photo.ai?.text || photo.text || '') ? { giftCard: true as const } : {}) }
-  return { ...read, items: withSavings(changed, photo.ai?.text || photo.text || ''), ...cardIn(photo) }
+  const items = withSavings(changed, photo.ai?.text || photo.text || '')
+  return { ...read, items, ...paidIn(photo, read.total ?? items.reduce((s, item) => s + paidFor(item), 0)) }
 }
 
-/** The card a receipt was paid with (v0.24.0): as your AI wrote its text out, else as the phone read it. */
-function cardIn(photo: PhotoRef): { card?: CardPaid } {
-  const card = paymentOf(photo.ai?.text ?? '').card ?? paymentOf(photo.text ?? '').card
-  return card ? { card } : {}
+/** How a receipt was paid: the card (v0.24.0) and what went on a gift card (v0.24.1, never more than its total), each as
+ *  your AI wrote its text out, else as the phone read it. */
+function paidIn(photo: PhotoRef, total: number): { card?: CardPaid; byGiftCard?: number } {
+  const [ai, phone] = [paymentOf(photo.ai?.text ?? ''), paymentOf(photo.text ?? '')]
+  const card = ai.card ?? phone.card
+  const gift = Math.min(ai.byGiftCard ?? phone.byGiftCard ?? 0, Math.max(total, 0))
+  return { ...(card ? { card } : {}), ...(gift > 0 ? { byGiftCard: gift } : {}) }
 }
 
 /** A refund slip's amounts as money back, plus figures whatever signs it was read with (the phone keeps its minus, an
@@ -227,6 +231,10 @@ export const money = (minor: number, currency: string) => `${minor < 0 ? '-' : '
 
 /** What a receipt counts for: its printed total, the amount paid, else its items' sum. */
 export const paid = (r: KnownReceipt) => r.total ?? r.items.reduce((s, item) => s + paidFor(item), 0)
+
+/** What a bank shows for a receipt (v0.24.1): what was paid, less what went on a gift card. For matching a payment
+ *  only: what was spent is still the whole receipt. */
+export const onCard = (r: KnownReceipt) => Math.max(0, paid(r) - (r.byGiftCard ?? 0))
 
 /** What its returned items came to (v0.20.18): what was paid for them, after offers (v0.20.19). */
 export const returnedOn = (r: Pick<Receipt, 'items'>) => r.items.reduce((s, item) => s + (item.returned ? paidFor(item) : 0), 0)

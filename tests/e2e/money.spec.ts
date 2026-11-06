@@ -950,6 +950,59 @@ test('a receipt says which card paid; said once which account that is, every rec
   await expect(page.locator('.acc-account', { hasText: 'Monzo' }).first()).not.toContainText('ending')
 })
 
+// Gift cards (v0.24.1, owner 2026-11-06: "payments done through GIFT card, mostly they are marked as starting with Blc
+// in the account statements": bought through Blue Light Card, the line not saying which shop's). Made-up lines.
+test('a receipt paid by gift card is never matched to another purchase; one paid partly is matched at the rest; Blc lines are gift cards bought', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 5, 12, 0)
+  await page.clock.setFixedTime(now)
+  const payment = (id: string, date: string, pence: number, description: string) => ({ id, account: 'Example Current', date, amount: pence, description, type: 'DEB', balance: null, adds: true, createdAt: 1, updatedAt: 1 })
+  const bankLines = [
+    payment('blc-sep', '2026-09-02', -4750, 'BLC GIFTCARD DEMOTOWN'),
+    payment('blc-oct', '2026-10-01', -1900, 'BLC GIFTCARD DEMOTOWN'),
+    payment('tesco-rest', '2026-10-02', -340, 'TESCO SOMETOWN'),
+    payment('tesco-other', '2026-10-03', -1500, 'TESCO SOMETOWN'),
+  ]
+  const statements = [{ id: 'current', account: 'Example Current', from: '2026-09-01', to: '2026-10-04', lines: 4, createdAt: 1, updatedAt: 1 }]
+  const read = (date: string, pence: number, tender: string) => ({
+    by: 'Gemini · gemini-test',
+    at: 1,
+    text: `TESCO\nThing £${(pence / 100).toFixed(2)}\nTOTAL £${(pence / 100).toFixed(2)}\n${tender}`,
+    description: '',
+    receipt: { shop: 'Tesco', date, currency: '£', items: [{ name: 'Thing', price: pence, quantity: 1 }], total: pence },
+  })
+  const entries = [
+    { ...freeWriting('e-part', '', 3, now), photos: [{ id: 'p-part', text: null, ai: read('2026-10-02', 2340, 'Gift Card £20.00\nVISA ************2468 £3.40') }] },
+    { ...freeWriting('e-whole', '', 2, now), photos: [{ id: 'p-whole', text: null, ai: read('2026-10-03', 1500, 'Gift Card £15.00\nNew Balance £0.00') }] },
+  ]
+  await restoreBackup(page, testInfo.outputPath('gift-cards.json'), backupWith({ entries, bankLines, statements }, now))
+  await page.goto('./#/money')
+
+  // A Blc payment says what it bought.
+  await accountView(page, 'Spending')
+  await page.getByRole('region', { name: 'Money out' }).getByRole('button', { name: /^Blc Giftcard Demotown .*£19\.00$/i }).click()
+  await expect(page.getByRole('dialog', { name: /Blc Giftcard Demotown/i })).toContainText('A gift card bought through Blue Light Card')
+  await page.getByRole('dialog', { name: /Blc Giftcard Demotown/i }).getByRole('button', { name: 'Close', exact: true }).click()
+
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  // Neither needs a look: the whole one has no payment to find, the other's is found at what the gift card didn't pay.
+  await expect(page.getByRole('region', { name: 'Receipts to check' })).toHaveCount(0)
+  await page.locator('details.week-line > summary', { hasText: '2 receipts from 1 shop' }).click()
+
+  await page.getByRole('button', { name: /2 Oct Tesco £23\.40/ }).click()
+  let receipt = page.getByRole('dialog', { name: 'Tesco' })
+  await expect(receipt.getByText('£20.00 of it by gift card', { exact: true })).toBeVisible()
+  await expect(receipt.locator('p', { hasText: 'Paid from Example Current · Visa ending 2468' })).toBeVisible()
+  await expect(receipt.getByText(/^Payment on 2 Oct · £3\.40$/)).toBeVisible()
+  await expect(receipt.getByRole('list', { name: 'Gift cards bought before it' }).getByRole('listitem')).toHaveText(['1 Oct · £19.00 · Example Current', /^2 Sept? · £47\.50 · Example Current$/])
+  await receipt.getByRole('button', { name: 'Close', exact: true }).click()
+
+  await page.getByRole('button', { name: /3 Oct Tesco £15\.00/ }).click()
+  receipt = page.getByRole('dialog', { name: 'Tesco' })
+  await expect(receipt.getByText('Paid by gift card', { exact: true })).toBeVisible()
+  await expect(receipt.getByText(/^Payment on/)).toHaveCount(0)
+  await expect(receipt.getByRole('list', { name: 'Gift cards bought before it' }).getByRole('listitem')).toHaveCount(2)
+})
+
 // Accounts (v0.20.22): the month's figure first, the months either side a tap away, what's open staying open between
 // them, the two small figures opening their lists, and a line (and a dot on Statements) when an account needs a statement.
 test('Accounts steps between months, keeps its part open, and says when an account needs a statement', async ({ page }, testInfo) => {
