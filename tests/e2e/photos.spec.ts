@@ -101,7 +101,9 @@ test.describe('photos', () => {
     await page.goto('./#/money/2026-10')
     await page.getByRole('button', { name: 'Receipts', exact: true }).click()
     const receipts = page.getByRole('region', { name: 'From your receipts' })
-    await expect(receipts.getByText('17.65 spent')).toBeVisible()
+    await expect(receipts.getByText('£17.65 spent')).toBeVisible()
     await expect(receipts.getByText('1 receipt from 1 shop')).toBeVisible()
+    // Its name is a logo, so its first line is its VAT number: the shop is its web address's (v0.24.3).
+    await expect(receipts.getByRole('region', { name: 'Shops' })).toContainText('Examplegrill')
   })
 })

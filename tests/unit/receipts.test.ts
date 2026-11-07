@@ -73,6 +73,37 @@ describe('readReceipt: a receipt in the text read from a photo', () => {
     expect(receiptTime('SHOP 08:00-22:00\n25/10/2026\nTea 3.00', false)).toBeNull()
   })
 
+  it('reads the till’s time on the line under the date when its own has none, PM as the afternoon (v0.24.3)', () => {
+    // Owner, 2026-11-07: a restaurant prints its date beside "Host:" and its time on the line under it.
+    expect(receiptTime(RECEIPTS.find((c) => c.id === 'restaurant-turned')!.text, false)).toBe('20:15')
+    expect(receiptTime('SHOP\n25/10/2026 12:05 am\nTea 3.00', false)).toBe('00:05')
+    expect(receiptTime('SHOP\n25/10/2026\nOpen 08:00-22:00\nTea 3.00', false)).toBeNull()
+    expect(receiptTime('SHOP\n25/10/2026\n26/10/2026 10:00\nTea 3.00', false)).toBeNull()
+  })
+
+  // Owner, 2026-11-07: a restaurant's receipt printed its name only as a logo, so the first line read was its VAT number.
+  it('takes the shop from its web address when its first line is a VAT, phone or order number (v0.24.3)', () => {
+    const shop = (text: string) => readReceipt(text)?.shop
+    expect(shop('VAT No: 123 4567 89\nRiverside Park\nHalloumi Wrap 7.25\nTotal 7.25\nwww.example-grill.co.uk')).toBe('Example Grill')
+    expect(shop('Tel: 01000 000000\nRiverside Park\nHalloumi Wrap 7.25\nTotal 7.25')).toBe('Riverside Park')
+    // A survey's, a card machine's or a social page's address isn't the shop's.
+    expect(shop('VAT No: 123 4567 89\nRiverside Park\nHalloumi Wrap 7.25\nTotal 7.25\nTell us at www.tellexample.com\nPaid with www.sumup.co.uk\nfacebook.com/examplegrill')).toBe('Riverside Park')
+    // A first line that names the shop keeps it, whatever address is printed; a chain's address is the chain.
+    expect(shop('THE CORNER CAFE\nVAT No: 123 4567 89\nFlat white 3.10\nTotal 3.10\nwww.cornercafe.co.uk')).toBe('The Corner Cafe')
+    expect(shop('VAT No: 123 4567 89\nHigh Street\nMilk 1.65\nTotal 1.65\nwww.tesco.com')).toBe('Tesco')
+  })
+
+  it('takes its currency from a £ printed anywhere on it, under the total too (v0.24.3)', () => {
+    expect(readReceipt(RECEIPTS.find((c) => c.id === 'restaurant-turned')!.text)?.currency).toBe('£')
+    expect(readReceipt('SHOP\nTea 3.00\nTOTAL 3.00')?.currency).toBe('')
+  })
+
+  it('reads "Tota1", the model’s 1 for an l, as the total, and "Subtota1" as no total (v0.24.3)', () => {
+    const read = readReceipt('THE CORNER CAFE\nFlat white 3.10\nCroissant 2.60\nSubtota1 5.70\nTota1 5.70\nCard 5.70')
+    expect(read?.items.map((item) => item.name)).toEqual(['Flat white', 'Croissant'])
+    expect(read).toMatchObject({ total: 570, adds: true })
+  })
+
   it('never reads an amount stuck to letters as a price ("ne.auj9,28M")', () => {
     expect(readReceipt('SHOP\nTea 3.00\nWed 28th Oct ne.auj9,28M ts bneqe\nTOTAL 3.00')?.items.map((i) => i.name)).toEqual(['Tea'])
   })

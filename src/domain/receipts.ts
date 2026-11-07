@@ -171,10 +171,11 @@ const PRICE_FIRST = new RegExp(String.raw`^([£$€]\s*${AMOUNT}${MARK}?)\s+([A-
 const QUANTITY = new RegExp(String.raw`^(\d{1,3})\s*[^\s\d.,]?\s*[£$€]?\s*${AMOUNT}\s*[£$€]?$`)
 /** "2 @ £1.50 £3.00*": how many, each, and their price, for the item named on the line above (@ read as 园). */
 const QUANTITY_PRICED = new RegExp(String.raw`^(\d{1,3})\s*[^\s\d.,]?\s*[£$€]?\s*${AMOUNT}\s+[£$€]?\s*(${AMOUNT})\s*[£$€]?\s*${MARK}?$`)
-/** The total, anywhere in its line ("Items:16 Balance to Pay"), but not a subtotal or a total of savings. */
-const TOTAL = /\b(?:grand total|total|balance (?:to pay|due)|amount (?:due|to pay)|to pay|montant|summe)\b/i
-const NOT_TOTAL = /\bsub[\s-]?total\b|\btotal\s+(?:saving|savings|discount|items|qty|quantity)\b/i
-const NOT_ITEMS = /^(?:\d+\s+)?(?:sub ?total|tax|vat|tva|card|visa|mastercard|amex|debit|credit|cb|cash|change|paid|contactless|tendered|tip|rounding|balance)\b/i
+/** The total, anywhere in its line ("Items:16 Balance to Pay"), but not a subtotal or a total of savings; its l may be
+ *  read as a 1 ("Tota1", v0.24.3). */
+const TOTAL = /\b(?:grand tota[l1]|tota[l1]|balance (?:to pay|due)|amount (?:due|to pay)|to pay|montant|summe)\b/i
+const NOT_TOTAL = /\bsub[\s-]?tota[l1]\b|\btota[l1]\s+(?:saving|savings|discount|items|qty|quantity)\b/i
+const NOT_ITEMS = /^(?:\d+\s+)?(?:sub ?tota[l1]|tax|vat|tva|card|visa|mastercard|amex|debit|credit|cb|cash|change|paid|contactless|tendered|tip|rounding|balance)\b/i
 /** "Balance before Saving": the priced lines after it, up to the total, are savings, even when the photo lost their minus. */
 const BEFORE_SAVINGS = /\bbefore\s+sav/i
 /** Before a name: a product code, then perhaps a department code ("11110000 T21 Hand Soap"). */
@@ -254,21 +255,30 @@ export function receiptDate(text: string, us: boolean): string | null {
   return dateLine(text, us)?.date ?? null
 }
 
-/** The till's time printed beside a receipt's date ("25/10/26 15:05" is "15:05"), or null: two receipts alike at
- *  different times are two things bought (v0.19.5). Another time on it ("Open 08:00-22:00") isn't the till's. */
+/** A time ("9:05", "8:15PM"), never one end of a range ("Open 08:00-22:00"). */
+const TIME = /(?<![-–]\s?)\b([01]?\d|2[0-3]):([0-5]\d)(?!\d)(?!\s*[-–]\s*\d)(?:\s*([ap])\.?m\b)?/i
+
+/** The till's time printed beside a receipt's date ("25/10/26 15:05" is "15:05"), or on the line under it when that
+ *  has no date of its own ("Host: 14/10/2026" over "5 8:15PM", v0.24.3; PM is the afternoon), or null: two receipts
+ *  alike at different times are two things bought (v0.19.5). Another time on it ("Open 08:00-22:00") isn't the till's. */
 export function receiptTime(text: string, us: boolean): string | null {
-  const time = dateLine(text, us)?.line.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/)
-  return time ? `${time[1]!.padStart(2, '0')}:${time[2]}` : null
+  const found = dateLine(text, us)
+  const under = found?.next && !dateIn(found.next, us) ? found.next : ''
+  const time = found?.line.match(TIME) ?? under.match(TIME)
+  if (!time) return null
+  const half = time[3]?.toLowerCase()
+  const hour = (Number(time[1]) % (half ? 12 : 24)) + (half === 'p' ? 12 : 0)
+  return `${String(hour).padStart(2, '0')}:${time[2]}`
 }
 
-/** The line with a receipt's date on it, and the date. */
-function dateLine(text: string, us: boolean): { date: string; line: string } | null {
+/** The line with a receipt's date on it, the date, and the line under it. */
+function dateLine(text: string, us: boolean): { date: string; line: string; next: string | undefined } | null {
   const lines = text.split('\n')
   for (const [i, line] of lines.entries()) {
     const above = lines[i - 1] ?? ''
     if (DEADLINE.test(line) || (DEADLINE.test(above) && !dateIn(above, us))) continue
     const date = dateIn(line, us)
-    if (date) return { date, line }
+    if (date) return { date, line, next: lines[i + 1] }
   }
   return null
 }
@@ -309,11 +319,28 @@ export function chainOf(name: string) {
 /** The chain a line above the items names: its company ("ASDA STORES LTD") or its web address ("WWW.ASDA.COM",
  *  "www.marksandspencer.com"; a survey's, "www.tellasda.com", isn't). */
 function chainIn(line: string) {
-  for (const [, domain] of line.toLowerCase().matchAll(/\b(?:www\.)?([a-z0-9-]+)\.(?:com|co\.uk)\b/g)) {
-    const chain = CHAINS.find(({ starts }) => starts.some((start) => start.join('') === domain!.replace(/-/g, '')))
+  for (const domain of domainsIn(line)) {
+    const chain = chainOfDomain(domain)
     if (chain) return chain
   }
   return chainOf(line)
+}
+
+/** The names of the web addresses in a line ("www.asda.com" is asda; "www,nandos.co.uk", its point read as a comma). */
+const domainsIn = (line: string) => [...line.toLowerCase().matchAll(/\b(?:www[.,])?([a-z0-9-]+)\.(?:com|co\.uk)\b/g)].map((m) => m[1]!)
+const chainOfDomain = (domain: string) => CHAINS.find(({ starts }) => starts.some((start) => start.join('') === domain.replace(/-/g, '')))
+
+/** A line at the top that names no shop: its VAT, company or phone number, an order number, or no words at all. */
+const NOT_A_NAME = /\bvat\b.*\d|\b(?:tel|telephone|phone)\b\s*(?:no\.?|number)?\s*[:：.]?\s*[+(\d]|\b(?:company|reg(?:istration)?)\s*(?:no|number)\b|\border\s*(?:no|number)\b|^[^A-Za-z]*$/i
+/** Web addresses that aren't the shop's: a survey's, a card machine's, a social page's, a delivery service's. */
+const NOT_THE_SHOP = /^tell|survey|feedback|^(?:sumup|square|squareup|zettle|izettle|paypal|worldpay|dojo|takepayments|clover|tyl|paymentsense|elavon|ingenico|verifone|facebook|instagram|twitter|tiktok|youtube|google|tripadvisor|deliveroo|ubereats|justeat|just-eat)$/
+
+/** The shop a receipt's own web address names, wherever it's printed ("www.example-grill.co.uk/menu" is Example
+ *  Grill; a chain's is the chain), for a receipt whose name was a logo (v0.24.3). */
+function shopOfSite(lines: readonly string[]): string | undefined {
+  const domain = lines.flatMap(domainsIn).find((d) => !NOT_THE_SHOP.test(d))
+  if (!domain) return undefined
+  return chainOfDomain(domain)?.name ?? domain.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 }
 
 /** A receipt in a photo's text, or null when it isn't one (a note, a page, a list without prices). */
@@ -372,15 +399,22 @@ export function readReceipt(text: string): Receipt | null {
   if (items.length === 0 || (total === null && items.length < 2)) return null
   // The shop: the first line, with a short capitals line under it ("SAINSBURY'S" / "LOCAL"); never a priced line. When
   // the first line names no chain and a line above the items does (its company or web address), that chain: the first
-  // line can be a prize draw's banner, or faint print from the back of the paper.
+  // line can be a prize draw's banner, or faint print from the back of the paper. When the first line is a VAT, phone
+  // or order number, the name was a logo (v0.24.3): the receipt's own web address, wherever it's printed, names the
+  // shop, else the first line that isn't a number.
   const head = lines.slice(0, firstPriced < 0 ? lines.length : firstPriced)
-  let shop = head[0] ?? ''
-  const second = head[1]
+  const logo = head.length > 0 && NOT_A_NAME.test(head[0]!)
+  const at = logo ? Math.max(0, head.findIndex((line) => !NOT_A_NAME.test(line))) : 0
+  let shop = head[at] ?? ''
+  const second = head[at + 1]
   if (second && isCaps(shop) && isCaps(second) && !/\d/.test(second) && second.split(' ').length <= 2) shop = `${shop} ${second}`
   const chain = chainOf(shop) ? undefined : head.map(chainIn).find(Boolean)
+  const site = logo && !chain ? shopOfSite(lines) : undefined
   const sum = items.reduce((s, item) => s + item.price, 0)
+  // Its currency: the first price's, else one printed anywhere on it (a gift card's "£17.65" under the total, v0.24.3).
+  currency ||= text.match(/([£$€])\s?\d{1,5}[.,]\d{2}/)?.[1] ?? ''
   return {
-    shop: chain ? chain.name : shopName(shop),
+    shop: chain ? chain.name : (site ?? shopName(shop)),
     date: receiptDate(text, currency === '$'),
     items,
     total,
