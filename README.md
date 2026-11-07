@@ -16,7 +16,7 @@ A private daily journal for iPhone, built on *Designing Your Life* (Burnett & Ev
 
 **Easy to start:** a short welcome, openers when a blank box stares back, and no streaks to keep.
 
-**Privacy:** everything you log stays on your phone. There is no account, server or analytics. Data leaves the phone only when you choose to: an export, or what you copy for an AI chat or send to the AI service you set up with your own key (a period to review, a question, a map you draw; a review takes a photo's text, never the image). The one thing that goes by itself: with Gemini or OpenAI set up, receipt photos go to it as you add them, until you turn "Read receipts with AI" off.
+**Privacy:** everything you log stays on your phone. There is no account, server or analytics. Data leaves the phone only when you choose to: an export, or what you copy for an AI chat or send to the AI service you set up with your own key (a period to review, a question, a map you draw; a review takes a photo's text, never the image). The one thing that goes by itself: with Gemini or OpenAI set up, receipt photos go to it as you add them (never a payslip or a bank statement), until you turn "Read receipts with AI" off.
 
 > Work in progress: features arrive in phases. See [DECISIONS.md](DECISIONS.md).
 

@@ -85,8 +85,14 @@ export function parseAiReading(reply: string, by: string, at: number): AiReading
   }
 }
 
-/** Whether the phone's own reading takes a photo for a receipt (so it goes to the AI by itself). */
-export const looksLikeReceipt = (text: string | null) => Boolean(text && readReceipt(text))
+/** A payslip's or a bank or card statement's words: such a photo never goes by itself, even one the phone takes for a
+ *  receipt (v0.24.4); a tap on "Read with AI" still sends it. */
+const PRIVATE_PAPERS =
+  /\b(?:pay\s?slip|net pay|gross pay|tax code|national insurance|ni (?:number|no)|employer|p60|p45|salary|sort code|account (?:number|no)|iban|statement (?:date|period)|balance (?:brought|carried) forward|(?:opening|closing) balance|money (?:in|out)|minimum payment|credit limit)\b/i
+
+/** Whether a photo goes to the AI by itself: the phone's own reading takes it for a receipt, and it's no payslip or
+ *  statement (v0.24.4: the phone's rules took a payslip's "Net pay" and "Total deductions" for a receipt). */
+export const looksLikeReceipt = (text: string | null) => Boolean(text && !PRIVATE_PAPERS.test(text) && readReceipt(text))
 
 /** Which instructions a reading was made with: 2 asks for each item's kind and plain name (v0.19.3). A receipt read
  *  before (none kept) whose items have no kinds or no plain names is read again by itself, once. */

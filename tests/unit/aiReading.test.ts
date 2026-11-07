@@ -10,7 +10,7 @@ import { photoReader } from '../../src/features/photos/photoReader'
 import { AiError, readPhotoWithAi } from '../../src/lib/ai'
 import { toBase64 } from '../../src/lib/photo'
 import { areaEntry } from '../fixtures/areas'
-import { RECEIPTS } from '../fixtures/receipts'
+import { RECEIPTS, RECEIPTS_UNSEEN } from '../fixtures/receipts'
 
 // Fictional example data. A "photo" is a few made-up bytes; a stand-in AI says what it reads in each.
 
@@ -165,6 +165,14 @@ describe('what the AI read, used', () => {
     expect(looksLikeReceipt(RECEIPTS.find((r) => r.id === 'greenleaf')!.text)).toBe(true)
     expect(looksLikeReceipt(RECEIPTS.find((r) => r.id === 'note')!.text)).toBe(false)
     expect(looksLikeReceipt(null)).toBe(false)
+  })
+
+  it('never sends a payslip or a bank or card statement by itself, even one the phone takes for a receipt (v0.24.4)', () => {
+    expect(looksLikeReceipt('EXAMPLE LTD\nPayslip\nBasic pay 1200.00\nTax 150.00\nNet pay 1050.00\nTotal deductions 150.00')).toBe(false)
+    expect(looksLikeReceipt('EXAMPLE BANK\nSort code 00-00-00 Account number 00000000\nGroceries 12.40\nRent 500.00\nTotal 512.40')).toBe(false)
+    expect(looksLikeReceipt('EXAMPLE CARD\nStatement date 01/10/2026\nCoffee 3.10\nBooks 9.99\nTotal 13.09\nMinimum payment 5.00')).toBe(false)
+    // Their words never keep a receipt back: a gift card's "New Balance", a refund slip's "Balance".
+    for (const c of [...RECEIPTS, ...RECEIPTS_UNSEEN].filter((c) => c.expect)) expect(looksLikeReceipt(c.text), c.id).toBe(true)
   })
 })
 
