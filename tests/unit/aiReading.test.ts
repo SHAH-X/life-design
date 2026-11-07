@@ -176,6 +176,29 @@ describe('what the AI read, used', () => {
     expect(looksLikeReceipt(null)).toBe(false)
   })
 
+  // Owner, 2026-11-07: a slip paid with loyalty points prints no money, so nothing read it. Made-up values.
+  const POINTS_SLIP = 'EXAMPLE CHEMIST\nREDEMPTION PTS\nHay fever tablets 450\nTOTAL TO REDEEM 450 PTS\nPOINTS USED 450\nPoints to spend 120'
+
+  it('a slip paid with loyalty points goes by itself, though it prints no money; a score with points never does (v0.25.1)', () => {
+    expect(looksLikeReceipt(POINTS_SLIP)).toBe(true)
+    expect(looksLikeReceipt('Quiz night\nRound one 12\nTotal 45 points')).toBe(false)
+    expect(looksLikeReceipt('Loyalty card\nPoints to spend 120')).toBe(false)
+  })
+
+  it('keeps the points a slip was paid with, and never takes points for money (v0.25.1)', () => {
+    expect(AI_READING_INSTRUCTIONS).toContain('Never write points as money')
+    const item = { name: 'HAYFEVER TABS 30', plain: 'Hay fever tablets, 30', quantity: 1, kind: 'Toiletries and health' }
+    const reply = (price: string, total: string, points: unknown = 450) => JSON.stringify({ receipt: true, shop: 'Example Chemist', date: '2026-10-20', currency: '£', points, items: [{ ...item, price }], total, text: POINTS_SLIP })
+    expect(parseAiReading(reply('0.00', '0.00'), BY, 1)?.receipt).toMatchObject({ points: 450, total: 0, items: [{ name: 'HAYFEVER TABS 30', price: 0 }] })
+    // An AI that writes the points as money all the same, as pounds or as pence: never £450 or £4.50 spent.
+    expect(parseAiReading(reply('450', '450'), BY, 1)?.receipt).toMatchObject({ points: 450, total: 0, items: [{ price: 0 }] })
+    expect(parseAiReading(reply('4.50', '4.50'), BY, 1)?.receipt).toMatchObject({ points: 450, total: 0, items: [{ price: 0 }] })
+    // Part paid in money keeps its money; points that aren't a whole number above 0 are none.
+    expect(parseAiReading(reply('3.00', '3.00', 200), BY, 1)?.receipt).toMatchObject({ points: 200, total: 300, items: [{ price: 300 }] })
+    expect(parseAiReading(reply('3.00', '3.00', 0), BY, 1)?.receipt?.points).toBeUndefined()
+    expect(parseAiReading(reply('3.00', '3.00', 'lots'), BY, 1)?.receipt?.points).toBeUndefined()
+  })
+
   it('never sends a payslip or a bank or card statement by itself, even one the phone takes for a receipt (v0.24.4)', () => {
     expect(looksLikeReceipt('EXAMPLE LTD\nPayslip\nBasic pay 1200.00\nTax 150.00\nNet pay 1050.00\nTotal deductions 150.00')).toBe(false)
     expect(looksLikeReceipt('EXAMPLE BANK\nSort code 00-00-00 Account number 00000000\nGroceries 12.40\nRent 500.00\nTotal 512.40')).toBe(false)

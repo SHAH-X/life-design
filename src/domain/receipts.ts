@@ -59,6 +59,9 @@ export interface Receipt {
   card?: CardPaid
   /** What went on a gift card, in minor units, never more than its total (v0.24.1, `paymentOf`): no bank shows it. */
   byGiftCard?: number
+  /** The loyalty points it was paid with, as your AI read them (v0.25.1): points are never money, so what they paid
+   *  for counts as nothing spent and no bank shows it. */
+  points?: number
 }
 
 /** A card as a receipt prints it: its last 4 digits, and its scheme when that's printed too. Paid by phone, it's the
@@ -144,10 +147,17 @@ function cardPaid(lines: readonly string[]): { card?: CardPaid } {
   return { card: { last4: kept[0]!.last4, ...(scheme ? { scheme } : {}) } }
 }
 
+/** A slip paid with loyalty points prints no money (v0.25.1, owner 2026-11-07): it says points were redeemed or used,
+ *  and gives its total in points ("TOTAL TO REDEEM 450 PTS"). A score ("Total 45 points") says neither. */
+const PAID_IN_POINTS = /\b(?:redeem|redemption|points?\s+used)\b/i
+const TOTAL_IN_POINTS = /\b(?:tota[l1]|redeem)\b[^\n]*?\b\d{1,6}\s*(?:pts|points)\b/i
+
 /** Whether a photo's text has a receipt's signs though the rules can't pick out its items (v0.25.0, owner 2026-11-07:
  *  "read for all kind of places and all types of purchases"): a total, with an amount on its line or the line just
- *  above or below, and another amount besides. Such a photo goes to your AI, which says whether it's a receipt. */
+ *  above or below, and another amount besides, or a total in points on a slip paid with them (v0.25.1). Such a photo
+ *  goes to your AI, which says whether it's a receipt. */
 export function mightBeReceipt(text: string): boolean {
+  if (PAID_IN_POINTS.test(text) && TOTAL_IN_POINTS.test(text)) return true
   const lines = text.split('\n')
   const amounts = lines.map((line) => line.match(/\d[.,]\d{2}(?!\d)/g)?.length ?? 0)
   if (amounts.reduce((sum, n) => sum + n, 0) < 2) return false

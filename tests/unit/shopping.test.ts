@@ -112,6 +112,14 @@ describe('receiptsOf: whether a date was read, and who read it', () => {
     expect(cardOf({ id: 'p1', text: 'GREENLEAF MARKET\n12 Oct 2026\nOat milk 1.65\nTOTAL 1.65\nCASH 2.00' })).toBeUndefined()
   })
 
+  // v0.25.1 (owner, 2026-11-07: "Listed, not counted"): a receipt paid with loyalty points. Made-up values.
+  it('lists a receipt paid with points, counted as nothing spent and with no bank payment to look for', () => {
+    const ai = { by: 'Gemini · gemini-test', at: 1, text: 'EXAMPLE CHEMIST\nTOTAL TO REDEEM 450 PTS', description: '', receipt: { shop: 'Example Chemist', date: '2026-10-20', currency: '£', points: 450, items: [{ name: 'Hay fever tablets', price: 0, quantity: 1, kind: 'Toiletries and health' as const }], total: 0 } }
+    const [slip] = receiptsOf([{ ...areaEntry({ id: 'e1', text: '', expect: [] }, '2026-10-20'), photos: [{ id: 'p1', text: null, ai }] }])
+    expect(slip).toMatchObject({ shop: 'Example Chemist', points: 450, items: [{ name: 'Hay fever tablets' }] })
+    expect([spentOn(slip!), onCard(slip!)]).toEqual([0, 0])
+  })
+
   // v0.24.1: what went on a gift card, never more than the receipt's total; a refund slip is money back, not paid.
   it('says what went on a gift card, never more than the total, and what is left for a bank to show', () => {
     const reading = (text: string, total: number) => ({ by: 'Gemini · gemini-test', at: 1, text, description: '', receipt: { shop: 'Greenleaf Market', date: '2026-10-12', currency: '£', items: [{ name: 'Oat milk', price: total, quantity: 1 }], total } })

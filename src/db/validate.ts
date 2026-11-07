@@ -85,6 +85,7 @@ function isAiReading(x: unknown): boolean {
     (r.date === null || isDateKey(r.date)) &&
     isStr(r.currency) &&
     (r.total === null || Number.isInteger(r.total)) &&
+    isOptional(r.points, (v) => Number.isInteger(v) && (v as number) > 0) &&
     Array.isArray(r.items) &&
     r.items.every((i) => isObj(i) && isStr(i.name) && isOptional(i.plain, isStr) && Number.isInteger(i.price) && Number.isInteger(i.quantity) && isOptional(i.kind, isOneOf(ITEM_KINDS)))
   )

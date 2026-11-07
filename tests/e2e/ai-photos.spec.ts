@@ -360,3 +360,35 @@ test('a photo the phone can’t read as a receipt but that shows a total goes by
   await page.waitForTimeout(SETTLED)
   expect(photos).toHaveLength(1)
 })
+
+// Owner, 2026-11-07: a slip paid with loyalty points prints no money, so nothing read it; "Listed, not counted" (v0.25.1).
+test('a slip paid with loyalty points goes by itself, and is listed with its points, counted as nothing spent', async ({ page }, testInfo) => {
+  const SLIP = 'EXAMPLE CHEMIST\nREDEMPTION PTS\nHay fever tablets 450\nTOTAL TO REDEEM 450 PTS\nPOINTS USED 450\nPoints to spend 120'
+  const sent: string[] = []
+  await page.route('https://generativelanguage.googleapis.com/**', async (route: Route) => {
+    const request = route.request()
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
+    const json = (body: object) => route.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify(body) })
+    if (request.url().endsWith('/models')) return json({ data: [{ id: 'models/gemini-2.5-flash' }, { id: 'models/gemini-2.5-flash-lite' }] })
+    sent.push(request.url())
+    // As an AI might reply even when told: the points written as money too. Never counted.
+    const reply = { receipt: true, shop: 'Example Chemist', date: '2026-10-20', currency: '£', points: 450, items: [{ name: 'HAYFEVER TABS 30', plain: 'Hay fever tablets, 30', price: '450', quantity: 1, kind: 'Toiletries and health' }], total: '450', text: SLIP }
+    return json({ choices: [{ message: { content: JSON.stringify(reply) } }] })
+  })
+  const slip = { ...freeWriting('e1', '', 4, SATURDAY), photos: [{ id: 'p1', text: SLIP, textVersion: PHOTO_TEXT_VERSION }] }
+  await restoreBackup(page, testInfo.outputPath('photos.json'), backupWith({ entries: [slip], photos: [photo('p1', 'e1', NOTE_JPEG)] }, SATURDAY))
+  await page.goto('./#/more/photos')
+  await page.getByRole('switch', { name: /Read the text in photos/ }).check()
+  await setUpGemini(page)
+  await expect.poll(() => sent.length, { timeout: 15_000 }).toBe(1)
+
+  await page.goto('./#/money/2026-10')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  const receipts = page.getByRole('region', { name: 'From your receipts' })
+  await expect(receipts.getByText('£0.00 spent')).toBeVisible()
+  await expect(receipts.getByText('1 receipt from 1 shop')).toBeVisible()
+  const shops = receipts.getByRole('region', { name: 'Shops' })
+  await shops.locator('summary').first().click()
+  await shops.getByRole('button', { name: /Example Chemist/ }).click()
+  await expect(page.getByRole('dialog', { name: 'Example Chemist' }).getByText('Paid with 450 points · not counted as spent')).toBeVisible()
+})

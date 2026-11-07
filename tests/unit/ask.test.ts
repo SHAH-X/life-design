@@ -63,6 +63,13 @@ describe('the tools: what the phone answers', () => {
     expect(found.receipts[0]!.total).toBe('14.20')
   })
 
+  // v0.25.1: a receipt paid with loyalty points prints no money; Ask is told so, never that it was free.
+  it('find_receipts says when a receipt was paid with points', async () => {
+    const read = known('k2', 'Example Chemist', '2026-10-20', 0, { items: [{ name: 'Hay fever tablets', price: 0, quantity: 1 }], points: 450 })
+    const found = (await parsed(call('find_receipts', {}), journal({ receipts: [read] }))) as { receipts: object[] }
+    expect(found.receipts[0]).toMatchObject({ total: '£0.00', paid_with_points: 450 })
+  })
+
   it('find_receipts gives the kind an AI read for an item, and the AI is told to use it when it splits items into kinds', async () => {
     const read = known('k1', 'Tesco', '2026-10-03', 240, { items: [{ name: 'Bananas', price: 95, quantity: 1, kind: 'Fruit and veg' }, { name: 'Mystery', price: 145, quantity: 1 }] })
     const found = (await parsed(call('find_receipts', {}), journal({ receipts: [read] }))) as { receipts: { items: object[] }[] }
