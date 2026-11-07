@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
+import { PHOTO_TEXT_VERSION } from '../../src/lib/ocrLines'
 import { RECEIPTS } from '../fixtures/receipts'
 import { backupWith, freeWriting, restoreBackup } from './seed'
 
@@ -64,7 +65,7 @@ test('the map of your ideas reaches the real Groq without its JSON check, and a 
 test('a receipt photo reaches the real Gemini by itself and on a tap, and a fake key is refused in plain words', async ({ page }, testInfo) => {
   // A fictional receipt, its text as the phone read it, so it goes to the AI by itself.
   const data = readFileSync('tests/fixtures/photos/receipt-clean.png').toString('base64')
-  const entry = { ...freeWriting('e1', '', 2), photos: [{ id: 'p1', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text }] }
+  const entry = { ...freeWriting('e1', '', 2), photos: [{ id: 'p1', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text, textVersion: PHOTO_TEXT_VERSION }] }
   const photo = { id: 'p1', entryId: 'e1', type: 'image/jpeg', width: 600, height: 800, data, createdAt: 1, updatedAt: 1 }
   await restoreBackup(page, testInfo.outputPath('receipt.json'), backupWith({ entries: [entry], photos: [photo] }))
   await page.evaluate(async () => {
@@ -89,7 +90,7 @@ test('a receipt photo reaches the real Gemini by itself and on a tap, and a fake
 
 test('with Groq for Ask and a key of its own for photos, a receipt reaches the real Gemini, and a fake key is refused', async ({ page }, testInfo) => {
   const data = readFileSync('tests/fixtures/photos/receipt-clean.png').toString('base64')
-  const entry = { ...freeWriting('e1', '', 2), photos: [{ id: 'p1', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text }] }
+  const entry = { ...freeWriting('e1', '', 2), photos: [{ id: 'p1', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text, textVersion: PHOTO_TEXT_VERSION }] }
   const photo = { id: 'p1', entryId: 'e1', type: 'image/jpeg', width: 600, height: 800, data, createdAt: 1, updatedAt: 1 }
   await restoreBackup(page, testInfo.outputPath('receipt.json'), backupWith({ entries: [entry], photos: [photo] }))
   const sent: string[] = []

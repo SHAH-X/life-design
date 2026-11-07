@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { expect, type Page, type Route, test } from '@playwright/test'
+import { PHOTO_TEXT_VERSION } from '../../src/lib/ocrLines'
 import { RECEIPTS } from '../fixtures/receipts'
 import { entryButton } from './helpers'
 import { backupWith, freeWriting, restoreBackup } from './seed'
@@ -47,8 +48,8 @@ async function fakeGemini(page: Page) {
 const photo = (id: string, entryId: string, data: string) => ({ id, entryId, type: 'image/jpeg', width: 600, height: 800, data, createdAt: 1, updatedAt: 1 })
 
 async function restorePhotos(page: Page, path: string) {
-  const receipt = { ...freeWriting('e1', '', 12, SATURDAY), photos: [{ id: 'p1', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text }] }
-  const note = { ...freeWriting('e2', 'Things to do', 5, SATURDAY), photos: [{ id: 'p2', text: RECEIPTS.find((r) => r.id === 'note')!.text }] }
+  const receipt = { ...freeWriting('e1', '', 12, SATURDAY), photos: [{ id: 'p1', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text, textVersion: PHOTO_TEXT_VERSION }] }
+  const note = { ...freeWriting('e2', 'Things to do', 5, SATURDAY), photos: [{ id: 'p2', text: RECEIPTS.find((r) => r.id === 'note')!.text, textVersion: PHOTO_TEXT_VERSION }] }
   await restoreBackup(page, path, backupWith({ entries: [receipt, note], photos: [photo('p1', 'e1', RECEIPT_JPEG), photo('p2', 'e2', NOTE_JPEG)] }, SATURDAY))
 }
 

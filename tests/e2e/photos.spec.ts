@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs'
 import { expect, type Page, test } from '@playwright/test'
 import { entryButton, swipe } from './helpers'
+import { backupWith, freeWriting, restoreBackup } from './seed'
 
 // Photos (v0.16) in WebKit at iPhone size: added in the writer, kept, read on the phone by the real model (from this
 // site) in its own worker, found by their words. The photo is a fictional receipt (tests/fixtures/photos/).
@@ -69,5 +71,37 @@ test.describe('photos', () => {
     await page.getByRole('button', { name: 'Undo' }).click()
     await row.click()
     await expect(page.getByRole('dialog', { name: 'Free writing' }).getByRole('img', { name: 'Photo 1' })).toBeVisible()
+  })
+
+  test('a turned receipt read before its lines were put in order is read again by itself, and then counted (v0.24.2)', async ({ page }, testInfo) => {
+    // Owner, 2026-11-07: a restaurant receipt photographed a little turned had its prices read on lines of their own, or
+    // before their names, so it wasn't taken for a receipt. The photo is fictional, laid out like it.
+    test.setTimeout(180_000)
+    const now = new Date(2026, 9, 20, 12, 0)
+    await page.clock.setFixedTime(now)
+    const asReadBefore = 'VAT No：123 4567 89\nRiverside Park\n0.00 No Allergy Declared\n7.25 Halloumi Wrap\n10.40 Chicken Burger\n14.71 Subtotal\n2.94\nTax\n17.65 Eat In Total'
+    const data = readFileSync('tests/fixtures/photos/receipt-turned.png').toString('base64')
+    const photo = { id: 'p1', entryId: 'e1', type: 'image/jpeg', width: 900, height: 1500, data, createdAt: 1, updatedAt: 1 }
+    const entry = { ...freeWriting('e1', '', 6, now), photos: [{ id: 'p1', text: asReadBefore }] }
+    await restoreBackup(page, testInfo.outputPath('turned.json'), backupWith({ entries: [entry], photos: [photo] }, now))
+    await page.goto('./#/money/2026-10')
+    await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+    await expect(page.getByText('Receipts you photograph show here.')).toBeVisible()
+
+    await page.goto('./#/more/photos')
+    await page.getByRole('switch', { name: /Read the text in photos/ }).check()
+    await page.goto('./#/entries')
+    await entryButton(page, 'Photo').click()
+    const saved = page.getByRole('dialog', { name: 'Photo' })
+    await saved.getByText('Text in this photo').click()
+    await expect(saved.locator('.photo-text')).toContainText('Halloumi Wrap 7.25', { timeout: MODEL_TIME })
+    await expect(saved.locator('.photo-text')).toContainText('Chicken Burger 10.40')
+    await saved.getByRole('button', { name: 'Done', exact: true }).click()
+
+    await page.goto('./#/money/2026-10')
+    await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+    const receipts = page.getByRole('region', { name: 'From your receipts' })
+    await expect(receipts.getByText('17.65 spent')).toBeVisible()
+    await expect(receipts.getByText('1 receipt from 1 shop')).toBeVisible()
   })
 })

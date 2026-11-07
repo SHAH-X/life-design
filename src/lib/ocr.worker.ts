@@ -5,6 +5,7 @@
 import * as ort from 'onnxruntime-web/wasm'
 import { PaddleOcrService } from 'paddleocr'
 import { unzip } from './meaningModel'
+import { joinLines } from './ocrLines'
 import { isOldOcrCache, OCR_CACHE, ocrFiles, ocrOptions } from './ocrModel'
 
 export type OcrProblem = 'download' | 'space' | 'start' | 'photo'
@@ -73,8 +74,7 @@ self.onmessage = async (event: MessageEvent<OcrRequest>) => {
   try {
     service ??= load()
     const ocr = await service
-    const result = ocr.processRecognition(await ocr.recognize(await pixels(jpeg)))
-    reply({ id, text: result.text.trim() })
+    reply({ id, text: joinLines(await ocr.recognize(await pixels(jpeg))).trim() })
   } catch (error) {
     const problem = error instanceof Problem ? error.problem : 'start'
     // A download or space problem may pass: try again next time. A photo that won't decode leaves the model loaded.
