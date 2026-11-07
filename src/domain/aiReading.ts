@@ -1,12 +1,14 @@
 // Photos read by your AI (step 6, v0.18): a photo the phone's own reading takes for a receipt goes to the AI you set
-// up as you add it (owner's choice, 2026-10-24); any other photo only on a tap ("Read with AI"). The AI gives what it
+// up as you add it (owner's choice, 2026-10-24), and from v0.25.0 one whose text shows a total and another amount,
+// a layout the phone's rules can't read (owner, 2026-11-07: "all kind of places and all types of purchases"), the AI
+// saying whether it's a receipt; never a payslip or a statement; any other photo only on a tap ("Read with AI"). The AI gives what it
 // reads; the phone turns its prices into pence, checks the items add up to the total, and still does every sum.
 // Each item of a receipt comes with its kind from a fixed list (Shopping, v0.19) and what it most likely is in plain
 // words, as printed when the AI isn't sure (v0.19.3). Any other photo comes back as
 // Markdown, laid out as printed (code, a chart, a page), kept as written for search and Ask, and shown as plain text
 // until the layout pass. A chart gives only its printed values (owner, 2026-10-24).
 import type { AiReading, PhotoRef } from '../db/types'
-import { ITEM_KINDS, type ItemKind, readReceipt } from './receipts'
+import { ITEM_KINDS, type ItemKind, mightBeReceipt, readReceipt } from './receipts'
 
 export const AI_READING_INSTRUCTIONS = [
   'Read this photo. Reply with JSON only.',
@@ -90,9 +92,10 @@ export function parseAiReading(reply: string, by: string, at: number): AiReading
 const PRIVATE_PAPERS =
   /\b(?:pay\s?slip|net pay|gross pay|tax code|national insurance|ni (?:number|no)|employer|p60|p45|salary|sort code|account (?:number|no)|iban|statement (?:date|period)|balance (?:brought|carried) forward|(?:opening|closing) balance|money (?:in|out)|minimum payment|credit limit)\b/i
 
-/** Whether a photo goes to the AI by itself: the phone's own reading takes it for a receipt, and it's no payslip or
- *  statement (v0.24.4: the phone's rules took a payslip's "Net pay" and "Total deductions" for a receipt). */
-export const looksLikeReceipt = (text: string | null) => Boolean(text && !PRIVATE_PAPERS.test(text) && readReceipt(text))
+/** Whether a photo goes to the AI by itself: the phone's own reading takes it for a receipt, or its text has a
+ *  receipt's signs (a total and another amount, `mightBeReceipt`, v0.25.0), and it's no payslip or statement (v0.24.4:
+ *  the phone's rules took a payslip's "Net pay" and "Total deductions" for a receipt). */
+export const looksLikeReceipt = (text: string | null) => Boolean(text && !PRIVATE_PAPERS.test(text) && (readReceipt(text) || mightBeReceipt(text)))
 
 /** Which instructions a reading was made with: 2 asks for each item's kind and plain name (v0.19.3). A receipt read
  *  before (none kept) whose items have no kinds or no plain names is read again by itself, once. */

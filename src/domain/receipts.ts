@@ -144,6 +144,16 @@ function cardPaid(lines: readonly string[]): { card?: CardPaid } {
   return { card: { last4: kept[0]!.last4, ...(scheme ? { scheme } : {}) } }
 }
 
+/** Whether a photo's text has a receipt's signs though the rules can't pick out its items (v0.25.0, owner 2026-11-07:
+ *  "read for all kind of places and all types of purchases"): a total, with an amount on its line or the line just
+ *  above or below, and another amount besides. Such a photo goes to your AI, which says whether it's a receipt. */
+export function mightBeReceipt(text: string): boolean {
+  const lines = text.split('\n')
+  const amounts = lines.map((line) => line.match(/\d[.,]\d{2}(?!\d)/g)?.length ?? 0)
+  if (amounts.reduce((sum, n) => sum + n, 0) < 2) return false
+  return lines.some((line, i) => TOTAL.test(line) && !NOT_TOTAL.test(line) && (amounts[i]! > 0 || (amounts[i - 1] ?? 0) > 0 || (amounts[i + 1] ?? 0) > 0))
+}
+
 /** A slip's own words for a refund: "*** RETURN RECEIPT ***", "ITEMS RETURNED 2", "REFUND REASON". A receipt's refund
  *  policy ("the last date for a refund/exchange", "Refunds may still be given") says none of these. */
 const REFUND_WORDS = /\b(?:return|refund)\s+receipt\b|\bitems?\s+returned\b|\brefund\s+(?:reason|total)\b|\btotal\s+refund\b/i

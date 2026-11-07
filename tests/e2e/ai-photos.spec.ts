@@ -339,3 +339,24 @@ test('a payslip never goes to your AI by itself, even one the phone takes for a 
   await dialog.getByRole('button', { name: 'Read with AI' }).click()
   await expect.poll(() => photos.length).toBe(2)
 })
+
+// Owner, 2026-11-07: "read for all kind of places and all types of purchases" (v0.25.0).
+test('a photo the phone can’t read as a receipt but that shows a total goes by itself, and what your AI says it is stays, sent once', async ({ page }, testInfo) => {
+  const { photos } = await fakeGemini(page)
+  const ticket = { ...freeWriting('e1', 'Parking', 3, SATURDAY), photos: [{ id: 'p1', text: 'CITY CAR PARK\nTariff 2 hours\nAmount due £3.50\nPaid by card £3.50', textVersion: PHOTO_TEXT_VERSION }] }
+  await restoreBackup(page, testInfo.outputPath('photos.json'), backupWith({ entries: [ticket], photos: [photo('p1', 'e1', NOTE_JPEG)] }, SATURDAY))
+  await page.goto('./#/more/photos')
+  await page.getByRole('switch', { name: /Read the text in photos/ }).check()
+  await setUpGemini(page)
+  await expect.poll(() => photos.length, { timeout: 15_000 }).toBe(1)
+
+  // Not a receipt, said the stand-in: kept as what it shows, and never sent again by itself.
+  await page.goto('./#/entries')
+  await entryButton(page, 'Free writing').click()
+  const dialog = page.getByRole('dialog', { name: 'Free writing' })
+  await expect(dialog.getByText('A sticky note with a reminder about the dentist')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+  await page.reload()
+  await page.waitForTimeout(SETTLED)
+  expect(photos).toHaveLength(1)
+})

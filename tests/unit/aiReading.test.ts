@@ -161,9 +161,18 @@ describe('what the AI read, used', () => {
     expect(photoTexts(photoEntry('e1', { id: 'p1', text: null, ai }))).toEqual(['M&S\nGRK YOG 4PK 2.25\nBananas 0.95\nGreek yoghurt, 4 pack'])
   })
 
-  it('a photo goes by itself only when the phone takes it for a receipt', () => {
+  it('a photo goes by itself when the phone takes it for a receipt, or its text shows a total and another amount (v0.25.0)', () => {
     expect(looksLikeReceipt(RECEIPTS.find((r) => r.id === 'greenleaf')!.text)).toBe(true)
+    // Owner, 2026-11-07: "read for all kind of places and all types of purchases": a layout the phone's rules can't
+    // read goes all the same, and your AI says whether it's a receipt.
+    expect(looksLikeReceipt('CITY CAR PARK\nTariff 2 hours\nAmount due £3.50\nPaid by card £3.50')).toBe(true)
+    expect(looksLikeReceipt('7.25\nHalloumi Wrap\n10.40 Chicken Burger\n17.65 Eat In Total')).toBe(true)
+    // A total on the line under its amount, or over it.
+    expect(looksLikeReceipt('Tickets 2 x 9.00\n18.00\nTOTAL\nCard')).toBe(true)
+    // A total and nothing else, a note, a page: never.
+    expect(looksLikeReceipt('Total: £4.50')).toBe(false)
     expect(looksLikeReceipt(RECEIPTS.find((r) => r.id === 'note')!.text)).toBe(false)
+    expect(looksLikeReceipt('Q4 goals\nship the beta\ncut cloud costs by 20%\nTotal headcount 12')).toBe(false)
     expect(looksLikeReceipt(null)).toBe(false)
   })
 
