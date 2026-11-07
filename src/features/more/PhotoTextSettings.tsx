@@ -89,7 +89,7 @@ function AiReceiptsSwitch({ reader }: { reader: NonNullable<Reader> }) {
     <>
       <Switch
         label="Read receipts with AI"
-        hint={`A photo with prices goes to ${label} as you add it, and again until it's read in full, never a payslip or a statement; any other photo only when you tap "Read with AI".`}
+        hint={`A photo with a total and prices goes to ${label} as you add it, and again until it's read in full, never a payslip or a statement; any other photo only when you tap "Read with AI".`}
         checked={checked}
         onChange={turn}
       />
