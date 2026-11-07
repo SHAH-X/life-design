@@ -316,3 +316,26 @@ test('turned off, receipts stay on the phone; a refused key is said under the re
   await entryButton(page, 'Photo').click()
   await expect(page.getByRole('dialog', { name: 'Photo' }).getByText("The key wasn't accepted. Check it in More → AI review.")).toBeVisible({ timeout: 15_000 })
 })
+
+// Found 2026-11-07: since v0.18 a payslip whose lines the phone's rules took for a receipt ("Net pay 1050.00", "Total
+// deductions 150.00") went to your AI by itself (v0.24.4).
+test('a payslip never goes to your AI by itself, even one the phone takes for a receipt; a receipt beside it does; a tap still sends it', async ({ page }, testInfo) => {
+  const { photos } = await fakeGemini(page)
+  const receipt = { ...freeWriting('e1', 'Shopping', 3, SATURDAY), photos: [{ id: 'p1', text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text, textVersion: PHOTO_TEXT_VERSION }] }
+  const payslip = { ...freeWriting('e2', 'Pay day', 2, SATURDAY), photos: [{ id: 'p2', text: 'EXAMPLE LTD\nPayslip\nBasic pay 1200.00\nNet pay 1050.00\nTotal deductions 150.00', textVersion: PHOTO_TEXT_VERSION }] }
+  await restoreBackup(page, testInfo.outputPath('photos.json'), backupWith({ entries: [receipt, payslip], photos: [photo('p1', 'e1', RECEIPT_JPEG), photo('p2', 'e2', NOTE_JPEG)] }, SATURDAY))
+  await page.goto('./#/more/photos')
+  await page.getByRole('switch', { name: /Read the text in photos/ }).check()
+  await setUpGemini(page)
+  await expect.poll(() => photos.length, { timeout: 15_000 }).toBe(1)
+  expect(photos[0]!.image).toBe(`data:image/jpeg;base64,${RECEIPT_JPEG}`)
+  await page.waitForTimeout(SETTLED)
+  expect(photos).toHaveLength(1)
+
+  await page.goto('./#/entries')
+  await entryButton(page, 'Free writing').filter({ hasText: 'Pay day' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Free writing' })
+  await expect(dialog.getByText('Sends this photo to Gemini.')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Read with AI' }).click()
+  await expect.poll(() => photos.length).toBe(2)
+})
