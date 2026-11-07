@@ -2,7 +2,7 @@
 // least MIN_COUNT entries before they are ranked, and every average comes with its count.
 import type { BalanceArea, Day, Entry, Measure, Review } from '../db/types'
 import { BALANCE_AREAS } from '../db/types'
-import { addDays, DAY_PARTS, fromDateKey, toDateKey, weekdayName } from '../lib/dates'
+import { addDays, DAY_PARTS, fromDateKey, weekdayName } from '../lib/dates'
 
 export interface Period {
   /** Inclusive YYYY-MM-DD dates. */
@@ -110,14 +110,6 @@ export function flowFinder(entries: readonly Entry[], limit = 5): GroupStat[] {
 }
 
 export type ContextKey = 'where' | 'people' | 'objects' | 'part' | 'weekday'
-
-export const CONTEXT_LABELS: Record<ContextKey, string> = {
-  where: 'Where',
-  people: 'With whom',
-  objects: 'Using',
-  part: 'Time of day',
-  weekday: 'Day of the week',
-}
 
 /** Average energy per place, person, object, part of day or weekday (groups with 3+ entries), best first. */
 export function contextStats(entries: readonly Entry[], key: ContextKey, locale?: string): GroupStat[] {
@@ -268,8 +260,4 @@ export function balanceTally(reviews: readonly Review[], last = 4): BalanceTally
     return best ? { area: best.area, count: best.count } : null
   }
   return { reviews: done.length, mostAlive: top('alive'), mostNeglected: top('neglected'), latest: done.at(-1) ?? null }
-}
-
-export function todayKey(): string {
-  return toDateKey(new Date())
 }
