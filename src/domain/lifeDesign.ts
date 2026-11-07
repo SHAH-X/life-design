@@ -25,8 +25,6 @@ export const PLAN_SLOTS = [
 
 export type PlanSlot = 1 | 2 | 3
 
-export const PLAN_INTRO = 'Three different five-year lives: possibilities, not a choice.'
-
 export const PLAN_STEPS = [
   "What's this life about?",
   'Year by year',
@@ -51,14 +49,6 @@ export const NEEDS: readonly { value: Need; label: string }[] = [
   { value: 'skills', label: 'Skills' },
   { value: 'people', label: 'People' },
 ]
-
-export const WORKVIEW_QUESTION = 'What is work for, to you?'
-export const WORKVIEW_INFO =
-  'Why work? What is work for? What makes work good or worthwhile? How does money fit in? And experience, growth and fulfilment? Write it your own way, not as a checklist.'
-export const LIFEVIEW_QUESTION = 'What is life for, to you?'
-export const LIFEVIEW_INFO =
-  'Why are we here? What gives life meaning? How do you relate to others: family, country, the world? What is good, and what is evil? Is there something greater, and what does it mean for you? Where do joy, sorrow, justice, love and peace fit?'
-export const COHERENCE_QUESTION = 'Where do they agree, where do they clash, and does one drive the other?'
 
 /** A change made this long after the last one keeps the earlier version (plans, Workview and Lifeview). */
 export const VERSION_AFTER_DAYS = 7
@@ -99,8 +89,4 @@ export function resumeStep(plan: OdysseyPlan): number {
   ]
   const first = answered.indexOf(false)
   return first === -1 ? PLAN_STEPS.length - 1 : first
-}
-
-export function slotOf(slot: PlanSlot) {
-  return PLAN_SLOTS[slot - 1] as (typeof PLAN_SLOTS)[number]
 }

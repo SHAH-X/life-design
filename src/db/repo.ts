@@ -467,10 +467,6 @@ export async function saveReview(review: Review, database: LifeDesignDB = defaul
   return saved
 }
 
-export async function deleteReview(id: string, database: LifeDesignDB = defaultDb): Promise<void> {
-  await guardWrite(() => database.reviews.delete(id))
-}
-
 /** Whether anything has been written yet: entries, small joys, answers, reviews, plans or views. Settings don't count. */
 export async function hasJournalData(database: LifeDesignDB = defaultDb): Promise<boolean> {
   return (await countChangesSince(null, database)) > 0

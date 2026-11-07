@@ -258,13 +258,6 @@ export function overallEnergyWord(energies: readonly number[]): 'Mostly energisi
   return 'Mixed'
 }
 
-/** One day's (or week's) average energy in words, for chart readouts. */
-export function energyWordFor(average: number): string {
-  if (average >= 0.5) return 'mostly energising'
-  if (average <= -0.5) return 'mostly draining'
-  return 'mixed'
-}
-
 /** How into things you were, in words, from an average of 1–5. */
 export function intoItWord(average: number): 'absorbed' | 'into it' | 'fine' | 'distracted' | 'bored' {
   if (average >= 4.5) return 'absorbed'

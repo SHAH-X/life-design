@@ -8,14 +8,6 @@ export const BALANCE_INFO: Record<BalanceArea, { label: string; info: string }> 
   love: { label: 'Love', info: 'Connection: family, friends, a partner, community. The love you give and receive.' },
 }
 
-export const ALIVE_QUESTION = 'Which part of life feels most alive right now?'
-export const NEGLECTED_QUESTION = 'Which feels most neglected?'
-
-/** Behind the ⓘ on the balance step: what each part of life covers (Designing Your Life). */
-export const BALANCE_DEFINITIONS = (['health', 'work', 'play', 'love'] as const)
-  .map((area) => `${BALANCE_INFO[area].label}: ${BALANCE_INFO[area].info.charAt(0).toLowerCase()}${BALANCE_INFO[area].info.slice(1)}`)
-  .join(' ')
-
 export type AeiouField = Exclude<keyof AeiouNote, 'entryId' | 'why'>
 
 export const AEIOU: readonly { field: AeiouField; letter: string; label: string; prompt: string }[] = [
@@ -25,12 +17,3 @@ export const AEIOU: readonly { field: AeiouField; letter: string; label: string;
   { field: 'objects', letter: 'O', label: 'Objects', prompt: 'Any objects or devices that made it better or worse?' },
   { field: 'users', letter: 'U', label: 'Users', prompt: 'Who else was there? Did they add to it or take away?' },
 ]
-
-/** One question per moment first; AEIOU is there to zoom in further. */
-export const MOMENT_QUESTIONS = {
-  best: { pick: 'Which moment gave you the most energy?', why: 'What made it so good?' },
-  worst: { pick: 'Which moment took the most energy?', why: 'What made it so draining?' },
-} as const
-
-/** Placeholder for the reflection box. */
-export const REFLECTION_PROMPT = 'Patterns, surprises, what you want more or less of…'
