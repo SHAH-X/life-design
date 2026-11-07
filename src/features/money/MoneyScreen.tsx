@@ -102,7 +102,8 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   }
   const { receipts, copies, refunds } = receiptsAndCopies(entries, remembered, itemFor)
   // Receipts added here not read yet (v0.26.0): said, so one never vanishes until it's read.
-  const receiptsWaiting = entries.filter((e) => e.status !== 'draft').flatMap((e) => e.photos ?? []).filter(notReadYet).length
+  const counted = new Set([...receipts, ...refunds].map((r) => r.id).concat(copies.map((c) => c.copy.id)))
+  const receiptsWaiting = entries.filter((e) => e.status !== 'draft').flatMap((e) => e.photos ?? []).filter((p) => notReadYet(p) && !counted.has(p.id)).length
   // A receipt opens to its items; an extra copy, counted nowhere, opens its entry, where it can be deleted.
   const copyIds = new Set(copies.map((c) => c.copy.id))
   const open = (receipt: KnownReceipt) => (copyIds.has(receipt.id) ? openEntry(receipt) : setReceiptId(receipt.id))

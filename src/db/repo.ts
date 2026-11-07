@@ -275,6 +275,27 @@ export async function addReceiptPhoto(shot: { id: string; data: string; width: n
   return entry
 }
 
+/** "Add another part" (v0.27.0): a long receipt's next part, after its others, in the receipt's entry. The photo is
+ *  written first, so the receipt is never read with a part whose picture isn't on the phone; a reading of the receipt
+ *  made before is taken off, so it's read again whole. False when the receipt's entry is gone. */
+export async function addReceiptPart(entryId: string, firstId: string, shot: { id: string; data: string; width: number; height: number }, now: Date = new Date(), database: LifeDesignDB = defaultDb): Promise<boolean> {
+  const entry = await database.entries.get(entryId)
+  if (!entry?.photos.some((p) => p.id === firstId)) return false
+  const at = now.getTime()
+  await savePhoto({ id: shot.id, entryId, type: 'image/jpeg', width: shot.width, height: shot.height, data: shot.data, createdAt: at, updatedAt: at }, database)
+  const kept = await guardWrite(() =>
+    database.transaction('rw', database.entries, async () => {
+      const current = await database.entries.get(entryId)
+      if (!current?.photos.some((p) => p.id === firstId)) return false
+      const photos = current.photos.map(({ ai, ...p }) => (p.id === firstId ? p : { ...p, ...(ai ? { ai } : {}) }))
+      await database.entries.update(entryId, { photos: [...photos, { id: shot.id, text: null, partOf: firstId }] })
+      return true
+    }),
+  )
+  if (!kept) await deletePhotos([shot.id], database)
+  return kept
+}
+
 /** Photos no longer on their entry (taken off it while writing). */
 export async function deletePhotos(ids: readonly string[], database: LifeDesignDB = defaultDb): Promise<void> {
   if (ids.length) await guardWrite(() => database.photos.bulkDelete([...ids]))

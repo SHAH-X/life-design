@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isRefundSlip, paymentOf, readReceipt, receiptDate, receiptTime } from '../../src/domain/receipts'
+import { isRefundSlip, joinParts, paymentOf, readReceipt, receiptDate, receiptTime } from '../../src/domain/receipts'
 import { type ExpectedReceipt, RECEIPTS, RECEIPTS_UNSEEN, REFUND_SLIP } from '../fixtures/receipts'
 
 /** What the rules made of each fictional receipt, as the fixture writes it. */
@@ -91,6 +91,16 @@ describe('readReceipt: a receipt in the text read from a photo', () => {
     // A first line that names the shop keeps it, whatever address is printed; a chain's address is the chain.
     expect(shop('THE CORNER CAFE\nVAT No: 123 4567 89\nFlat white 3.10\nTotal 3.10\nwww.cornercafe.co.uk')).toBe('The Corner Cafe')
     expect(shop('VAT No: 123 4567 89\nHigh Street\nMilk 1.65\nTotal 1.65\nwww.tesco.com')).toBe('Tesco')
+  })
+
+  // v0.27.0 (owner, 2026-11-07): a long receipt taken in parts, each a little over the last, is read as one.
+  it('joins a long receipt’s parts in order, reading the lines they share at each join once', () => {
+    expect(joinParts(['SHOP\nMilk 1.45\nBread 1.20\nEggs 2.10', 'Bread 1.20\nEggs 2.10\nApples 0.95', 'Apples 0.95\nTOTAL 5.70'])).toBe('SHOP\nMilk 1.45\nBread 1.20\nEggs 2.10\nApples 0.95\nTOTAL 5.70')
+    // No overlap: one after the other. A line read with a space more is the same line.
+    expect(joinParts(['SHOP\nMilk 1.45', 'Apples 0.95\nTOTAL 2.40'])).toBe('SHOP\nMilk 1.45\nApples 0.95\nTOTAL 2.40')
+    expect(joinParts(['SHOP\nMilk 1.45', 'Milk  1.45\nTOTAL 1.45'])).toBe('SHOP\nMilk 1.45\nTOTAL 1.45')
+    // A part not read yet adds nothing.
+    expect(joinParts(['SHOP\nMilk 1.45', ''])).toBe('SHOP\nMilk 1.45')
   })
 
   it('takes its currency from a £ printed anywhere on it, under the total too (v0.24.3)', () => {

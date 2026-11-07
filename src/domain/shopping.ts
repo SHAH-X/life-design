@@ -5,7 +5,7 @@
 import { MIN_COUNT } from '../analysis/stats'
 import type { Entry, ItemChange, PhotoRef } from '../db/types'
 import { addMonths } from '../lib/dates'
-import { type CardPaid, chainOf, isRefundSlip, ITEM_KINDS, type ItemKind, itemShown, paidFor, paymentOf, type ReceiptItem, readReceipt, type Receipt, receiptTime, shopWords } from './receipts'
+import { type CardPaid, chainOf, isRefundSlip, ITEM_KINDS, type ItemKind, itemShown, joinParts, paidFor, paymentOf, type ReceiptItem, readReceipt, type Receipt, receiptTime, shopWords } from './receipts'
 
 /** A receipt in a photo of a finished entry. Its id is the photo's; its date is the receipt's, else the entry's. */
 export interface KnownReceipt extends Omit<Receipt, 'date'> {
@@ -18,6 +18,15 @@ export interface KnownReceipt extends Omit<Receipt, 'date'> {
   dated: boolean
   /** The AI that read it ("Gemini · gemini-2.5-flash"); null when the phone read it. */
   readBy: string | null
+}
+
+/** A long receipt's later part (v0.27.0), read with its first photo, while that's still in the entry. */
+export const readWithFirst = (photo: PhotoRef, photos: readonly PhotoRef[]) => Boolean(photo.partOf && photos.some((p) => p.id === photo.partOf))
+
+/** A receipt taken in parts (v0.27.0): its first photo, with its parts' text joined to its own, as the phone read them. */
+function withParts(photo: PhotoRef, photos: readonly PhotoRef[]): PhotoRef {
+  const parts = photos.filter((p) => p.partOf === photo.id)
+  return parts.length ? { ...photo, text: joinParts([photo.text ?? '', ...parts.map((p) => p.text ?? '')]) } : photo
 }
 
 /** A photo's receipt: as your AI read it when it did (v0.18), else as the phone read it. Whether its items add up is
@@ -185,7 +194,9 @@ export function receiptsAndCopies(entries: readonly Entry[], remembered: Remembe
     .filter((e) => e.status !== 'draft')
     .sort((a, b) => a.createdAt - b.createdAt)
     .flatMap((entry) =>
-      (entry.photos ?? []).flatMap((photo) => {
+      (entry.photos ?? []).flatMap((ref) => {
+        if (readWithFirst(ref, entry.photos ?? [])) return []
+        const photo = withParts(ref, entry.photos ?? [])
         const receipt = receiptOf(photo, remembered, itemFor)
         if (!receipt) return []
         const readBy = photo.ai?.receipt ? photo.ai.by : null

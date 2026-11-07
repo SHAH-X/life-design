@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { applyImport, BACKUP_SCHEMA_VERSION, createBackup, detectFile } from '../../src/db/backup'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { ensurePhotoText } from '../../src/db/photoText'
-import { addReceiptPhoto, deleteEntry, restoreEntry, saveEntry, savePhoto } from '../../src/db/repo'
+import { addReceiptPart, addReceiptPhoto, deleteEntry, restoreEntry, saveEntry, savePhoto } from '../../src/db/repo'
 import type { Entry, Photo } from '../../src/db/types'
 import { isPhoto } from '../../src/db/validate'
 import { entryTitle } from '../../src/domain/areas'
@@ -84,8 +84,28 @@ describe('keeping photos', () => {
     expect(await phone.photos.get('r1')).toMatchObject({ entryId: entry.id, type: 'image/jpeg', width: 1500, height: 2000 })
   })
 
+  // v0.27.0: "Add another part" for a long receipt.
+  it('adds a part to a receipt after its other parts, and takes off a reading of it made before, to read it whole', async () => {
+    const now = new Date(2026, 9, 24, 15, 30)
+    const shot = (id: string) => ({ id, data: toBase64(bytes(id)), width: 1500, height: 2000 })
+    const entry = await addReceiptPhoto(shot('r1'), now, phone)
+    const ai = { by: 'Gemini · gemini-test', at: 1, text: 'SHOP', description: '', receipt: { shop: 'Shop', date: null, currency: '£', items: [{ name: 'Milk', price: 145, quantity: 1 }], total: null } }
+    await phone.entries.update(entry.id, { photos: [{ id: 'r1', text: 'SHOP', receipt: true, ai }] })
+    expect(await addReceiptPart(entry.id, 'r1', shot('r2'), now, phone)).toBe(true)
+    expect(await addReceiptPart(entry.id, 'r1', shot('r3'), now, phone)).toBe(true)
+    expect((await phone.entries.get(entry.id))?.photos).toEqual([
+      { id: 'r1', text: 'SHOP', receipt: true },
+      { id: 'r2', text: null, partOf: 'r1' },
+      { id: 'r3', text: null, partOf: 'r1' },
+    ])
+    expect(await phone.photos.get('r3')).toMatchObject({ entryId: entry.id, width: 1500 })
+    // Its entry deleted meanwhile: nothing is kept.
+    expect(await addReceiptPart('gone', 'r1', shot('r4'), now, phone)).toBe(false)
+    expect(await phone.photos.get('r4')).toBeUndefined()
+  })
+
   it('backs photos up and restores them; a damaged one is skipped, never imported', async () => {
-    const entry = withPhotos('e1', 'Receipt from the market', [{ id: 'p1', text: 'TOTAL 14.20', textVersion: PHOTO_TEXT_VERSION, receipt: true }])
+    const entry = withPhotos('e1', 'Receipt from the market', [{ id: 'p1', text: 'TOTAL 14.20', textVersion: PHOTO_TEXT_VERSION, receipt: true }, { id: 'p1b', text: null, partOf: 'p1' }])
     await phone.entries.put(entry)
     await savePhoto(photo('p1', 'e1', 'jpeg-bytes'), phone)
     await phone.settings.put({ key: 'photoText', value: true, updatedAt: 1 })

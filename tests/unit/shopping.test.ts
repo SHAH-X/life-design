@@ -112,6 +112,19 @@ describe('receiptsOf: whether a date was read, and who read it', () => {
     expect(cardOf({ id: 'p1', text: 'GREENLEAF MARKET\n12 Oct 2026\nOat milk 1.65\nTOTAL 1.65\nCASH 2.00' })).toBeUndefined()
   })
 
+  // v0.27.0 (owner, 2026-11-07): a long receipt taken in parts is one receipt, read whole. Made-up values.
+  it('reads a long receipt taken in parts as one, its parts joined in order and their overlap once', () => {
+    const photos = [
+      { id: 'p1', text: 'GREENLEAF MARKET\n12 Oct 2026\nOat milk 1.45\nBread 1.20', receipt: true as const },
+      { id: 'p2', text: 'Bread 1.20\nApples 0.95\nTOTAL 3.60', partOf: 'p1' },
+    ]
+    const found = receiptsOf([{ ...areaEntry({ id: 'e1', text: '', expect: [] }, '2026-10-12'), photos }])
+    expect(found.map((r) => [r.id, r.items.map((i) => i.name), r.total, r.adds])).toEqual([['p1', ['Oat milk', 'Bread', 'Apples'], 360, true]])
+    // Its first photo taken off, a part is a photo of its own again.
+    const alone = receiptsOf([{ ...areaEntry({ id: 'e1', text: '', expect: [] }, '2026-10-12'), photos: [photos[1]!] }])
+    expect(alone.map((r) => [r.id, r.total])).toEqual([['p2', 360]])
+  })
+
   // v0.25.1 (owner, 2026-11-07: "Listed, not counted"): a receipt paid with loyalty points. Made-up values.
   it('lists a receipt paid with points, counted as nothing spent and with no bank payment to look for', () => {
     const ai = { by: 'Gemini · gemini-test', at: 1, text: 'EXAMPLE CHEMIST\nTOTAL TO REDEEM 450 PTS', description: '', receipt: { shop: 'Example Chemist', date: '2026-10-20', currency: '£', points: 450, items: [{ name: 'Hay fever tablets', price: 0, quantity: 1, kind: 'Toiletries and health' as const }], total: 0 } }
