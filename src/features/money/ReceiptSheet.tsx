@@ -62,6 +62,8 @@ export function ReceiptSheet(props: { receipt: KnownReceipt; names: string[]; su
       <p className="muted small">
         {dayMonthLong(receipt.date)} · {receipt.readBy ? 'Read by your AI' : 'Read by the phone'}
       </p>
+      {/* Paid with loyalty points (v0.25.1, owner 2026-11-07: listed, not counted). */}
+      {receipt.points ? <p>Paid with {receipt.points} points · not counted as spent</p> : null}
       {paidWith ? <Paid paid={paidWith} date={receipt.date} currency={receipt.currency} onCard={() => setChoosingCard(true)} /> : null}
       {receipt.items.length ? (
         <ul className="plain-list compact receipt-items rc-items" aria-label="Items">

@@ -176,6 +176,8 @@ export async function runTool(call: ToolCall, journal: AskJournal): Promise<{ re
       items: r.items.map((item, n) => ({ id: `${r.id}:${n}`, name: itemShown(item), ...(itemShown(item) !== item.name ? { printed: item.name } : {}), price: money(paidFor(item), r.currency), ...(item.saving ? { was: money(item.price, r.currency), saving: money(item.saving, r.currency) } : {}), ...(item.quantity > 1 ? { quantity: item.quantity } : {}), ...(item.kind ? { kind: item.kind } : {}), ...(item.returned ? { returned: true } : {}) })),
       total: r.total === null ? null : money(r.total, r.currency),
       adds: r.adds,
+      // Paid with loyalty points (v0.25.1): its total is the money paid, so it wasn't free.
+      ...(r.points ? { paid_with_points: r.points } : {}),
     }))
     const span = from || to ? ` from ${from ?? 'the start'} to ${to ?? 'today'}` : ''
     return { result: JSON.stringify({ receipts: result }), about: `${found.length} receipt${found.length === 1 ? '' : 's'}${span}${shop ? ` from "${shop}"` : ''}` }

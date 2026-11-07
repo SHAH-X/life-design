@@ -15,6 +15,7 @@ export const AI_READING_INSTRUCTIONS = [
   'If it is a receipt, reply: {"receipt": true, "shop": "the shop", "date": "YYYY-MM-DD or null", "currency": "£, $, € or empty", "items": [{"name": "the item as printed, its codes left out", "plain": "what it is, in plain words", "price": "1.73", "quantity": 1, "kind": "Dairy and eggs"}], "total": "the total paid, or null", "text": "all the text you can read, line by line"}.',
   'The date is when it was bought: never a refund, exchange, expiry, collection or delivery date; null if the photo shows none.',
   'Each line bought is an item at the price it shows (for "2 @ 1.50 3.00", one item: quantity 2, price "3.00"). A saving or discount is an item with a negative price. Payment, change, gift card, balance and points lines are not items.',
+  'If it was paid with loyalty points (a points redemption: prices and total printed in points, not money), add "points": the points used, as a number. Then each item\'s "price" is "0.00" unless a money price is printed for it, and "total" is the money paid, "0.00" if none. Never write points as money.',
   'Give each item a plain name too: what it most likely is, in plain words ("GRK YOG 4PK" is "Greek yoghurt, 4 pack"); if you are not sure, the name as printed, adding nothing.',
   `Give each item the kind it most likely is, written exactly as one of: ${ITEM_KINDS.join(', ')}. If you are not sure, Other.`,
   'Baby and toddler is for infant formula and baby milk, baby food, nappies, wipes and anything made for a baby or toddler, even when it is food or a toiletry.',
@@ -66,11 +67,19 @@ export function parseAiReading(reply: string, by: string, at: number): AiReading
     const description = typeof json.description === 'string' ? json.description.trim() : ''
     return description || text ? { by, at, text, description, receipt: null } : null
   }
+  // The loyalty points it was paid with (v0.25.1). Points are never money: an amount that is just the points, written
+  // as pounds ("450") or as pence ("4.50"), is nothing paid, whatever the AI was told.
+  const said = typeof json.points === 'string' && /^\d+$/.test(json.points.trim()) ? Number(json.points) : json.points
+  const points = typeof said === 'number' && Number.isInteger(said) && said > 0 ? said : undefined
+  const money = (value: unknown) => {
+    const minor = amount(value)
+    return points && (minor === points * 100 || minor === points) ? 0 : minor
+  }
   const items = (Array.isArray(json.items) ? json.items : []).flatMap((raw) => {
     const item = raw as Record<string, unknown>
     const name = typeof item?.name === 'string' ? item.name.trim() : ''
     const plain = typeof item?.plain === 'string' ? item.plain.trim() : ''
-    const price = amount(item?.price)
+    const price = money(item?.price)
     const quantity = typeof item?.quantity === 'number' && Number.isInteger(item.quantity) && item.quantity > 0 ? item.quantity : 1
     const kind = kindOf(item?.kind)
     return name && price !== null ? [{ name, ...(plain ? { plain } : {}), price, quantity, ...(kind ? { kind } : {}) }] : []
@@ -83,7 +92,7 @@ export function parseAiReading(reply: string, by: string, at: number): AiReading
     at,
     text,
     description: '',
-    receipt: { shop: typeof json.shop === 'string' ? json.shop.trim() : '', date, currency, items, total: amount(json.total) },
+    receipt: { shop: typeof json.shop === 'string' ? json.shop.trim() : '', date, currency, items, total: money(json.total), ...(points ? { points } : {}) },
   }
 }
 

@@ -108,7 +108,7 @@ function readOf(photo: PhotoRef): Receipt | null {
     const sum = ai.items.reduce((s, item) => s + item.price, 0)
     const phone = photo.text ? readReceipt(photo.text) : null
     const refund = isRefundSlip(`${photo.ai?.text ?? ''}\n${photo.text ?? ''}`, ai.items) || Boolean(phone?.refund)
-    return { shop: ai.shop || phone?.shop || '', date: ai.date ?? phone?.date ?? null, items: ai.items, total: ai.total, adds: ai.total === null || sum === ai.total, currency: ai.currency, ...(refund ? { refund: true as const } : {}) }
+    return { shop: ai.shop || phone?.shop || '', date: ai.date ?? phone?.date ?? null, items: ai.items, total: ai.total, adds: ai.total === null || sum === ai.total, currency: ai.currency, ...(refund ? { refund: true as const } : {}), ...(ai.points ? { points: ai.points } : {}) }
   }
   return photo.text ? readReceipt(photo.text) : null
 }

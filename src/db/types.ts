@@ -196,6 +196,8 @@ export interface AiReading {
     /** `kind` from ITEM_KINDS, from v0.19, and `plain`, what it most likely is, from v0.19.3; readings before have none. */
     items: { name: string; plain?: string; price: number; quantity: number; kind?: ItemKind }[]
     total: number | null
+    /** The loyalty points it was paid with (v0.25.1); its prices and total are only the money paid. */
+    points?: number
   } | null
 }
 
