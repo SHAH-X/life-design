@@ -11,6 +11,7 @@ import { findLoops } from '../../src/domain/loops'
 import { meaningText } from '../../src/domain/meaning'
 import { buildReviewPackage } from '../../src/domain/review'
 import { matchesSearch } from '../../src/domain/search'
+import { PHOTO_TEXT_VERSION } from '../../src/lib/ocrLines'
 import { fitWithin, fromBase64, toBase64 } from '../../src/lib/photo'
 import { OcrError, type ReadPhoto } from '../../src/lib/reader'
 import { areaEntry } from '../fixtures/areas'
@@ -76,7 +77,7 @@ describe('keeping photos', () => {
   })
 
   it('backs photos up and restores them; a damaged one is skipped, never imported', async () => {
-    const entry = withPhotos('e1', 'Receipt from the market', [{ id: 'p1', text: 'TOTAL 14.20' }])
+    const entry = withPhotos('e1', 'Receipt from the market', [{ id: 'p1', text: 'TOTAL 14.20', textVersion: PHOTO_TEXT_VERSION }])
     await phone.entries.put(entry)
     await savePhoto(photo('p1', 'e1', 'jpeg-bytes'), phone)
     await phone.settings.put({ key: 'photoText', value: true, updatedAt: 1 })
@@ -128,7 +129,7 @@ describe('ensurePhotoText: reading photos in the background', () => {
     }
 
   it('reads each photo not read yet, once, and keeps its text on its entry without making it an edit', async () => {
-    await phone.entries.put({ ...withPhotos('e1', 'Shopping', [{ id: 'p1', text: null }, { id: 'p2', text: 'already read' }]), updatedAt: 5 })
+    await phone.entries.put({ ...withPhotos('e1', 'Shopping', [{ id: 'p1', text: null }, { id: 'p2', text: 'already read', textVersion: PHOTO_TEXT_VERSION }]), updatedAt: 5 })
     await savePhoto(photo('p1', 'e1', 'receipt'), phone)
     await savePhoto(photo('p2', 'e1', 'never asked'), phone)
     const asked: string[] = []
@@ -138,7 +139,40 @@ describe('ensurePhotoText: reading photos in the background', () => {
     }
     await ensurePhotoText(read, phone)
     expect(asked).toEqual(['receipt'])
-    expect(await phone.entries.get('e1')).toMatchObject({ updatedAt: 5, photos: [{ id: 'p1', text: 'TOTAL 14.20' }, { id: 'p2', text: 'already read' }] })
+    expect(await phone.entries.get('e1')).toMatchObject({
+      updatedAt: 5,
+      photos: [
+        { id: 'p1', text: 'TOTAL 14.20', textVersion: PHOTO_TEXT_VERSION },
+        { id: 'p2', text: 'already read', textVersion: PHOTO_TEXT_VERSION },
+      ],
+    })
+    await ensurePhotoText(read, phone)
+    expect(asked).toEqual(['receipt'])
+  })
+
+  it('reads a photo read before its lines were put in order again, once, after those not read yet; one your AI read is left', async () => {
+    // v0.24.2 (owner, 2026-11-07): a turned receipt read before had its prices on lines of their own, so it wasn't one.
+    const byAi = { by: 'Gemini · gemini-2.5-flash', at: 1, text: 'GREENLEAF MARKET', description: '', receipt: null }
+    await phone.entries.put({ ...withPhotos('old', 'Last week', [{ id: 'turned', text: '7.25\nHalloumi Wrap' }, { id: 'read-by-ai', text: 'x', ai: byAi }]), updatedAt: 5 })
+    await phone.entries.put(withPhotos('new', 'Today', [{ id: 'fresh', text: null }]))
+    for (const [id, entryId] of [['turned', 'old'], ['read-by-ai', 'old'], ['fresh', 'new']] as const) await savePhoto(photo(id, entryId, id), phone)
+    const asked: string[] = []
+    const read: ReadPhoto = async (jpeg) => {
+      const id = new TextDecoder().decode(jpeg)
+      asked.push(id)
+      return id === 'turned' ? 'Halloumi Wrap 7.25' : 'TOTAL 14.20'
+    }
+    await ensurePhotoText(read, phone)
+    expect(asked).toEqual(['fresh', 'turned'])
+    expect(await phone.entries.get('old')).toMatchObject({
+      updatedAt: 5,
+      photos: [
+        { id: 'turned', text: 'Halloumi Wrap 7.25', textVersion: PHOTO_TEXT_VERSION },
+        { id: 'read-by-ai', text: 'x' },
+      ],
+    })
+    await ensurePhotoText(read, phone)
+    expect(asked).toEqual(['fresh', 'turned'])
   })
 
   it("keeps a photo that can't be opened, with no text, and stops at a download problem to try again later", async () => {
@@ -147,9 +181,16 @@ describe('ensurePhotoText: reading photos in the background', () => {
     await savePhoto(photo('later', 'e1', 'offline'), phone)
     await expect(ensurePhotoText(reader({ broken: new OcrError('photo'), offline: new OcrError('download') }), phone)).rejects.toThrow(/download/)
     expect((await phone.entries.get('e1'))?.photos).toEqual([
-      { id: 'bad', text: '' },
+      { id: 'bad', text: '', textVersion: PHOTO_TEXT_VERSION },
       { id: 'later', text: null },
     ])
+  })
+
+  it("keeps the text read before when a photo can't be opened to read it again", async () => {
+    await phone.entries.put(withPhotos('e1', 'Old photo', [{ id: 'p1', text: 'TOTAL 14.20' }]))
+    await savePhoto(photo('p1', 'e1', 'broken'), phone)
+    await ensurePhotoText(reader({ broken: new OcrError('photo') }), phone)
+    expect((await phone.entries.get('e1'))?.photos).toEqual([{ id: 'p1', text: 'TOTAL 14.20', textVersion: PHOTO_TEXT_VERSION }])
   })
 
   it('waits for a photo not written yet, instead of failing', async () => {

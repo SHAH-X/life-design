@@ -66,7 +66,7 @@ function hasValidJournalFields(x: Rec): boolean {
     isOptional(x.status, isOneOf(['draft', 'done'])) &&
     isOptional(x.skipped, (v) => Array.isArray(v) && v.every(isOneOf(['engagement', 'energy']))) &&
     isOptional(x.replyTo, (v) => v === null || (isObj(v) && isNonEmptyStr(v.id) && isStr(v.question))) &&
-    isOptional(x.photos, (v) => Array.isArray(v) && v.every((p) => isObj(p) && isNonEmptyStr(p.id) && (p.text === null || isStr(p.text)) && isOptional(p.ai, isAiReading) && isOptional(p.items, isItemChanges)))
+    isOptional(x.photos, (v) => Array.isArray(v) && v.every((p) => isObj(p) && isNonEmptyStr(p.id) && (p.text === null || isStr(p.text)) && isOptional(p.textVersion, isNum) && isOptional(p.ai, isAiReading) && isOptional(p.items, isItemChanges)))
   )
 }
 
