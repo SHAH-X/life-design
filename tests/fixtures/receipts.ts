@@ -162,6 +162,17 @@ export const RECEIPTS: readonly ExpectedReceipt[] = [
     expect: { shop: 'Asda', date: '2026-10-24', items: [['Kids Coat', -750], ['Kids Socks', -325]], total: -1075 },
   },
   {
+    // The real model's reading of tests/fixtures/photos/receipt-turned.png (v0.24.2): a made-up restaurant receipt on
+    // the layout of a real one (owner, 2026-11-07). Its name is a logo, so its VAT number is read first, then the branch;
+    // options under each dish, a subtotal before VAT, a gift card after the total, and the shop only in its web address.
+    id: 'restaurant-turned',
+    text:
+      'VAT No：123 4567 89\nRiverside Park\nTelephone:01000 000000\nYour Order Number Is -\n7\nHost： 14/10/2026\n5 8:15PM\n20412\nOrder Type: EatIn\n' +
+      'No Allergy Declared 0.00\nHalloumi Wrap 7.25\nExtra Hot\nNo sides\nChicken Burger 10.40\nMedium\nChips\nSubtotal 14.71\nTax 2.94\nEat In Total 17.65\n' +
+      'Gift Card# #xx-000000**000000 £17.65\n20.00%：14.71 VAT：2.94\nFor allergen info visit\nwww.examplegrill.co.uk/menu\n--- Check Closed',
+    expect: { shop: 'Examplegrill', date: '2026-10-14', items: [['Halloumi Wrap', 725], ['Chicken Burger', 1040]], total: 1765 },
+  },
+  {
     // After the total: payment, savings and points, never items.
     id: 'after-total',
     text: 'CO-OP FOOD\n20/10/2026\nCarrots 0.65\nHummus 1.50\nTOTAL 2.15\nYou saved 0.40\nMember reward 0.10\nPoints balance 12.50',
