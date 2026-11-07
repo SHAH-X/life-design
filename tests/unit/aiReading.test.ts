@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ensureAiReadings, nextTryIn, photoReaderSettings, readOnePhoto, waitingForAi } from '../../src/db/aiReading'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import type { Entry, Photo } from '../../src/db/types'
-import { AI_READING_INSTRUCTIONS, amount, looksLikeReceipt, parseAiReading, READING_VERSION } from '../../src/domain/aiReading'
+import { AI_READING_INSTRUCTIONS, amount, dueForAi, looksLikeReceipt, MAX_TRIES, notReadYet, parseAiReading, READING_VERSION } from '../../src/domain/aiReading'
 import { photoTexts } from '../../src/domain/search'
 import { receiptsOf } from '../../src/domain/shopping'
 import { photoReader } from '../../src/features/photos/photoReader'
@@ -174,6 +174,24 @@ describe('what the AI read, used', () => {
     expect(looksLikeReceipt(RECEIPTS.find((r) => r.id === 'note')!.text)).toBe(false)
     expect(looksLikeReceipt('Q4 goals\nship the beta\ncut cloud costs by 20%\nTotal headcount 12')).toBe(false)
     expect(looksLikeReceipt(null)).toBe(false)
+  })
+
+  // Owner, 2026-11-07: "Add a receipt" in Money. You said it's a receipt, so it goes however the phone reads it.
+  it('a photo you added as a receipt always goes, whatever the phone reads in it, and waits until it is read (v0.26.0)', () => {
+    const unusable = (tries: number) => ({ by: BY, at: 1, text: '', description: '', receipt: null, tries })
+    expect(dueForAi({ text: null, receipt: true })).toBe('new')
+    expect(dueForAi({ text: 'Q4 goals\nship the beta', receipt: true })).toBe('new')
+    expect(dueForAi({ text: 'EXAMPLE LTD\nPayslip\nNet pay 1050.00\nTotal deductions 150.00', receipt: true })).toBe('new')
+    expect(dueForAi({ text: 'Q4 goals', receipt: true, ai: unusable(1) })).toBe('retry')
+    expect(dueForAi({ text: 'Q4 goals', receipt: true, ai: unusable(MAX_TRIES) })).toBeNull()
+    expect(dueForAi({ text: 'Q4 goals\nship the beta' })).toBeNull()
+
+    // Waiting to be read: not read as a receipt by your AI or the phone, and not said to be something else.
+    expect(notReadYet({ text: null, receipt: true })).toBe(true)
+    expect(notReadYet({ text: 'Q4 goals', receipt: true, ai: unusable(1) })).toBe(true)
+    expect(notReadYet({ text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text, receipt: true })).toBe(false)
+    expect(notReadYet({ text: 'x', receipt: true, ai: { by: BY, at: 1, text: 'A note', description: 'A sticky note', receipt: null } })).toBe(false)
+    expect(notReadYet({ text: null })).toBe(false)
   })
 
   // Owner, 2026-11-07: a slip paid with loyalty points prints no money, so nothing read it. Made-up values.

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { applyImport, BACKUP_SCHEMA_VERSION, createBackup, detectFile } from '../../src/db/backup'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { ensurePhotoText } from '../../src/db/photoText'
-import { deleteEntry, restoreEntry, saveEntry, savePhoto } from '../../src/db/repo'
+import { addReceiptPhoto, deleteEntry, restoreEntry, saveEntry, savePhoto } from '../../src/db/repo'
 import type { Entry, Photo } from '../../src/db/types'
 import { isPhoto } from '../../src/db/validate'
 import { entryTitle } from '../../src/domain/areas'
@@ -76,8 +76,16 @@ describe('keeping photos', () => {
     expect(await phone.photos.get('p1')).toEqual(photo('p1', 'e1', 'jpeg-bytes'))
   })
 
+  // v0.26.0 (owner, 2026-11-07): "Add a receipt" in Money keeps the photo as a receipt, in a finished entry of its own.
+  it('keeps a photo added as a receipt in a finished entry of its own, marked as a receipt', async () => {
+    const entry = await addReceiptPhoto({ id: 'r1', data: toBase64(bytes('receipt')), width: 1500, height: 2000 }, new Date(2026, 9, 24, 15, 30), phone)
+    expect(entry).toMatchObject({ date: '2026-10-24', kind: 'free', status: 'done', note: '', photos: [{ id: 'r1', text: null, receipt: true }] })
+    expect(await phone.entries.get(entry.id)).toEqual(entry)
+    expect(await phone.photos.get('r1')).toMatchObject({ entryId: entry.id, type: 'image/jpeg', width: 1500, height: 2000 })
+  })
+
   it('backs photos up and restores them; a damaged one is skipped, never imported', async () => {
-    const entry = withPhotos('e1', 'Receipt from the market', [{ id: 'p1', text: 'TOTAL 14.20', textVersion: PHOTO_TEXT_VERSION }])
+    const entry = withPhotos('e1', 'Receipt from the market', [{ id: 'p1', text: 'TOTAL 14.20', textVersion: PHOTO_TEXT_VERSION, receipt: true }])
     await phone.entries.put(entry)
     await savePhoto(photo('p1', 'e1', 'jpeg-bytes'), phone)
     await phone.settings.put({ key: 'photoText', value: true, updatedAt: 1 })

@@ -392,3 +392,30 @@ test('a slip paid with loyalty points goes by itself, and is listed with its poi
   await shops.getByRole('button', { name: /Example Chemist/ }).click()
   await expect(page.getByRole('dialog', { name: 'Example Chemist' }).getByText('Paid with 450 points · not counted as spent')).toBeVisible()
 })
+
+// Owner, 2026-11-07: "Add a receipt" in Money → Receipts (v0.26.0). You said it's a receipt, so it goes to your AI
+// however the phone reads it; until it's read, it says it's waiting.
+test('Add a receipt in Money keeps the photo as a receipt; it goes to your AI however the phone reads it, and is listed', async ({ page }) => {
+  test.setTimeout(180_000)
+  const sent: string[] = []
+  await page.route('https://generativelanguage.googleapis.com/**', async (route: Route) => {
+    const request = route.request()
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
+    const json = (body: object) => route.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify(body) })
+    if (request.url().endsWith('/models')) return json({ data: [{ id: 'models/gemini-2.5-flash' }, { id: 'models/gemini-2.5-flash-lite' }] })
+    sent.push(request.url())
+    const reply = { receipt: true, shop: 'Greenleaf Market', date: '2026-10-12', currency: '£', items: [{ name: 'ORG OAT MLK', plain: 'Organic oat milk', price: '1.45', quantity: 1, kind: 'Dairy and eggs' }], total: '1.45', text: 'GREENLEAF MARKET\nORG OAT MLK 1.45' }
+    return json({ choices: [{ message: { content: JSON.stringify(reply) } }] })
+  })
+  await setUpGemini(page)
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  // A photo the phone reads as a note, never a receipt.
+  await page.getByLabel('Add a receipt').setInputFiles('tests/fixtures/photos/sticky.png')
+  await expect(page.getByText('1 receipt waiting to be read')).toBeVisible()
+  // Reading photos isn't on yet: it's offered, as receipts are read with it.
+  await page.locator('aside.notice', { hasText: 'Read the text in photos' }).getByRole('button', { name: 'Turn on' }).click()
+  await expect.poll(() => sent.length, { timeout: 120_000 }).toBe(1)
+  await expect(page.getByText('1 receipt waiting to be read')).toHaveCount(0)
+  await expect(page.getByRole('region', { name: 'From your receipts' }).getByText('1 receipt from 1 shop')).toBeVisible()
+})

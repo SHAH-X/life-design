@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { db } from '../../db/db'
 import { answered } from '../../db/provoker'
-import { deletePhotos, saveEntry, savePhoto } from '../../db/repo'
+import { deletePhotos, freeWriting, saveEntry, savePhoto } from '../../db/repo'
 import type { Entry, PhotoRef } from '../../db/types'
 import { partOfDay, toDateKey } from '../../lib/dates'
 import { PhotoError, shrinkPhoto } from '../../lib/photo'
@@ -11,7 +11,8 @@ import { Dialog } from '../../ui/Dialog'
 import { Question } from '../../ui/Question'
 import { Starters, typeInto } from '../../ui/Starters'
 import { PhotoView, StoredPhoto } from '../photos/PhotoView'
-import { setPhotoText, usePhotoText } from '../photos/usePhotoText'
+import { ReadingOffer } from '../photos/ReadingOffer'
+import { usePhotoText } from '../photos/usePhotoText'
 import { Icon } from '../../ui/Icon'
 
 /** A draft is saved this long after the last change. */
@@ -60,29 +61,7 @@ export function FreeWrite(props: { date: string; draft?: Entry; ask?: Ask; onClo
       // A photo may have been read meanwhile (src/db/photoText.ts): keep its text.
       const stored = saved.current ? await db.entries.get(saved.current.id) : undefined
       const kept = refs.map((ref) => ({ ...ref, text: stored?.photos.find((p) => p.id === ref.id)?.text ?? ref.text }))
-      saved.current = await saveEntry(
-        {
-          date,
-          part,
-          activity: '',
-          engagement: 3,
-          energy: 0,
-          flow: false,
-          where: [],
-          people: [],
-          objects: [],
-          during: [],
-          after: [],
-          note,
-          kind: 'free',
-          purpose: 'free',
-          skipped: ['engagement', 'energy'],
-          status,
-          replyTo,
-          photos: kept,
-        },
-        stored ?? saved.current,
-      )
+      saved.current = await saveEntry(freeWriting({ date, part, note, status, replyTo, photos: kept }), stored ?? saved.current)
       const now = Date.now()
       for (const ref of refs) {
         const shot = added.get(ref.id)
@@ -222,23 +201,7 @@ export function FreeWrite(props: { date: string; draft?: Entry; ask?: Ask; onClo
           {photoError}
         </p>
       ) : null}
-      {photos.length && reading === 'unasked' ? (
-        <aside className="notice">
-          <p>
-            Read the text in photos, so you can find them by it?
-            <br />
-            <span className="muted small">About 6 MB, once. Stays on this phone.</span>
-          </p>
-          <div className="row">
-            <button type="button" className="primary" onClick={() => void setPhotoText(true)}>
-              Turn on
-            </button>
-            <button type="button" onClick={() => void setPhotoText(false)}>
-              No thanks
-            </button>
-          </div>
-        </aside>
-      ) : null}
+      {photos.length && reading === 'unasked' ? <ReadingOffer question="Read the text in photos, so you can find them by it?" /> : null}
     </Dialog>
   )
 }
