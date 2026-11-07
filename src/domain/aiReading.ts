@@ -25,6 +25,9 @@ export const AI_READING_INSTRUCTIONS = [
   'Never estimate a value from where a line, bar, candle or point sits, between gridlines or between labels; never guess, round or work anything out; say nothing of trends, forecasts or advice.',
 ].join('\n')
 
+/** Added to the instructions for a long receipt sent in parts (v0.27.0). */
+export const PARTS_INSTRUCTION = 'These photos are parts of one long receipt, top to bottom, each a little over the last: read them as one receipt, each line once.'
+
 /** "£1.73", "1,73", -0.50 or 1.73 → minor units; null if it isn't an amount. */
 export function amount(value: unknown): number | null {
   const s = typeof value === 'number' ? value.toFixed(2) : typeof value === 'string' ? value.replace(/[£$€\s]/g, '') : ''
@@ -119,7 +122,8 @@ export const MAX_TRIES = 3
  * kinds or plain names ('again'); null for any other photo, which goes only on a tap. A photo you added as a receipt
  * (v0.26.0, Money's "Add a receipt") is one, however the phone reads it, payslip words and all: you said so.
  */
-export function dueForAi(photo: Pick<PhotoRef, 'text' | 'ai' | 'receipt'>): 'new' | 'retry' | 'again' | null {
+export function dueForAi(photo: Pick<PhotoRef, 'text' | 'ai' | 'receipt' | 'partOf'>): 'new' | 'retry' | 'again' | null {
+  if (photo.partOf) return null // read with its first photo (v0.27.0)
   const ai = photo.ai
   const receipt = photo.receipt === true || looksLikeReceipt(photo.text)
   if (!ai) return receipt ? 'new' : null
@@ -131,7 +135,7 @@ export function dueForAi(photo: Pick<PhotoRef, 'text' | 'ai' | 'receipt'>): 'new
 
 /** A photo you added as a receipt (v0.26.0) not read as one yet: neither your AI nor the phone has, and your AI hasn't
  *  said it's something else or given up on it. Money says it's waiting, so a receipt never vanishes until it's read. */
-export function notReadYet(photo: Pick<PhotoRef, 'text' | 'ai' | 'receipt'>): boolean {
+export function notReadYet(photo: Pick<PhotoRef, 'text' | 'ai' | 'receipt' | 'partOf'>): boolean {
   if (!photo.receipt || photo.ai?.receipt || (photo.text && readReceipt(photo.text))) return false
   const due = dueForAi(photo)
   return due === 'new' || due === 'retry'

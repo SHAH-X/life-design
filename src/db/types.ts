@@ -166,6 +166,9 @@ export interface PhotoRef {
   textVersion?: number
   /** You added it as a receipt (v0.26.0, Money's "Add a receipt"): it goes to your AI however the phone reads it. */
   receipt?: true
+  /** A later part of a long receipt (v0.27.0, "Add another part"): the id of its first photo, in the same entry. It's read
+   *  with that one, never alone. */
+  partOf?: string
   /** What your AI read in it (v0.18), when it was sent: a receipt's items and total, or what it shows. */
   ai?: AiReading
   /** Your changes to a receipt's items (v0.20.18): a kind you chose, an item you returned. Kept apart from `ai`, so a

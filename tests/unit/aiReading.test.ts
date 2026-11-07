@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ensureAiReadings, nextTryIn, photoReaderSettings, readOnePhoto, waitingForAi } from '../../src/db/aiReading'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import type { Entry, Photo } from '../../src/db/types'
-import { AI_READING_INSTRUCTIONS, amount, dueForAi, looksLikeReceipt, MAX_TRIES, notReadYet, parseAiReading, READING_VERSION } from '../../src/domain/aiReading'
+import { AI_READING_INSTRUCTIONS, amount, dueForAi, looksLikeReceipt, MAX_TRIES, notReadYet, PARTS_INSTRUCTION, parseAiReading, READING_VERSION } from '../../src/domain/aiReading'
 import { photoTexts } from '../../src/domain/search'
 import { receiptsOf } from '../../src/domain/shopping'
 import { photoReader } from '../../src/features/photos/photoReader'
@@ -194,6 +194,12 @@ describe('what the AI read, used', () => {
     expect(notReadYet({ text: null })).toBe(false)
   })
 
+  // v0.27.0: a long receipt's part goes with its receipt, never alone, even the part with the total on it.
+  it('never sends a part of a long receipt on its own', () => {
+    expect(dueForAi({ text: RECEIPTS.find((r) => r.id === 'greenleaf')!.text, partOf: 'p1' })).toBeNull()
+    expect(notReadYet({ text: null, partOf: 'p1' })).toBe(false)
+  })
+
   // Owner, 2026-11-07: a slip paid with loyalty points prints no money, so nothing read it. Made-up values.
   const POINTS_SLIP = 'EXAMPLE CHEMIST\nREDEMPTION PTS\nHay fever tablets 450\nTOTAL TO REDEEM 450 PTS\nPOINTS USED 450\nPoints to spend 120'
 
@@ -347,6 +353,48 @@ describe('ensureAiReadings and readOnePhoto: sending photos, one at a time', () 
     expect(entry?.updatedAt).toBe(3)
     expect(entry?.photos.find((p) => p.id === 'receipt')?.ai).toMatchObject({ version: READING_VERSION, receipt: { total: 305 } })
     expect(entry?.photos.find((p) => p.id === 'note')?.ai).toBeUndefined()
+  })
+
+  // v0.27.0 (owner, 2026-11-07): a long receipt taken in parts goes as one, its parts' pictures in order.
+  it('sends a receipt taken in parts as one request, its parts in order, and keeps the reading on its first photo', async () => {
+    await phone.entries.put(withPhotos('e1', [{ id: 'top', text: null, receipt: true }, { id: 'middle', text: null, partOf: 'top' }, { id: 'bottom', text: 'TOTAL 3.05', partOf: 'top' }]))
+    await phone.photos.bulkPut([photo('top', 'e1'), photo('middle', 'e1'), photo('bottom', 'e1')])
+    const sent: { pictures: string[]; instructions: string }[] = []
+    await ensureAiReadings({ by: BY, send: async (jpeg, instructions, parts = []) => (sent.push({ pictures: [jpeg, ...parts].map((p) => atob(p)), instructions }), receiptReply) }, phone)
+    expect(sent.map((s) => s.pictures)).toEqual([['top', 'middle', 'bottom']])
+    expect(sent[0]!.instructions).toBe(`${AI_READING_INSTRUCTIONS}\n${PARTS_INSTRUCTION}`)
+    const photos = (await phone.entries.get('e1'))!.photos
+    expect(photos.map((p) => [p.id, p.ai?.receipt?.total ?? null])).toEqual([['top', 305], ['middle', null], ['bottom', null]])
+  })
+
+  it('waits while a part’s picture isn’t on the phone yet; a tap under a part reads the whole receipt', async () => {
+    await phone.entries.put(withPhotos('e1', [{ id: 'top', text: null, receipt: true }, { id: 'bottom', text: null, partOf: 'top' }]))
+    await phone.photos.put(photo('top', 'e1'))
+    const sent: string[][] = []
+    const reader = { by: BY, send: async (jpeg: string, _i: string, parts: readonly string[] = []) => (sent.push([jpeg, ...parts].map((p) => atob(p))), receiptReply) }
+    await ensureAiReadings(reader, phone)
+    expect(sent).toEqual([])
+    expect((await phone.entries.get('e1'))!.photos[0]!.ai).toBeUndefined()
+    await phone.photos.put(photo('bottom', 'e1'))
+    await readOnePhoto('bottom', reader, phone)
+    expect(sent).toEqual([['top', 'bottom']])
+    expect((await phone.entries.get('e1'))!.photos.map((p) => Boolean(p.ai))).toEqual([true, false])
+  })
+
+  it('drops a reading of a receipt whose parts changed while it was read, to read it again whole', async () => {
+    await phone.entries.put(withPhotos('e1', [{ id: 'top', text: null, receipt: true }]))
+    await phone.photos.bulkPut([photo('top', 'e1'), photo('bottom', 'e1')])
+    // A part is added while the first photo is with the AI.
+    const reader = {
+      by: BY,
+      send: async () => {
+        await phone.entries.update('e1', { photos: [{ id: 'top', text: null, receipt: true as const }, { id: 'bottom', text: null, partOf: 'top' }] })
+        return receiptReply
+      },
+    }
+    await readOnePhoto('top', reader, phone)
+    expect((await phone.entries.get('e1'))!.photos[0]!.ai).toBeUndefined()
+    expect(dueForAi((await phone.entries.get('e1'))!.photos[0]!)).toBe('new')
   })
 
   // Owner, 2026-10-25: "keeps trying for the ones that weren't properly read … such that no one is left out".

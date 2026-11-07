@@ -419,3 +419,28 @@ test('Add a receipt in Money keeps the photo as a receipt; it goes to your AI ho
   await expect(page.getByText('1 receipt waiting to be read')).toHaveCount(0)
   await expect(page.getByRole('region', { name: 'From your receipts' }).getByText('1 receipt from 1 shop')).toBeVisible()
 })
+
+// Owner, 2026-11-07: a long receipt in parts (v0.27.0). "Add another part" adds the next shot to it; all go as one.
+test('a long receipt added in parts goes to your AI in one request, its parts in order, and is one receipt', async ({ page }) => {
+  test.setTimeout(180_000)
+  const pictures: number[] = []
+  await page.route('https://generativelanguage.googleapis.com/**', async (route: Route) => {
+    const request = route.request()
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS })
+    const json = (body: object) => route.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify(body) })
+    if (request.url().endsWith('/models')) return json({ data: [{ id: 'models/gemini-2.5-flash' }, { id: 'models/gemini-2.5-flash-lite' }] })
+    const body = JSON.parse(request.postData() ?? '{}') as { messages: { content: Part[] }[] }
+    pictures.push(body.messages[0]!.content.filter((p) => p.type === 'image_url').length)
+    const reply = { receipt: true, shop: 'Greenleaf Market', date: '2026-10-12', currency: '£', items: [{ name: 'ORG OAT MLK', plain: 'Organic oat milk', price: '1.45', quantity: 1, kind: 'Dairy and eggs' }], total: '1.45', text: 'GREENLEAF MARKET\nORG OAT MLK 1.45' }
+    return json({ choices: [{ message: { content: JSON.stringify(reply) } }] })
+  })
+  await setUpGemini(page)
+  await page.goto('./#/more/photos')
+  await page.getByRole('switch', { name: /Read the text in photos/ }).check()
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  await page.getByLabel('Add a receipt').setInputFiles('tests/fixtures/photos/receipt-clean.png')
+  await page.getByLabel('Add another part').setInputFiles('tests/fixtures/photos/receipt-tilted.png')
+  await expect.poll(() => pictures.at(-1), { timeout: 120_000 }).toBe(2)
+  await expect(page.getByRole('region', { name: 'From your receipts' }).getByText('1 receipt from 1 shop')).toBeVisible()
+})

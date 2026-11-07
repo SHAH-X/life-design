@@ -147,6 +147,20 @@ function cardPaid(lines: readonly string[]): { card?: CardPaid } {
   return { card: { last4: kept[0]!.last4, ...(scheme ? { scheme } : {}) } }
 }
 
+/** A long receipt taken in parts, each a little over the last (v0.27.0, owner 2026-11-07), as one text: the parts in
+ *  order, and the lines one part ends with that the next starts with (the same words, a space more or less) once. */
+export function joinParts(texts: readonly string[]): string {
+  const same = (line: string) => line.trim().replace(/\s+/g, ' ').toLowerCase()
+  const lines: string[] = []
+  for (const text of texts) {
+    const next = text.split('\n').filter((line) => line.trim())
+    let shared = Math.min(lines.length, next.length)
+    while (shared > 0 && !next.slice(0, shared).every((line, i) => same(line) === same(lines[lines.length - shared + i]!))) shared--
+    lines.push(...next.slice(shared))
+  }
+  return lines.join('\n')
+}
+
 /** A slip paid with loyalty points prints no money (v0.25.1, owner 2026-11-07): it says points were redeemed or used,
  *  and gives its total in points ("TOTAL TO REDEEM 450 PTS"). A score ("Total 45 points") says neither. */
 const PAID_IN_POINTS = /\b(?:redeem|redemption|points?\s+used)\b/i

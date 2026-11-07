@@ -18,8 +18,8 @@ export const dailyProblem = (label: string, now = new Date()) =>
 export function photoReader({ provider, key, model, own = false }: ReaderSettings, fetchImpl: typeof fetch = fetch): PhotoReader {
   return {
     by: `${PROVIDERS[provider].label} · ${model}`,
-    send: (jpeg, instructions) =>
-      readPhotoWithAi({ provider, key, model, instructions, jpeg }, fetchImpl).catch((error: unknown) => {
+    send: (jpeg, instructions, parts) =>
+      readPhotoWithAi({ provider, key, model, instructions, jpeg, ...(parts?.length ? { parts } : {}) }, fetchImpl).catch((error: unknown) => {
         if (own && error instanceof AiError && error.problem === 'key') throw new AiError('key', PHOTO_KEY_PROBLEM)
         if (error instanceof AiError && error.problem === 'daily') throw new AiError('daily', dailyProblem(PROVIDERS[provider].label))
         throw error

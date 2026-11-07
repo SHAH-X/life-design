@@ -285,9 +285,10 @@ export async function chatWithTools(request: ChatRequest, fetchImpl: Fetch = fet
 /** Services whose chat models read images: reading photos with AI (v0.18) needs one. */
 export const READS_IMAGES: readonly AiProvider[] = ['gemini', 'openai']
 
-/** One photo read by the AI (v0.18): how to read it and the photo (a JPEG, base64). Returns its reply's text. */
+/** One photo read by the AI (v0.18): how to read it and the photo (a JPEG, base64), a long receipt's later parts after
+ *  it (v0.27.0). Returns its reply's text. */
 export async function readPhotoWithAi(
-  request: { provider: AiProvider; key: string; model: string; instructions: string; jpeg: string },
+  request: { provider: AiProvider; key: string; model: string; instructions: string; jpeg: string; parts?: readonly string[] },
   fetchImpl: Fetch = fetch,
   timeoutMs = PHOTO_TIMEOUT_MS,
 ): Promise<string> {
@@ -302,7 +303,8 @@ export async function readPhotoWithAi(
         role: 'user',
         content: [
           { type: 'text', text: request.instructions },
-          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${request.jpeg}` } },
+          // A long receipt's later parts follow its first photo, in order (v0.27.0).
+          ...[request.jpeg, ...(request.parts ?? [])].map((jpeg) => ({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${jpeg}` } })),
         ],
       },
     ],
