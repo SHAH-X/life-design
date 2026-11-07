@@ -1,6 +1,6 @@
 import type { OwnWord } from '../domain/feelings'
 import type { Energy, Engagement } from '../domain/scales'
-import { type DayPart, toDateKey } from '../lib/dates'
+import { type DayPart, partOfDay, toDateKey } from '../lib/dates'
 import { db as defaultDb, type LifeDesignDB } from './db'
 import { guardWrite } from './saveErrors'
 import { keepsVersion } from '../domain/lifeDesign'
@@ -14,6 +14,7 @@ import {
   entryDefaults,
   type OdysseyPlan,
   type Photo,
+  type PhotoRef,
   type Purpose,
   type Review,
   type Step,
@@ -257,6 +258,21 @@ export async function restoreEntry(entry: Entry, photos: readonly Photo[] = [], 
 /** A photo kept with an entry (shrunk already: src/lib/photo.ts). */
 export async function savePhoto(photo: Photo, database: LifeDesignDB = defaultDb): Promise<void> {
   await guardWrite(() => database.photos.put(photo))
+}
+
+/** Free writing as the writer saves it (v0.15): words and photos, none of an activity's questions. */
+export function freeWriting(fields: { date: string; part: DayPart; note: string; status: 'draft' | 'done'; photos: PhotoRef[]; replyTo: Entry['replyTo'] }): EntryDraft {
+  return { ...fields, activity: '', engagement: 3, energy: 0, flow: false, where: [], people: [], objects: [], during: [], after: [], kind: 'free', purpose: 'free', skipped: ['engagement', 'energy'] }
+}
+
+/** Money's "Add a receipt" (v0.26.0, owner 2026-11-07): a photo kept as a receipt, in a finished entry of its own, today
+ *  (shrunk already: src/lib/photo.ts). The entry first, as the writer saves it; reading photos waits for the photo. */
+export async function addReceiptPhoto(shot: { id: string; data: string; width: number; height: number }, now: Date = new Date(), database: LifeDesignDB = defaultDb): Promise<Entry> {
+  const photos: PhotoRef[] = [{ id: shot.id, text: null, receipt: true }]
+  const entry = await saveEntry(freeWriting({ date: toDateKey(now), part: partOfDay(now), note: '', status: 'done', photos, replyTo: null }), undefined, database)
+  const at = now.getTime()
+  await savePhoto({ id: shot.id, entryId: entry.id, type: 'image/jpeg', width: shot.width, height: shot.height, data: shot.data, createdAt: at, updatedAt: at }, database)
+  return entry
 }
 
 /** Photos no longer on their entry (taken off it while writing). */

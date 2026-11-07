@@ -164,6 +164,8 @@ export interface PhotoRef {
   /** How the phone joined its words into lines (PHOTO_TEXT_VERSION, src/lib/ocrLines.ts): photos read before v0.24.2
    *  have none, and are read again once. */
   textVersion?: number
+  /** You added it as a receipt (v0.26.0, Money's "Add a receipt"): it goes to your AI however the phone reads it. */
+  receipt?: true
   /** What your AI read in it (v0.18), when it was sent: a receipt's items and total, or what it shows. */
   ai?: AiReading
   /** Your changes to a receipt's items (v0.20.18): a kind you chose, an item you returned. Kept apart from `ai`, so a

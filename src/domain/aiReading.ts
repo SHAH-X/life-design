@@ -116,13 +116,23 @@ export const MAX_TRIES = 3
 /**
  * Why a photo goes to your AI by itself (owner, 2026-10-25: "keeps trying … such that no one is left out"): a receipt
  * not read yet ('new'), one whose reply couldn't be used ('retry', MAX_TRIES in all), or one read before items had
- * kinds or plain names ('again'); null for any other photo, which goes only on a tap.
+ * kinds or plain names ('again'); null for any other photo, which goes only on a tap. A photo you added as a receipt
+ * (v0.26.0, Money's "Add a receipt") is one, however the phone reads it, payslip words and all: you said so.
  */
-export function dueForAi(photo: Pick<PhotoRef, 'text' | 'ai'>): 'new' | 'retry' | 'again' | null {
+export function dueForAi(photo: Pick<PhotoRef, 'text' | 'ai' | 'receipt'>): 'new' | 'retry' | 'again' | null {
   const ai = photo.ai
-  if (!ai) return looksLikeReceipt(photo.text) ? 'new' : null
+  const receipt = photo.receipt === true || looksLikeReceipt(photo.text)
+  if (!ai) return receipt ? 'new' : null
   if ((ai.tries ?? 0) >= MAX_TRIES) return null
-  if (!ai.text && !ai.description) return looksLikeReceipt(photo.text) ? 'retry' : null
+  if (!ai.text && !ai.description) return receipt ? 'retry' : null
   const items = ai.receipt?.items ?? []
   return ai.receipt && !ai.version && (items.every((item) => !item.kind) || items.every((item) => !item.plain)) ? 'again' : null
+}
+
+/** A photo you added as a receipt (v0.26.0) not read as one yet: neither your AI nor the phone has, and your AI hasn't
+ *  said it's something else or given up on it. Money says it's waiting, so a receipt never vanishes until it's read. */
+export function notReadYet(photo: Pick<PhotoRef, 'text' | 'ai' | 'receipt'>): boolean {
+  if (!photo.receipt || photo.ai?.receipt || (photo.text && readReceipt(photo.text))) return false
+  const due = dueForAi(photo)
+  return due === 'new' || due === 'retry'
 }

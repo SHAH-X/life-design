@@ -25,6 +25,7 @@ import {
   unmatchReceiptPayment,
 } from '../../db/statements'
 import { cardAccountOf, classify, forNamesOf, giftCardsBefore, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, nameOf, type Payee, type PayeeGroup, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
+import { notReadYet } from '../../domain/aiReading'
 import { inWords, type KnownReceipt, money, onCard, receiptsAndCopies, rememberedKindsOf, rememberedNamesOf, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { ITEM_FOR_SETTING, ITEM_KINDS_SETTING } from '../../db/receiptItems'
 import { monthYear, toDateKey } from '../../lib/dates'
@@ -37,6 +38,7 @@ import { type AccountsSection, AccountsMonth, MonthStepper, neighbourMonths } fr
 import { Accounts, RenameSheet } from './Accounts'
 import { AccountsYear } from './AccountsYear'
 import { MoneyContext } from './MoneyContext'
+import { AddReceipt } from './AddReceipt'
 import { ReceiptsMonth, ReceiptsShare, receiptsWord } from './Receipts'
 import { StatementImport } from './StatementImport'
 import { ForSheet, KindSheet, PaymentSheet } from './PaymentSheets'
@@ -99,6 +101,8 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
     if (entry) setSheet({ kind: 'open', entry })
   }
   const { receipts, copies, refunds } = receiptsAndCopies(entries, remembered, itemFor)
+  // Receipts added here not read yet (v0.26.0): said, so one never vanishes until it's read.
+  const receiptsWaiting = entries.filter((e) => e.status !== 'draft').flatMap((e) => e.photos ?? []).filter(notReadYet).length
   // A receipt opens to its items; an extra copy, counted nowhere, opens its entry, where it can be deleted.
   const copyIds = new Set(copies.map((c) => c.copy.id))
   const open = (receipt: KnownReceipt) => (copyIds.has(receipt.id) ? openEntry(receipt) : setReceiptId(receipt.id))
@@ -205,20 +209,23 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
           // Keyed by month: a month opened from another starts afresh (a tapped chart column doesn't carry over).
           <AccountsMonth key={`accounts-${month}`} lines={lines} month={month} today={today} statements={statements} closed={closed} section={section} onSection={setSection} query={query} onQuery={setQuery} />
         ) : view === 'receipts' ? (
-          <ReceiptsMonth
-            key={`receipts-${month}`}
-            receipts={receipts}
-            refunds={refunds}
-            copies={copies}
-            month={month}
-            today={today}
-            reviewedDates={reviewedDates}
-            matchCandidates={matchCandidates}
-            possiblePaymentIds={possiblePaymentIds}
-            onAcceptDate={acceptReceiptDate}
-            onMatchPayment={(receiptId, paymentId, reason) => matchReceiptPayment(receiptId, paymentId, reason, new Set(receipts.map((r) => r.id)))}
-            onOpen={open}
-          />
+          <>
+            <AddReceipt waiting={receiptsWaiting} />
+            <ReceiptsMonth
+              key={`receipts-${month}`}
+              receipts={receipts}
+              refunds={refunds}
+              copies={copies}
+              month={month}
+              today={today}
+              reviewedDates={reviewedDates}
+              matchCandidates={matchCandidates}
+              possiblePaymentIds={possiblePaymentIds}
+              onAcceptDate={acceptReceiptDate}
+              onMatchPayment={(receiptId, paymentId, reason) => matchReceiptPayment(receiptId, paymentId, reason, new Set(receipts.map((r) => r.id)))}
+              onOpen={open}
+            />
+          </>
         ) : null}
         {view === 'receipts' && month === thisMonth && earlier.length ? (
           <section aria-labelledby={earlierId}>
