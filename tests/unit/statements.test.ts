@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readStatement, type TextPiece } from '../../src/domain/statements'
 import { piecesFromPdf } from '../../src/lib/pdfText'
 import { makePdf, type Placed, piecesOf } from '../fixtures/pdf'
-import { FLEX_EXPECT, FLEX_LIKE, FLEX_TABLE_ON_PAGE_2, LLOYDS_EXPECT, LLOYDS_LIKE, MONZO_EXPECT, MONZO_LIKE } from '../fixtures/statements'
+import { CARD_EXPECT, CARD_LIKE, FLEX_EXPECT, FLEX_LIKE, FLEX_TABLE_ON_PAGE_2, LLOYDS_EXPECT, LLOYDS_LIKE, MONZO_EXPECT, MONZO_LIKE } from '../fixtures/statements'
 
 // Bank statements (v0.20), fictional ones laid out like the owner's real Monzo and Lloyds PDFs (tests/fixtures).
 
@@ -37,6 +37,10 @@ describe('readStatement: a statement read from where its words sit on the page',
     expect(asRead(piecesOf(FLEX_TABLE_ON_PAGE_2))).toEqual(FLEX_EXPECT)
   })
 
+  it('reads one laid out like a credit card’s: headings on two lines, two dates a line (the transaction’s counts), plain amounts as money out and "CR" as money in, the card number under its label, dated to its statement date (owner, 2026-11-10: it came back as "no-table")', () => {
+    expect(asRead(piecesOf(CARD_LIKE))).toEqual(CARD_EXPECT)
+  })
+
   it('checks every line against the balance printed beside it, and says which don’t follow', () => {
     const fine = readStatement(piecesOf(LLOYDS_LIKE))
     if ('problem' in fine) throw new Error(fine.problem)
@@ -58,5 +62,6 @@ describe('reading a PDF on the phone (PDF.js)', () => {
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
     expect(asRead(await piecesFromPdf(pdfjs, makePdf(MONZO_LIKE)))).toEqual(MONZO_EXPECT)
     expect(asRead(await piecesFromPdf(pdfjs, makePdf(LLOYDS_LIKE)))).toEqual(LLOYDS_EXPECT)
+    expect(asRead(await piecesFromPdf(pdfjs, makePdf(CARD_LIKE)))).toEqual(CARD_EXPECT)
   })
 })
