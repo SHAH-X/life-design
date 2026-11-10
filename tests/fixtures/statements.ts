@@ -275,3 +275,111 @@ export const FLEX_EXPECT = [
     lines: FLEX_LINES.map((row, i) => [row.date.split('/').reverse().join('-'), row.text.join(' '), row.pence, '', FLEX_OWED[i]!] as const),
   },
 ]
+
+// ---------- Like a credit card's (M&S Bank's, 2026-11-10): headings on two lines ("Date / Applied", "Date of /
+// Transaction"), two dates a line, one Amount column with no signs (a refund carries a separate "CR"), no balances,
+// a dateless opening row, the card number on the line under its label (page 2 only), "Statement Date" in place of a
+// period, contactless marks ")))" on descriptions ----------
+
+const CARD_COLUMNS = { applied: 65, date: 108, description: 160, place: 240, country: 290, amountRight: 391 }
+
+/** Printed in the order applied, which isn't the order of the transaction dates. pence < 0 is a purchase. */
+const CARD_LINES: (Row & { applied: string; place: string })[] = [
+  { applied: '17 Oct 26', date: '16 Oct 26', text: [')))  EXAMPLE GROCER'], place: 'Sometown', pence: -1250 },
+  { applied: '19 Oct 26', date: '17 Oct 26', text: [')))  EXAMPLE CAFE'], place: 'Sometown', pence: -340 },
+  { applied: '20 Oct 26', date: '20 Oct 26', text: ['Example Mobile Ltd London'], place: '', pence: -999 },
+  { applied: '02 Nov 26', date: '31 Oct 26', text: [')))  EXAMPLE CHEMIST'], place: 'Sometown', pence: -2050 },
+  { applied: '02 Nov 26', date: '31 Oct 26', text: [')))  EXAMPLE CHEMIST'], place: 'Sometown', pence: 500 },
+  { applied: '03 Nov 26', date: '30 Oct 26', text: ['Example Council Sometown'], place: '', pence: -15000 },
+  { applied: '06 Nov 26', date: '05 Nov 26', text: ['EXAMPLE AIRLINE'], place: 'London', pence: -12000 },
+  { applied: '07 Nov 26', date: '06 Nov 26', text: [')))  EXAMPLE GROCER'], place: 'Sometown', pence: -1830 },
+]
+
+const cardHeading: Placed[] = [
+  { text: 'Date', x: CARD_COLUMNS.applied, y: 605, size: 8 },
+  { text: 'Applied', x: CARD_COLUMNS.applied, y: 595, size: 8 },
+  { text: 'Date of', x: CARD_COLUMNS.date, y: 605, size: 8 },
+  { text: 'Transaction', x: CARD_COLUMNS.date, y: 596, size: 8 },
+  { text: 'Description', x: CARD_COLUMNS.description, y: 595, size: 8 },
+  { text: 'Amount', x: CARD_COLUMNS.amountRight, y: 595, size: 8, right: true },
+]
+
+const cardRows = (): Placed[] =>
+  CARD_LINES.flatMap((row, i): Placed[] => {
+    const y = 573 - i * 9
+    return [
+      { text: row.applied, x: CARD_COLUMNS.applied, y, size: 8 },
+      { text: row.date, x: CARD_COLUMNS.date, y, size: 8 },
+      { text: row.text[0]!, x: CARD_COLUMNS.description, y, size: 8 },
+      ...(row.place ? [{ text: row.place, x: CARD_COLUMNS.place, y, size: 8 }] : []),
+      { text: 'Gbr', x: CARD_COLUMNS.country, y, size: 8 },
+      { text: `£${pounds(Math.abs(row.pence))}`, x: CARD_COLUMNS.amountRight, y, size: 8, right: true },
+      ...(row.pence > 0 ? [{ text: 'CR', x: CARD_COLUMNS.amountRight + 2, y, size: 8 }] : []),
+    ]
+  })
+
+const cardCorner = (number: string | null, year: boolean): Placed[] => [
+  { text: 'Account Number:', x: 451, y: 720 },
+  ...(number ? [{ text: number, x: 451, y: 709 }] : []),
+  { text: 'Statement Date:', x: 451, y: 695 },
+  { text: year ? '08 November 2026' : '08 November', x: 451, y: 684 },
+  { text: 'Credit Limit:', x: 451, y: 669 },
+  { text: '£2000', x: 451, y: 659 },
+]
+
+export const CARD_LIKE: Placed[][] = [
+  [
+    { text: 'A N Other', x: 79, y: 720 },
+    { text: '1 Example Road', x: 79, y: 707 },
+    { text: 'Sometown', x: 79, y: 695 },
+    { text: 'AB1 2CD', x: 79, y: 682 },
+    // Page 1's number and the year of its date are blacked out, as the owner's were.
+    ...cardCorner(null, false),
+    { text: 'Your M&S Credit Card Statement', x: 65, y: 619, size: 16 },
+    // Words at the page's right, level with the headings (one line falls between their two lines) and the first rows.
+    { text: 'Congratulations on using your', x: 446, y: 612 },
+    { text: 'card, remember to use it', x: 446, y: 601 },
+    { text: 'regularly for an even more', x: 446, y: 590 },
+    { text: 'rewarding visit.', x: 446, y: 580 },
+    ...cardHeading,
+    { text: 'Balance from previous statement', x: 161, y: 584, size: 8 },
+    { text: '£0.00', x: CARD_COLUMNS.amountRight, y: 584, size: 8, right: true },
+    ...cardRows(),
+    { text: 'Loyalty points can be viewed', x: 446, y: 541 },
+    { text: 'in the app and on till receipts', x: 446, y: 531 },
+    { text: 'Page 1 of 2', x: 28, y: 290, size: 8 },
+  ],
+  [
+    // The address again, level with the corner's labels: one line reads "Sometown Statement Date:".
+    { text: 'A N Other', x: 79, y: 720 },
+    { text: '1 Example Road', x: 79, y: 707 },
+    { text: 'Sometown', x: 79, y: 695 },
+    { text: 'AB1 2CD', x: 79, y: 682 },
+    ...cardCorner('4000 1234 5678 4321', true),
+    { text: 'Your M&S Credit Card Statement', x: 65, y: 619, size: 16 },
+    ...cardHeading,
+    { text: 'Present balance', x: 65, y: 584, size: 8 },
+    { text: '£329.69', x: CARD_COLUMNS.amountRight, y: 584, size: 8, right: true },
+    { text: 'Minimum payment', x: 65, y: 575, size: 8 },
+    { text: '£25.00', x: CARD_COLUMNS.amountRight, y: 575, size: 8, right: true },
+    { text: 'Payment due date', x: 65, y: 566, size: 8 },
+    { text: '3 December 2026', x: CARD_COLUMNS.amountRight, y: 566, size: 8, right: true },
+    { text: 'M&S Bank is a division of HSBC UK Bank plc and is established and has its registered office at 1 Example Square.', x: 28, y: 61, size: 6 },
+  ],
+]
+
+/** By the date of the transaction, oldest first, a purchase as money out and the refund as money in; dated to the
+ *  statement date; no balances. */
+export const CARD_EXPECT = [
+  {
+    account: 'M&S Bank ···4321',
+    from: '2026-10-16',
+    to: '2026-11-08',
+    lines: CARD_LINES.map((row) => {
+      const [d, m, y] = row.date.split(' ')
+      const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].indexOf(m!) + 1
+      const description = [row.text[0]!.replace(/^\)+\s*/, ''), row.place, 'Gbr'].filter(Boolean).join(' ')
+      return [`20${y}-${String(month).padStart(2, '0')}-${d}`, description, row.pence, '', null] as const
+    }).sort((a, b) => a[0].localeCompare(b[0])),
+  },
+]
