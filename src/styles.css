@@ -2402,9 +2402,10 @@ button.line-button {
 }
 
 /* ---------- Money → Accounts (v0.20.22) ----------
-   Flat lists on the page, not cards: a month's figure first, then three parts that each do one job. Every list is one
-   kind of row (a name, what it says underneath, its figure on the right, a chevron when it opens), so figures line up
-   down the screen. The only colour is the amber of "needs a statement" and a rise, and the green of "up to date". */
+   A month's figure first (flat on the page), then three parts that each do one job, each section a card of its own with
+   a tinted heading strip (v0.33.0). Every list is one kind of row (a name, what it says underneath, its figure on the
+   right, a chevron when it opens), so figures line up down the screen. The only colour is the amber of "needs a
+   statement" and a rise, and the green of "up to date" and of money in. */
 .money-screen .acc-hero {
   margin: 4px 0 0;
 }
@@ -2555,15 +2556,51 @@ button.line-button {
 
 .money-screen .acc-chart {
   margin-top: 22px;
+  padding: 14px 16px 6px;
 }
 
 .money-screen .acc-chart .chart:last-child {
   margin-bottom: 0;
 }
 
-.money-screen .acc-block {
-  margin-top: 30px;
+/* Every section is a card of its own (owner, 2026-11-19: "the different sections all look the same, not easily
+   distinguished"): a tinted heading strip with its title and what it says, then its rows. */
+.money-screen .acc-block,
+.money-screen .acc-chart,
+.money-screen .acc-year {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.money-screen .acc-block,
+.money-screen .acc-year {
+  margin-top: 18px;
+  padding: 0 16px 2px;
   scroll-margin-top: calc(var(--safe-top) + 76px);
+}
+
+.money-screen .acc-block-top,
+.money-screen .acc-block-head {
+  margin: 0 -16px;
+  padding: 12px 16px 10px;
+  background: var(--viz-hover);
+}
+
+.money-screen .acc-block-top .acc-status {
+  margin: 2px 0 0;
+}
+
+.money-screen .acc-block .acc-list,
+.money-screen .acc-year .acc-list {
+  margin: 0;
+  border-top: 0;
+}
+
+.money-screen .acc-block .acc-li:last-child,
+.money-screen .acc-year .acc-li:last-child {
+  border-bottom: 0;
 }
 
 .money-screen .acc-block h2 {
@@ -2662,7 +2699,6 @@ button.line-button {
 
 .money-screen .acc-row-title {
   overflow-wrap: anywhere;
-  font-size: var(--fs-lg);
   font-weight: 600;
 }
 
@@ -2678,7 +2714,6 @@ button.line-button {
   grid-column: 2;
   flex-direction: column;
   align-items: flex-end;
-  font-size: var(--fs-lg);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   white-space: nowrap;

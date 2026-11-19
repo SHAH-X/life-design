@@ -305,7 +305,7 @@ function Overview({
           </ul>
         </Block>
       ) : null}
-      <nav aria-label="Year">
+      <nav aria-label="Year" className="acc-year">
         <ul className="acc-list">
           <li className="acc-li">
             <a className="acc-row" href={hashFor('money', month.slice(0, 4))}>
@@ -460,8 +460,10 @@ export function Block({ id, title, status, children }: { id?: string; title: str
   const headingId = useId()
   return (
     <section id={id} className="acc-block" aria-labelledby={headingId}>
-      <h2 id={headingId}>{title}</h2>
-      {status ? <p className="acc-status">{status}</p> : null}
+      <header className="acc-block-top">
+        <h2 id={headingId}>{title}</h2>
+        {status ? <p className="acc-status">{status}</p> : null}
+      </header>
       {children}
     </section>
   )
