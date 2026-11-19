@@ -150,6 +150,51 @@ test('a first direct statement is read as one account, every line once and match
   await expect(accounts.getByRole('listitem')).not.toContainText('not adding')
 })
 
+// Several statements at once, and an account's own statement (v0.30.0, owner 2026-11-19): choose the PDFs of every account
+// together, each filed under its own account and a file that isn't one told apart; then tap an account's name to read its
+// statement, a month at a time.
+test('several PDFs are brought in at once, and an account’s name opens its statement a month at a time', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date(2026, 9, 18, 12, 0))
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Bring in a statement' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Bring in a statement' })
+  const letter = await pdf(testInfo.outputPath('letter.pdf'), [[{ text: 'Dear customer, your new card is on its way.', x: 57, y: 700 }]])
+  const files = [await pdf(testInfo.outputPath('first-direct.pdf'), FIRSTDIRECT_LIKE), await pdf(testInfo.outputPath('lloyds.pdf'), LLOYDS_LIKE), letter]
+  await sheet.locator('input[type="file"]').setInputFiles(files)
+  await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveText([
+    /^First Direct: 11 new · 18 Sept? ?– ?18 Oct$/,
+    /^Lloyds: 4 new · 1 ?– ?30 Sept?$/,
+    'letter.pdf: No transactions were found in this PDF. Choose the statement itself, not a letter or a summary.',
+  ])
+  await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  await accountView(page, 'Statements')
+  const accounts = page.getByRole('region', { name: 'Your accounts', exact: true })
+  await accounts.getByRole('button', { name: 'First Direct', exact: true }).click()
+  const view = page.getByRole('dialog', { name: 'First Direct', exact: true })
+  // The latest month: its days newest first, a day's lines in the order its balances give, and what the month came to.
+  await expect(view.getByRole('heading', { name: 'October 2026' })).toBeVisible()
+  await expect(view.getByText('In £0.00 · Out £77.30 · Balance at the end £146.25')).toBeVisible()
+  const rows = view.getByRole('listitem')
+  await expect(rows).toHaveCount(3)
+  await expect(rows.nth(0)).toContainText('EXAMPLE SHOPPING CARD SOMETOWN')
+  await expect(rows.nth(0)).toContainText('£7.30 out')
+  await expect(rows.nth(0)).toContainText('MAS · Balance £146.25')
+  await expect(rows.nth(1)).toContainText('EXAMPLE BROKER BRK00EXAMPLE3')
+  await expect(rows.nth(2)).toContainText('BRK00EXAMPLE2')
+  // The month before.
+  await view.getByRole('button', { name: 'Earlier: September 2026' }).click()
+  await expect(view.getByRole('heading', { name: 'September 2026' })).toBeVisible()
+  await expect(view.getByText('In £350.00 · Out £126.45 · Balance at the end £223.55')).toBeVisible()
+  await expect(view.getByRole('listitem')).toHaveCount(8)
+  await expect(view.getByRole('button', { name: /^Earlier/ })).toHaveCount(0)
+  await view.getByRole('button', { name: 'Close' }).click()
+  // Another account has its own statement.
+  await accounts.getByRole('button', { name: 'Lloyds', exact: true }).click()
+  const lloyds = page.getByRole('dialog', { name: 'Lloyds', exact: true })
+  await expect(lloyds.getByText('In £1600.00 · Out £55.99 · Balance at the end £1744.01')).toBeVisible()
+  await expect(lloyds.getByRole('listitem')).toHaveCount(4)
+})
+
 test('a PDF that isn’t a statement, or isn’t a PDF, is refused saying why, and nothing is kept', async ({ page }, testInfo) => {
   await page.goto('./#/money')
   const letter = await pdf(testInfo.outputPath('letter.pdf'), [[{ text: 'Dear customer, your new card is on its way.', x: 57, y: 700 }]])
