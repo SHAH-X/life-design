@@ -1002,6 +1002,32 @@ test('a card payment with its receipt opens the receipt', async ({ page }, testI
   await expect(page.getByRole('region', { name: 'By what it was for' }).locator('summary', { hasText: 'Energy' })).toHaveText('Energy 1 payment £45.00')
 })
 
+// Receipts and payments from both sides (v0.35.0, owner 2026-11-19: "I can't see the link from both sides").
+test('a month’s receipts say which payment each was matched to or why there is none, and the payments with no receipt are listed', async ({ page }, testInfo) => {
+  const now = new Date(2026, 8, 30, 12, 0)
+  await page.clock.setFixedTime(now)
+  const ai = (shop: string, date: string, pence: number) => ({ by: 'Gemini · gemini-test', at: 1, text: '', description: '', receipt: { shop, date, currency: '£', items: [{ name: 'Thing', price: pence, quantity: 1 }], total: pence } })
+  const entries = [
+    { ...freeWriting('e-corner', '', 29, now), photos: [{ id: 'p-corner', text: null, ai: ai('Corner Shop', '2026-09-01', 1240) }] },
+    { ...freeWriting('e-pharmacy', '', 20, now), photos: [{ id: 'p-pharmacy', text: null, ai: ai('Greenleaf Pharmacy', '2026-09-10', 500) }] },
+    // Two coffees were paid on the 20th; one receipt, so one payment is left with none.
+    { ...freeWriting('e-coffee', '', 10, now), photos: [{ id: 'p-coffee', text: null, ai: ai('Coffee Place', '2026-09-20', 300) }] },
+  ]
+  await restoreBackup(page, testInfo.outputPath('matches.json'), backupWith({ entries }, now))
+  await page.goto('./#/money')
+  const sheet = await bringIn(page, await pdf(testInfo.outputPath('monzo.pdf'), MONZO_LIKE))
+  await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  const matches = page.getByRole('region', { name: 'Receipts and payments' })
+  await expect(matches.locator('summary', { hasText: 'matched to a payment' })).toHaveText(/^2 receipts matched to a payment$/)
+  await matches.locator('summary', { hasText: 'matched to a payment' }).click()
+  await expect(matches.getByRole('button', { name: /Corner Shop/ })).toContainText(/paid .* · Monzo/)
+  await matches.locator('summary', { hasText: 'with no payment matched' }).click()
+  await expect(matches.getByRole('button', { name: /Greenleaf Pharmacy/ })).toContainText('No payment of £5.00 within 3 days at Greenleaf Pharmacy')
+  // Payments since the first receipt that no receipt is linked to.
+  await expect(matches.locator('summary', { hasText: 'with no receipt' })).toHaveText(/^1 payment with no receipt · since your first receipt$/)
+})
+
 // Which card paid (v0.24.0, owner 2026-11-06: "detect the card from the receipt … so I know which account to look for
 // the statement to see its transaction"). Made-up card number.
 test('a receipt says which card paid; said once which account that is, every receipt with it says so and is matched only there', async ({ page }, testInfo) => {

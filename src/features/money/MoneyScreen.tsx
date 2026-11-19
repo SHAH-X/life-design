@@ -24,7 +24,7 @@ import {
   receiptReviewState,
   unmatchReceiptPayment,
 } from '../../db/statements'
-import { cardAccountOf, classify, forNamesOf, giftCardsBefore, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, nameOf, type Payee, type PayeeGroup, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
+import { cardAccountOf, classify, forNamesOf, giftCardsBefore, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, nameOf, type Payee, type PayeeGroup, paymentsWithoutReceipt, receiptOutcomes, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
 import { notReadYet } from '../../domain/aiReading'
 import { inWords, type KnownReceipt, money, onCard, receiptsAndCopies, rememberedKindsOf, rememberedNamesOf, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { ITEM_FOR_SETTING, ITEM_KINDS_SETTING } from '../../db/receiptItems'
@@ -128,6 +128,9 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
       .filter(([, candidates]) => candidates.length > 0),
   )
   const possiblePaymentIds = new Set<string>(matchCandidates.keys())
+  // What became of each receipt, and the payments with no receipt (v0.35.0).
+  const outcomes = receiptOutcomes(receipts, lines, links, cards, statements, names)
+  const withoutReceipt = paymentsWithoutReceipt(lines, links, kinds, receipts, new Set([...matchCandidates.values()].flat().map((l) => l.id)))
   const paymentOfReceipt = new Map([...links].map(([lineId, receipt]) => [receipt.id, lines.find((l) => l.id === lineId)!]))
   const shownName = (account: string) => names.get(account) ?? account
   // How a receipt was paid, for its sheet: its card's account (or its payment's), its payment, or that its statement isn't in.
@@ -223,6 +226,9 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
               reviewedDates={reviewedDates}
               matchCandidates={matchCandidates}
               possiblePaymentIds={possiblePaymentIds}
+              outcomes={outcomes}
+              withoutReceipt={withoutReceipt}
+              accountName={(account) => names.get(account) ?? account}
               onAcceptDate={acceptReceiptDate}
               onMatchPayment={(receiptId, paymentId, reason) => matchReceiptPayment(receiptId, paymentId, reason, new Set(receipts.map((r) => r.id)))}
               onOpen={open}

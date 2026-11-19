@@ -5,11 +5,11 @@
 // only: nothing averaged, rated or set as a limit (DECISIONS, "Never"); groups are ranked only with MIN_COUNT payments.
 import { MIN_COUNT } from '../analysis/stats'
 import type { BankLine, StatementRecord } from '../db/types'
-import { addDays, addMonths, dayNumber } from '../lib/dates'
+import { addDays, addMonths, dayMonth, dayNumber } from '../lib/dates'
 import { chainOf } from './receipts'
 import { balanceFollows, preferOwed } from './statements'
 import { isInvestmentAccount } from './trading212'
-import { groupBy, type KnownReceipt, onCard, shiftMonth, shopKey } from './shopping'
+import { groupBy, type KnownReceipt, money, onCard, shiftMonth, shopKey } from './shopping'
 
 /** Who a line was paid to or from, as one name (a UK chain's names as the chain). */
 export interface Payee {
@@ -980,6 +980,80 @@ export function receiptPaymentCandidates(
   return lines
     .filter((line) => (account === undefined || line.account === account) && !line.moving && line.amount < 0 && !occupied.has(line.id) && days(line) <= RECEIPT_DAYS && samePlace(receipt.shop, line.payee))
     .sort((a, b) => Number(-a.amount !== onCard(receipt)) - Number(-b.amount !== onCard(receipt)) || days(a) - days(b) || b.date.localeCompare(a.date))
+}
+
+/** What became of a receipt, said so it can be told from both sides (v0.35.0). `matched`: its payment. `maybe`: a payment
+ *  that could be it but isn't linked (no printed date, or a different amount). The rest have none, and say why. */
+export type ReceiptOutcome =
+  | { state: 'matched'; payment: MoneyLine }
+  | { state: 'maybe'; payment: MoneyLine; why: string }
+  | { state: 'gift' | 'elsewhere' | 'not-in' | 'none'; why: string }
+
+/** Each receipt's outcome, by its id: its payment, or the one reason there is none yet. `names` shows an account by its name. */
+export function receiptOutcomes(
+  receipts: readonly KnownReceipt[],
+  lines: readonly MoneyLine[],
+  links: ReadonlyMap<string, KnownReceipt>,
+  cards: Readonly<Record<string, string>>,
+  statements: readonly Pick<StatementRecord, 'account' | 'from' | 'to'>[],
+  names: ReadonlyMap<string, string>,
+): Map<string, ReceiptOutcome> {
+  const paymentOf = new Map([...links].flatMap(([lineId, receipt]) => (lines.find((l) => l.id === lineId) ? [[receipt.id, lines.find((l) => l.id === lineId)!] as const] : [])))
+  const occupied = new Set(links.keys())
+  const outcomes = new Map<string, ReceiptOutcome>()
+  for (const receipt of receipts) {
+    const payment = paymentOf.get(receipt.id)
+    const date = receipt.dated ? receipt.date : (receipt.entryDate ?? receipt.date)
+    const said = cardAccountOf(receipt, cards)
+    const pay = money(onCard(receipt), '£')
+    const outcome = ((): ReceiptOutcome => {
+      if (payment) return { state: 'matched', payment }
+      if (onCard(receipt) === 0) return { state: 'gift', why: 'Paid by gift card' }
+      if (receipt.currency && receipt.currency !== '£') return { state: 'elsewhere', why: 'Not in pounds' }
+      if (said === '') return { state: 'elsewhere', why: 'Paid with a card that isn’t one of your accounts' }
+      if (!statements.some((s) => (said === undefined || s.account === said) && s.from <= date && date <= s.to)) {
+        return { state: 'not-in', why: said ? `${names.get(said) ?? said} statement for ${dayMonth(date)} not in yet` : `No statement for ${dayMonth(date)} brought in` }
+      }
+      const found = receiptPaymentCandidates(lines, receipt, occupied, cards)[0]
+      if (found) {
+        const debit = -found.amount
+        if (!receipt.dated) return { state: 'maybe', payment: found, why: `Date not read: a payment of ${money(debit, '£')} on ${dayMonth(found.date)} could be it` }
+        return { state: 'maybe', payment: found, why: `A payment of ${money(debit, '£')} on ${dayMonth(found.date)} differs by ${money(Math.abs(debit - onCard(receipt)), '£')}` }
+      }
+      return { state: 'none', why: `No payment of ${pay} within ${RECEIPT_DAYS} days at ${receipt.shop || 'this shop'}` }
+    })()
+    outcomes.set(receipt.id, outcome)
+  }
+  return outcomes
+}
+
+/** The kinds of payment you would expect a receipt for. */
+const RECEIPT_KINDS: ReadonlySet<string> = new Set(['Groceries', 'Eating out', 'Shopping', 'Fuel', 'Health', 'Parking'])
+
+/** Payments with no receipt linked (v0.35.0): shop payments since the day of your first receipt (before it there is none
+ *  to expect), of a kind you'd get a receipt for or to a shop you have a receipt from. Not money moved, a gift card
+ *  bought, nor one a receipt could still be (`possible`: offered under that receipt). Newest first. */
+export function paymentsWithoutReceipt(
+  lines: readonly MoneyLine[],
+  links: ReadonlyMap<string, KnownReceipt>,
+  kinds: Readonly<Record<string, string>>,
+  receipts: readonly KnownReceipt[],
+  possible: ReadonlySet<string> = new Set(),
+): MoneyLine[] {
+  const first = receipts.map((r) => (r.dated ? r.date : (r.entryDate ?? r.date))).sort()[0]
+  if (!first) return []
+  return lines
+    .filter(
+      (l) =>
+        !l.moving &&
+        l.amount < 0 &&
+        l.date >= first &&
+        !links.has(l.id) &&
+        !possible.has(l.id) &&
+        !isGiftCardBuy(l) &&
+        (RECEIPT_KINDS.has(kindOf(l, kinds) ?? '') || receipts.some((r) => samePlace(r.shop, l.payee))),
+    )
+    .sort((a, b) => b.date.localeCompare(a.date))
 }
 
 /** Owner-chosen links take precedence; receipts without a printed date are never linked automatically. A card you said

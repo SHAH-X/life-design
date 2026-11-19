@@ -323,6 +323,30 @@ for (const scheme of ['light'] as const) {
       await look(page, `${scheme}-money-duplicate`)
     })
 
+    // v0.35.0: a month's receipts and payments from both sides, each list opened.
+    test(`receipts and payments, ${scheme}`, async ({ page }, testInfo) => {
+      const sept = new Date(2026, 8, 30, 12, 0)
+      await page.clock.setFixedTime(sept)
+      const ai = (shop: string, date: string, pence: number) => ({ by: 'Gemini · gemini-2.5-flash', at: sept.getTime(), text: '', description: '', receipt: { shop, date, currency: '£', items: [{ name: 'Thing', price: pence, quantity: 1 }], total: pence } })
+      const entries = [
+        { ...freeWriting('mt-corner', '', 29, sept), photos: [{ id: 'mt-corner-p', text: null, ai: ai('Corner Shop', '2026-09-01', 1240) }] },
+        { ...freeWriting('mt-pharmacy', '', 20, sept), photos: [{ id: 'mt-pharmacy-p', text: null, ai: ai('Greenleaf Pharmacy', '2026-09-10', 500) }] },
+        { ...freeWriting('mt-coffee', '', 10, sept), photos: [{ id: 'mt-coffee-p', text: null, ai: ai('Coffee Place', '2026-09-20', 300) }] },
+      ]
+      await restoreBackup(page, testInfo.outputPath('matches.json'), backupWith({ entries }, sept))
+      await page.goto('./#/money')
+      const statementPath = testInfo.outputPath('matches-statement.pdf')
+      await writeFile(statementPath, makePdf(MONZO_LIKE))
+      await page.getByRole('button', { name: 'Bring in a statement' }).click()
+      const statementSheet = page.getByRole('dialog', { name: 'Bring in a statement' })
+      await statementSheet.locator('input[type="file"]').setInputFiles(statementPath)
+      await statementSheet.getByRole('button', { name: 'Done', exact: true }).click()
+      await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+      const matches = page.getByRole('region', { name: 'Receipts and payments' })
+      for (const summary of await matches.locator('summary').all()) await summary.click()
+      await look(page, `${scheme}-money-receipts-matches`)
+    })
+
     // v0.32.0: a receipt's entry is listed by its shop and what it came to, in Today and in Logs.
     test(`receipt entries in Today and Logs, ${scheme}`, async ({ page }, testInfo) => {
       await page.clock.setFixedTime(EVENING)
