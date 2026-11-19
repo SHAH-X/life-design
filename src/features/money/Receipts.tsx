@@ -21,7 +21,8 @@ import {
   type ShoppingMonth,
   shoppingMonth,
 } from '../../domain/shopping'
-import { type MoneyLine, NOBODY, nameOf } from '../../domain/money'
+import { type MoneyLine, NOBODY, nameOf, type ReceiptOutcome } from '../../domain/money'
+import { useMoney } from './MoneyContext'
 import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { MonthChart } from '../../ui/charts/MonthChart'
@@ -112,6 +113,78 @@ function Group({ title, status, count, children }: { title: string; status?: str
   )
 }
 
+/** Receipts and payments, from both sides (v0.35.0, owner 2026-11-19: "I can't see the link from both sides"): the month's
+ *  receipts with the payment each was matched to, the ones with no payment (and why), and the payments with no receipt. */
+function Matches(props: {
+  receipts: readonly KnownReceipt[]
+  outcomes: ReadonlyMap<string, ReceiptOutcome>
+  without: readonly MoneyLine[]
+  accountName: (account: string) => string
+  onOpen: (r: KnownReceipt) => void
+}) {
+  const { receipts, outcomes, without, accountName, onOpen } = props
+  const { openPayment } = useMoney()
+  const sorted = [...receipts].sort((a, b) => b.date.localeCompare(a.date))
+  const matched = sorted.filter((r) => outcomes.get(r.id)?.state === 'matched')
+  const unmatched = sorted.filter((r) => outcomes.get(r.id)?.state !== 'matched' && outcomes.has(r.id))
+  if (!matched.length && !unmatched.length && !without.length) return null
+  return (
+    <Group title="Receipts and payments">
+      <ul>
+        {matched.length ? (
+          <li>
+            <details className="week-line">
+              <RowSummary label={`${receiptsWord(matched.length)} matched to a payment`} />
+              <ul className="plain-list compact evidence-list">
+                {matched.map((r) => {
+                  const outcome = outcomes.get(r.id)
+                  const payment = outcome?.state === 'matched' ? outcome.payment : null
+                  return (
+                    <li key={r.id}>
+                      <RowButton date={shortDayMonth(r.date)} title={r.shop || 'No shop read'} sub={payment ? `paid ${dayMonth(payment.date)} · ${accountName(payment.account)}` : undefined} amount={money(paid(r), r.currency)} onClick={() => onOpen(r)} />
+                    </li>
+                  )
+                })}
+              </ul>
+            </details>
+          </li>
+        ) : null}
+        {unmatched.length ? (
+          <li>
+            <details className="week-line">
+              <RowSummary label={`${receiptsWord(unmatched.length)} with no payment matched`} />
+              <ul className="plain-list compact evidence-list">
+                {unmatched.map((r) => {
+                  const outcome = outcomes.get(r.id)
+                  return (
+                    <li key={r.id}>
+                      <RowButton date={shortDayMonth(r.date)} title={r.shop || 'No shop read'} sub={outcome && outcome.state !== 'matched' ? outcome.why : undefined} amount={money(paid(r), r.currency)} onClick={() => onOpen(r)} />
+                    </li>
+                  )
+                })}
+              </ul>
+            </details>
+          </li>
+        ) : null}
+        {without.length ? (
+          <li>
+            <details className="week-line">
+              <RowSummary label={`${without.length} payment${without.length === 1 ? '' : 's'} with no receipt`} sub="since your first receipt" />
+              <ul className="plain-list compact evidence-list">
+                {without.map((l) => (
+                  <li key={l.id}>
+                    <RowButton date={shortDayMonth(l.date)} title={nameOf(l)} sub={`out of ${accountName(l.account)}`} amount={money(Math.abs(l.amount), '£')} onClick={() => openPayment(l, `Out of ${accountName(l.account)}`)} />
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </li>
+        ) : null}
+      </ul>
+    </Group>
+  )
+}
+
 /** A month of your receipts, top to bottom: how much, each month, shops, what changed, what came back, to check. */
 export function ReceiptsMonth(props: {
   receipts: readonly KnownReceipt[]
@@ -125,6 +198,10 @@ export function ReceiptsMonth(props: {
   possiblePaymentIds: ReadonlySet<string>
   onAcceptDate: (receiptId: string) => Promise<void>
   onMatchPayment: (receiptId: string, paymentId: string, reason: string) => Promise<void>
+  /** What became of each receipt, and the payments with no receipt (v0.35.0): told from both sides. */
+  outcomes: ReadonlyMap<string, ReceiptOutcome>
+  withoutReceipt: readonly MoneyLine[]
+  accountName: (account: string) => string
   onOpen: (r: KnownReceipt) => void
 }) {
   const { receipts, month, today, onOpen } = props
@@ -186,6 +263,7 @@ export function ReceiptsMonth(props: {
           />
         </Group>
       ) : null}
+      <Matches receipts={its.receipts} outcomes={props.outcomes} without={props.withoutReceipt.filter((l) => l.date.slice(0, 7) === month)} accountName={props.accountName} onOpen={onOpen} />
       <Shops its={its} onOpen={onOpen} />
       {its.kinds ? <ByKind kinds={its.kinds} onOpen={onOpen} /> : null}
       {its.forWho ? <WhoFor who={its.forWho} onOpen={onOpen} /> : null}
