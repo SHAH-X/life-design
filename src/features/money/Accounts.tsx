@@ -4,6 +4,7 @@ import { db } from '../../db/db'
 import { accountNamesOf, CARD_ACCOUNTS, CLOSED_ACCOUNTS, markClosed, nameAccount, ownPayeesOf, removeAccount } from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
 import { notBroughtIn } from '../../domain/money'
+import { notMatchingWords } from '../../domain/trading212'
 import { formatPeriod, toDateKey } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
 import { StatementView } from './StatementView'
@@ -83,7 +84,7 @@ export function Accounts() {
                   </div>
                   <span className="acc-account-line">
                     {formatPeriod(a.from, a.to)}
-                    {a.notAdding ? ` · ${a.notAdding} ${a.notAdding === 1 ? 'doesn’t match its' : 'don’t match their'} printed balance` : ''}
+                    {a.notAdding ? ` · ${notMatchingWords(a.name, a.notAdding)}` : ''}
                   </span>
                   {missing.length ? <span className="acc-account-line acc-account-missing">Missing: {missing.map((g) => formatPeriod(g.from, g.to)).join('; ')}</span> : null}
                   {itsCards.length ? <span className="acc-account-line">{itsCards.length === 1 ? 'Card' : 'Cards'} ending {itsCards.join(' · ')}</span> : null}
