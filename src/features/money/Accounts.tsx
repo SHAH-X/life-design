@@ -6,12 +6,13 @@ import type { StatementRecord } from '../../db/types'
 import { notBroughtIn } from '../../domain/money'
 import { formatPeriod, toDateKey } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
+import { StatementView } from './StatementView'
 import { useMoney } from './MoneyContext'
 import { useAccountNames } from './useAccountNames'
 
 // Your accounts (v0.20, step 1 of Money): each account a statement was brought in for, its lines and the days they
 // cover and the days still to bring in, a name of your own for it, whether it's closed, the cards you said are it
-// (v0.24.0, said on a receipt, where the number shows), and "Bring in a statement".
+// (v0.24.0, said on a receipt, where the number shows), its name opening its statement (v0.30.0), and "Bring in a statement".
 
 interface Account {
   name: string
@@ -49,6 +50,7 @@ export function Accounts() {
   const cards = useLiveQuery(async () => accountNamesOf(await db.settings.get(CARD_ACCOUNTS)), [])
   const { importStatement } = useMoney()
   const [naming, setNaming] = useState<Account | null>(null)
+  const [viewing, setViewing] = useState<Account | null>(null)
   const today = toDateKey(new Date())
   const headingId = useId()
   const some = Boolean(list?.length && names)
@@ -72,7 +74,9 @@ export function Accounts() {
               <li key={a.name} className="acc-li acc-account">
                 <div className="acc-account-main">
                   <div className="acc-account-top">
-                    <span className="acc-account-name">{names.get(a.name) ?? a.name}</span>
+                    <button type="button" className="acc-account-name acc-account-open" onClick={() => setViewing(a)}>
+                      {names.get(a.name) ?? a.name}
+                    </button>
                     <span className="acc-state" data-state={state}>
                       {a.closed ? 'Closed' : missing.length ? 'Needs statement' : 'Up to date'}
                     </span>
@@ -98,6 +102,16 @@ export function Accounts() {
             Bring in a statement
           </button>
         </div>
+      ) : null}
+      {viewing && names ? (
+        <StatementView
+          account={viewing.name}
+          shown={names.get(viewing.name) ?? viewing.name}
+          statements={viewing.statements}
+          closed={viewing.closed}
+          today={today}
+          onClose={() => setViewing(null)}
+        />
       ) : null}
       {naming && names ? (
         <RenameSheet

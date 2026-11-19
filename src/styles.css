@@ -2829,6 +2829,22 @@ button.line-button {
   overflow-wrap: anywhere;
 }
 
+.money-screen button.acc-account-open {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+}
+
+.money-screen button.acc-step {
+  border: 0;
+  background: transparent;
+}
+
 .money-screen .acc-state {
   font-size: var(--fs-xs);
   font-weight: 600;
