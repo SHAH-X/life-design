@@ -3,7 +3,7 @@ import { expect, type Page, test } from '@playwright/test'
 import { expectNoScores } from './helpers'
 import { backupWith, freeWriting, restoreBackup } from './seed'
 import { makePdf, type Placed } from '../fixtures/pdf'
-import { FLEX_LIKE, FLEX_TABLE_ON_PAGE_2, LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
+import { FIRSTDIRECT_LIKE, FLEX_LIKE, FLEX_TABLE_ON_PAGE_2, LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
 
 // Bank and card statements (v0.20, step 1) in WebKit at iPhone size: a statement's PDF chosen in the app, read on the
 // phone by PDF.js in its own worker, its lines kept once each. The statements are fictional, laid out like the owner's
@@ -132,6 +132,22 @@ test('a Flex statement whose table is on a later page than its title is still Mo
   // The statement's own dates, not its first and last lines' (1 to 20 Sep): nothing is missing up to the 30th.
   await expect(accounts.getByRole('listitem')).toContainText(/1\s+–\s+30 Sep 2026/)
   await expect(accounts.getByRole('listitem')).not.toContainText('Missing')
+})
+
+// A first direct statement (owner, 2026-11-19: it came back as "no-table"): one heading over a code and its words, the
+// date on a day's first line and the balance on its last, over two pages.
+test('a first direct statement is read as one account, every line once and matching its balances', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date(2026, 9, 18, 12, 0))
+  await page.goto('./#/money')
+  const sheet = await bringIn(page, await pdf(testInfo.outputPath('first-direct.pdf'), FIRSTDIRECT_LIKE))
+  await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveText([/^First Direct: 11 new · 18 Sept? ?– ?18 Oct$/])
+  await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  await accountView(page, 'Statements')
+  const accounts = page.getByRole('region', { name: 'Your accounts', exact: true })
+  await expect(accounts.getByRole('listitem')).toContainText('First Direct')
+  await expect(accounts.getByRole('listitem')).toContainText(/18 Sep\s+–\s+18 Oct 2026/)
+  await expect(accounts.getByRole('listitem')).not.toContainText('Missing')
+  await expect(accounts.getByRole('listitem')).not.toContainText('not adding')
 })
 
 test('a PDF that isn’t a statement, or isn’t a PDF, is refused saying why, and nothing is kept', async ({ page }, testInfo) => {

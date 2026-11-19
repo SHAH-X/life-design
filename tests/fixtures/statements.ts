@@ -383,3 +383,135 @@ export const CARD_EXPECT = [
     }).sort((a, b) => a[0].localeCompare(b[0])),
   },
 ]
+
+// ---------- Like first direct's (HSBC's layout): oldest first; "Payment type and details" is one heading over a code
+// ("CR", "MAS", "OBP", ")))" for contactless) and its words, which kerning splits into pieces ("Paym ent t ype"); the date
+// is printed only on a day's first line and the balance only on its last; each page opens and closes with a "Balance
+// brought/carried forward" line; the amount sits on the last of a payee's lines; stray marks from the page's shading ----------
+
+const FD_COLUMNS = { date: 69, code: 129, description: 156, outRight: 408, inRight: 490, balanceRight: 570 }
+const FD_STEP = 11.5
+
+type FdRow = { date: string; code: string; text: readonly string[]; pence: number }
+
+/** Oldest first; the first four lines are on page 1, the rest on page 2. */
+const FD_LINES: FdRow[] = [
+  { date: '23 Sep 26', code: 'CR', text: ['EXAMPLE EMPLOYER LTD'], pence: 25000 },
+  { date: '23 Sep 26', code: 'CR', text: ['A N OTHER'], pence: 4000 },
+  { date: '25 Sep 26', code: 'CR', text: ['A N OTHER'], pence: 6000 },
+  { date: '26 Sep 26', code: 'MAS', text: ['EXAMPLE SHOPPING CARD', 'SOMETOWN'], pence: -1240 },
+  { date: '26 Sep 26', code: ')))', text: ['EXAMPLE BAKERY', 'SOMETOWN'], pence: -320 },
+  { date: '27 Sep 26', code: ')))', text: ['EXAMPLE MARKET', 'SOMETOWN'], pence: -875 },
+  { date: '30 Sep 26', code: 'OBP', text: ['EXAMPLE BROKER', 'BRK00EXAMPLE1'], pence: -10000 },
+  { date: '30 Sep 26', code: ')))', text: ['EXAMPLE CAFE', 'SOMETOWN'], pence: -210 },
+  { date: '02 Oct 26', code: 'OBP', text: ['EXAMPLE BROKER', 'BRK00EXAMPLE2'], pence: -5000 },
+  { date: '05 Oct 26', code: 'OBP', text: ['EXAMPLE BROKER', 'BRK00EXAMPLE3'], pence: -2000 },
+  { date: '05 Oct 26', code: 'MAS', text: ['EXAMPLE SHOPPING CARD', 'SOMETOWN'], pence: -730 },
+]
+const FD_PAGE_1 = 6
+const FD_BALANCES = balances(FD_LINES, 0)
+
+/** One page's rows from `top` down: a day's date on its first line, its balance on its last; the next y. */
+function fdRows(from: number, to: number, top: number): { placed: Placed[]; next: number } {
+  const placed: Placed[] = []
+  let y = top
+  for (let i = from; i < to; i++) {
+    const row = FD_LINES[i]!
+    const last = y - (row.text.length - 1) * FD_STEP
+    if (i === from || FD_LINES[i - 1]!.date !== row.date) placed.push({ text: row.date, x: FD_COLUMNS.date, y, size: 8 })
+    placed.push({ text: row.code, x: FD_COLUMNS.code, y, size: 8 })
+    row.text.forEach((line, n) => placed.push({ text: line, x: FD_COLUMNS.description, y: y - n * FD_STEP, size: 8 }))
+    placed.push({ text: pounds(Math.abs(row.pence)), x: row.pence < 0 ? FD_COLUMNS.outRight : FD_COLUMNS.inRight, y: last, size: 8, right: true })
+    if (i === to - 1 || FD_LINES[i + 1]!.date !== row.date) placed.push({ text: pounds(FD_BALANCES[i]!), x: FD_COLUMNS.balanceRight, y: last, size: 8, right: true })
+    y = last - FD_STEP
+  }
+  return { placed, next: y }
+}
+
+const fdHeading = (y: number): Placed[] => [
+  { text: 'Date', x: 69, y, size: 8 },
+  { text: 'Paym ent t ype and det ails', x: 133, y, size: 8 },
+  { text: '£ Paid out', x: 404, y, size: 8, right: true },
+  { text: '£ Paid in', x: 487, y, size: 8, right: true },
+  { text: '£ Balance', x: 566, y, size: 8, right: true },
+]
+
+const fdTop = (period: string, sheet: string): Placed[] => [
+  { text: 'firstdirect.com', x: 423, y: 776, size: 12 },
+  { text: '03 456 100 100', x: 423, y: 761, size: 12 },
+  { text: period, x: 69, y: 504, size: 12 },
+  { text: 'Account Name', x: 68, y: 472 },
+  { text: 'Sortcode', x: 372, y: 472 },
+  // The label and "Sheet Number" are one piece, so the label's own line carries no number.
+  { text: 'Account Number Sheet Number', x: 431, y: 472 },
+  { text: 'Mr A N Other', x: 68, y: 460 },
+  { text: '00-00-00', x: 372, y: 460 },
+  { text: '12345678', x: 431, y: 460 },
+  { text: sheet, x: 509, y: 460 },
+]
+
+const FD_SMALL_PRINT: Placed[] = [
+  { text: 'first direct', x: 411, y: 15, size: 6 },
+  { text: 'is a division of HSBC UK Bank plc', x: 442, y: 15, size: 6 },
+]
+
+export const FIRSTDIRECT_PERIOD = '18 September to 18 October 2026'
+
+export const FIRSTDIRECT_LIKE: Placed[][] = (() => {
+  const one = fdRows(0, FD_PAGE_1, 378)
+  const two = fdRows(FD_PAGE_1, FD_LINES.length, 565)
+  return [
+    [
+      ...fdTop(FIRSTDIRECT_PERIOD, '1'),
+      { text: 'International Bank Account Number', x: 372, y: 530 },
+      { text: 'GB00EXMP00000012345678', x: 372, y: 519 },
+      { text: 'Opening Balance', x: 376, y: 632 },
+      { text: '0.00', x: 567, y: 632, right: true },
+      { text: 'Closing Balance', x: 376, y: 590 },
+      { text: '146.25', x: 566, y: 590, right: true },
+      { text: 'Your 1st Account details', x: 69, y: 428, size: 12 },
+      ...fdHeading(416),
+      // Stray marks left by the page's shading, in the date column and in the middle of the page.
+      { text: 'A', x: 69, y: 398, size: 8 },
+      { text: '.', x: 331, y: 388, size: 8 },
+      ...one.placed,
+      { text: 'Balance carried forward', x: FD_COLUMNS.description, y: one.next, size: 8 },
+      { text: pounds(FD_BALANCES[FD_PAGE_1 - 1]!), x: FD_COLUMNS.balanceRight, y: one.next, size: 8, right: true },
+      ...FD_SMALL_PRINT,
+    ],
+    [
+      ...fdTop(FIRSTDIRECT_PERIOD, '2'),
+      { text: 'Your 1st Account details', x: 68, y: 606, size: 12 },
+      ...fdHeading(594),
+      { text: 'Balance brought forward', x: 155, y: 574, size: 8 },
+      { text: pounds(FD_BALANCES[FD_PAGE_1 - 1]!), x: FD_COLUMNS.balanceRight, y: 573, size: 8, right: true },
+      ...two.placed,
+      { text: '18 Oct 26', x: 68, y: two.next, size: 8 },
+      { text: 'Balance carried forw ard', x: 155, y: two.next, size: 8 },
+      { text: pounds(FD_BALANCES.at(-1)!), x: FD_COLUMNS.balanceRight, y: two.next, size: 8, right: true },
+      { text: 'Your deposit is eligible for protection under the Financial Services Compensation Scheme (FSCS).', x: 68, y: 383 },
+      { text: 'Credit interest is not paid', x: 68, y: 299, size: 8 },
+      { text: 'upto', x: 420, y: 299, size: 8 },
+      { text: '250', x: 502, y: 299, size: 8 },
+      { text: '0.00%', x: 544, y: 299, size: 8 },
+      ...FD_SMALL_PRINT,
+    ],
+  ]
+})()
+
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** Every line has its balance: where it was printed on the day's last line, and worked out from that for the lines
+ *  before it. A contactless ")))" isn't a type. */
+export const FIRSTDIRECT_EXPECT = [
+  {
+    account: 'First Direct ···5678',
+    from: '2026-09-18',
+    to: '2026-10-18',
+    lines: FD_LINES.map((row, i) => {
+      const [d, m, y] = row.date.split(' ')
+      const month = MONTHS_SHORT.indexOf(m!) + 1
+      return [`20${y}-${String(month).padStart(2, '0')}-${d}`, row.text.join(' '), row.pence, row.code === ')))' ? '' : row.code, FD_BALANCES[i]!] as const
+    }),
+  },
+]
