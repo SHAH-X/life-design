@@ -30,6 +30,16 @@ test('a clean page has no faults', async ({ page }) => {
   expect(await layoutFaults(page)).toEqual([])
 })
 
+test('a sheet stacked on another is judged alone: the one under it is behind it on purpose', async ({ page }) => {
+  await show(page, `<dialog id="under" style="position:fixed;inset:0;width:100%;height:100%;margin:0;padding:16px;border:0"><button>Under, close</button></dialog>
+    <dialog id="over" style="position:fixed;inset:auto 0 0 0;width:100%;height:60%;margin:0;padding:16px;border:0;background:#fff"><button>Over, close</button></dialog>`)
+  await page.evaluate(() => {
+    ;(document.getElementById('under') as HTMLDialogElement).showModal()
+    ;(document.getElementById('over') as HTMLDialogElement).showModal()
+  })
+  expect(await layoutFaults(page)).toEqual([])
+})
+
 const PLANTED: [string, string, RegExp][] = [
   ['the page scrolls sideways', '<div style="width:600px">Wide</div>', /scrolls sideways by \d+px/],
   ['something reaches past the edge', '<div style="width:600px">Wide</div>', /<div "Wide"> reaches \d+px past the screen edge/],

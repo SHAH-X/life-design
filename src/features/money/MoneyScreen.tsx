@@ -152,6 +152,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
       accounts: [...names].sort((a, b) => a[1].localeCompare(b[1], 'en', { sensitivity: 'base' })),
     }
   }
+  const lineById = new Map(lines.map((l) => [l.id, l]))
   const today = toDateKey(new Date())
   const thisMonth = today.slice(0, 7)
   const month = sub && /^\d{4}-\d{2}$/.test(sub) ? sub : thisMonth
@@ -175,7 +176,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
       : null
 
   return (
-    <MoneyContext.Provider value={{ links, receiptReasons, open, names, kinds, openPayment: (line, way, group) => setPayment({ line, way, group }), openKind: setKindFor, openRename: (payee) => { setRenamingLine(null); setRenaming(payee) }, importStatement: () => setImporting(true) }}>
+    <MoneyContext.Provider value={{ links, receiptReasons, open, names, kinds, openPayment: (line, way, group) => setPayment({ line, way, group }), openKind: setKindFor, openRename: (payee) => { setRenamingLine(null); setRenaming(payee) }, importStatement: () => setImporting(true), moneyLine: (id) => lineById.get(id) }}>
       <div className="money-screen">
         {year ? (
           <>

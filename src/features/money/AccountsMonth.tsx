@@ -24,7 +24,7 @@ import {
   moneyYear,
   payeeOf,
   type PayeeGroup,
-  type PaymentRow,
+  type PaymentRow as PaymentRowData,
   type Ranked,
   type Regular,
   type RegularChange,
@@ -41,6 +41,7 @@ import { hashFor } from '../../lib/route'
 import { MonthChart } from '../../ui/charts/MonthChart'
 import { Accounts, RenameSheet } from './Accounts'
 import { useMoney } from './MoneyContext'
+import { PaymentRow } from './PaymentRow'
 import { Icon } from '../../ui/Icon'
 
 // The Accounts view of Money (redesigned v0.20.22): a month of your accounts, its money out up top with the months
@@ -177,7 +178,7 @@ export function AccountsMonth(props: {
         ) : null}
         <div className="acc-stats" role="group" aria-label="Money in and payments out">
           <button type="button" className="acc-stat" onClick={() => goTo('acc-money-in')}>
-            <span className="acc-stat-label">Money in</span> <span className="acc-stat-value">{pounds(its.in)}</span>
+            <span className="acc-stat-label">Money in</span> <span className="acc-stat-value" data-in={its.in > 0 || undefined}>{pounds(its.in)}</span>
           </button>
           <button type="button" className="acc-stat" onClick={() => goTo('acc-money-out')}>
             <span className="acc-stat-label">Payments out</span> <span className="acc-stat-value">{paymentsWord(its.outLines.length)}</span>
@@ -666,39 +667,15 @@ function RegularRow({ item, soon }: { item: Regular; soon: boolean }) {
  *  its payments, and, where it could be, a way to say it's you moving money (the payee is remembered: its lines leave
  *  the totals, in later statements too). */
 export function PayeeRow({ group, out = false }: { group: PayeeGroup; out?: boolean }) {
-  const { kinds, links, names, openKind, openPayment, openRename } = useMoney()
+  const { kinds, links, names, openKind, openRename } = useMoney()
   const line = group.lines[0]!
   const original = group.payee.original && group.payee.original !== group.payee.name ? group.payee.original : null
 
   if (group.lines.length === 1) {
     const account = names.get(line.account) ?? line.account
     const way = line.amount < 0 ? `Out of ${account}` : line.refund ? `Back into ${account}` : `Into ${account}`
-    return (
-      <li className="acc-li">
-        <button type="button" className="acc-row" onClick={() => openPayment(line, way, group)}>
-          <span className="acc-row-text">
-            <span className="acc-row-title">{nameOf(line)}</span>
-            {line.label ? (
-              <>
-                {' '}
-                <span className="acc-row-sub">{group.payee.name}</span>
-              </>
-            ) : null}
-            {original ? (
-              <>
-                {' '}
-                <span className="acc-row-sub">Original: {original}</span>
-              </>
-            ) : null}{' '}
-            <span className="acc-row-sub">
-              {shortDayMonth(line.date)} · {way}
-              {links.get(line.id) ? ' · Receipt' : ''}
-            </span>
-          </span>{' '}
-          <span className="acc-row-value">{pounds(Math.abs(line.amount))}</span>
-        </button>
-      </li>
-    )
+    const sub = [line.label ? group.payee.name : '', original ? `Original: ${original}` : '', `${shortDayMonth(line.date)} · ${way}${links.get(line.id) ? ' · Receipt' : ''}`].filter(Boolean).join(' · ')
+    return <PaymentRow line={line} title={nameOf(line)} sub={sub} way={way} group={group} />
   }
   const kind = out ? kindOf(line, kinds) : null
   return (
@@ -772,46 +749,44 @@ function OwnRows({ lines }: { lines: readonly MoneyLine[] }) {
   )
 }
 
+/** What a Flex line was bought: Flex's own statement words it "… moved to Flex", and the purchase is what's before that. It
+ *  has lower case in it, so the bank's capitals are shown in title case (a name you gave it is as you wrote it). */
+const flexPurchase = (l: MoneyLine) => l.label ?? titleCaseShouted(l.payee.name.replace(/\s+moved to Flex$/i, ''))
+
 /** Payments, newest first, one per row: the day, where the money went in words, the amount (owner, 2026-10-26: the
  *  same in every section, never a sign that comes and goes). `moves` joins the two sides of a move between your accounts
  *  ("Savings pot → Monzo"). The payee is named only where the rows' payees differ, or always with `named` (a search's
  *  results). A payment with its receipt opens it;
  *  with why, when it needs a look. */
 export function LineList({ lines, why, moves = false, named = false }: { lines: readonly MoneyLine[]; why?: string; moves?: boolean; named?: boolean }) {
-  const { links, receiptReasons, names, openPayment } = useMoney()
+  const { links, receiptReasons, names } = useMoney()
   const rows = moves ? joinMoves(lines) : [...lines].sort((a, b) => b.date.localeCompare(a.date)).map((line) => ({ line }))
   const name = (account: string) => names.get(account) ?? account
   const payees = named || new Set(lines.map((l) => l.payee.key)).size > 1
-  const where = ({ line: l, to }: PaymentRow) => {
+  const where = ({ line: l, to }: PaymentRowData, bare = false) => {
     if (to) return `${name(l.account)} → ${name(to.account)}`
     if (l.moving === 'flex') {
       const flex = l.amount > 0 ? 'Spread with Flex' : `Paid off, from ${name(l.account)}`
       // Flex's own statement words it "… moved to Flex": the purchase's name is what's before that.
       // That description has lower case in it, so the bank's capitals are shown in title case here (a name you gave it is as you wrote it).
-      const purchase = l.label ?? titleCaseShouted(l.payee.name.replace(/\s+moved to Flex$/i, ''))
-      return named && l.amount < 0 ? `${purchase} · ${flex[0]!.toLowerCase()}${flex.slice(1)}` : flex
+      const purchase = flexPurchase(l)
+      return named && !bare && l.amount < 0 ? `${purchase} · ${flex[0]!.toLowerCase()}${flex.slice(1)}` : flex
     }
     if (l.moving === 'own') return l.amount < 0 ? `${name(l.account)} → ${l.payee.name}` : `${l.payee.name} → ${name(l.account)}`
     const way = l.amount < 0 ? `out of ${name(l.account)}` : l.refund ? `back into ${name(l.account)}` : `into ${name(l.account)}`
-    return payees || l.label ? `${nameOf(l)} · ${way}` : way[0]!.toUpperCase() + way.slice(1)
+    return !bare && (payees || l.label) ? `${nameOf(l)} · ${way}` : way[0]!.toUpperCase() + way.slice(1)
   }
   return (
     <ul className="acc-lines">
       {rows.map((row) => {
         const receipt = links.get(row.line.id)
         const receiptDetail = receipt ? (receiptReasons[receipt.id] ? `receipt ${money(paid(receipt), receipt.currency)} · ${receiptReasons[receipt.id]}` : 'receipt') : ''
-        const told = [where(row), receiptDetail, why ?? ''].filter(Boolean).join(' · ')
-        return (
-          <li key={row.line.id}>
-            <button type="button" className="line-button" onClick={() => openPayment(row.line, where(row))}>
-              <span className="payment-row">
-                <span className="payment-day">{shortDayMonth(row.line.date)}</span>
-                <span className="payment-told">{told}</span>
-                <span className="payment-amount">{pounds(Math.abs(row.line.amount))}</span>
-              </span>
-            </button>
-          </li>
-        )
+        // With a name to show (payees differ, a search, a name you gave it) the name leads and the day goes underneath.
+        const named_ = payees || Boolean(row.line.label)
+        const day = shortDayMonth(row.line.date)
+        const sub = [named_ ? day : '', where(row, true), receiptDetail, why ?? ''].filter(Boolean).join(' · ')
+        const title = row.line.moving === 'flex' && !('to' in row && row.to) ? flexPurchase(row.line) : nameOf(row.line)
+        return <PaymentRow key={row.line.id} line={row.line} title={named_ ? title : day} sub={sub} way={where(row)} />
       })}
     </ul>
   )
