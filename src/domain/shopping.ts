@@ -5,6 +5,7 @@
 import { MIN_COUNT } from '../analysis/stats'
 import type { Entry, ItemChange, PhotoRef } from '../db/types'
 import { addMonths } from '../lib/dates'
+import { notReadYet } from './aiReading'
 import { type CardPaid, chainOf, isRefundSlip, ITEM_KINDS, type ItemKind, itemShown, joinParts, paidFor, paymentOf, type ReceiptItem, readReceipt, type Receipt, receiptTime, shopWords } from './receipts'
 
 /** A receipt in a photo of a finished entry. Its id is the photo's; its date is the receipt's, else the entry's. */
@@ -217,6 +218,31 @@ export function receiptsAndCopies(entries: readonly Entry[], remembered: Remembe
 
 /** The receipts in finished entries, oldest first, each counted once: what Shopping and Ask add up. */
 export const receiptsOf = (entries: readonly Entry[], remembered: Remembered = {}): KnownReceipt[] => receiptsAndCopies(entries, remembered).receipts
+
+/** How an entry of a receipt is listed in Today and Logs (v0.32.0): the shop and what it came to, and no text read from the
+ *  photo. Null for anything else: words of your own, a draft, or photos that aren't receipts. */
+export function entryReceipt(entry: Entry): { title: string; words: string } | null {
+  const photos = entry.photos ?? []
+  if (entry.status === 'draft' || entry.note.trim() || !photos.length) return null
+  const { receipts, refunds } = receiptsAndCopies([entry])
+  const all = [...receipts, ...refunds]
+  if (all.length === 1) {
+    const r = all[0]!
+    const items = r.items.filter((item) => item.price >= 0).length
+    const total = money(Math.abs(paid(r)), r.currency || '£')
+    return { title: r.shop || 'Receipt', words: r.refund ? `Refund slip · ${total} back` : ['Receipt', total, items ? `${items} ${items === 1 ? 'item' : 'items'}` : ''].filter(Boolean).join(' · ') }
+  }
+  if (all.length > 1) {
+    const currencies = new Set(all.map((r) => r.currency || '£'))
+    const shops = [...new Set(all.map((r) => r.shop).filter(Boolean))]
+    const total = currencies.size === 1 ? money(all.reduce((sum, r) => sum + (r.refund ? -1 : 1) * Math.abs(paid(r)), 0), [...currencies][0]!) : ''
+    return { title: `${all.length} receipts`, words: [...shops, total].filter(Boolean).join(' · ') }
+  }
+  // Added as a receipt and not read as one: waiting for a reading, or read and found to be no receipt (the foot of a long one).
+  const flagged = photos.filter((p) => p.receipt && !readWithFirst(p, photos))
+  if (!flagged.length) return null
+  return { title: 'Receipt photo', words: flagged.some((p) => notReadYet(p)) ? 'Waiting to be read' : 'No items or total found' }
+}
 
 /** One receipt read twice: the same shop, date, total and item prices (whatever their names, as the phone and your AI
  *  write them differently), the same currency and till time when both show one, so two alike bought an hour apart stay

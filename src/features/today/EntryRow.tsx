@@ -1,5 +1,8 @@
+import { useMemo } from 'react'
 import type { Entry } from '../../db/types'
 import { energyEdge, entryWords } from '../../domain/feelings'
+import { titleCaseShouted } from '../../domain/money'
+import { entryReceipt } from '../../domain/shopping'
 import { photoTexts } from '../../domain/search'
 import { loggedAt, shortDayMonth } from '../../lib/dates'
 import { useEntryTitle } from '../areas/AreasProvider'
@@ -16,14 +19,16 @@ export function EntryRow({ entry, onOpen, dated = false }: { entry: Entry; onOpe
   const entryTitle = useEntryTitle()
   const free = entry.kind === 'free'
   const count = entry.photos?.length ?? 0
+  // A receipt on its own is its shop and what it came to (v0.32.0), not the text read from its photo.
+  const receipt = useMemo(() => (free ? entryReceipt(entry) : null), [entry, free])
   // Free writing has no feeling words; its photos are named there instead (v0.16).
-  const words = free ? (count ? (count === 1 ? 'Photo' : `${count} photos`) : '') : entryWords(entry)
+  const words = receipt ? receipt.words : free ? (count ? (count === 1 ? 'Photo' : `${count} photos`) : '') : entryWords(entry)
   // A photo on its own shows the text read from it.
-  const note = (entry.note || photoTexts(entry).join(' ')).replace(/\s+/g, ' ').trim()
+  const note = receipt ? '' : (entry.note || photoTexts(entry).join(' ')).replace(/\s+/g, ' ').trim()
   const content = (
     <span className="entry-text">
       <span className="entry-first">
-        <span className="entry-activity">{entryTitle(entry)}</span>
+        <span className="entry-activity">{receipt ? titleCaseShouted(receipt.title) : entryTitle(entry)}</span>
         {onOpen ? (
           <time className="entry-time" dateTime={dated ? entry.date : new Date(entry.createdAt).toISOString()}>
             {dated ? shortDayMonth(entry.date) : loggedAt(entry.createdAt, entry.date)}
