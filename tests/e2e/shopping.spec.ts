@@ -516,3 +516,34 @@ test('with no receipts, Money says where they come from', async ({ page }) => {
   await page.getByRole('button', { name: 'Receipts', exact: true }).click()
   await expect(page.getByText('Receipts you photograph show here.')).toBeVisible()
 })
+
+// A receipt's entry in Today and Logs (v0.32.0, owner 2026-11-19: "not easily identified, and it fills up with unnecessary
+// text"): its shop and what it came to, not the words read from its photo.
+test('a receipt’s entry is listed by its shop and what it came to, with no text read from the photo, in Today and in Logs', async ({ page }, testInfo) => {
+  const NOON = new Date(2026, 9, 24, 12, 0)
+  await page.clock.setFixedTime(NOON)
+  const ai = (text: string, shop: string, items: Item[]) => ({ ...reading(shop, '2026-10-24', items), text })
+  const entries = [
+    { ...freeWriting('r-read', '', 0, NOON), photos: [{ id: 'p-read', text: null, ai: ai('GREENLEAF MARKET TEL: 0116 000 0000 VAT 123 4567 89', 'Greenleaf Market', [['Oat milk', 165], ['Bread', 120], ['Eggs', 249]]) }] },
+    { ...freeWriting('r-two', '', 0, NOON), photos: [{ id: 'p-two-a', text: null, ai: ai('CORNER CHEMIST', 'Corner Chemist', [['Plasters', 299]]) }, { id: 'p-two-b', text: null, ai: ai('GREENLEAF MARKET', 'Greenleaf Market', [['Soap', 150]]) }] },
+    { ...freeWriting('r-slip', '', 0, NOON), photos: [{ id: 'p-slip', text: '***For a chance to win £1,000!*** Please tell us how we did today', receipt: true, ai: { by: 'Gemini · gemini-2.5-flash', at: NOON.getTime(), text: '***For a chance to win £1,000!*** Please tell us how we did today', description: '', receipt: null } }] },
+    { ...freeWriting('r-view', '', 0, NOON), photos: [{ id: 'p-view', text: 'A view of the sea from the cliff path' }] },
+  ]
+  await restoreBackup(page, testInfo.outputPath('receipt-rows.json'), backupWith({ entries }, NOON))
+  for (const route of ['./#/today', './#/entries']) {
+    await page.goto(route)
+    const rows = page.locator('.entry-row')
+    await expect(rows).toHaveCount(4)
+    // Newest first, as they were written: each says what it is, and none carries the text read from its photo.
+    const text = (await rows.allInnerTexts()).join('\n')
+    expect(text).toContain('Greenleaf Market')
+    expect(text).toContain('Receipt · £5.34 · 3 items')
+    expect(text).toContain('2 receipts')
+    expect(text).toContain('Corner Chemist · Greenleaf Market · £4.49')
+    expect(text).toContain('Receipt photo')
+    expect(text).toContain('No items or total found')
+    expect(text).not.toMatch(/TEL: 0116|VAT 123|chance to win/)
+    // A photo that is not a receipt keeps its text.
+    expect(text).toContain('A view of the sea from the cliff path')
+  }
+})

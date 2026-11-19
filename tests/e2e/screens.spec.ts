@@ -323,6 +323,31 @@ for (const scheme of ['light'] as const) {
       await look(page, `${scheme}-money-duplicate`)
     })
 
+    // v0.32.0: a receipt's entry is listed by its shop and what it came to, in Today and in Logs.
+    test(`receipt entries in Today and Logs, ${scheme}`, async ({ page }, testInfo) => {
+      await page.clock.setFixedTime(EVENING)
+      const ai = (text: string, shop: string, items: [string, number][]) => ({
+        by: 'Gemini · gemini-2.5-flash',
+        at: EVENING.getTime(),
+        text,
+        description: '',
+        receipt: { shop, date: '2026-10-23', currency: '£', items: items.map(([name, price]) => ({ name, price, quantity: 1 })), total: items.reduce((sum, [, price]) => sum + price, 0) },
+      })
+      const entries = [
+        { ...freeWriting('rcpt-market', '', 0, EVENING), createdAt: EVENING.getTime() - 3 * 3_600_000, photos: [{ id: 'rcpt-market-p', text: null, ai: ai('GREENLEAF MARKET TEL: 0116 000 0000 VAT 123 4567 89 THANK YOU FOR SHOPPING', 'Greenleaf Market', [['Oat milk', 165], ['Bread', 120], ['Eggs', 249]]) }] },
+        { ...freeWriting('rcpt-two', '', 0, EVENING), createdAt: EVENING.getTime() - 2 * 3_600_000, photos: [{ id: 'rcpt-two-a', text: null, ai: ai('CORNER CHEMIST', 'Corner Chemist', [['Plasters', 299]]) }, { id: 'rcpt-two-b', text: null, ai: ai('GREENLEAF MARKET', 'Greenleaf Market', [['Soap', 150]]) }] },
+        { ...freeWriting('rcpt-slip', '', 0, EVENING), createdAt: EVENING.getTime() - 3_600_000, photos: [{ id: 'rcpt-slip-p', text: '***For a chance to win £1,000!*** Please tell us how we did today', receipt: true, ai: { by: 'Gemini · gemini-2.5-flash', at: EVENING.getTime(), text: '***For a chance to win £1,000!*** Please tell us how we did today', description: '', receipt: null } }] },
+        { ...freeWriting('rcpt-sea', '', 0, EVENING), photos: [{ id: 'rcpt-sea-p', text: 'A view of the sea from the cliff path' }] },
+      ]
+      await restoreBackup(page, testInfo.outputPath('receipt-entries.json'), backupWith({ entries }, EVENING))
+      await page.goto('./#/today')
+      await expect(page.locator('.entry-row', { hasText: 'Greenleaf Market' }).first()).toBeVisible()
+      await look(page, `${scheme}-today-receipts`)
+      await page.goto('./#/entries')
+      await expect(page.locator('.entry-row', { hasText: 'Greenleaf Market' }).first()).toBeVisible()
+      await look(page, `${scheme}-logs-receipts`)
+    })
+
     // v0.16: life areas, the provoker's question and photos, on fictional writing of their own (the seed is activities).
     test(`life areas, the provoker and photos, ${scheme}`, async ({ page }, testInfo) => {
       test.setTimeout(240_000)

@@ -47,7 +47,8 @@ test.describe('photos', () => {
 
     await page.goto('./#/entries')
     await page.getByLabel('Search your logs').fill('sourdough')
-    await expect(entryButton(page, 'Photo')).toBeVisible()
+    // Read as a receipt, it is listed by its shop and what it came to, not as "Photo" with its text (v0.32.0).
+    await expect(page.locator('.entry-row', { hasText: 'Greenleaf Market' })).toContainText('Receipt ·')
 
     const site = new URL(baseURL!).origin
     expect(urls.filter((u) => !u.startsWith(site) && !u.startsWith('blob:') && !u.startsWith('data:'))).toEqual([])
