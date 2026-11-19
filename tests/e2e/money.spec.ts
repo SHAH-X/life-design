@@ -3,6 +3,7 @@ import { expect, type Page, test } from '@playwright/test'
 import { expectNoScores } from './helpers'
 import { backupWith, freeWriting, restoreBackup } from './seed'
 import { makePdf, type Placed } from '../fixtures/pdf'
+import { activityLike, TRANSACTIONS_LIKE } from '../fixtures/trading212'
 import { FIRSTDIRECT_LIKE, FLEX_LIKE, FLEX_TABLE_ON_PAGE_2, LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
 
 // Bank and card statements (v0.20, step 1) in WebKit at iPhone size: a statement's PDF chosen in the app, read on the
@@ -193,6 +194,35 @@ test('several PDFs are brought in at once, and an account’s name opens its sta
   const lloyds = page.getByRole('dialog', { name: 'Lloyds', exact: true })
   await expect(lloyds.getByRole('group', { name: 'The month in figures' })).toHaveText(/^In\s*£1600\.00\s*Out\s*£55\.99\s*Balance at the end\s*£1744\.01$/)
   await expect(lloyds.getByRole('listitem')).toHaveCount(4)
+})
+
+// Trading 212 (v0.34.0, owner 2026-11-19: nearly all of a month's "money out" was what he sent to it): both of its
+// documents are read for the cash that moved, the bank's side is paired with it, and neither counts as spending.
+test('a payment to Trading 212 is paired with its deposit and counts as neither spending nor money in', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date(2026, 9, 18, 12, 0))
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Bring in a statement' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Bring in a statement' })
+  const files = [await pdf(testInfo.outputPath('first-direct.pdf'), FIRSTDIRECT_LIKE), await pdf(testInfo.outputPath('trading212-transactions.pdf'), TRANSACTIONS_LIKE), await pdf(testInfo.outputPath('trading212-activity.pdf'), activityLike())]
+  await sheet.locator('input[type="file"]').setInputFiles(files)
+  // The two Trading 212 documents cover the same days: the second adds nothing.
+  await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveText([
+    /^First Direct: 11 new/,
+    /^Trading 212: 3 new · 20 Sept? ?– ?18 Oct$/,
+    /^Trading 212: 3 already here · 20 Sept? ?– ?18 Oct$/,
+  ])
+  await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  // October's payments to the broker: £50 was paired with a deposit, £20 was not, so two payments went out (it and the shop).
+  await expect(page.getByRole('group', { name: 'Money in and payments out' })).toContainText('2 payments')
+  await accountView(page, 'Spending')
+  const moved = page.getByRole('region', { name: 'Moved between your accounts' })
+  await expect(moved).toContainText('Between your accounts')
+  // The account is listed, and its statement is its transfers.
+  await accountView(page, 'Statements')
+  await page.getByRole('region', { name: 'Your accounts', exact: true }).getByRole('button', { name: 'Trading 212', exact: true }).click()
+  const view = page.getByRole('dialog', { name: 'Trading 212', exact: true })
+  await expect(view.getByRole('heading', { name: 'October 2026' })).toBeVisible()
+  await expect(view.getByRole('listitem')).toHaveCount(2)
 })
 
 // Wherever a payment is listed it opens the same sheet, with Rename, Assign category and Who was it for (owner, 2026-11-19:

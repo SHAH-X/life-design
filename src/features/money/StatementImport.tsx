@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { type BroughtIn, bringInStatement } from '../../db/statements'
 import { readStatement, type StatementProblem } from '../../domain/statements'
+import { notMatchingWords } from '../../domain/trading212'
 import { formatRecentPeriod } from '../../lib/dates'
 import { PdfError, readPdf } from '../../lib/pdfText'
 import { Dialog } from '../../ui/Dialog'
@@ -39,7 +40,7 @@ function told(b: BroughtIn): string {
     b.added || !b.already ? `${b.added} new` : '',
     b.already ? `${b.already} already here` : '',
     formatRecentPeriod(b.from, b.to),
-    b.notAdding ? `${b.notAdding} ${b.notAdding === 1 ? 'doesn’t match its' : 'don’t match their'} printed balance` : '',
+    b.notAdding ? notMatchingWords(b.account, b.notAdding) : '',
   ]
     .filter(Boolean)
     .join(' · ')

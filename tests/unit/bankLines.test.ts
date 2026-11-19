@@ -6,6 +6,7 @@ import { ACCOUNT_NAMES, accountNamesOf, bringInStatement, markClosed, markOwnPay
 import { readStatement, type StatementAccount } from '../../src/domain/statements'
 import { piecesOf } from '../fixtures/pdf'
 import { LLOYDS_LIKE, MONZO_LIKE } from '../fixtures/statements'
+import { activityLike, TRANSACTIONS_LIKE } from '../fixtures/trading212'
 
 // Statements brought in (v0.20): fictional ones laid out like the owner's real Monzo and Lloyds PDFs.
 
@@ -84,6 +85,14 @@ describe('bringInStatement: a statement’s lines kept on the phone, each once',
       { account: 'Monzo ···5678', from: '2026-09-01', to: '2026-09-30', lines: 9 },
       { account: 'Monzo Savings pot', from: '2026-09-01', to: '2026-09-30', lines: 2 },
     ])
+  })
+
+  it('keeps Trading 212’s two documents of the same days as one: the second adds nothing and is one record', async () => {
+    const first = await bringInStatement(accountsOf(TRANSACTIONS_LIKE), phone, 5)
+    expect(first).toEqual([{ account: 'Trading 212 ···0001', from: '2026-09-20', to: '2026-10-18', added: 3, already: 0, notAdding: 0 }])
+    const second = await bringInStatement(accountsOf(activityLike()), phone, 6)
+    expect(second).toEqual([{ account: 'Trading 212 ···0001', from: '2026-09-20', to: '2026-10-18', added: 0, already: 3, notAdding: 0 }])
+    expect(await phone.statements.count()).toBe(1)
   })
 
   it('brings in nothing twice: the same statement again adds no line and no second record', async () => {

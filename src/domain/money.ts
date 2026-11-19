@@ -8,6 +8,7 @@ import type { BankLine, StatementRecord } from '../db/types'
 import { addDays, addMonths, dayNumber } from '../lib/dates'
 import { chainOf } from './receipts'
 import { balanceFollows, preferOwed } from './statements'
+import { isInvestmentAccount } from './trading212'
 import { groupBy, type KnownReceipt, onCard, shiftMonth, shopKey } from './shopping'
 
 /** Who a line was paid to or from, as one name (a UK chain's names as the chain). */
@@ -188,6 +189,9 @@ export function classify(lines: readonly BankLine[], own: ReadonlySet<string>, n
       .sort((a, b) => apart(a, out) - apart(b, out))[0]
     if (into) out.moving = into.moving = 'between'
   }
+  // Trading 212's own account is yours: what moved in or out of it (and has no bank side brought in) is never spending or
+  // money in (v0.34.0).
+  for (const l of classed) if (!l.moving && isInvestmentAccount(l.account)) l.moving = 'own'
   // Money in from a payee you've paid, or marked as a refund, is money back.
   // An online shop writes its name two ways ("EXAMPLESHOP.CO.UK", "EXAMPLESHOP* 972…"): its name runs into a "." or
   // "*". Plain first words aren't enough ("British Gas", "British Heart Foundation").
@@ -615,7 +619,8 @@ export function monthEndBalances(
   year: string,
   today: string,
 ): { accounts: { account: string; owed: boolean }[]; months: BalanceMonth[] } {
-  const ledgers = [...new Set(statements.map((s) => s.account))].sort().flatMap((account) => {
+  // What an investment account is worth isn't what you hold in cash.
+  const ledgers = [...new Set(statements.map((s) => s.account))].filter((account) => !isInvestmentAccount(account)).sort().flatMap((account) => {
     const mine = lines.filter((l) => l.account === account)
     if (!mine.length) return []
     const days: Day[] = groupBy(
