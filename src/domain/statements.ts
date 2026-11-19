@@ -2,7 +2,7 @@
 // statement's PDF gives each piece of its text with where it sits (src/lib/pdfText.ts); this turns them into its
 // accounts and their lines. The heading row gives the columns (money is aligned right under its heading), each row hangs
 // on its date, and long descriptions wrapped round it join it. Every line is checked against the balance printed beside
-// it. Tuned on the layouts of the owner's Monzo, Lloyds, Monzo Flex and M&S credit card statements
+// it. Tuned on the layouts of the owner's Monzo, Lloyds, Monzo Flex, M&S credit card and first direct statements
 // (tests/fixtures/statements.ts, made up).
 import { dateIn } from './receipts'
 
@@ -46,7 +46,7 @@ export interface StatementAccount {
 export type StatementProblem = 'no-text' | 'no-table'
 
 /** `posted` is a card's second date, the day it reached the account: the transaction's date is the line's. */
-type ColumnKind = 'date' | 'posted' | 'description' | 'type' | 'amount' | 'in' | 'out' | 'balance'
+type ColumnKind = 'date' | 'posted' | 'description' | 'type' | 'details' | 'amount' | 'in' | 'out' | 'balance'
 interface Column {
   kind: ColumnKind
   left: number
@@ -82,6 +82,8 @@ function pence(text: string): number | null {
 
 function headingKind(text: string): ColumnKind | null {
   const t = text.trim().toLowerCase().replace(/\s+/g, ' ')
+  // first direct's one heading over a code and its words; kerning splits it into pieces ("Paym ent t ype and det ails").
+  if (t.replace(/\s/g, '') === 'paymenttypeanddetails') return 'details'
   if (/\bdate\b/.test(t) && /\b(applied|posted|processed)\b/.test(t)) return 'posted'
   if (/^(date|date of transaction|transaction date)$/.test(t)) return 'date'
   if (/^(description|details|transaction details|transaction|payee)$/.test(t)) return 'description'
@@ -123,7 +125,7 @@ function headingOf(pieces: readonly TextPiece[]): Column[] | null {
     return kind ? [{ kind, left: p.x, right: p.x + p.w }] : []
   })
   const has = (kind: ColumnKind) => columns.some((c) => c.kind === kind)
-  return has('date') && has('description') && (has('amount') || has('in') || has('out')) ? columns.sort((a, b) => a.left - b.left) : null
+  return has('date') && (has('description') || has('details')) && (has('amount') || has('in') || has('out')) ? columns.sort((a, b) => a.left - b.left) : null
 }
 
 /** How far above a heading line its first half can sit when a heading takes two lines ("Date" over "Applied"). */
@@ -158,12 +160,50 @@ function columnOf(piece: TextPiece, columns: readonly Column[]): Column | undefi
 /** How far from its date a wrapped piece of a row can sit (rows are further apart than this). */
 const ROW_REACH = 24
 
+/** A bank's own code for a payment ("CR", "DD", "OBP"), or contactless's ")))". */
+const CODE = /^(?:\)+|[A-Z][A-Z0-9]{1,3})$/
+
+/** How far below its first line a payee's last line can sit (its amount is on that one): at most three lines. */
+const ROW_DEPTH = 36
+
+/** "Balance brought forward" and "Balance carried forward": the account's, not a payment's. */
+const FORWARD = /^balance(brought|carried)forward$/
+const squeezed = (text: string) => text.toLowerCase().replace(/\s/g, '')
+
+/** One heading over a code and its words ("Payment type and details") is two columns: the code at its left, the words
+ *  where the first piece clear of the codes starts. A heading with no codes under it is the words alone. */
+function splitDetails(columns: readonly Column[], region: readonly TextPiece[]): { columns: Column[]; coded: boolean } {
+  const details = columns.find((c) => c.kind === 'details')
+  if (!details) return { columns: [...columns], coded: false }
+  const others = columns.filter((c) => c !== details)
+  const codes = region.filter((p) => p.x >= details.left - 8 && p.x < details.left + 10 && CODE.test(p.str.trim()))
+  const wordsLeft = Math.min(...region.filter((p) => p.x >= details.left + 10 && !MONEY.test(p.str.trim()) && !dateIn(p.str, false)).map((p) => p.x), Infinity)
+  if (codes.length === 0 || wordsLeft === Infinity) {
+    const alone: Column = { kind: 'description', left: details.left, right: details.right }
+    return { columns: [...others, alone].sort((a, b) => a.left - b.left), coded: false }
+  }
+  const split: Column[] = [
+    { kind: 'type', left: details.left - 8, right: details.left + 10 },
+    { kind: 'description', left: wordsLeft - 3, right: details.right },
+  ]
+  return { columns: [...others, ...split].sort((a, b) => a.left - b.left), coded: true }
+}
+
 /** Two dates on one line: "01/09/2026 - 30/09/2026", "01 September 2026 to 30 September 2026". */
 function periodIn(text: string): { from: string; to: string } | null {
   const halves = text.split(/\s+(?:-|–|to)\s+/)
   if (halves.length !== 2) return null
-  const [from, to] = halves.map((half) => dateIn(half, false))
-  return from && to ? { from, to } : null
+  const [first, to] = halves.map((half) => dateIn(half, false))
+  if (!to) return null
+  // "18 October to 18 November 2026": the first day has no year, so it's the last day's, or the year before when it falls
+  // later in the year ("18 December to 18 January 2027").
+  let from = first
+  if (!from) {
+    const year = Number(to.slice(0, 4))
+    from = dateIn(`${halves[0]} ${year}`, false)
+    if (from && from > to) from = dateIn(`${halves[0]} ${year - 1}`, false)
+  }
+  return from ? { from, to } : null
 }
 
 interface Section {
@@ -192,13 +232,14 @@ function statementDateIn(lines: readonly Line[]): string | null {
 /** An account's number (6 to 8 figures) or a card's (16, in fours). */
 const ACCOUNT_NUMBER = /\b(\d{6,8}|\d{4}(?: ?\d{4}){3})\b/
 
-/** The account named above a heading row: its number's last four (on the label's line or the next, as a card prints
- *  it), or a pot's name. */
+/** The account named above a heading row: its number's last four (on the label's line or the next, as a card or first
+ *  direct prints it), or a pot's name. */
 function nameAbove(above: readonly Line[], bank: string): string | null {
   for (const [i, line] of above.entries()) {
     const label = line.text.match(/\baccount (?:number|no\.?)\s*:?\s*(.*)$/i)
     if (!label) continue
-    const number = (label[1]!.trim() ? label[1]! : (above[i + 1]?.text ?? '')).match(ACCOUNT_NUMBER)
+    // Its number follows on the label's line, or the line under it ("Account Number Sheet Number" has none of its own).
+    const number = label[1]!.match(ACCOUNT_NUMBER) ?? above[i + 1]?.text.match(ACCOUNT_NUMBER)
     if (number) return `${bank} ···${number[1]!.replace(/\s/g, '').slice(-4)}`
   }
   if (above.some((line) => /^flex statement$/i.test(line.text))) return 'Monzo Flex'
@@ -234,26 +275,54 @@ export function readStatement(all: readonly TextPiece[]): { accounts: StatementA
   /** Lines read from one Amount column, and which of those were marked CR: a card prints no signs (below). */
   const fromAmount = new Set<StatementLine>()
   const credits = new Set<StatementLine>()
-  const sectionRows = headings.map(({ line, columns }, i) => {
+  const sectionRows = headings.map(({ line, columns: headingColumns }, i) => {
     const next = headings[i + 1]?.line
     const within = (p: TextPiece) =>
       (p.page > line.page || (p.page === line.page && p.y < line.y - 1)) && (!next || p.page < next.page || (p.page === next.page && p.y > next.y + 1))
-    const region = pieces.filter(within)
-    const anchors = region.filter((p) => columnOf(p, columns)?.kind === 'date' && dateIn(p.str, false))
-    const rows = anchors.map((anchor) => ({ anchor, date: dateIn(anchor.str, false)!, pieces: [] as TextPiece[] }))
-    // A line above a row's date can only be its description wrapped: one with money on it is a row of its own, or a
-    // summary ("Balance from previous statement £0.00" just above a card's first row).
-    const isMoney = (p: TextPiece) => MONEY.test(p.str.trim()) && MONEY_KINDS.includes(columnOf(p, columns)?.kind ?? 'date')
-    const moneyLines = new Set(lines.filter((l) => l.pieces.some(isMoney)))
+    const inside = pieces.filter(within)
+    const { columns, coded } = splitDetails(headingColumns, inside)
+    const isDate = (p: TextPiece) => columnOf(p, columns)?.kind === 'date' && dateIn(p.str, false)
     const lineOf = new Map(lines.flatMap((l) => l.pieces.map((p) => [p, l] as const)))
-    for (const piece of region) {
-      if (anchors.includes(piece)) continue
-      const near = rows
-        .filter((r) => r.anchor.page === piece.page)
-        .sort((a, b) => Math.abs(a.anchor.y - piece.y) - Math.abs(b.anchor.y - piece.y))[0]
-      if (!near || Math.abs(near.anchor.y - piece.y) > ROW_REACH) continue
-      if (piece.y > near.anchor.y + 2 && moneyLines.has(lineOf.get(piece)!)) continue
-      near.pieces.push(piece)
+    let region = inside
+    let anchors: TextPiece[]
+    let rows: { anchor: TextPiece; date: string; pieces: TextPiece[] }[]
+    if (coded) {
+      // A payment begins at its code; the date is printed on a day's first line only, so it's the last one above (on this
+      // page or an earlier). "Balance brought/carried forward" aren't payments, and nothing below the page's last one is.
+      const forward = lines.filter((l) => l.pieces.some((p) => FORWARD.test(squeezed(p.str))))
+      const carried = forward.filter((l) => l.pieces.some((p) => squeezed(p.str) === 'balancecarriedforward'))
+      region = inside.filter((p) => !forward.some((l) => l.page === p.page && Math.abs(l.y - p.y) <= 2) && !carried.some((l) => l.page === p.page && p.y < l.y))
+      anchors = region.filter((p) => columnOf(p, columns)?.kind === 'type' && CODE.test(p.str.trim()))
+      const days = region.filter(isDate).sort((a, b) => a.page - b.page || b.y - a.y)
+      rows = anchors
+        .sort((a, b) => a.page - b.page || b.y - a.y)
+        .flatMap((anchor) => {
+          const day = days.filter((d) => d.page < anchor.page || (d.page === anchor.page && d.y >= anchor.y - 2)).at(-1)
+          return day ? [{ anchor, date: dateIn(day.str, false)!, pieces: [anchor] }] : []
+        })
+      for (const piece of region) {
+        if (anchors.includes(piece)) continue
+        const owner = rows
+          .filter((r) => r.anchor.page === piece.page && r.anchor.y - piece.y >= -2 && r.anchor.y - piece.y <= ROW_DEPTH)
+          .sort((a, b) => a.anchor.y - piece.y - (b.anchor.y - piece.y))[0]
+        owner?.pieces.push(piece)
+      }
+    } else {
+      anchors = region.filter(isDate)
+      rows = anchors.map((anchor) => ({ anchor, date: dateIn(anchor.str, false)!, pieces: [] as TextPiece[] }))
+      // A line above a row's date can only be its description wrapped: one with money on it is a row of its own, or a
+      // summary ("Balance from previous statement £0.00" just above a card's first row).
+      const isMoney = (p: TextPiece) => MONEY.test(p.str.trim()) && MONEY_KINDS.includes(columnOf(p, columns)?.kind ?? 'date')
+      const moneyLines = new Set(lines.filter((l) => l.pieces.some(isMoney)))
+      for (const piece of region) {
+        if (anchors.includes(piece)) continue
+        const near = rows
+          .filter((r) => r.anchor.page === piece.page)
+          .sort((a, b) => Math.abs(a.anchor.y - piece.y) - Math.abs(b.anchor.y - piece.y))[0]
+        if (!near || Math.abs(near.anchor.y - piece.y) > ROW_REACH) continue
+        if (piece.y > near.anchor.y + 2 && moneyLines.has(lineOf.get(piece)!)) continue
+        near.pieces.push(piece)
+      }
     }
     const read = rows.flatMap((row): StatementLine[] => {
       const of = (kinds: ColumnKind[]) =>
@@ -285,7 +354,7 @@ export function readStatement(all: readonly TextPiece[]): { accounts: StatementA
           .replace(/\s+/g, ' ')
       // Contactless marks ")))" aren't part of the payee.
       const description = words('description').replace(/^\)+\s*/, '')
-      const line: StatementLine = { date: row.date, amount: value, description, type: words('type'), balance: money('balance'), adds: true }
+      const line: StatementLine = { date: row.date, amount: value, description, type: words('type').replace(/^\)+$/, ''), balance: money('balance'), adds: true }
       if (amount !== null) {
         fromAmount.add(line)
         if (/\bCR$/i.test(moneyText('amount')!)) credits.add(line)
@@ -341,12 +410,34 @@ export function readStatement(all: readonly TextPiece[]): { accounts: StatementA
     // Oldest first (some banks print newest first; a card prints in the order applied, not the transactions' dates), a
     // day's lines in the order printed, then each balance checked against the line before.
     const lines = (printed[0]!.date > printed.at(-1)!.date ? [...printed].reverse() : [...printed]).sort((a, b) => a.date.localeCompare(b.date))
-    // A card's or Flex's balance is what you owe, so money out raises it: whichever way more lines follow.
-    const follows = (owed: boolean) => (line: StatementLine, i: number) => i === 0 || balanceFollows(lines[i - 1]?.balance, line, owed)
-    const owed = preferOwed(lines.filter(follows(false)).length, lines.filter(follows(true)).length)
-    lines.forEach((line, i) => {
-      line.adds = follows(owed)(line, i)
+    // A card's or Flex's balance is what you owe, so money out raises it: whichever way more lines follow. A balance is
+    // checked against the last one printed plus the amounts since (first direct prints one at the end of each day only).
+    const follows = (owed: boolean) => {
+      let known: number | null = null
+      let since = 0
+      return (line: StatementLine, i: number) => {
+        const before = known === null ? null : known + (owed ? -since : since)
+        const ok = i === 0 || balanceFollows(before, line, owed)
+        if (line.balance === null) since += line.amount
+        else [known, since] = [line.balance, 0]
+        return ok
+      }
+    }
+    const check = (owed: boolean) => lines.map(follows(owed))
+    const owed = preferOwed(check(false).filter(Boolean).length, check(true).filter(Boolean).length)
+    check(owed).forEach((ok, i) => {
+      lines[i]!.adds = ok
     })
+    // A line with no balance of its own, before one printed later the same day, had the balance that one gives less
+    // the amounts after it (the lines are in the order printed).
+    let after: number | null = null
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i]!
+      if (after !== null && line.date !== lines[i + 1]!.date) after = null
+      if (line.balance !== null) after = line.balance
+      else if (after !== null) line.balance = after
+      if (after !== null) after += owed ? line.amount : -line.amount
+    }
     const dates = lines.map((l) => l.date).sort()
     return [{ account, from: period?.from ?? dates[0]!, to: period?.to ?? until ?? dates.at(-1)!, lines }]
   })

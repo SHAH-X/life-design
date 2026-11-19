@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readStatement, type TextPiece } from '../../src/domain/statements'
 import { piecesFromPdf } from '../../src/lib/pdfText'
 import { makePdf, type Placed, piecesOf } from '../fixtures/pdf'
-import { CARD_EXPECT, CARD_LIKE, FLEX_EXPECT, FLEX_LIKE, FLEX_TABLE_ON_PAGE_2, LLOYDS_EXPECT, LLOYDS_LIKE, MONZO_EXPECT, MONZO_LIKE } from '../fixtures/statements'
+import { CARD_EXPECT, CARD_LIKE, FIRSTDIRECT_EXPECT, FIRSTDIRECT_LIKE, FIRSTDIRECT_PERIOD, FLEX_EXPECT, FLEX_LIKE, FLEX_TABLE_ON_PAGE_2, LLOYDS_EXPECT, LLOYDS_LIKE, MONZO_EXPECT, MONZO_LIKE } from '../fixtures/statements'
 
 // Bank statements (v0.20), fictional ones laid out like the owner's real Monzo and Lloyds PDFs (tests/fixtures).
 
@@ -41,6 +41,25 @@ describe('readStatement: a statement read from where its words sit on the page',
     expect(asRead(piecesOf(CARD_LIKE))).toEqual(CARD_EXPECT)
   })
 
+  it('reads one laid out like first direct’s: one heading over a code and its words (kerned apart), the date on a day’s first line and the balance on its last, "Balance brought/carried forward" lines left out, the number under its label, a period with no year on its first day (owner, 2026-11-19: it came back as "no-table")', () => {
+    expect(asRead(piecesOf(FIRSTDIRECT_LIKE))).toEqual(FIRSTDIRECT_EXPECT)
+  })
+
+  it('reads a first direct period that crosses the new year, its first day in the year before', () => {
+    const read = asRead(piecesOf(changed(FIRSTDIRECT_LIKE, FIRSTDIRECT_PERIOD, '18 December to 18 January 2027')))
+    expect(Array.isArray(read) && [read[0]!.from, read[0]!.to]).toEqual(['2026-12-18', '2027-01-18'])
+  })
+
+  it('checks a first direct day’s printed balance against the day before, and works out the lines before it from it', () => {
+    const fine = readStatement(piecesOf(FIRSTDIRECT_LIKE))
+    if ('problem' in fine) throw new Error(fine.problem)
+    expect(fine.accounts[0]!.lines.every((l) => l.adds)).toBe(true)
+    // 325.65 misread as 325.60: that day's balance no longer follows, nor does the next day's, which went from it.
+    const slipped = readStatement(piecesOf(changed(FIRSTDIRECT_LIKE, '325.65', '325.60')))
+    if ('problem' in slipped) throw new Error(slipped.problem)
+    expect(slipped.accounts[0]!.lines.map((l) => l.adds)).toEqual([true, true, true, true, true, false, true, false, true, true, true])
+  })
+
   it('checks every line against the balance printed beside it, and says which don’t follow', () => {
     const fine = readStatement(piecesOf(LLOYDS_LIKE))
     if ('problem' in fine) throw new Error(fine.problem)
@@ -63,5 +82,6 @@ describe('reading a PDF on the phone (PDF.js)', () => {
     expect(asRead(await piecesFromPdf(pdfjs, makePdf(MONZO_LIKE)))).toEqual(MONZO_EXPECT)
     expect(asRead(await piecesFromPdf(pdfjs, makePdf(LLOYDS_LIKE)))).toEqual(LLOYDS_EXPECT)
     expect(asRead(await piecesFromPdf(pdfjs, makePdf(CARD_LIKE)))).toEqual(CARD_EXPECT)
+    expect(asRead(await piecesFromPdf(pdfjs, makePdf(FIRSTDIRECT_LIKE)))).toEqual(FIRSTDIRECT_EXPECT)
   })
 })
