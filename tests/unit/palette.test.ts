@@ -110,6 +110,21 @@ describe('the colour palette', () => {
     }
   })
 
+  it('keeps money in green (owner, 2026-11-19, Money only) readable, 4.5:1, on the card, the page and a day\u2019s tinted band, and apart from ink', () => {
+    const hex = (name: string) => new RegExp(`--${name}:\\s*(#[0-9a-f]{6})`, 'i').exec(rootBlock())![1]!
+    const lum = (h: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)) as [number, number, number]
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+    const ratio = (a: string, b: string) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05)
+    // The band is --viz-hover (5% black) over the card.
+    const band = '#f2f0ec'
+    for (const on of [hex('surface'), hex('bg'), band]) expect(ratio(hex('money-in'), on), on).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(hex('money-in'), hex('text'))).toBeGreaterThanOrEqual(3)
+    // Used for money in and nothing else.
+    expect([...css.matchAll(/var\(--money-in\)/g)]).toHaveLength(1)
+  })
+
   it('draws every button as a pill, and an input at the small radius token', () => {
     expect(/\nbutton,\n\.button \{[^}]*border-radius: var\(--radius-pill\)/.test(css)).toBe(true)
     expect(/\ninput:not\([^{]*\{[^}]*border-radius: var\(--radius-sm\)/.test(css)).toBe(true)

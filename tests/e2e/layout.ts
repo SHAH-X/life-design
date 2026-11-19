@@ -66,7 +66,10 @@ function findLayoutFaults(): { faults: string[]; small: string[] } {
   const small: string[] = []
   const vw = document.documentElement.clientWidth
   const vh = window.visualViewport?.height ?? window.innerHeight
-  const root: Element = document.querySelector('dialog[open]') ?? document.body
+  // With sheets stacked (a payment's sheet over an account's statement) only the top one is judged: the one under it is behind
+  // it on purpose, and the page's hit test finds the top one at the bottom of the screen.
+  const sheets = [...document.querySelectorAll('dialog[open]')]
+  const root: Element = (sheets.length > 1 ? document.elementFromPoint(vw / 2, vh - 2)?.closest('dialog') : null) ?? sheets[0] ?? document.body
   const all = [...root.querySelectorAll('*')]
 
   const name = (el: Element) => {

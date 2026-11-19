@@ -250,6 +250,14 @@ for (const scheme of ['light'] as const) {
       await look(page, at('money-spending'))
       await part('Statements').click()
       await look(page, at('money-statements'))
+      // An account's own statement (its name), and a payment in it opened: the same sheet as anywhere a payment is listed.
+      await page.getByRole('region', { name: 'Your accounts', exact: true }).getByRole('button', { name: 'Monzo', exact: true }).click()
+      const statement = page.getByRole('dialog', { name: 'Monzo', exact: true })
+      await expect(statement.getByRole('heading', { name: 'September 2026' })).toBeVisible()
+      await look(page, at('money-account-statement'))
+      await statement.getByRole('listitem').first().getByRole('button').click()
+      await expect(page.getByRole('button', { name: 'Rename transaction' })).toBeVisible()
+      await look(page, at('money-payment-sheet'))
     })
 
     test(`Money regular payment rename, ${scheme}`, async ({ page }, testInfo) => {

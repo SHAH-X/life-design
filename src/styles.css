@@ -56,6 +56,8 @@
   --warn-bg: #fff3d6;
   --warn-border: #ebd9b0;
   --warn-text: #7c4a00;
+  /* Money in (owner, 2026-11-19, Money only): a green that is plainly not ink; AA on the card, the page and a day's band (palette.test.ts). */
+  --money-in: #1f7a4d;
   --viz-pos: #2a78d6;
   --viz-neg: #e34948;
   --viz-seq: #1baf7a;
@@ -2121,31 +2123,6 @@ button.line-button {
   font-weight: 400;
 }
 
-/* A payment in Money's lists (owner, 2026-10-26: the payee's name in a larger size between the day and the amount
-   read badly): the day, what tells it apart, the amount on the right, all one size. */
-.payment-row {
-  display: flex;
-  gap: 10px;
-  align-items: baseline;
-}
-
-.payment-day {
-  flex: 0 0 auto;
-  color: var(--muted);
-}
-
-.payment-told {
-  flex: 1 1 auto;
-  min-width: 0;
-  color: var(--muted);
-  font-size: var(--fs-md);
-}
-
-.payment-amount {
-  flex: 0 0 auto;
-  font-variant-numeric: tabular-nums;
-}
-
 .money-screen h1 {
   margin-bottom: 24px;
 }
@@ -2424,17 +2401,6 @@ button.line-button {
   background: var(--viz-hover);
 }
 
-.money-screen .payment-row {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr) max-content;
-  align-items: start;
-  gap: 8px;
-}
-
-.money-screen .payment-told {
-  overflow-wrap: anywhere;
-}
-
 /* ---------- Money → Accounts (v0.20.22) ----------
    Flat lists on the page, not cards: a month's figure first, then three parts that each do one job. Every list is one
    kind of row (a name, what it says underneath, its figure on the right, a chevron when it opens), so figures line up
@@ -2526,6 +2492,14 @@ button.line-button {
   border-radius: 0;
   background: transparent;
   text-align: left;
+}
+
+.money-screen div.acc-stat {
+  display: flex;
+}
+
+.money-screen .acc-stats[data-cells='3'] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .money-screen .acc-stat + .acc-stat {
@@ -2688,6 +2662,7 @@ button.line-button {
 
 .money-screen .acc-row-title {
   overflow-wrap: anywhere;
+  font-size: var(--fs-lg);
   font-weight: 600;
 }
 
@@ -2703,9 +2678,58 @@ button.line-button {
   grid-column: 2;
   flex-direction: column;
   align-items: flex-end;
+  font-size: var(--fs-lg);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   white-space: nowrap;
+}
+
+/* Money in: a + and its own green, so it can be told from money out at a glance (the + and the words say it too). */
+.money-screen .acc-row-value[data-in],
+.money-screen .acc-stat-value[data-in],
+.money-screen .payment-sheet-amount[data-in] {
+  color: var(--money-in);
+}
+
+/* A day in an account's statement: a tinted band with its name and what it came to. */
+.money-screen .acc-day {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--viz-hover);
+}
+
+.money-screen .acc-day h4 {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.money-screen .acc-day-total {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+/* A payment's sheet: its figure first, then what can be done to it, one button each in the same order everywhere. */
+.money-screen .payment-sheet-amount {
+  margin: 0 0 2px;
+  font-size: var(--fs-2xl);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.money-screen .payment-actions {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 16px;
 }
 
 .money-screen .acc-delta {
@@ -2778,16 +2802,6 @@ button.line-button {
   padding: 0;
 }
 
-/* The day in a column of its own width, so what each payment says starts at the same place down the list. */
-.money-screen .acc-lines .payment-row {
-  grid-template-columns: 5.4em minmax(0, 1fr) max-content;
-}
-
-.money-screen .acc-lines .payment-day,
-.money-screen .acc-lines .payment-told {
-  font-size: var(--fs-sm);
-}
-
 /* Payments listed under a heading rather than under a row: a list of their own. */
 .money-screen .acc-block > .acc-lines {
   margin: 8px 0 0;
@@ -2834,10 +2848,22 @@ button.line-button {
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text);
+  color: var(--accent);
   font: inherit;
   font-weight: 600;
   text-align: left;
+}
+
+/* It opens the account's statement: said by its green and a chevron, as a row's is. */
+.money-screen button.acc-account-open::after {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  content: '';
 }
 
 .money-screen button.acc-step {

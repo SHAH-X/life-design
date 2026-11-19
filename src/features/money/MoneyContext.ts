@@ -18,6 +18,8 @@ export interface MoneyContextValue {
   /** Opens "Bring in a statement". The sheet belongs to the screen, not to the part showing its button: the first statement
    *  brought in changes which part that is, and a sheet inside it closed before it said what came in. */
   importStatement: () => void
+  /** A kept line as Money reads it (its payee, name and what it was for), so any list of payments can open it. */
+  moneyLine: (id: string) => MoneyLine | undefined
 }
 
 export const MoneyContext = createContext<MoneyContextValue>({
@@ -30,6 +32,7 @@ export const MoneyContext = createContext<MoneyContextValue>({
   openKind: () => {},
   openRename: () => {},
   importStatement: () => {},
+  moneyLine: () => undefined,
 })
 
 export const useMoney = () => useContext(MoneyContext)

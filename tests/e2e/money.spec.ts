@@ -173,26 +173,63 @@ test('several PDFs are brought in at once, and an account’s name opens its sta
   const view = page.getByRole('dialog', { name: 'First Direct', exact: true })
   // The latest month: its days newest first, a day's lines in the order its balances give, and what the month came to.
   await expect(view.getByRole('heading', { name: 'October 2026' })).toBeVisible()
-  await expect(view.getByText('In £0.00 · Out £77.30 · Balance at the end £146.25')).toBeVisible()
+  await expect(view.getByRole('group', { name: 'The month in figures' })).toHaveText(/^In\s*£0\.00\s*Out\s*£77\.30\s*Balance at the end\s*£146\.25$/)
   const rows = view.getByRole('listitem')
   await expect(rows).toHaveCount(3)
-  await expect(rows.nth(0)).toContainText('EXAMPLE SHOPPING CARD SOMETOWN')
-  await expect(rows.nth(0)).toContainText('£7.30 out')
+  await expect(rows.nth(0)).toContainText('Example Shopping Card Sometown')
+  await expect(rows.nth(0)).toContainText('£7.30')
   await expect(rows.nth(0)).toContainText('MAS · Balance £146.25')
-  await expect(rows.nth(1)).toContainText('EXAMPLE BROKER BRK00EXAMPLE3')
+  await expect(rows.nth(1)).toContainText('Example Broker BRK00EXAMPLE3')
   await expect(rows.nth(2)).toContainText('BRK00EXAMPLE2')
   // The month before.
   await view.getByRole('button', { name: 'Earlier: September 2026' }).click()
   await expect(view.getByRole('heading', { name: 'September 2026' })).toBeVisible()
-  await expect(view.getByText('In £350.00 · Out £126.45 · Balance at the end £223.55')).toBeVisible()
+  await expect(view.getByRole('group', { name: 'The month in figures' })).toHaveText(/^In\s*£350\.00\s*Out\s*£126\.45\s*Balance at the end\s*£223\.55$/)
   await expect(view.getByRole('listitem')).toHaveCount(8)
   await expect(view.getByRole('button', { name: /^Earlier/ })).toHaveCount(0)
   await view.getByRole('button', { name: 'Close' }).click()
   // Another account has its own statement.
   await accounts.getByRole('button', { name: 'Lloyds', exact: true }).click()
   const lloyds = page.getByRole('dialog', { name: 'Lloyds', exact: true })
-  await expect(lloyds.getByText('In £1600.00 · Out £55.99 · Balance at the end £1744.01')).toBeVisible()
+  await expect(lloyds.getByRole('group', { name: 'The month in figures' })).toHaveText(/^In\s*£1600\.00\s*Out\s*£55\.99\s*Balance at the end\s*£1744\.01$/)
   await expect(lloyds.getByRole('listitem')).toHaveCount(4)
+})
+
+// Wherever a payment is listed it opens the same sheet, with Rename, Assign category and Who was it for (owner, 2026-11-19:
+// "I can't do that from everywhere where I see an entry").
+test('every list of payments opens the same payment sheet: an account’s statement, Spending, and Search', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date(2026, 9, 18, 12, 0))
+  await page.goto('./#/money')
+  const sheet = await bringIn(page, await pdf(testInfo.outputPath('first-direct.pdf'), FIRSTDIRECT_LIKE))
+  await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  const expectSheet = async (name: string | RegExp) => {
+    const payment = page.getByRole('dialog', { name })
+    await expect(payment.getByRole('button', { name: 'Rename transaction' })).toBeVisible()
+    await expect(payment.getByRole('button', { name: '+ Assign category' })).toBeVisible()
+    await expect(payment.getByRole('button', { name: '+ Who was it for?' })).toBeVisible()
+    await payment.getByRole('button', { name: 'Close' }).click()
+  }
+
+  // An account's statement.
+  await accountView(page, 'Statements')
+  await page.getByRole('region', { name: 'Your accounts', exact: true }).getByRole('button', { name: 'First Direct', exact: true }).click()
+  const statement = page.getByRole('dialog', { name: 'First Direct', exact: true })
+  await statement.getByRole('button', { name: /Example Shopping Card Sometown/ }).click()
+  await expectSheet('Example Shopping Card Sometown')
+  // Closing the sheet leaves the statement where it was.
+  await expect(statement.getByRole('heading', { name: 'October 2026' })).toBeVisible()
+  await statement.getByRole('button', { name: 'Close' }).click()
+
+  // Spending: a payee paid once.
+  await accountView(page, 'Spending')
+  await page.getByRole('button', { name: /Example Broker BRK00EXAMPLE2/ }).click()
+  await expectSheet('Example Broker BRK00EXAMPLE2')
+
+  // Search lists payments from every month (the same list a group of payments opens to), and each one opens it too.
+  await page.getByRole('searchbox', { name: 'Search every payment' }).fill('shopping card')
+  await expect(page.getByRole('button', { name: /Example Shopping Card Sometown/ })).toHaveCount(2)
+  await page.getByRole('button', { name: /Example Shopping Card Sometown/ }).first().click()
+  await expectSheet('Example Shopping Card Sometown')
 })
 
 test('a PDF that isn’t a statement, or isn’t a PDF, is refused saying why, and nothing is kept', async ({ page }, testInfo) => {
@@ -236,7 +273,7 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   // A statement prints your name, not which account: named your way, it's remembered.
   // Each row says where the money went; a pot's move is one row (owner, 2026-10-26).
   await moved.locator('summary', { hasText: 'Pots' }).click()
-  await expect(moved.locator('details', { hasText: 'Pots' }).locator('.acc-lines li')).toHaveText([/^Tue,? 8 Sept? ?Monzo Savings pot → Monzo ?£50\.00$/])
+  await expect(moved.locator('details', { hasText: 'Pots' }).locator('.acc-lines li')).toHaveText([/^Withdrawal Tue,? 8 Sept? · Monzo Savings pot → Monzo ?£50\.00$/])
   await moved.locator('summary', { hasText: 'Monzo Flex' }).click()
   await expect(moved.locator('details', { hasText: 'Monzo Flex' }).locator('.acc-lines li')).toHaveText([/^Thu,? 10 Sept? ?Paid off, from Monzo ?£12\.40$/, /^Wed,? 2 Sept? ?Spread with Flex ?£12\.40$/])
   await moved.locator('summary', { hasText: 'A N Other' }).click()
@@ -735,12 +772,12 @@ test('Spending’s search lists a purchase once, its Flex side apart and named; 
   const year = page.getByRole('region', { name: '2026' })
   // One payment, one row, naming where it went; money moved is not counted in the year's line.
   await expect(year.locator('.acc-status')).toHaveText('1 payment · £41.17')
-  await expect(year.locator(':scope > ul.acc-lines > li')).toHaveText([/^Thu,? 8 Oct ?Example Passport Office · out of Example Current ?£41\.17$/])
+  await expect(year.locator(':scope > ul.acc-lines > li')).toHaveText([/^Example Passport Office Thu,? 8 Oct · Out of Example Current ?£41\.17$/])
   // Its Flex side is under money moved, closed until asked for, and says whose purchase it paid off.
   const moved = year.locator('details', { hasText: 'Moved between your accounts' })
   await expect(moved.locator('summary')).toHaveText('Moved between your accounts 1 move, left out')
   await moved.locator('summary').click()
-  await expect(moved.locator('.acc-lines li')).toHaveText([/^Thu,? 8 Oct ?Example Passport Office · paid off, from Monzo Flex ?£41\.17$/])
+  await expect(moved.locator('.acc-lines li')).toHaveText([/^Example Passport Office Thu,? 8 Oct · Paid off, from Monzo Flex ?£41\.17$/])
 
   // A ✕ clears the search and the keyboard stays up for the next one; the month's lists come back.
   await expect(clear).toBeVisible()
@@ -783,7 +820,7 @@ test('a payment can be named alone: the others to the same shop keep their name,
   // It is still one payee of three payments; only that row has a name of its own.
   await expect(group.locator('summary')).toContainText('Example Pharmacy Leicester')
   await expect(group.locator('summary')).toContainText('3 payments')
-  await expect(rows).toHaveText([/^Thu,? 15 Oct ?Out of Lloyds[^£]*£4\.99$/, /^Wed,? 7 Oct ?Fever medicine · out of Lloyds[^£]*£4\.99$/, /^Sat,? 3 Oct ?Out of Lloyds[^£]*£5\.00$/])
+  await expect(rows).toHaveText([/^Thu,? 15 Oct Out of Lloyds[^£]*£4\.99$/, /^Fever medicine Wed,? 7 Oct · Out of Lloyds[^£]*£4\.99$/, /^Sat,? 3 Oct Out of Lloyds[^£]*£5\.00$/])
 
   // Search finds it by its name, and the shop's name still finds all three.
   await accountView(page, 'Spending')
@@ -810,7 +847,8 @@ test('a payment can be named alone: the others to the same shop keep their name,
   await naming.getByRole('button', { name: 'Save', exact: true }).click()
   await sheet.getByRole('button', { name: 'Close' }).click()
   await expect(out.locator('details', { hasText: 'The pharmacy' }).locator('summary')).toContainText('3 payments')
-  await expect(rows.nth(1)).toContainText('Fever medicine · out of Lloyds')
+  await expect(rows.nth(1)).toContainText('Fever medicine')
+  await expect(rows.nth(1)).toContainText('Out of Lloyds')
   await expect(rows.nth(0)).toContainText('Out of Lloyds')
 
   // Emptying its name goes back to the shop's.

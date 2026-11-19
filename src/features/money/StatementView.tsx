@@ -3,12 +3,14 @@ import { useState } from 'react'
 import { db } from '../../db/db'
 import type { StatementRecord } from '../../db/types'
 import { accountMonth, accountMonths } from '../../domain/accountStatement'
-import { notBroughtIn } from '../../domain/money'
+import { nameOf, notBroughtIn } from '../../domain/money'
 import { formatPeriod, monthYear, shortWeekday, dayMonth } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
 import { Icon } from '../../ui/Icon'
 import { Loading } from '../../ui/Loading'
 import { pounds } from './AccountsMonth'
+import { useMoney } from './MoneyContext'
+import { PaymentRow } from './PaymentRow'
 
 // One account's statement (v0.30.0): tap its name under Your accounts. The PDFs aren't kept, only their lines, so it's
 // rebuilt from them: a month at a time, newest day first, with what came in and went out and the balance at its end.
@@ -22,6 +24,7 @@ export function StatementView(props: {
   onClose: () => void
 }) {
   const { account, shown, statements, closed, today, onClose } = props
+  const { moneyLine, names } = useMoney()
   const lines = useLiveQuery(() => db.bankLines.where('account').equals(account).toArray(), [account])
   const [chosen, setChosen] = useState<string | null>(null)
   const months = lines ? accountMonths(lines) : []
@@ -55,38 +58,46 @@ export function StatementView(props: {
             </nav>
           </div>
           {view.count ? (
-            <p className="acc-account-line">
-              In {pounds(view.in)} · Out {pounds(view.out)}
-              {view.closing !== null ? ` · ${view.owed ? 'Owed' : 'Balance'} at the end ${pounds(view.closing)}` : ''}
-            </p>
+            <div className="acc-stats" data-cells={view.closing !== null ? 3 : 2} role="group" aria-label="The month in figures">
+              <div className="acc-stat">
+                <span className="acc-stat-label">In</span> <span className="acc-stat-value" data-in={view.in > 0 || undefined}>{pounds(view.in)}</span>
+              </div>
+              <div className="acc-stat">
+                <span className="acc-stat-label">Out</span> <span className="acc-stat-value">{pounds(view.out)}</span>
+              </div>
+              {view.closing !== null ? (
+                <div className="acc-stat">
+                  <span className="acc-stat-label">{view.owed ? 'Owed at the end' : 'Balance at the end'}</span> <span className="acc-stat-value">{pounds(view.closing)}</span>
+                </div>
+              ) : null}
+            </div>
           ) : (
             <p className="muted">Nothing in this month.</p>
           )}
           {gaps.length ? <p className="acc-account-line acc-account-missing">Missing: {gaps.map((g) => formatPeriod(g.from, g.to)).join('; ')}</p> : null}
-          {view.days.map((day) => (
-            <section key={day.date} aria-label={dayMonth(day.date)}>
-              <h4>
-                {shortWeekday(day.date)} {dayMonth(day.date)}
-              </h4>
-              <ul className="acc-list">
-                {day.lines.map((l) => (
-                  <li key={l.id} className="acc-li">
-                    <div className="acc-row">
-                      <span className="acc-row-text">
-                        <span className="acc-row-title">{l.description}</span>{' '}
-                        <span className="acc-row-sub">
-                          {[l.type, l.balance !== null ? `${view.owed ? 'Owed' : 'Balance'} ${pounds(l.balance)}` : '', l.adds ? '' : 'Doesn’t match its printed balance'].filter(Boolean).join(' · ')}
-                        </span>
-                      </span>{' '}
-                      <span className="acc-row-value">
-                        {pounds(Math.abs(l.amount))} {l.amount < 0 ? 'out' : 'in'}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
+          {view.days.map((day) => {
+            const out = day.lines.filter((l) => l.amount < 0).reduce((sum, l) => sum - l.amount, 0)
+            const came = day.lines.filter((l) => l.amount > 0 && !moneyLine(l.id)?.moving).reduce((sum, l) => sum + l.amount, 0)
+            return (
+              <section key={day.date} aria-label={dayMonth(day.date)}>
+                <div className="acc-day">
+                  <h4>
+                    {shortWeekday(day.date)} {dayMonth(day.date)}
+                  </h4>
+                  <span className="acc-day-total">{[out ? `${pounds(out)} out` : '', came ? `+${pounds(came)} in` : ''].filter(Boolean).join(' · ')}</span>
+                </div>
+                <ul className="acc-list">
+                  {day.lines.map((l) => {
+                    const line = moneyLine(l.id)
+                    const account = names.get(l.account) ?? l.account
+                    const way = l.amount < 0 ? `Out of ${account}` : line?.refund ? `Back into ${account}` : `Into ${account}`
+                    const sub = [l.type, l.balance !== null ? `${view.owed ? 'Owed' : 'Balance'} ${pounds(l.balance)}` : '', l.adds ? '' : 'Doesn’t match its printed balance'].filter(Boolean).join(' · ')
+                    return line ? <PaymentRow key={l.id} line={line} title={nameOf(line)} sub={sub} way={way} /> : null
+                  })}
+                </ul>
+              </section>
+            )
+          })}
         </>
       )}
     </Dialog>

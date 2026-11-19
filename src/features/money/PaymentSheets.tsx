@@ -143,29 +143,33 @@ export function PaymentSheet(props: {
     <Dialog title={nameOf(line)} onClose={onClose}>
       {line.label ? <p className="muted small">Paid to: {line.payee.name}</p> : null}
       {isRenamed ? <p className="muted small">Original: {line.payee.original}</p> : null}
-      <p>
-        {dayMonthLong(line.date)} · {way} · {money(Math.abs(line.amount), '£')}
+      <p className="payment-sheet-amount" data-in={(line.amount > 0 && !line.moving) || undefined}>
+        {line.amount > 0 && !line.moving ? '+' : ''}
+        {money(Math.abs(line.amount), '£')}
+      </p>
+      <p className="muted">
+        {dayMonthLong(line.date)} · {way}
       </p>
       {isGiftCardBuy(line) ? <p className="muted small">A gift card bought through Blue Light Card</p> : null}
       {receiptSummary ? <p className="muted small receipt-payment-summary">{receiptSummary}</p> : null}
-      <div className="button-row" style={{ display: 'flex', gap: '8px', margin: '8px 0 16px', flexWrap: 'wrap' }}>
+      <div className="payment-actions">
         {onRename ? (
-          <button type="button" className="small-link" onClick={onRename}>
+          <button type="button" className="wide" onClick={onRename}>
             Rename transaction
           </button>
         ) : null}
         {onKind ? (
-          <button type="button" className="small-link" onClick={onKind}>
+          <button type="button" className="wide" onClick={onKind}>
             {kind ? `Category: ${kind}` : '+ Assign category'}
           </button>
         ) : null}
         {onWho ? (
-          <button type="button" className="small-link" onClick={onWho}>
+          <button type="button" className="wide" onClick={onWho}>
             {line.forWho ? `For: ${line.forWho}` : '+ Who was it for?'}
           </button>
         ) : null}
         {onOwn ? (
-          <button type="button" className="small-link" onClick={() => void onOwn()}>
+          <button type="button" className="wide" onClick={() => void onOwn()}>
             It’s me, moving money
           </button>
         ) : null}
