@@ -25,11 +25,11 @@ import {
   unmatchReceiptPayment,
 } from '../../db/statements'
 import { investingMonths } from '../../domain/investing'
-import { cardAccountOf, classify, forNamesOf, giftCardsBefore, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, moneyMonth, nameOf, type Payee, type PayeeGroup, paymentsWithoutReceipt, type ReceiptOutcome, receiptOutcomes, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
+import { cardAccountOf, classify, forNamesOf, giftCardsBefore, isGiftCardBuy, kindOf, labelsOf, linkGiftCards, linkReceipts, mayBeOwn, type MoneyLine, moneyMonth, nameOf, type Payee, type PayeeGroup, paymentsWithoutReceipt, type ReceiptOutcome, receiptOutcomes, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
 import { notReadYet } from '../../domain/aiReading'
 import { inWords, type KnownReceipt, money, onCard, receiptsAndCopies, rememberedKindsOf, rememberedNamesOf, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { ITEM_FOR_SETTING, ITEM_KINDS_SETTING } from '../../db/receiptItems'
-import { monthYear, toDateKey } from '../../lib/dates'
+import { dayMonth, monthYear, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { Loading } from '../../ui/Loading'
 import { EntrySheet, type EntrySheetState } from '../today/EntrySheet'
@@ -134,7 +134,9 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const possiblePaymentIds = new Set<string>(matchCandidates.keys())
   // What became of each receipt, and the payments with no receipt (v0.35.0).
   // With no statement in there is nothing to match to: no outcome is told, not "0 of N matched" (audit 2026-11-20).
-  const outcomes = statements.length ? receiptOutcomes(receipts, lines, links, cards, statements, names) : new Map<string, ReceiptOutcome>()
+  // The gift card bought for each receipt paid by one (owner 2026-11-20): for the cost of a card is a little under what went on it.
+  const giftBuys = linkGiftCards(lines, receipts)
+  const outcomes = statements.length ? receiptOutcomes(receipts, lines, links, cards, statements, names, giftBuys) : new Map<string, ReceiptOutcome>()
   const withoutReceipt = !statements.length ? [] : paymentsWithoutReceipt(lines, links, kinds, receipts, new Set([...matchCandidates.values()].flat().map((l) => l.id)))
   const paymentOfReceipt = new Map([...links].map(([lineId, receipt]) => [receipt.id, lines.find((l) => l.id === lineId)!]))
   const shownName = (account: string) => names.get(account) ?? account
@@ -154,6 +156,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
         ? {
             byGiftCard: receipt.byGiftCard,
             onCard: onCard(receipt),
+            ...(giftBuys.get(receipt.id) ? { bought: { date: giftBuys.get(receipt.id)!.date, amount: -giftBuys.get(receipt.id)!.amount, accountName: shownName(giftBuys.get(receipt.id)!.account) } } : {}),
             giftCards: giftCardsBefore(lines, receipt.date).map((l) => ({ id: l.id, date: l.date, amount: -l.amount, accountName: shownName(l.account) })),
           }
         : {}),
@@ -206,8 +209,13 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const manualReceiptId = payment ? manualReceiptByPayment.get(payment.line.id) : undefined
   const paymentReceipt = payment ? links.get(payment.line.id) : undefined
   const paymentReceiptDifference = payment && paymentReceipt ? onCard(paymentReceipt) - Math.abs(payment.line.amount) : 0
+  // A gift card bought through Blue Light Card says which receipt it paid for, if one is matched to it.
+  const spentOn = payment && isGiftCardBuy(payment.line) ? [...giftBuys].find(([, line]) => line.id === payment.line.id)?.[0] : undefined
+  const giftReceipt = spentOn ? receipts.find((r) => r.id === spentOn) : undefined
   const paymentReceiptSummary =
-    payment && paymentReceipt && paymentReceiptDifference
+    payment && giftReceipt
+      ? `Spent on a receipt at ${giftReceipt.shop || 'a shop'} on ${dayMonth(giftReceipt.date)} · ${money(giftReceipt.byGiftCard!, giftReceipt.currency)} by gift card`
+      : payment && paymentReceipt && paymentReceiptDifference
       ? `Receipt ${money(onCard(paymentReceipt), paymentReceipt.currency)}${paymentReceipt.byGiftCard ? ' after gift card' : ''} · debit ${money(Math.abs(payment.line.amount), '£')} · difference ${money(Math.abs(paymentReceiptDifference), paymentReceipt.currency)}${receiptReasons[paymentReceipt.id] ? ` · ${receiptReasons[paymentReceipt.id]}` : ''}`
       : null
 

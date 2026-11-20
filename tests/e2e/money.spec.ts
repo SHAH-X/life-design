@@ -1577,7 +1577,9 @@ test('a receipt paid by gift card is never matched to another purchase; one paid
   await expect(receipt.getByText('£20.00 of it by gift card', { exact: true })).toBeVisible()
   await expect(receipt.locator('p', { hasText: 'Paid from Example Current · Visa ending 2468' })).toBeVisible()
   await expect(receipt.getByText(/^Payment on 2 Oct · £3\.40$/)).toBeVisible()
-  await expect(receipt.getByRole('list', { name: 'Gift cards bought before it' }).getByRole('listitem')).toHaveText(['1 Oct · £19.00 · Example Current', /^2 Sept? · £47\.50 · Example Current$/])
+  // The £19.00 card is the one for the £20.00 that went on it (a little less than the card's worth, owner 2026-11-20).
+  await expect(receipt.getByText('Gift card bought on 1 Oct · £19.00 · Example Current', { exact: true })).toBeVisible()
+  await expect(receipt.getByRole('list', { name: 'Gift cards bought before it' })).toHaveCount(0)
   await receipt.getByRole('button', { name: 'Close', exact: true }).click()
 
   await page.getByRole('button', { name: /3 Oct Tesco £15\.00/ }).click()
@@ -1585,6 +1587,35 @@ test('a receipt paid by gift card is never matched to another purchase; one paid
   await expect(receipt.getByText('Paid by gift card', { exact: true })).toBeVisible()
   await expect(receipt.getByText(/^Payment on/)).toHaveCount(0)
   await expect(receipt.getByRole('list', { name: 'Gift cards bought before it' }).getByRole('listitem')).toHaveCount(2)
+})
+
+// A gift card is bought at a discount (owner 2026-11-20: "I buy the gift card of 10 GBP at 9.5 GBP and then use the gift card
+// to pay"), so the receipt says £10.00 went on it and the statement shows £9.50: they are matched from both sides.
+test('a receipt paid by gift card is matched to the gift card bought for a little less, from both sides', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 5, 12, 0)
+  await page.clock.setFixedTime(now)
+  const bankLines = [{ id: 'blc', account: 'Example Current', date: '2026-10-01', amount: -950, description: 'BLC GIFTCARD DEMOTOWN', type: 'DEB', balance: null, adds: true, createdAt: 1, updatedAt: 1 }]
+  const statements = [{ id: 'current', account: 'Example Current', from: '2026-09-01', to: '2026-10-04', lines: 1, createdAt: 1, updatedAt: 1 }]
+  const ai = { by: 'Gemini · gemini-test', at: 1, text: 'TESCO\nThing £10.00\nTOTAL £10.00\nGift Card £10.00\nNew Balance £0.00', description: '', receipt: { shop: 'Tesco', date: '2026-10-03', currency: '£', items: [{ name: 'Thing', price: 1000, quantity: 1 }], total: 1000 } }
+  const entries = [{ ...freeWriting('e-gift', '', 2, now), photos: [{ id: 'p-gift', text: null, ai }] }]
+  await restoreBackup(page, testInfo.outputPath('gift-discount.json'), backupWith({ entries, bankLines, statements }, now))
+  await page.goto('./#/money')
+
+  // From the payment: what it was spent on.
+  await accountView(page, 'Spending')
+  await openFold(page, 'Money out')
+  await page.getByRole('region', { name: 'Money out' }).getByRole('button', { name: /^Blc Giftcard Demotown .*£9\.50$/i }).click()
+  const payment = page.getByRole('dialog', { name: /Blc Giftcard Demotown/i })
+  await expect(payment).toContainText('Spent on a receipt at Tesco on 3 Oct · £10.00 by gift card')
+  await payment.getByRole('button', { name: 'Close', exact: true }).click()
+
+  // From the receipt: matched to a payment, the gift card's purchase.
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  await page.locator('details.week-line > summary', { hasText: '1 receipt matched to a payment' }).click()
+  await page.getByRole('button', { name: /3 Oct Tesco gift card bought 1 Oct · Example Current £10\.00/ }).click()
+  const receipt = page.getByRole('dialog', { name: 'Tesco' })
+  await expect(receipt.getByText('Paid by gift card', { exact: true })).toBeVisible()
+  await expect(receipt.getByText('Gift card bought on 1 Oct · £9.50 · Example Current', { exact: true })).toBeVisible()
 })
 
 // Accounts (v0.20.22): the month's figure first, the months either side a tap away, what's open staying open between
