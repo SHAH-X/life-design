@@ -86,6 +86,7 @@ export function ReceiptSheet(props: { receipt: KnownReceipt; names: string[]; su
         <span className="rc-total-main">
           Total <strong>{money(paid(receipt), receipt.currency)}</strong>
         </span>
+        {receipt.adds ? null : <TotalNote>Its items don’t add up to this total</TotalNote>}
         {offers ? <TotalNote>{`${money(offers, receipt.currency)} off with offers`}</TotalNote> : null}
         {returned ? <TotalNote>{`${money(returned, receipt.currency)} returned`}</TotalNote> : null}
         {returned ? (

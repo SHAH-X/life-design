@@ -61,7 +61,7 @@ export function Investing({ lines, summaries, month, latest, thisMonth }: { line
       ) : null}
 
       {result.sells ? (
-      <Block title="Profit and loss" status="Before charges, as your statement prints it. Charges are under Costs and charges.">
+      <Block title="Profit and loss" status="Before charges, as your statement prints it">
         <ul className="acc-list">
           <li className="acc-pair">
             <ul>

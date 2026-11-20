@@ -67,7 +67,8 @@ export function Accounts() {
       </div>
       {list?.length && names ? (
         <ul className="acc-list">
-          {list.map((a) => {
+          {/* In the order of the names shown (audit 2026-11-20), not of the names a statement printed. */}
+          {[...list].sort((a, b) => (names.get(a.name) ?? a.name).localeCompare(names.get(b.name) ?? b.name)).map((a) => {
             const missing = needStatement(a.statements, today, a.closed)
             const state = a.closed ? 'closed' : missing.length ? 'missing' : 'ok'
             const itsCards = Object.entries(cards ?? {}).flatMap(([last4, account]) => (account === a.name ? [last4] : [])).sort()
@@ -118,7 +119,8 @@ export function Accounts() {
         <RenameSheet
           title="Change this account"
           shown={names.get(naming.name) ?? naming.name}
-          hint={`Its statement says ${naming.name}. Left empty, it’s named by its bank. Remove takes out the account and all its lines; bringing its statements in again puts them back.`}
+          hint={`Its statement says ${naming.name}. Left empty, it’s named by its bank.`}
+          removeNote="Remove takes out the account and all its lines; bringing its statements in again puts them back."
           closed={naming.closed}
           onSave={async (name, closed) => {
             await nameAccount(naming.name, name)
@@ -138,6 +140,8 @@ export function RenameSheet(props: {
   title: string
   shown: string
   hint: string
+  /** Said once Remove is tapped, not before: what removing does. */
+  removeNote?: string
   /** Whether the account is closed, for a sheet that asks (an account's, not a payee's). */
   closed?: boolean
   /** From a payment's sheet: the name can be for this payment alone (v0.20.35), not for all its payee's. `shown` is its
@@ -213,6 +217,7 @@ export function RenameSheet(props: {
         </label>
       ) : null}
       <p className="muted small">{only && alone ? `Left empty, it’s ${only.shop} again.` : hint}</p>
+      {sure && props.removeNote ? <p className="muted small">{props.removeNote}</p> : null}
     </Dialog>
   )
 }

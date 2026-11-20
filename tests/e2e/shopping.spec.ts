@@ -81,6 +81,11 @@ test('Money has its own tab, receipts and all: the month so far, next to last mo
   await tesco.first().getByRole('button').click()
   await expect(page.getByRole('dialog', { name: 'Tesco Stores Ltd' })).toBeVisible()
   await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click()
+  // A receipt whose items don't add up to its total says so on its own sheet too, not only in the list to check (audit 2026-11-20).
+  await where.locator('summary', { hasText: 'ALDI' }).click()
+  await where.locator('details', { hasText: 'ALDI' }).getByRole('button').click()
+  await expect(page.getByRole('dialog', { name: 'ALDI' })).toContainText('Its items don’t add up to this total')
+  await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click()
 
   // By kind: none has 3 items, so they're in the list's own order, never ranked; then what has no kind.
   const kinds = page.getByRole('region', { name: 'By kind' })

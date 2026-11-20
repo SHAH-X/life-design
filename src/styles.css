@@ -2710,7 +2710,7 @@ button.line-button {
 /* Statements sits in the title row, not in the row of parts (v0.40.0): a setup task more than a view. A dot says one needs a look. */
 .money-screen .money-statements {
   flex: none;
-  min-height: 36px;
+  min-height: 44px;
   margin-top: 0;
   padding: 0 14px;
   border: 1px solid var(--control-border);
@@ -4813,4 +4813,11 @@ body:has(dialog.sheet.full[open]) :is(.tabbar, .banner, .notice.strip) {
 
 .money-screen section > .rc-group:last-child {
   margin-bottom: 24px;
+}
+
+/* The names offered in the Who it was for sheet. */
+.for-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
