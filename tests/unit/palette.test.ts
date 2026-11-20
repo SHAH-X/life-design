@@ -125,6 +125,19 @@ describe('the colour palette', () => {
     expect([...css.matchAll(/var\(--money-in\)/g)]).toHaveLength(1)
   })
 
+  it('keeps a loss in Money red (owner, 2026-11-20) readable, 4.5:1, on the card, the page and a day\u2019s tinted band, and apart from the green', () => {
+    const hex = (name: string) => new RegExp(`--${name}:\\s*(#[0-9a-f]{6})`, 'i').exec(rootBlock())![1]!
+    const lum = (h: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)) as [number, number, number]
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+    const ratio = (a: string, b: string) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05)
+    for (const on of [hex('surface'), hex('bg'), '#f2f0ec']) expect(ratio(hex('money-loss'), on), on).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(hex('money-loss'), hex('money-in'))).toBeGreaterThan(1.05)
+    // Used for a loss and nothing else.
+    expect([...css.matchAll(/var\(--money-loss\)/g)]).toHaveLength(1)
+  })
+
   it('draws every button as a pill, and an input at the small radius token', () => {
     expect(/\nbutton,\n\.button \{[^}]*border-radius: var\(--radius-pill\)/.test(css)).toBe(true)
     expect(/\ninput:not\([^{]*\{[^}]*border-radius: var\(--radius-sm\)/.test(css)).toBe(true)

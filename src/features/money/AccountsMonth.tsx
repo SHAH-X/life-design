@@ -482,7 +482,7 @@ export function Groups<T>({ of, line, fewer }: { of: Ranked<T>; line: (item: T) 
 
 /** The one kind of row: what it is, what it says underneath, and its figure; it opens to what's behind it. */
 /** `unsorted`: the meter is neutral ink, not the green of a kind (green reads as success, and this is the one to sort). */
-export function Item({ title, sub, value, meter, unsorted = false, children }: { title: string; sub?: ReactNode; value?: ReactNode; meter?: number; unsorted?: boolean; children: ReactNode }) {
+export function Item({ title, sub, value, tone, meter, unsorted = false, children }: { title: string; sub?: ReactNode; value?: ReactNode; tone?: 'in' | 'loss'; meter?: number; unsorted?: boolean; children: ReactNode }) {
   return (
     <li className="acc-li">
       <details className="acc-item">
@@ -499,7 +499,9 @@ export function Item({ title, sub, value, meter, unsorted = false, children }: {
           {value ? (
             <>
               {' '}
-              <span className="acc-row-value">{value}</span>
+              <span className="acc-row-value" data-in={tone === 'in' || undefined} data-loss={tone === 'loss' || undefined}>
+                {value}
+              </span>
             </>
           ) : null}
           {meter !== undefined ? (

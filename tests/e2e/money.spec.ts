@@ -245,14 +245,28 @@ test('Money → Investing shows a month’s profit and loss, costs and charges a
 
   // Profit and loss: what the month's sales made or lost, by ticker, and what the statement still held.
   const profit = page.getByRole('region', { name: 'Profit and loss' })
-  await expect(profit.getByText('£12.74 made').first()).toBeVisible()
+  await expect(profit.getByText('+£12.74').first()).toBeVisible()
+  // The total, then what it is made up of (owner 2026-11-20: "APP and other instruments don't look like a breakdown"): a
+  // sign and green for made, a true minus and red for lost, never the words "made" or "lost".
+  await expect(profit.locator('.acc-row-value[data-in]').first()).toHaveText('+£12.74')
+  await expect(profit.getByText('Made up of')).toBeVisible()
+  await expect(profit.locator('.acc-madeof')).toContainText('Other instruments')
+  await expect(profit).not.toContainText(/\bmade\b(?! up)/)
+  await expect(profit).not.toContainText(/\blost\b/)
+  await expect(profit).toContainText('doesn’t say if charges are already taken off')
   // Fewer than 3 sales of an instrument: all in one line that opens, by name.
   await profit.locator('summary', { hasText: 'Other instruments' }).click()
   await expect(profit.getByText('3 instruments, fewer than 3 sales each')).toBeVisible()
   await expect(profit.getByText('EXMQ').first()).toBeVisible()
-  await expect(profit).toContainText('£5.23 made')
+  await expect(profit).toContainText('+£5.23')
+  // A sale that lost: its minus and its red, a gain's green, and plain ink for the rest.
+  await profit.locator('summary', { hasText: 'EXMQ' }).click()
+  const lost = profit.locator('.acc-row-value[data-loss]')
+  await expect(lost).toHaveText('−£3.33')
+  await expect(lost).toHaveCSS('color', 'rgb(179, 38, 30)')
+  await expect(profit.locator('.acc-row-value[data-in]').first()).toHaveCSS('color', 'rgb(31, 122, 77)')
   await expect(profit).toContainText('Held at')
-  await expect(profit).toContainText('open result £412.50 lost')
+  await expect(profit).toContainText('open result −£412.50')
   await expect(profit).toContainText('£5000.00 in all')
 
   // Costs and charges: FX fees, exchange and government fees, and tax withheld, with the trades they came on.
