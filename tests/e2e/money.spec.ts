@@ -1417,6 +1417,10 @@ test('Accounts steps between months, keeps its part open, and says when an accou
   await notice.click()
   await expect(tab('Statements')).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('region', { name: 'Your accounts' }).getByRole('listitem')).toContainText('Needs statement')
+  // "To check" said the same of each account again ("statements up to 30 Sep"), which Your accounts already says with the days it
+  // covers and is missing (owner 2026-11-20: "I don't know what is the purpose of To check"): it is gone.
+  await expect(page.getByRole('region', { name: 'To check' })).toHaveCount(0)
+  await expect(page.getByText(/^statements up to/)).toHaveCount(0)
 })
 
 test('Money: one row of parts, Statements a button in the title row, the month arrows in the title row, names in title case, "Not sorted yet" in neutral ink', async ({ page }, testInfo) => {
