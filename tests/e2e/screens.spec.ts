@@ -284,11 +284,76 @@ for (const scheme of ['light'] as const) {
       await look(page, `${scheme}-money-regular-payment`)
       await regular.locator('summary').click()
       await regular.getByRole('button', { name: 'Rename EXAMPLE STREAMING' }).click()
-      const sheet = page.getByRole('dialog', { name: 'Rename regular payment' })
+      const sheet = page.getByRole('dialog', { name: 'Rename transaction' })
       const field = sheet.getByRole('textbox', { name: 'What do you call it?' })
       await expectInSheetView(sheet, field)
       await showKeyboard(page)
       await look(page, `${scheme}-money-regular-payment-rename`)
+    })
+
+    // Money's sheets and states (audit 2026-11-20: they were not in the tour, so nothing checked their layout).
+    test(`Money sheets and states, ${scheme}`, async ({ page }, testInfo) => {
+      const sept = new Date(2026, 8, 30, 12, 0)
+      await page.clock.setFixedTime(sept)
+      const at = (s: string) => `${scheme}-${s}`
+      await page.goto('./#/money')
+      const statementPath = testInfo.outputPath('money-states-statement.pdf')
+      await writeFile(statementPath, makePdf(MONZO_LIKE))
+      await page.getByRole('button', { name: 'Bring in a statement' }).click()
+      const bring = page.getByRole('dialog', { name: 'Bring in a statement' })
+      await look(page, at('money-bring-in'))
+      await bring.locator('input[type="file"]').setInputFiles(statementPath)
+      await expect(bring.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveCount(2)
+      await look(page, at('money-bring-in-done'))
+      await bring.getByRole('button', { name: 'Done', exact: true }).click()
+      // The accounts: changing one.
+      await page.locator('.money-title').getByRole('button', { name: 'Statements', exact: true }).click()
+      await page.getByRole('region', { name: 'Your accounts', exact: true }).getByRole('button', { name: 'Change' }).first().click()
+      await look(page, at('money-change-account'))
+      await page.getByRole('dialog', { name: 'Change this account' }).getByRole('button', { name: 'Close' }).click()
+      // Spending: its lists opened, a search, and a payment's sheets.
+      await page.getByRole('group', { name: 'Money sections' }).getByRole('button', { name: 'Spending', exact: true }).click()
+      for (const name of ['Money out', 'Money in', 'Moved between your accounts']) {
+        const fold = page.getByRole('region', { name }).getByRole('button', { name: new RegExp(`^${name}`) })
+        if (await fold.count()) await fold.click()
+      }
+      await look(page, at('money-spending-open'))
+      const search = page.getByRole('searchbox', { name: 'Search every payment' })
+      await search.fill('example')
+      await look(page, at('money-search'))
+      await page.getByRole('button', { name: /Example Supermarket/ }).first().click()
+      await page.getByRole('dialog', { name: /Example Supermarket/ }).getByRole('button', { name: /^(\+ Assign category|Category: )/ }).click()
+      await look(page, at('money-category-sheet'))
+      await page.getByRole('dialog', { name: /^What is/ }).getByRole('button', { name: 'Close' }).click()
+      await page.getByRole('dialog', { name: /Example Supermarket/ }).getByRole('button', { name: '+ Who was it for?' }).click()
+      await look(page, at('money-who-sheet'))
+      await page.getByRole('dialog', { name: 'Who was it for?' }).getByRole('button', { name: 'Close' }).click()
+      await page.getByRole('dialog', { name: /Example Supermarket/ }).getByRole('button', { name: 'Rename transaction' }).click()
+      await look(page, at('money-rename-transaction'))
+    })
+
+    test(`Money overview with its bar, the tiles opened, and the year, ${scheme}`, async ({ page }, testInfo) => {
+      const now = new Date(2026, 9, 27, 12, 0)
+      await page.clock.setFixedTime(now)
+      const payment = (id: string, date: string, amount: number, description: string, createdAt: number) => ({ id, account: 'Lloyds ···4321', date, amount, description, type: 'DD', balance: null, adds: true, createdAt, updatedAt: createdAt })
+      const bankLines = [
+        ...['2026-07-14', '2026-08-13', '2026-09-12'].map((date, i) => payment(`month-${i}`, date, -1099, 'EXAMPLE STREAMING', i + 1)),
+        ...['2026-09-03', '2026-09-10', '2026-09-17', '2026-09-24'].map((date, i) => payment(`sept-${i}`, date, -500, 'EXAMPLE WEEKLY BOX', i + 5)),
+        ...['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22'].map((date, i) => payment(`week-${i}`, date, -500, 'EXAMPLE WEEKLY BOX', i + 10)),
+        payment('shop', '2026-10-05', -2000, 'EXAMPLE CORNER SHOP', 20),
+        payment('big', '2026-10-06', -4500, 'EXAMPLE ENERGY', 21),
+      ]
+      const statements = [{ id: 'lloyds:2026-07-01:2026-10-27', account: 'Lloyds ···4321', from: '2026-07-01', to: '2026-10-27', lines: bankLines.length, createdAt: 1, updatedAt: 1 }]
+      await restoreBackup(page, testInfo.outputPath('money-overview-bar.json'), backupWith({ bankLines, statements }, now))
+      const at = (s: string) => `${scheme}-${s}`
+      await page.goto('./#/money')
+      await expect(page.locator('.acc-hero .acc-split')).toBeVisible()
+      await look(page, at('money-overview-bar'))
+      await page.getByRole('group', { name: 'More about this month' }).getByRole('button', { name: /^What moved/ }).click()
+      await look(page, at('money-what-moved'))
+      await page.goto('./#/money/2026')
+      await expect(page.getByRole('heading', { level: 1, name: '2026' })).toBeVisible()
+      await look(page, at('money-year'))
     })
 
     test(`a duplicate receipt says which entry is extra and how to remove it, ${scheme}`, async ({ page }, testInfo) => {

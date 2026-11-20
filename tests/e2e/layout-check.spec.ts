@@ -94,3 +94,15 @@ test('finds a button that stays behind the bottom bar even scrolled to the end',
   const faults = await layoutFaults(page)
   expect(faults.some((f) => /<button "Last"> stays behind <nav "Tab bar"> even scrolled as far as it goes/.test(f)), faults.join('\n')).toBe(true)
 })
+
+// A file input hidden inside its label: the label is what is tapped (audit 2026-11-20). A big label is fine; a hidden radio still must cover its own target.
+test('a hidden file input is judged by its label, but a hidden radio still has to cover its target', async ({ page }) => {
+  const hidden = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);margin:-1px'
+  const input = (type: string) => `<input type="${type}" ${type === 'radio' ? 'name="p"' : ''} class="visually-hidden" style="${hidden}">`
+  await show(page, `<label style="display:block;min-height:48px;padding:12px;border:1px solid #888">Choose statements ${input('file')}</label>`)
+  expect(await layoutFaults(page)).toEqual([])
+  await show(page, `<label style="display:block;min-height:48px;padding:12px;border:1px solid #888">A choice ${input('radio')}</label>`)
+  expect((await layoutFaults(page)).join()).toMatch(/is only 1×1px to tap/)
+  await show(page, `<label style="display:inline-block;width:20px;height:20px;font-size:0">x${input('file')}</label>`)
+  expect((await layoutFaults(page)).join()).toMatch(/is only 20×20px to tap/)
+})

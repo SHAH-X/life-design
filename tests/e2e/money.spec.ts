@@ -342,6 +342,29 @@ test('Spending for a month with nothing in it says so, and the figures that open
   await expect(page.getByText(/^No payments in/)).toHaveCount(0)
 })
 
+// Audit 2026-11-20 (medium): the payment sheet offered "It's me, moving money" only when opened from a payee paid once, and a category
+// on money in, where it changes nothing. What it offers comes from the payment, not from where it was opened.
+test('the payment sheet offers what the payment allows wherever it was opened from', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date(2026, 8, 30, 12, 0))
+  await page.goto('./#/money')
+  const sheet = await bringIn(page, await pdf(testInfo.outputPath('lloyds.pdf'), LLOYDS_LIKE))
+  await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  await accountView(page, 'Statements')
+  await page.getByRole('region', { name: 'Your accounts', exact: true }).getByRole('button', { name: 'Lloyds', exact: true }).click()
+  const statement = page.getByRole('dialog', { name: 'Lloyds', exact: true })
+  // From an account's own statement: a payment out has a category and may be you moving money; money in has no category.
+  await statement.getByRole('button', { name: /A N Other/ }).click()
+  const incoming = page.getByRole('dialog', { name: 'A N Other' })
+  await expect(incoming.getByRole('button', { name: 'It’s me, moving money' })).toBeVisible()
+  await expect(incoming.getByRole('button', { name: /Assign category|^Category/ })).toHaveCount(0)
+  await incoming.getByRole('button', { name: 'Close' }).click()
+  await statement.getByRole('button', { name: /Example Energy/ }).click()
+  const outgoing = page.getByRole('dialog', { name: 'Example Energy' })
+  await expect(outgoing.getByRole('button', { name: /^(\+ Assign category|Category: )/ })).toBeVisible()
+  // (A direct debit is never you moving money.)
+  await expect(outgoing.getByRole('button', { name: 'It’s me, moving money' })).toHaveCount(0)
+})
+
 // Trading 212 (v0.34.0, owner 2026-11-19: nearly all of a month's "money out" was what he sent to it): both of its
 // documents are read for the cash that moved, the bank's side is paired with it, and neither counts as spending.
 test('a payment to Trading 212 is paired with its deposit and counts as neither spending nor money in', async ({ page }, testInfo) => {
@@ -588,7 +611,7 @@ test('a regular payment can be renamed across existing transactions and a later 
   await expect(regular.locator('summary')).toContainText('Example Streaming')
   await regular.locator('summary').click()
   await regular.getByRole('button', { name: 'Rename Example Streaming' }).click()
-  const naming = page.getByRole('dialog', { name: 'Rename regular payment' })
+  const naming = page.getByRole('dialog', { name: 'Rename transaction' })
   await naming.getByRole('textbox').fill('Example streaming')
   await naming.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(regular.locator('summary')).toContainText('Example streaming')
@@ -865,7 +888,14 @@ test('each month says what came in against what went out, and Overview opens the
   await expect(page.getByRole('heading', { level: 1, name: '2026' })).toBeVisible()
   await expect(page.getByText('£92.97 out', { exact: true })).toBeVisible()
   await expect(page.getByText('From your accounts · Aug – Oct', { exact: true })).toBeVisible()
-  await expect(page.getByText('Money in £2,000.00 · 5 payments out', { exact: true })).toBeVisible()
+  // The year looks as a month does (audit 2026-11-20): Money in and payments out as the same two figures, the committed and everyday
+  // bar, and the year named once.
+  const yearFigures = page.getByRole('group', { name: 'Money in and payments out' })
+  await expect(yearFigures).toContainText('Money in')
+  await expect(yearFigures).toContainText('£2,000.00')
+  await expect(yearFigures).toContainText('5 payments')
+  await expect(page.locator('.acc-hero .acc-split')).toBeVisible()
+  await expect(page.locator('.acc-hero .acc-label')).not.toContainText('2026')
   await expect(page.getByText('£1,907.03 more in than out so far', { exact: true })).toBeVisible()
   await expect(page.getByText('Committed £32.97 · Everyday £60.00', { exact: true })).toBeVisible()
 

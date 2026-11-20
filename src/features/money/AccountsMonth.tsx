@@ -59,6 +59,8 @@ export const pounds = (pence: number) => money(pence, '£')
 /** A change over a year, in words: +£48.00 a year, or £12.00 a year less. */
 // In words, not a bare + (green + means money in in Money; audit 2026-11-20).
 const yearly = (pence: number) => (pence >= 0 ? `${pounds(pence)} a year more` : `${pounds(-pence)} a year less`)
+/** What a payee's rename says it does: the same wherever you can rename one (audit 2026-11-20: it was said three ways). */
+export const renameHint = (payee: { original?: string }) => (payee.original ? `Statement says “${payee.original}”. Left empty, it restores it.` : 'Applies to existing and future matching transactions.')
 export const paymentsWord = (n: number) => `${n} payment${n === 1 ? '' : 's'}`
 const movesWord = (n: number) => `${n} move${n === 1 ? '' : 's'}`
 
@@ -459,6 +461,46 @@ function Fold({ id, title, sub, open, onToggle, children }: { id?: string; title
   )
 }
 
+/** The month's, or the year's, money out by kind: a bar and a row for each of the five biggest, "Not sorted yet" and the rest apart; or,
+ *  while no kind has 3 payments, the kinds by name. */
+export function KindsBlock({ kinds, totalOut }: { kinds: Ranked<KindGroup>; totalOut: number }) {
+  const top = kinds.ranked.slice(0, TOP_KINDS)
+  // "Not sorted yet" is the kind to act on, so it is a row of its own, not folded into the rest (audit 2026-11-20).
+  const unsorted = kinds.others.find((g) => g.kind === NOT_SORTED)
+  const otherKinds = kinds.others.filter((g) => g.kind !== NOT_SORTED)
+  const rest = [...kinds.ranked.slice(TOP_KINDS), ...otherKinds]
+  const restTotal = rest.reduce((sum, g) => sum + g.total, 0)
+  const restPayments = rest.reduce((sum, g) => sum + g.lines.filter((l) => !l.refund).length, 0)
+  const bar = [...top.map((g, i) => ({ total: g.total, part: String(i) })), ...(unsorted ? [{ total: unsorted.total, part: 'unsorted' }] : []), ...(rest.length ? [{ total: restTotal, part: 'rest' }] : [])].filter((p) => p.total > 0)
+  return (
+    <Block title="By what it was for">
+      {top.length ? (
+        <>
+          <div className="acc-kinds-bar" aria-hidden="true">
+            {bar.map((p) => (
+              <span key={p.part} data-part={p.part} style={{ flexGrow: p.total, ...(p.part === 'rest' || p.part === 'unsorted' ? {} : { opacity: tintOf(Number(p.part)) }) }} />
+            ))}
+          </div>
+          <ul className="acc-list">
+            {top.map((g, i) => (
+              <KindRow key={g.kind} group={g} totalOut={totalOut} tint={tintOf(i)} />
+            ))}
+            {unsorted ? <KindRow key={unsorted.kind} group={unsorted} totalOut={totalOut} tint={0.3} /> : null}
+            {rest.length ? (
+              <Item title="Everything else" sub={`${rest.length} ${rest.length === 1 ? 'kind' : 'kinds'} · ${paymentsWord(restPayments)}`} value={pounds(restTotal)}>
+                <Groups of={{ ranked: kinds.ranked.slice(TOP_KINDS), others: otherKinds }} line={(g: KindGroup) => <KindRow key={g.kind} group={g} totalOut={totalOut} />} fewer="Fewer than 3 payments, by name" />
+              </Item>
+            ) : null}
+          </ul>
+        </>
+      ) : (
+        // No kind has 3 payments yet: a bar of one grey piece says nothing, so these are listed by name as before.
+        <Groups of={kinds} line={(g: KindGroup) => <KindRow key={g.kind} group={g} totalOut={totalOut} />} fewer="Fewer than 3 payments, by name" />
+      )}
+    </Block>
+  )
+}
+
 function SpendingMonth({ its, jump }: { its: Its; jump: string | null }) {
   // The lists a figure at the top opens ("Payments out") come open; the rest are closed.
   const [opened, setOpened] = useState<ReadonlySet<string>>(() => new Set(jump ? [jump] : []))
@@ -466,47 +508,13 @@ function SpendingMonth({ its, jump }: { its: Its; jump: string | null }) {
     if (jump) setOpened((now) => new Set(now).add(jump))
   }, [jump])
   const flip = (id: string) => setOpened((now) => { const next = new Set(now); if (!next.delete(id)) next.add(id); return next })
-  const top = its.kinds.ranked.slice(0, TOP_KINDS)
-  // "Not sorted yet" is the kind to act on, so it is a row of its own, not folded into the rest (audit 2026-11-20).
-  const unsorted = its.kinds.others.find((g) => g.kind === NOT_SORTED)
-  const otherKinds = its.kinds.others.filter((g) => g.kind !== NOT_SORTED)
-  const rest = [...its.kinds.ranked.slice(TOP_KINDS), ...otherKinds]
-  const restTotal = rest.reduce((sum, g) => sum + g.total, 0)
-  const restPayments = rest.reduce((sum, g) => sum + g.lines.filter((l) => !l.refund).length, 0)
-  const bar = [...top.map((g, i) => ({ total: g.total, part: String(i) })), ...(unsorted ? [{ total: unsorted.total, part: 'unsorted' }] : []), ...(rest.length ? [{ total: restTotal, part: 'rest' }] : [])].filter((p) => p.total > 0)
   const moneyOut = its.payees.out.ranked.length + its.payees.out.others.length
   const moneyIn = its.payees.in.ranked.length + its.payees.in.others.length
   const nothing = !its.outLines.length && !its.inLines.length && !its.moved.length
   return (
     <>
       {nothing ? <p className="muted acc-empty">No payments in {monthName(its.month)} yet.</p> : null}
-      {its.outLines.length ? (
-        <Block title="By what it was for">
-          {top.length ? (
-            <>
-              <div className="acc-kinds-bar" aria-hidden="true">
-                {bar.map((p) => (
-                  <span key={p.part} data-part={p.part} style={{ flexGrow: p.total, ...(p.part === 'rest' || p.part === 'unsorted' ? {} : { opacity: tintOf(Number(p.part)) }) }} />
-                ))}
-              </div>
-              <ul className="acc-list">
-                {top.map((g, i) => (
-                  <KindRow key={g.kind} group={g} totalOut={its.out} tint={tintOf(i)} />
-                ))}
-                {unsorted ? <KindRow key={unsorted.kind} group={unsorted} totalOut={its.out} tint={0.3} /> : null}
-                {rest.length ? (
-                  <Item title="Everything else" sub={`${rest.length} ${rest.length === 1 ? 'kind' : 'kinds'} · ${paymentsWord(restPayments)}`} value={pounds(restTotal)}>
-                    <Groups of={{ ranked: its.kinds.ranked.slice(TOP_KINDS), others: otherKinds }} line={(g: KindGroup) => <KindRow key={g.kind} group={g} totalOut={its.out} />} fewer="Fewer than 3 payments, by name" />
-                  </Item>
-                ) : null}
-              </ul>
-            </>
-          ) : (
-            // No kind has 3 payments yet: a bar of one grey piece says nothing, so these are listed by name as before.
-            <Groups of={its.kinds} line={(g: KindGroup) => <KindRow key={g.kind} group={g} totalOut={its.out} />} fewer="Fewer than 3 payments, by name" />
-          )}
-        </Block>
-      ) : null}
+      {its.outLines.length ? <KindsBlock kinds={its.kinds} totalOut={its.out} /> : null}
       {its.outLines.length ? (
         <Fold id="acc-money-out" title="Money out" sub={`${paymentsWord(its.outLines.filter((l) => !l.refund).length)} · ${moneyOut} ${moneyOut === 1 ? 'name' : 'names'}`} open={opened.has('acc-money-out')} onToggle={() => flip('acc-money-out')}>
           <Groups of={its.payees.out} line={(g: PayeeGroup) => <PayeeRow key={g.payee.key} group={g} out />} fewer="Fewer than 3 payments, by name" />
@@ -767,7 +775,7 @@ function RegularRow({ item, soon }: { item: Regular; soon: boolean }) {
       </div>
       <LineList lines={item.lines} />
       {naming ? (
-        <RenameSheet title="Rename regular payment" shown={item.payee.name} hint="Applies to existing and future matching payments." onSave={(name) => namePayee(item.payee.key, name)} onClose={() => setNaming(false)} />
+        <RenameSheet title="Rename transaction" shown={item.payee.name} hint={renameHint(item.payee)} onSave={(name) => namePayee(item.payee.key, name)} onClose={() => setNaming(false)} />
       ) : null}
     </Item>
   )
@@ -802,7 +810,7 @@ export function PayeeRow({ group, out = false }: { group: PayeeGroup; out?: bool
       <div className="acc-actions">
         {out ? (
           <button type="button" className="acc-link" aria-label={`What ${group.payee.name} is for`} onClick={() => openKind(group)}>
-            {kind ? `${kind} · Change` : '+ Category'}
+            {kind ? `Category: ${kind}` : '+ Assign category'}
           </button>
         ) : null}
         <button type="button" className="acc-link" aria-label={`Rename ${group.payee.name}`} onClick={() => openRename(group.payee)}>
