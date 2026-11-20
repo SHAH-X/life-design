@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BankLine, StatementRecord } from '../../src/db/types'
-import { classify, linkReceipts, paymentsWithoutReceipt, receiptOutcomes, receiptPaymentCandidates } from '../../src/domain/money'
+import { classify, linkGiftCards, linkReceipts, paymentsWithoutReceipt, receiptOutcomes, receiptPaymentCandidates } from '../../src/domain/money'
 import type { KnownReceipt } from '../../src/domain/shopping'
 import { dayMonth } from '../../src/lib/dates'
 
@@ -51,7 +51,7 @@ describe('receiptOutcomes: what became of a receipt', () => {
     expect(outcomes.get('none')).toEqual({ state: 'none', why: 'No payment of £4.50 within 3 days at Greenleaf Market in the accounts brought in' })
     expect(outcomes.get('differs')).toMatchObject({ state: 'maybe', why: `A payment of £3.10 on ${dayMonth('2026-10-09')} differs by £0.11` })
     expect(outcomes.get('later')).toEqual({ state: 'not-in', why: `No statement for ${dayMonth('2026-11-12')} brought in` })
-    expect(outcomes.get('gift')).toEqual({ state: 'gift', why: 'Paid by gift card' })
+    expect(outcomes.get('gift')).toEqual({ state: 'gift', why: 'Paid by gift card · no gift card bought for about £5.00 in the accounts brought in' })
     expect(outcomes.get('other')).toEqual({ state: 'elsewhere', why: 'Paid with a card that isn’t one of your accounts' })
     expect(outcomes.get('euro')).toEqual({ state: 'elsewhere', why: 'Not in pounds' })
   })
@@ -97,5 +97,61 @@ describe('paymentsWithoutReceipt: payments you would expect a receipt for', () =
     const linked = new Set([...links.values()].map((r) => r.id))
     const possible = new Set(receipts.filter((r) => !linked.has(r.id)).flatMap((r) => receiptPaymentCandidates(lines, r, new Set(links.keys())).map((l) => l.id)))
     expect(paymentsWithoutReceipt(lines, links, {}, receipts, possible).map((l) => l.description)).toEqual(['GREENLEAF MARKET SOMETOWN'])
+  })
+})
+
+// Paid by gift card (owner 2026-11-20): the card was bought at a discount, so its "Blc" line is a little under what the
+// receipt says went on it (£9.50 for a £10 card). A receipt paid by gift card is matched to that purchase, not to the exact sum.
+describe('linkGiftCards: a receipt paid by gift card, and the gift card bought for a little less', () => {
+  const buy = (date: string, pounds: number) => bank(date, pounds, 'BLC GIFTCARD DEMOTOWN')
+  const paidByCard = (id: string, date: string, pounds: number, over: Partial<KnownReceipt> = {}) => receipt(id, 'Greenleaf Market', date, pounds, { byGiftCard: Math.round(pounds * 100), ...over })
+  const link = (banks: BankLine[], receipts: KnownReceipt[]) => {
+    const lines = classify(banks, new Set())
+    return { lines, gift: linkGiftCards(lines, receipts) }
+  }
+
+  it('matches the Blc purchase of a little under what went on the card, bought before it', () => {
+    const b = buy('2026-10-02', -9.5)
+    const { gift, lines } = link([b], [paidByCard('r1', '2026-10-05', 10)])
+    expect(gift.get('r1')?.id).toBe(lines[0]!.id)
+  })
+
+  it('matches only a purchase that cost no more than the amount, not far less, not after, not long before, not money back', () => {
+    const none = (b: BankLine) => link([b], [paidByCard('r1', '2026-10-05', 10)]).gift.size === 0
+    expect(none(buy('2026-10-02', -10.5))).toBe(true) // more than went on the card
+    expect(none(buy('2026-10-02', -7))).toBe(true) // far less
+    expect(none(buy('2026-10-06', -9.5))).toBe(true) // bought after
+    expect(none(buy('2026-06-01', -9.5))).toBe(true) // months before
+    expect(none(bank('2026-10-02', 9.5, 'BLC GIFTCARD DEMOTOWN'))).toBe(true) // money in
+    expect(none(bank('2026-10-02', -9.5, 'GREENLEAF MARKET'))).toBe(true) // not a gift card
+    expect(link([buy('2026-10-05', -10)], [paidByCard('r1', '2026-10-05', 10)]).gift.size).toBe(1) // the same day, no discount
+  })
+
+  it('uses each purchase once, the nearest before each receipt, oldest receipt first', () => {
+    const { gift, lines } = link([buy('2026-09-20', -9.5), buy('2026-10-03', -9.5)], [paidByCard('late', '2026-10-09', 10), paidByCard('early', '2026-10-04', 10)])
+    expect(gift.get('early')?.id).toBe(lines[1]!.id)
+    expect(gift.get('late')?.id).toBe(lines[0]!.id)
+    expect(link([buy('2026-10-03', -9.5)], [paidByCard('a', '2026-10-04', 10), paidByCard('b', '2026-10-05', 10)]).gift.size).toBe(1)
+  })
+
+  it('looks at what went on the card, not the whole receipt, and ignores a receipt with none or without a printed date', () => {
+    const part = paidByCard('part', '2026-10-05', 35, { byGiftCard: 1000 })
+    expect(link([buy('2026-10-02', -9.5)], [part]).gift.get('part')).toBeDefined()
+    expect(link([buy('2026-10-02', -9.5)], [receipt('plain', 'Greenleaf Market', '2026-10-05', 10)]).gift.size).toBe(0)
+    expect(link([buy('2026-10-02', -9.5)], [paidByCard('undated', '2026-10-05', 10, { dated: false, entryDate: '2026-10-05' })]).gift.size).toBe(0)
+  })
+
+  it('shows the receipt as matched, with the gift card’s purchase as its payment; a part-paid one is matched at the rest by card', () => {
+    const banks = [buy('2026-10-02', -9.5), buy('2026-10-03', -9.5), bank('2026-10-06', -25, 'GREENLEAF MARKET SOMETOWN')]
+    const lines = classify(banks, new Set())
+    const receipts = [paidByCard('whole', '2026-10-05', 10), paidByCard('part', '2026-10-06', 35, { byGiftCard: 1000 }), paidByCard('none', '2026-10-07', 40)]
+    const links = linkReceipts(lines, receipts)
+    const gift = linkGiftCards(lines, receipts)
+    const outcomes = receiptOutcomes(receipts, lines, links, {}, [statement(ACCOUNT, '2026-10-01', '2026-10-31')], names, gift)
+    expect(outcomes.get('whole')).toMatchObject({ state: 'matched', giftCard: true, payment: { id: lines[1]!.id } })
+    expect(outcomes.get('part')).toMatchObject({ state: 'matched', payment: { id: lines[2]!.id } })
+    expect(outcomes.get('part')).not.toHaveProperty('giftCard')
+    // No purchase left for the third: said so, in the same state as before.
+    expect(outcomes.get('none')).toEqual({ state: 'gift', why: 'Paid by gift card · no gift card bought for about £40.00 in the accounts brought in' })
   })
 })

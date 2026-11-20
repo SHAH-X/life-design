@@ -145,7 +145,7 @@ function Matches(props: {
                   const payment = outcome?.state === 'matched' ? outcome.payment : null
                   return (
                     <li key={r.id}>
-                      <RowButton date={shortDayMonth(r.date)} title={r.shop || 'No shop read'} sub={[payment ? `paid ${dayMonth(payment.date)} · ${accountName(payment.account)}` : '', afterReturns(r)].filter(Boolean).join(' · ') || undefined} amount={money(paid(r), r.currency)} onClick={() => onOpen(r)} />
+                      <RowButton date={shortDayMonth(r.date)} title={r.shop || 'No shop read'} sub={[payment ? `${outcome?.state === 'matched' && outcome.giftCard ? 'gift card bought' : 'paid'} ${dayMonth(payment.date)} · ${accountName(payment.account)}` : '', afterReturns(r)].filter(Boolean).join(' · ') || undefined} amount={money(paid(r), r.currency)} onClick={() => onOpen(r)} />
                     </li>
                   )
                 })}

@@ -34,6 +34,8 @@ export interface PaidWith {
    *  before it, newest first, each by the account it came out of. */
   byGiftCard?: number
   onCard?: number
+  /** The gift card bought for it, as the statements show it: a little under what went on the card (owner 2026-11-20). */
+  bought?: { date: string; amount: number; accountName: string }
   giftCards?: readonly { id: string; date: string; amount: number; accountName: string }[]
 }
 
@@ -134,7 +136,7 @@ function RefundSheet(props: { receipt: KnownReceipt; footer: ReactNode; onClose:
 /** What went on a gift card; which card paid the rest and the account that is, with a tap to say or change it; then its
  *  payment, or why there's none yet; and the gift cards bought through Blue Light Card before it, by account. */
 function Paid({ paid, date, currency, onCard }: { paid: PaidWith; date: string; currency: string; onCard: () => void }) {
-  const { card, said, accountName, payment, notIn, byGiftCard, giftCards } = paid
+  const { card, said, accountName, payment, notIn, byGiftCard, bought, giftCards } = paid
   if (!card && !payment && !byGiftCard) return null
   const whole = Boolean(byGiftCard) && paid.onCard === 0
   const gift = byGiftCard ? (whole ? 'Paid by gift card' : `${money(byGiftCard, currency)} of it by gift card`) : null
@@ -167,7 +169,12 @@ function Paid({ paid, date, currency, onCard }: { paid: PaidWith; date: string; 
         </p>
       ) : null}
       {then ? <p className="muted small">{then}</p> : null}
-      {gift && giftCards?.length ? (
+      {gift && bought ? (
+        <p className="muted small">
+          Gift card bought on {dayMonth(bought.date)} · {money(bought.amount, '£')} · {bought.accountName}
+        </p>
+      ) : null}
+      {gift && !bought && giftCards?.length ? (
         <>
           <p className="muted small">Gift cards bought through Blue Light Card before it</p>
           <ul className="plain-list compact" aria-label="Gift cards bought before it">

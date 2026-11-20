@@ -301,6 +301,38 @@ export function giftCardsBefore(lines: readonly MoneyLine[], date: string, max =
     .slice(0, max)
 }
 
+/** How far before a receipt its gift card may have been bought, in days: a card can sit in a drawer a while. */
+export const GIFT_CARD_DAYS = 90
+/** What a gift card may have cost, at the least, against what went on it (owner 2026-11-20: a £10 card bought for £9.50):
+ *  four fifths. Not a percentage on screen: only the two amounts are ever shown. */
+const GIFT_CARD_LEAST = 4 / 5
+
+/** Each receipt paid (wholly or partly) by gift card, with the gift card bought for it (owner 2026-11-20: "if gift card
+ *  provides 5% discount, I buy the gift card of 10 GBP at 9.5 GBP and then use the gift card to pay"): the Blc purchase
+ *  before the receipt that cost no more than what went on the card and not far less, the nearest day first. Each purchase
+ *  once, the oldest receipt first; a receipt with no printed date has none (it is not matched by itself either). Keyed by
+ *  receipt id. Nothing about what Money counts changes: the purchase is spending, the receipt only says where it went. */
+export function linkGiftCards(lines: readonly MoneyLine[], receipts: readonly KnownReceipt[]): Map<string, MoneyLine> {
+  const taken = new Set<string>()
+  const found = new Map<string, MoneyLine>()
+  const buys = lines.filter((l) => isGiftCardBuy(l) && !l.moving)
+  for (const receipt of [...receipts].filter((r) => r.dated && (r.byGiftCard ?? 0) > 0).sort((a, b) => a.date.localeCompare(b.date))) {
+    if (receipt.currency && receipt.currency !== '£') continue
+    const spent = receipt.byGiftCard!
+    const buy = buys
+      .filter((l) => {
+        const debit = -l.amount
+        const ago = dayNumber(receipt.date) - dayNumber(l.date)
+        return !taken.has(l.id) && debit <= spent && debit >= spent * GIFT_CARD_LEAST && ago >= 0 && ago <= GIFT_CARD_DAYS
+      })
+      .sort((a, b) => b.date.localeCompare(a.date))[0]
+    if (!buy) continue
+    taken.add(buy.id)
+    found.set(receipt.id, buy)
+  }
+  return found
+}
+
 /** A payment with no kind yet. */
 export const NOT_SORTED = 'Not sorted yet'
 
@@ -999,7 +1031,7 @@ export function receiptPaymentCandidates(
 /** What became of a receipt, said so it can be told from both sides (v0.35.0). `matched`: its payment. `maybe`: a payment
  *  that could be it but isn't linked (no printed date, or a different amount). The rest have none, and say why. */
 export type ReceiptOutcome =
-  | { state: 'matched'; payment: MoneyLine }
+  | { state: 'matched'; payment: MoneyLine; giftCard?: true }
   | { state: 'maybe'; payment: MoneyLine; why: string }
   | { state: 'gift' | 'elsewhere' | 'not-in' | 'none'; why: string }
 
@@ -1011,6 +1043,7 @@ export function receiptOutcomes(
   cards: Readonly<Record<string, string>>,
   statements: readonly Pick<StatementRecord, 'account' | 'from' | 'to'>[],
   names: ReadonlyMap<string, string>,
+  giftBuys: ReadonlyMap<string, MoneyLine> = new Map(),
 ): Map<string, ReceiptOutcome> {
   const paymentOf = new Map([...links].flatMap(([lineId, receipt]) => (lines.find((l) => l.id === lineId) ? [[receipt.id, lines.find((l) => l.id === lineId)!] as const] : [])))
   const occupied = new Set(links.keys())
@@ -1022,7 +1055,11 @@ export function receiptOutcomes(
     const pay = money(onCard(receipt), '£')
     const outcome = ((): ReceiptOutcome => {
       if (payment) return { state: 'matched', payment }
-      if (onCard(receipt) === 0) return { state: 'gift', why: receipt.points ? 'Paid with points' : receipt.byGiftCard ? 'Paid by gift card' : 'Nothing to pay on this receipt' }
+      if (onCard(receipt) === 0) {
+        const bought = giftBuys.get(receipt.id)
+        if (bought) return { state: 'matched', payment: bought, giftCard: true }
+        return { state: 'gift', why: receipt.points ? 'Paid with points' : receipt.byGiftCard ? `Paid by gift card · no gift card bought for about ${money(receipt.byGiftCard, '£')} in the accounts brought in` : 'Nothing to pay on this receipt' }
+      }
       if (receipt.currency && receipt.currency !== '£') return { state: 'elsewhere', why: 'Not in pounds' }
       if (said === '') return { state: 'elsewhere', why: 'Paid with a card that isn’t one of your accounts' }
       if (!statements.some((s) => (said === undefined ? !isInvestmentAccount(s.account) : s.account === said) && s.from <= date && date <= s.to)) {
