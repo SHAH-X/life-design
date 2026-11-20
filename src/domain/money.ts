@@ -171,6 +171,15 @@ export function notBroughtIn(statements: readonly Pick<StatementRecord, 'from' |
   return gaps
 }
 
+/** A statement is not asked for until its account is this many days behind (audit 2026-11-20: any statement that stopped short of today raised the banner, the dot and "Needs statement", so they were nearly always on). */
+export const STATEMENT_LAG = 7
+
+/** The days an account is missing statements for that are worth a look: `notBroughtIn`, less a last stretch up to today of
+ *  no more than `STATEMENT_LAG` days, which is only a statement not yet issued. */
+export function needStatement(statements: readonly Pick<StatementRecord, 'from' | 'to'>[], today: string, closed = false): { from: string; to: string }[] {
+  return notBroughtIn(statements, today, closed).filter((gap) => !(gap.to === today && dayNumber(today) - dayNumber(gap.from) + 1 <= STATEMENT_LAG))
+}
+
 /** How far apart (days) the two sides of a transfer between your accounts can be. */
 const TRANSFER_DAYS = 3
 
@@ -432,14 +441,17 @@ export function moneyMonth(
     return these.length ? [{ why, lines: these }] : []
   })
 
-  const monthEnd = current ? today : addDays(addMonths(`${month}-01`, 1), -1)
-  const used = new Set(lines.filter((l) => l.date.slice(0, 7) === month || l.date.slice(0, 7) === lastMonth).map((l) => l.account))
+  // What needs a look is the same whichever month is open (audit 2026-11-20): the accounts used this month or last, as of today, and
+  // every payment whose printed balance did not follow.
+  const thisMonth = today.slice(0, 7)
+  const lastThisMonth = shiftMonth(thisMonth, -1)
+  const used = new Set(lines.filter((l) => l.date.slice(0, 7) === thisMonth || l.date.slice(0, 7) === lastThisMonth).map((l) => l.account))
   const accounts = [...used]
     .filter((account) => !closed.has(account))
     .flatMap((account) => {
-      const ends = statements.filter((s) => s.account === account).map((s) => s.to)
-      const last = ends.sort().at(-1)
-      return last && last < monthEnd ? [{ account, until: last }] : []
+      const own = statements.filter((s) => s.account === account)
+      const last = own.map((s) => s.to).sort().at(-1)
+      return last && needStatement(own, today, false).some((gap) => gap.to === today) ? [{ account, until: last }] : []
     })
     .sort((a, b) => a.account.localeCompare(b.account))
 
@@ -458,7 +470,7 @@ export function moneyMonth(
     kinds: kindGroups(outLines, kinds),
     forWho: forGroups(outLines),
     moved,
-    toCheck: { lines: lines.filter((l) => !l.adds && l.date.slice(0, 7) === month), accounts },
+    toCheck: { lines: lines.filter((l) => !l.adds).sort((a, b) => b.date.localeCompare(a.date)), accounts },
   }
 }
 
@@ -1010,10 +1022,10 @@ export function receiptOutcomes(
     const pay = money(onCard(receipt), '£')
     const outcome = ((): ReceiptOutcome => {
       if (payment) return { state: 'matched', payment }
-      if (onCard(receipt) === 0) return { state: 'gift', why: 'Paid by gift card' }
+      if (onCard(receipt) === 0) return { state: 'gift', why: receipt.points ? 'Paid with points' : receipt.byGiftCard ? 'Paid by gift card' : 'Nothing to pay on this receipt' }
       if (receipt.currency && receipt.currency !== '£') return { state: 'elsewhere', why: 'Not in pounds' }
       if (said === '') return { state: 'elsewhere', why: 'Paid with a card that isn’t one of your accounts' }
-      if (!statements.some((s) => (said === undefined || s.account === said) && s.from <= date && date <= s.to)) {
+      if (!statements.some((s) => (said === undefined ? !isInvestmentAccount(s.account) : s.account === said) && s.from <= date && date <= s.to)) {
         return { state: 'not-in', why: said ? `${names.get(said) ?? said} statement for ${dayMonth(date)} not in yet` : `No statement for ${dayMonth(date)} brought in` }
       }
       const found = receiptPaymentCandidates(lines, receipt, occupied, cards)[0]
@@ -1022,7 +1034,8 @@ export function receiptOutcomes(
         if (!receipt.dated) return { state: 'maybe', payment: found, why: `Date not read: a payment of ${money(debit, '£')} on ${dayMonth(found.date)} could be it` }
         return { state: 'maybe', payment: found, why: `A payment of ${money(debit, '£')} on ${dayMonth(found.date)} differs by ${money(Math.abs(debit - onCard(receipt)), '£')}` }
       }
-      return { state: 'none', why: `No payment of ${pay} within ${RECEIPT_DAYS} days at ${receipt.shop || 'this shop'}` }
+      // With no card known the payment may be in an account not brought in: it is said so.
+      return { state: 'none', why: `No payment of ${pay} within ${RECEIPT_DAYS} days at ${receipt.shop || 'this shop'}${said === undefined ? ' in the accounts brought in' : ''}` }
     })()
     outcomes.set(receipt.id, outcome)
   }

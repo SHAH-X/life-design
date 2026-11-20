@@ -100,6 +100,9 @@ function RowButton(props: { date: string; title: string; sub?: string; amount: s
   )
 }
 
+/** What a receipt came to after returned items, said where its list shows what was paid (audit 2026-11-20: one receipt, two figures). */
+const afterReturns = (r: KnownReceipt) => (spentOn(r) !== paid(r) ? `${money(spentOn(r), r.currency)} after returns` : '')
+
 /** A titled group of lines on one white sheet; `count` marks one that needs you. */
 function Group({ id, title, status, count, children }: { id?: string; title: string; status?: string; count?: number; children: ReactNode }) {
   const headingId = useId()
@@ -142,7 +145,7 @@ function Matches(props: {
                   const payment = outcome?.state === 'matched' ? outcome.payment : null
                   return (
                     <li key={r.id}>
-                      <RowButton date={shortDayMonth(r.date)} title={r.shop || 'No shop read'} sub={payment ? `paid ${dayMonth(payment.date)} · ${accountName(payment.account)}` : undefined} amount={money(paid(r), r.currency)} onClick={() => onOpen(r)} />
+                      <RowButton date={shortDayMonth(r.date)} title={r.shop || 'No shop read'} sub={[payment ? `paid ${dayMonth(payment.date)} · ${accountName(payment.account)}` : '', afterReturns(r)].filter(Boolean).join(' · ') || undefined} amount={money(paid(r), r.currency)} onClick={() => onOpen(r)} />
                     </li>
                   )
                 })}
@@ -159,7 +162,7 @@ function Matches(props: {
                   const outcome = outcomes.get(r.id)
                   return (
                     <li key={r.id}>
-                      <RowButton date={shortDayMonth(r.date)} title={r.shop || 'No shop read'} sub={outcome && outcome.state !== 'matched' ? outcome.why : undefined} amount={money(paid(r), r.currency)} onClick={() => onOpen(r)} />
+                      <RowButton date={shortDayMonth(r.date)} title={r.shop || 'No shop read'} sub={[outcome && outcome.state !== 'matched' ? outcome.why : '', afterReturns(r)].filter(Boolean).join(' · ') || undefined} amount={money(paid(r), r.currency)} onClick={() => onOpen(r)} />
                     </li>
                   )
                 })}
@@ -556,7 +559,7 @@ function ReceiptList(props: {
           <li key={r.id}>
             {needsReview ? (
               <details className="week-line receipt-check">
-                <RowSummary label={title} sub={r.shop || 'Unknown shop'} amount={money(paid(r), r.currency)} />
+                <RowSummary label={title} sub={[r.shop || 'Unknown shop', afterReturns(r)].filter(Boolean).join(' · ')} amount={money(paid(r), r.currency)} />
                 <div className="receipt-check-body">
                   {duplicateOf ? (
                     <>

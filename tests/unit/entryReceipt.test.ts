@@ -39,6 +39,12 @@ describe('entryReceipt: a receipt entry in a list', () => {
     expect(entryReceipt(e)).toEqual({ title: '2 receipts', words: 'Greenleaf Market · Corner Chemist · £4.64' })
   })
 
+  it('counts only what was spent in an entry of several, a refund slip beside them counted as a refund and taken off nothing (audit 2026-11-20)', () => {
+    const refund = { id: 'p3', text: null, ai: { ...read('Greenleaf Market', [['Oat milk', -165]], -165), text: 'REFUND\nGREENLEAF MARKET\nOat milk -1.65\nTOTAL REFUND -1.65' } }
+    const e = entry('e1', [{ id: 'p1', text: null, ai: read('Corner Chemist', [['Plasters', 299]]) }, { id: 'p2', text: null, ai: read('Greenleaf Market', [['Oat milk', 165], ['Bread', 120]]) }, refund])
+    expect(entryReceipt(e)).toEqual({ title: '3 receipts', words: 'Corner Chemist · Greenleaf Market · £5.84 · 1 refund' })
+  })
+
   it('says a refund slip is one, with the money back', () => {
     const e = entry('e1', [{ id: 'p1', text: null, ai: { ...read('Greenleaf Market', [['Oat milk', -165]], -165), text: 'REFUND\nGREENLEAF MARKET\nOat milk -1.65\nTOTAL REFUND -1.65' } }])
     expect(entryReceipt(e)).toMatchObject({ title: 'Greenleaf Market', words: 'Refund slip · £1.65 back' })

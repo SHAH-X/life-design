@@ -80,6 +80,12 @@ describe('investingMonth', () => {
     expect(investingMonth(LINES, [summary(), later], '2026-11').result.held.map((h) => h.accountValue)).toEqual([510000])
   })
 
+  it('says a month is checked only when the statement’s days reach all its lines (audit 2026-11-20: a part-covered month said "checked")', () => {
+    const part = summary({ id: 'p', from: '2026-10-01', to: '2026-10-03' })
+    expect(investingMonth(LINES, [part], '2026-10').checked).toBe(false)
+    expect(investingMonth(LINES, [summary()], '2026-10').checked).toBe(true)
+  })
+
   it('adds up the month’s income: dividends after tax and interest, each opening to its lines', () => {
     expect(october.income).toMatchObject({ dividends: 392, interest: 7 })
     expect(october.income.dividendLines.map((l) => l.instrument)).toEqual(['EXMP', 'EXMQ'])

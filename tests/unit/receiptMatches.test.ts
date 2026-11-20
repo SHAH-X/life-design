@@ -48,12 +48,27 @@ describe('receiptOutcomes: what became of a receipt', () => {
       undefined,
       { '9999': '' },
     )
-    expect(outcomes.get('none')).toEqual({ state: 'none', why: 'No payment of £4.50 within 3 days at Greenleaf Market' })
+    expect(outcomes.get('none')).toEqual({ state: 'none', why: 'No payment of £4.50 within 3 days at Greenleaf Market in the accounts brought in' })
     expect(outcomes.get('differs')).toMatchObject({ state: 'maybe', why: `A payment of £3.10 on ${dayMonth('2026-10-09')} differs by £0.11` })
     expect(outcomes.get('later')).toEqual({ state: 'not-in', why: `No statement for ${dayMonth('2026-11-12')} brought in` })
     expect(outcomes.get('gift')).toEqual({ state: 'gift', why: 'Paid by gift card' })
     expect(outcomes.get('other')).toEqual({ state: 'elsewhere', why: 'Paid with a card that isn’t one of your accounts' })
     expect(outcomes.get('euro')).toEqual({ state: 'elsewhere', why: 'Not in pounds' })
+  })
+
+  it('says a points slip was paid with points and a nothing receipt had nothing to pay, not "gift card" (audit 2026-11-20)', () => {
+    const { outcomes } = run([], [receipt('points', 'Greenleaf Market', '2026-10-06', 0, { points: 120 }), receipt('free', 'Greenleaf Market', '2026-10-07', 0)])
+    expect(outcomes.get('points')).toEqual({ state: 'gift', why: 'Paid with points' })
+    expect(outcomes.get('free')).toEqual({ state: 'gift', why: 'Nothing to pay on this receipt' })
+  })
+
+  it('does not take Trading 212’s statement, or another account’s, for the one a payment would be on, and says so when the card is not known (audit 2026-11-20)', () => {
+    // Only a Trading 212 statement covers the day: the payment's own account has none brought in.
+    const only212 = run([], [receipt('r', 'Greenleaf Market', '2026-10-05', 4.5)], [statement('Trading 212 ···0001', '2026-10-01', '2026-10-31')])
+    expect(only212.outcomes.get('r')).toEqual({ state: 'not-in', why: `No statement for ${dayMonth('2026-10-05')} brought in` })
+    // Another bank's statement does cover it, and no card is known: not found in the accounts brought in, which may not include it.
+    const another = run([], [receipt('r', 'Greenleaf Market', '2026-10-05', 4.5)])
+    expect(another.outcomes.get('r')).toEqual({ state: 'none', why: 'No payment of £4.50 within 3 days at Greenleaf Market in the accounts brought in' })
   })
 
   it('names the account whose statement is missing when the card says which it is', () => {

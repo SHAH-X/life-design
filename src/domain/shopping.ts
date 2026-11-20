@@ -235,8 +235,9 @@ export function entryReceipt(entry: Entry): { title: string; words: string } | n
   if (all.length > 1) {
     const currencies = new Set(all.map((r) => r.currency || '£'))
     const shops = [...new Set(all.map((r) => r.shop).filter(Boolean))]
-    const total = currencies.size === 1 ? money(all.reduce((sum, r) => sum + (r.refund ? -1 : 1) * Math.abs(paid(r)), 0), [...currencies][0]!) : ''
-    return { title: `${all.length} receipts`, words: [...shops, total].filter(Boolean).join(' · ') }
+    // What was spent, as Money counts it: a refund slip is shown and counted nowhere, so it is not taken off (audit 2026-11-20).
+    const total = currencies.size === 1 && receipts.length ? money(receipts.reduce((sum, r) => sum + spentOn(r), 0), [...currencies][0]!) : ''
+    return { title: `${all.length} receipts`, words: [...shops, total, refunds.length ? `${refunds.length} ${refunds.length === 1 ? 'refund' : 'refunds'}` : ''].filter(Boolean).join(' · ') }
   }
   // Added as a receipt and not read as one: waiting for a reading, or read and found to be no receipt (the foot of a long one).
   const flagged = photos.filter((p) => p.receipt && !readWithFirst(p, photos))

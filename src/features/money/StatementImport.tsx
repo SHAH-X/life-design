@@ -22,7 +22,9 @@ type Outcome = { file: string; brought: BroughtIn[]; invested: InvestBrought[] }
 
 type State = { kind: 'choose'; error?: string } | { kind: 'reading'; at: number; of: number } | { kind: 'done'; outcomes: Outcome[] }
 
-const COULDNT = 'This statement couldn’t be brought in, so nothing was changed. Try again.'
+// The bank lines, Trading 212's lines and the account names are kept in separate steps: if a later one fails the first may be in
+// already (audit 2026-11-20), so this does not claim nothing changed. A line already here is never added twice, so trying again is safe.
+const COULDNT = 'This statement couldn’t be brought in completely. Some of it may be here already; try again, and nothing is added twice.'
 
 /** One statement's PDF read and kept: its accounts, or the words for why not. Nothing is changed when it fails. */
 async function bringIn(file: File): Promise<Outcome> {
