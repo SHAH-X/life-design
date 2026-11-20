@@ -110,39 +110,49 @@ describe('linkGiftCards: a receipt paid by gift card, and the gift card bought f
     return { lines, gift: linkGiftCards(lines, receipts) }
   }
 
-  it('matches the Blc purchase of a little under what went on the card, bought before it', () => {
-    const b = buy('2026-10-02', -9.5)
+  it('matches the Blc purchase of a little under what went on the card, bought the same day or a day or two either side', () => {
+    const b = buy('2026-10-05', -9.5)
     const { gift, lines } = link([b], [paidByCard('r1', '2026-10-05', 10)])
     expect(gift.get('r1')?.id).toBe(lines[0]!.id)
   })
 
-  it('matches only a purchase that cost no more than the amount, not far less, not after, not long before, not money back', () => {
+  it('matches only a purchase that cost no more than the amount, not far less, not days away, not money back (owner 2026-11-20: bought the day it is spent)', () => {
     const none = (b: BankLine) => link([b], [paidByCard('r1', '2026-10-05', 10)]).gift.size === 0
     expect(none(buy('2026-10-02', -10.5))).toBe(true) // more than went on the card
     expect(none(buy('2026-10-02', -7))).toBe(true) // far less
-    expect(none(buy('2026-10-06', -9.5))).toBe(true) // bought after
-    expect(none(buy('2026-06-01', -9.5))).toBe(true) // months before
+    expect(none(buy('2026-10-09', -9.5))).toBe(true) // days after
+    expect(none(buy('2026-10-01', -9.5))).toBe(true) // days before: an earlier day's card is not this receipt's
+    expect(link([buy('2026-10-03', -9.5)], [paidByCard('r1', '2026-10-05', 10)]).gift.size).toBe(1) // two days
+    expect(link([buy('2026-10-06', -9.5)], [paidByCard('r1', '2026-10-05', 10)]).gift.size).toBe(1) // posted a day later
     expect(none(bank('2026-10-02', 9.5, 'BLC GIFTCARD DEMOTOWN'))).toBe(true) // money in
     expect(none(bank('2026-10-02', -9.5, 'GREENLEAF MARKET'))).toBe(true) // not a gift card
     expect(link([buy('2026-10-05', -10)], [paidByCard('r1', '2026-10-05', 10)]).gift.size).toBe(1) // the same day, no discount
   })
 
-  it('uses each purchase once, the nearest before each receipt, oldest receipt first', () => {
-    const { gift, lines } = link([buy('2026-09-20', -9.5), buy('2026-10-03', -9.5)], [paidByCard('late', '2026-10-09', 10), paidByCard('early', '2026-10-04', 10)])
-    expect(gift.get('early')?.id).toBe(lines[1]!.id)
-    expect(gift.get('late')?.id).toBe(lines[0]!.id)
+  it('uses each purchase once, the nearest day to each receipt, oldest receipt first', () => {
+    const { gift, lines } = link([buy('2026-10-03', -9.5), buy('2026-10-08', -9.5)], [paidByCard('late', '2026-10-09', 10), paidByCard('early', '2026-10-04', 10)])
+    expect(gift.get('early')?.id).toBe(lines[0]!.id)
+    expect(gift.get('late')?.id).toBe(lines[1]!.id)
     expect(link([buy('2026-10-03', -9.5)], [paidByCard('a', '2026-10-04', 10), paidByCard('b', '2026-10-05', 10)]).gift.size).toBe(1)
+  })
+
+  it('takes the same day’s purchase, not an earlier one, and says none when the day’s is not in the statements yet', () => {
+    const lines = classify([buy('2026-10-03', -9.5), buy('2026-10-05', -9.5)], new Set())
+    expect(linkGiftCards(lines, [paidByCard('r1', '2026-10-05', 10)]).get('r1')?.id).toBe(lines[1]!.id)
+    // The 5th's purchase is not in: the 3rd's is not taken for it.
+    const missing = classify([buy('2026-10-01', -9.5)], new Set())
+    expect(linkGiftCards(missing, [paidByCard('r1', '2026-10-05', 10)]).size).toBe(0)
   })
 
   it('looks at what went on the card, not the whole receipt, and ignores a receipt with none or without a printed date', () => {
     const part = paidByCard('part', '2026-10-05', 35, { byGiftCard: 1000 })
-    expect(link([buy('2026-10-02', -9.5)], [part]).gift.get('part')).toBeDefined()
-    expect(link([buy('2026-10-02', -9.5)], [receipt('plain', 'Greenleaf Market', '2026-10-05', 10)]).gift.size).toBe(0)
-    expect(link([buy('2026-10-02', -9.5)], [paidByCard('undated', '2026-10-05', 10, { dated: false, entryDate: '2026-10-05' })]).gift.size).toBe(0)
+    expect(link([buy('2026-10-05', -9.5)], [part]).gift.get('part')).toBeDefined()
+    expect(link([buy('2026-10-05', -9.5)], [receipt('plain', 'Greenleaf Market', '2026-10-05', 10)]).gift.size).toBe(0)
+    expect(link([buy('2026-10-05', -9.5)], [paidByCard('undated', '2026-10-05', 10, { dated: false, entryDate: '2026-10-05' })]).gift.size).toBe(0)
   })
 
   it('shows the receipt as matched, with the gift card’s purchase as its payment; a part-paid one is matched at the rest by card', () => {
-    const banks = [buy('2026-10-02', -9.5), buy('2026-10-03', -9.5), bank('2026-10-06', -25, 'GREENLEAF MARKET SOMETOWN')]
+    const banks = [buy('2026-10-04', -9.5), buy('2026-10-05', -9.5), bank('2026-10-06', -25, 'GREENLEAF MARKET SOMETOWN')]
     const lines = classify(banks, new Set())
     const receipts = [paidByCard('whole', '2026-10-05', 10), paidByCard('part', '2026-10-06', 35, { byGiftCard: 1000 }), paidByCard('none', '2026-10-07', 40)]
     const links = linkReceipts(lines, receipts)
