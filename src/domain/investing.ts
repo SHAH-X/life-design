@@ -37,8 +37,9 @@ export interface InvestingMonth {
     afterCharges: number
     sells: number
     byInstrument: Ranked<InvestGroup>
-    /** The statement that ends in this month: its value and what it still held's result, as printed. */
-    summary: InvestSummary | null
+    /** What each account held at the end of the statement that ends in this month (the latest one for an account): its
+     *  value and what it still held's result, as printed. */
+    held: InvestSummary[]
   }
   income: { dividends: number; dividendLines: InvestLine[]; interest: number; interestLines: InvestLine[] }
   /** Whether a statement with its own totals covers the month, and what its lines didn't add up to. */
@@ -50,6 +51,13 @@ export interface InvestingMonth {
 export const investingMonths = (lines: readonly InvestLine[]): string[] => [...new Set(lines.map((l) => l.date.slice(0, 7)))].sort()
 
 const total = (lines: readonly InvestLine[], of: (l: InvestLine) => number) => lines.reduce((sum, l) => sum + of(l), 0)
+
+/** The latest statement of each account that ends in the month, accounts in name order. */
+const heldIn = (summaries: readonly InvestSummary[], month: string): InvestSummary[] => {
+  const latest = new Map<string, InvestSummary>()
+  for (const s of summaries.filter((s) => s.to.slice(0, 7) === month)) if (!latest.has(s.account) || s.to > latest.get(s.account)!.to) latest.set(s.account, s)
+  return [...latest.values()].sort((a, b) => a.account.localeCompare(b.account))
+}
 
 export function investingMonth(all: readonly InvestLine[], summaries: readonly InvestSummary[], month: string): InvestingMonth {
   const lines = all.filter((l) => l.date.slice(0, 7) === month)
@@ -78,7 +86,7 @@ export function investingMonth(all: readonly InvestLine[], summaries: readonly I
         ranked: groups.filter((g) => g.lines.length >= MIN_COUNT).sort((a, b) => b.result - a.result),
         others: groups.filter((g) => g.lines.length < MIN_COUNT).sort((a, b) => a.instrument.localeCompare(b.instrument, 'en', { sensitivity: 'base' })),
       },
-      summary: summaries.filter((s) => s.to.slice(0, 7) === month).sort((a, b) => a.to.localeCompare(b.to)).at(-1) ?? null,
+      held: heldIn(summaries, month),
     },
     income: { dividends: total(dividends, (l) => l.value), dividendLines: dividends, interest: total(interest, (l) => l.value), interestLines: interest },
     checked: covering.length > 0,

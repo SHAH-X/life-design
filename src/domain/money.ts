@@ -674,6 +674,8 @@ export interface MonthCoverage {
   complete: boolean
   /** The accounts, as the statements name them, with days of the month not brought in. */
   missing: string[]
+  /** No statement reaches any day of the month: nothing is known of it, which isn't the same as nothing spent. */
+  uncovered: boolean
 }
 
 /** For each month, whether every account in use has statements for all its days. An account is in use from its first
@@ -689,7 +691,7 @@ export function monthCoverage(statements: readonly StatementRecord[], closed: Re
     const end = addDays(addMonths(start, 1), -1)
     const begun = accounts.filter((a) => a.firstFrom <= end)
     const missing = begun.filter((a) => a.gaps.some((gap) => gap.from <= end && gap.to >= start)).map((a) => a.account)
-    return { month, complete: end < today && begun.length > 0 && missing.length === 0, missing }
+    return { month, complete: end < today && begun.length > 0 && missing.length === 0, missing, uncovered: !statements.some((st) => st.from <= end && st.to >= start) }
   })
 }
 

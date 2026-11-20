@@ -77,7 +77,8 @@ export function StatementView(props: {
           {gaps.length ? <p className="acc-account-line acc-account-missing">Missing: {gaps.map((g) => formatPeriod(g.from, g.to)).join('; ')}</p> : null}
           {view.days.map((day) => {
             const out = day.lines.filter((l) => l.amount < 0).reduce((sum, l) => sum - l.amount, 0)
-            const came = day.lines.filter((l) => l.amount > 0 && !moneyLine(l.id)?.moving).reduce((sum, l) => sum + l.amount, 0)
+            // Moved money counts both ways here, as the month's In and Out above it do: this is the statement, not the spending.
+            const came = day.lines.filter((l) => l.amount > 0).reduce((sum, l) => sum + l.amount, 0)
             return (
               <section key={day.date} aria-label={dayMonth(day.date)}>
                 <div className="acc-day">
@@ -91,7 +92,8 @@ export function StatementView(props: {
                     const line = moneyLine(l.id)
                     const account = names.get(l.account) ?? l.account
                     const way = l.amount < 0 ? `Out of ${account}` : line?.refund ? `Back into ${account}` : `Into ${account}`
-                    const sub = [l.type, l.balance !== null ? `${view.owed ? 'Owed' : 'Balance'} ${pounds(l.balance)}` : '', l.adds ? '' : 'Doesn’t match its printed balance'].filter(Boolean).join(' · ')
+                    // Every line says which way it went in words: a move between your accounts has no sign or green of its own.
+                    const sub = [l.amount < 0 ? 'Out' : line?.refund ? 'Refund' : 'In', l.type, l.balance !== null ? `${view.owed ? 'Owed' : 'Balance'} ${pounds(l.balance)}` : '', l.adds ? '' : 'Doesn’t match its printed balance'].filter(Boolean).join(' · ')
                     return line ? <PaymentRow key={l.id} line={line} title={nameOf(line)} sub={sub} way={way} /> : null
                   })}
                 </ul>

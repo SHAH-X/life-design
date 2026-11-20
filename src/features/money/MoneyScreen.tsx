@@ -25,7 +25,7 @@ import {
   unmatchReceiptPayment,
 } from '../../db/statements'
 import { investingMonths } from '../../domain/investing'
-import { cardAccountOf, classify, forNamesOf, giftCardsBefore, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, moneyMonth, nameOf, type Payee, type PayeeGroup, paymentsWithoutReceipt, receiptOutcomes, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
+import { cardAccountOf, classify, forNamesOf, giftCardsBefore, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, moneyMonth, nameOf, type Payee, type PayeeGroup, paymentsWithoutReceipt, type ReceiptOutcome, receiptOutcomes, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
 import { notReadYet } from '../../domain/aiReading'
 import { inWords, type KnownReceipt, money, onCard, receiptsAndCopies, rememberedKindsOf, rememberedNamesOf, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { ITEM_FOR_SETTING, ITEM_KINDS_SETTING } from '../../db/receiptItems'
@@ -133,8 +133,9 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   )
   const possiblePaymentIds = new Set<string>(matchCandidates.keys())
   // What became of each receipt, and the payments with no receipt (v0.35.0).
-  const outcomes = receiptOutcomes(receipts, lines, links, cards, statements, names)
-  const withoutReceipt = paymentsWithoutReceipt(lines, links, kinds, receipts, new Set([...matchCandidates.values()].flat().map((l) => l.id)))
+  // With no statement in there is nothing to match to: no outcome is told, not "0 of N matched" (audit 2026-11-20).
+  const outcomes = statements.length ? receiptOutcomes(receipts, lines, links, cards, statements, names) : new Map<string, ReceiptOutcome>()
+  const withoutReceipt = !statements.length ? [] : paymentsWithoutReceipt(lines, links, kinds, receipts, new Set([...matchCandidates.values()].flat().map((l) => l.id)))
   const paymentOfReceipt = new Map([...links].map(([lineId, receipt]) => [receipt.id, lines.find((l) => l.id === lineId)!]))
   const shownName = (account: string) => names.get(account) ?? account
   // How a receipt was paid, for its sheet: its card's account (or its payment's), its payment, or that its statement isn't in.
@@ -173,7 +174,9 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   // Investing (Trading 212's trades, dividends and interest) steps between its own months; with none in this month it opens on its latest.
   const investMonths = investingMonths(investLines)
   const investMonth = sub && /^\d{4}-\d{2}$/.test(sub) ? sub : investMonths.includes(thisMonth) ? thisMonth : (investMonths.at(-1) ?? thisMonth)
-  const investNeighbours = neighbourMonths(investMonths, investMonth, today)
+  // Only months with something in them: a later one that is not there would open the same screen again.
+  const investNeighbours = { earlier: investMonths.filter((m) => m < investMonth).at(-1), later: investMonths.find((m) => m > investMonth) }
+  const investLatest = investMonths.at(-1) ?? thisMonth
   // What Money works out for the month of your accounts is done once here: its title row says when a statement needs a look.
   const its = lines.length ? moneyMonth(lines, month, today, statements, closed, kinds) : null
   const statementsOpen = view === 'accounts' && section === 'statements'
@@ -216,23 +219,17 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             <BackLink href={hashFor('money')}>Money</BackLink>
             <h1>{year}</h1>
           </>
-        ) : (view === 'investing' ? investMonth : month) === thisMonth ? (
+        ) : (
+          // The same title row on every month, so nothing moves when you step back (audit 2026-11-20); the month is in the
+          // figure's label under it, with a way back to the latest.
           <div className="money-title">
             <h1>Money</h1>
             {statementsButton}
             {steps}
           </div>
-        ) : (
-          <>
-            <BackLink href={hashFor('money')}>Money</BackLink>
-            <div className="money-title">
-              <h1>{monthYear(view === 'investing' ? investMonth : month)}</h1>
-              {statementsButton}
-              {steps}
-            </div>
-          </>
         )}
-        <div className="money-switch segmented" role="group" aria-label="Money sections">
+        {year ? null : (
+          <div className="money-switch segmented" role="group" aria-label="Money sections">
           <button type="button" aria-pressed={view === 'accounts' && section === 'overview'} onClick={() => { setView('accounts'); setSection('overview') }}>
             {lines.length ? 'Overview' : 'Accounts'}
           </button>
@@ -250,10 +247,11 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             </button>
           ) : null}
         </div>
+        )}
         {year ? (
           <AccountsYear key={`accounts-year-${year}`} lines={lines} year={year} today={today} statements={statements} closed={closed} years={accountYears} />
         ) : view === 'investing' && investLines.length ? (
-          <Investing key={`investing-${investMonth}`} lines={investLines} summaries={investSummaries} month={investMonth} />
+          <Investing key={`investing-${investMonth}`} lines={investLines} summaries={investSummaries} month={investMonth} latest={investLatest} thisMonth={thisMonth} />
         ) : view === 'accounts' && lines.length ? (
           // Keyed by month: a month opened from another starts afresh (a tapped chart column doesn't carry over).
           <AccountsMonth key={`accounts-${month}`} lines={lines} its={its!} month={month} today={today} statements={statements} closed={closed} section={section} onSection={setSection} query={query} onQuery={setQuery} />

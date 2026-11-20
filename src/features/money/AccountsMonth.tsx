@@ -90,6 +90,15 @@ export function neighbourMonths(months: readonly string[], month: string, today:
   }
 }
 
+/** The way back to the latest month from an earlier one, beside the month's name (audit 2026-11-20: it was a link above the title, which moved the title row). */
+export function ThisMonth({ href, label = 'This month' }: { href: string; label?: string }) {
+  return (
+    <a className="small-link acc-this-month" href={href}>
+      {label}
+    </a>
+  )
+}
+
 /** The arrows that step between months, in the title row (restyle F, Money b). */
 export function MonthStepper({ thisMonth, earlier, later }: { thisMonth: string; earlier?: string; later?: string }) {
   return (
@@ -144,6 +153,8 @@ export function AccountsMonth(props: {
   const thisMonth = today.slice(0, 7)
   const current = month === thisMonth
   const stale = its.toCheck.accounts.length
+  // A month with nothing in it that no statement reaches isn't a month of nothing spent: it says so (audit 2026-11-20).
+  const unknown = !lines.some((l) => l.date.slice(0, 7) === month) && !statements.some((s) => s.from <= `${month}-31` && s.to >= `${month}-01`)
 
   // A figure at the top that opens the list it counts: switch to Spending, then bring that list into view.
   useEffect(() => {
@@ -162,32 +173,44 @@ export function AccountsMonth(props: {
       <header className="acc-hero">
         <div className="acc-hero-top">
           <p className="acc-label">{current ? `${monthName(month)} so far` : monthYear(month)}</p>
+          {current ? null : <ThisMonth href={hashFor('money')} />}
         </div>
-        <p className="acc-figure">
-          <strong>
-            {pounds(its.out)} <span>out</span>
-          </strong>
-        </p>
-        <p className="acc-caption">From your accounts</p>
-        {split.committed > 0 ? (
+        {unknown ? (
           <>
-            <div className="acc-split" aria-hidden="true">
-              <span data-part="committed" style={{ flexGrow: split.committed }} />
-              <span data-part="everyday" style={{ flexGrow: Math.max(split.everyday, 0) }} />
-            </div>
-            <p className="acc-caption">
-              Committed {pounds(split.committed)} · Everyday {pounds(split.everyday)}
+            <p className="acc-figure acc-figure-none">
+              <strong>No statement yet</strong>
             </p>
+            <p className="acc-caption">Bring in a statement that covers {monthName(month)}.</p>
           </>
-        ) : null}
-        <div className="acc-stats" role="group" aria-label="Money in and payments out">
-          <button type="button" className="acc-stat" onClick={() => goTo('acc-money-in')}>
-            <span className="acc-stat-label">Money in</span> <span className="acc-stat-value" data-in={its.in > 0 || undefined}>{pounds(its.in)}</span>
-          </button>
-          <button type="button" className="acc-stat" onClick={() => goTo('acc-money-out')}>
-            <span className="acc-stat-label">Payments out</span> <span className="acc-stat-value">{paymentsWord(its.outLines.length)}</span>
-          </button>
-        </div>
+        ) : (
+          <>
+            <p className="acc-figure">
+              <strong>
+                {pounds(its.out)} <span>out</span>
+              </strong>
+            </p>
+            <p className="acc-caption">From your accounts</p>
+            {split.committed > 0 ? (
+              <>
+                <div className="acc-split" aria-hidden="true">
+                  <span data-part="committed" style={{ flexGrow: split.committed }} />
+                  <span data-part="everyday" style={{ flexGrow: Math.max(split.everyday, 0) }} />
+                </div>
+                <p className="acc-caption">
+                  Committed {pounds(split.committed)} · Everyday {pounds(split.everyday)}
+                </p>
+              </>
+            ) : null}
+            <div className="acc-stats" role="group" aria-label="Money in and payments out">
+              <button type="button" className="acc-stat" onClick={() => goTo('acc-money-in')}>
+                <span className="acc-stat-label">Money in</span> <span className="acc-stat-value" data-in={its.in > 0 || undefined}>{pounds(its.in)}</span>
+              </button>
+              <button type="button" className="acc-stat" onClick={() => goTo('acc-money-out')}>
+                <span className="acc-stat-label">Payments out</span> <span className="acc-stat-value">{paymentsWord(its.outLines.length)}</span>
+              </button>
+            </div>
+          </>
+        )}
         {result ? <p className="acc-caption">{current ? `${result} so far` : result}</p> : null}
         {stale ? (
           <button type="button" className="acc-notice" onClick={() => onSection('statements')}>
@@ -622,7 +645,7 @@ function Chart({ lines, statements, closed, month, today }: { lines: readonly Mo
           amount: pounds(m.out),
           receipts: m.lines,
           // Said of a finished month only: the month you're in is still being brought in.
-          note: m.month < thisMonth && coverage[i]!.missing.length ? `not every statement is in: ${coverage[i]!.missing.map((account) => names.get(account) ?? account).join(', ')}` : undefined,
+          note: coverage[i]!.uncovered && !m.lines ? 'no statement for this month' : m.month < thisMonth && coverage[i]!.missing.length ? `not every statement is in: ${coverage[i]!.missing.map((account) => names.get(account) ?? account).join(', ')}` : undefined,
         }))}
         currency="£"
         summary="Tap a month"

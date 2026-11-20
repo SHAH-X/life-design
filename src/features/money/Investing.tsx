@@ -2,7 +2,9 @@ import { useId, useState } from 'react'
 import type { InvestLine, InvestSummary } from '../../db/types'
 import { investingMonth } from '../../domain/investing'
 import { dayMonth, monthYear, shortDayMonth } from '../../lib/dates'
-import { Block, Item, pounds } from './AccountsMonth'
+import { Block, Item, pounds, ThisMonth } from './AccountsMonth'
+import { hashFor } from '../../lib/route'
+import { useMoney } from './MoneyContext'
 
 // Money → Investing (v0.36.0, owner 2026-11-19: "profit made, cost and charges, etc" for Trading 212): a month at a time,
 // as cards. Profit and loss, costs and charges, and income, each a plain sum as the statement prints it, opening to the
@@ -31,17 +33,25 @@ function Row({ title, sub, value, tone }: { title: string; sub: string; value: s
 
 const tradeSub = (l: InvestLine) => `${shortDayMonth(l.date)} · ${l.direction === 'Sell' ? 'sold' : 'bought'}`
 
-export function Investing({ lines, summaries, month }: { lines: readonly InvestLine[]; summaries: readonly InvestSummary[]; month: string }) {
+export function Investing({ lines, summaries, month, latest, thisMonth }: { lines: readonly InvestLine[]; summaries: readonly InvestSummary[]; month: string; /** The latest month with anything in it. */ latest: string; thisMonth: string }) {
   const its = investingMonth(lines, summaries, month)
   const { costs, result, income } = its
   const [open, setOpen] = useState<'costs' | 'income' | null>(null)
   const panelId = useId()
   const empty = !its.trades && !income.dividendLines.length && !income.interestLines.length
   if (empty) return <p className="muted acc-empty">Nothing from Trading 212 in {monthYear(month)}.</p>
-  const held = result.summary
+  const { names } = useMoney()
+  const held = result.held
+  // What is held is told for each account when there are several (audit 2026-11-20: one account's value was labelled "in all").
+  const heldValues = held.map((h) => h.accountValue)
+  const heldTotal = heldValues.every((v): v is number => v !== null) ? heldValues.reduce((sum, v) => sum + v, 0) : null
   const othersResult = result.byInstrument.others.reduce((sum, g) => sum + g.result, 0)
   return (
     <>
+      <div className="acc-hero-top acc-invest-top">
+        <p className="acc-label">{month === thisMonth ? `${monthYear(month)} so far` : monthYear(month)}</p>
+        {month !== latest ? <ThisMonth href={hashFor('money', latest === thisMonth ? null : latest)} label={latest === thisMonth ? 'This month' : 'Latest'} /> : null}
+      </div>
       {its.checked ? (
         its.mismatches.length ? (
           <p className="acc-account-line acc-account-missing">What these lines add up to isn’t what the statement prints, so some may be missing. {its.mismatches.join('; ')}</p>
@@ -110,14 +120,17 @@ export function Investing({ lines, summaries, month }: { lines: readonly InvestL
           <span className="acc-tile-value">{pounds(income.dividends + income.interest)}</span>
           <span className="acc-tile-sub">dividends and interest</span>
         </button>
-        {held ? (
+        {held.length ? (
           <div className="acc-tile">
-            <span className="acc-tile-label">Held at {dayMonth(held.to)}</span>
-            <span className="acc-tile-value">{held.accountValue !== null ? `${pounds(held.accountValue)} in all` : ''}</span>
-            <span className="acc-tile-sub">
-              {held.openResult !== null ? `open result ${signed(held.openResult)}` : ''}
-              {held.openResultChange !== null ? ` · ${held.openResultChange >= 0 ? 'up' : 'down'} ${pounds(Math.abs(held.openResultChange))} over the statement` : ''}
-            </span>
+            <span className="acc-tile-label">Held at {dayMonth(held.map((h) => h.to).sort().at(-1)!)}</span>
+            <span className="acc-tile-value">{held.length === 1 ? (held[0]!.accountValue !== null ? `${pounds(held[0]!.accountValue)} in all` : '') : heldTotal !== null ? `${pounds(heldTotal)} in all` : ''}</span>
+            {held.map((h) => (
+              <span key={h.id} className="acc-tile-sub">
+                {held.length > 1 ? `${names.get(h.account) ?? h.account}${h.accountValue !== null ? ` ${pounds(h.accountValue)}` : ''} · ` : ''}
+                {h.openResult !== null ? `open result ${signed(h.openResult)}` : ''}
+                {h.openResultChange !== null ? ` · ${h.openResultChange >= 0 ? 'up' : 'down'} ${pounds(Math.abs(h.openResultChange))} over the statement` : ''}
+              </span>
+            ))}
           </div>
         ) : null}
       </div>

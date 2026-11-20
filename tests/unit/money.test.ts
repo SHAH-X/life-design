@@ -824,6 +824,10 @@ describe('monthCoverage: which months have every statement in (v0.20.32: the cha
   it('is complete when the month is over and every account begun by then has statements for all its days', () => {
     expect(complete(coverage([statement(BANK, '2026-01-01', '2026-10-31')]))).toEqual(['2026-01', '2026-02', '2026-03', '2026-08', '2026-09', '2026-10'])
   })
+  it('says a month is uncovered when no statement reaches any day of it (audit 2026-11-20: it was shown as £0.00 spent)', () => {
+    const found = coverage([statement(BANK, '2026-03-01', '2026-10-31')])
+    expect(found.filter((m) => m.uncovered).map((m) => m.month)).toEqual(['2026-01', '2026-02', '2026-11'])
+  })
   it('is never complete for the month you are in, nor for one before any statement began', () => {
     const found = coverage([statement(BANK, '2026-03-01', '2026-10-31')])
     expect(found.find((m) => m.month === '2026-11')).toMatchObject({ complete: false })
@@ -855,7 +859,7 @@ describe('monthCoverage: which months have every statement in (v0.20.32: the cha
 
   describe('averageOfComplete', () => {
     const totals = [{ month: '2026-08', out: 4000 }, { month: '2026-09', out: 5000 }, { month: '2026-10', out: 6000 }, { month: '2026-11', out: 0 }]
-    const covered = (...months: string[]) => totals.map((t) => ({ month: t.month, complete: months.includes(t.month), missing: [] as string[] }))
+    const covered = (...months: string[]) => totals.map((t) => ({ month: t.month, complete: months.includes(t.month), missing: [] as string[], uncovered: false }))
     it('averages only the complete months, leaving out the others rather than counting them as nothing', () => {
       expect(averageOfComplete(totals, covered('2026-08', '2026-09'))).toEqual({ value: 4500, months: 2 })
       expect(averageOfComplete(totals, covered('2026-08', '2026-09', '2026-10'))).toEqual({ value: 5000, months: 3 })
