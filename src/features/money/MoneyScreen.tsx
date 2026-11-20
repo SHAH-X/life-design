@@ -25,7 +25,7 @@ import {
   unmatchReceiptPayment,
 } from '../../db/statements'
 import { investingMonths } from '../../domain/investing'
-import { cardAccountOf, classify, forNamesOf, giftCardsBefore, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, nameOf, type Payee, type PayeeGroup, paymentsWithoutReceipt, receiptOutcomes, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
+import { cardAccountOf, classify, forNamesOf, giftCardsBefore, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, moneyMonth, nameOf, type Payee, type PayeeGroup, paymentsWithoutReceipt, receiptOutcomes, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
 import { notReadYet } from '../../domain/aiReading'
 import { inWords, type KnownReceipt, money, onCard, receiptsAndCopies, rememberedKindsOf, rememberedNamesOf, shoppingMonth, shoppingMonths } from '../../domain/shopping'
 import { ITEM_FOR_SETTING, ITEM_KINDS_SETTING } from '../../db/receiptItems'
@@ -174,6 +174,23 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const investMonths = investingMonths(investLines)
   const investMonth = sub && /^\d{4}-\d{2}$/.test(sub) ? sub : investMonths.includes(thisMonth) ? thisMonth : (investMonths.at(-1) ?? thisMonth)
   const investNeighbours = neighbourMonths(investMonths, investMonth, today)
+  // What Money works out for the month of your accounts is done once here: its title row says when a statement needs a look.
+  const its = lines.length ? moneyMonth(lines, month, today, statements, closed, kinds) : null
+  const statementsOpen = view === 'accounts' && section === 'statements'
+  const statementsButton = its ? (
+    <button
+      type="button"
+      className="money-statements"
+      aria-pressed={statementsOpen}
+      data-attention={its.toCheck.accounts.length || its.toCheck.lines.length ? '' : undefined}
+      onClick={() => {
+        setView('accounts')
+        setSection(statementsOpen ? 'overview' : 'statements')
+      }}
+    >
+      Statements
+    </button>
+  ) : null
   const steps =
     view === 'accounts' && lines.length ? (
       <MonthStepper thisMonth={thisMonth} earlier={earlierMonth} later={laterMonth} />
@@ -202,6 +219,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
         ) : (view === 'investing' ? investMonth : month) === thisMonth ? (
           <div className="money-title">
             <h1>Money</h1>
+            {statementsButton}
             {steps}
           </div>
         ) : (
@@ -209,14 +227,20 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             <BackLink href={hashFor('money')}>Money</BackLink>
             <div className="money-title">
               <h1>{monthYear(view === 'investing' ? investMonth : month)}</h1>
+              {statementsButton}
               {steps}
             </div>
           </>
         )}
         <div className="money-switch segmented" role="group" aria-label="Money sections">
-          <button type="button" aria-pressed={view === 'accounts'} onClick={() => setView('accounts')}>
-            Accounts
+          <button type="button" aria-pressed={view === 'accounts' && section === 'overview'} onClick={() => { setView('accounts'); setSection('overview') }}>
+            {lines.length ? 'Overview' : 'Accounts'}
           </button>
+          {lines.length ? (
+            <button type="button" aria-pressed={view === 'accounts' && section === 'spending'} onClick={() => { setView('accounts'); setSection('spending') }}>
+              Spending
+            </button>
+          ) : null}
           <button type="button" aria-pressed={view === 'receipts'} onClick={() => setView('receipts')}>
             Receipts
           </button>
@@ -232,7 +256,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
           <Investing key={`investing-${investMonth}`} lines={investLines} summaries={investSummaries} month={investMonth} />
         ) : view === 'accounts' && lines.length ? (
           // Keyed by month: a month opened from another starts afresh (a tapped chart column doesn't carry over).
-          <AccountsMonth key={`accounts-${month}`} lines={lines} month={month} today={today} statements={statements} closed={closed} section={section} onSection={setSection} query={query} onQuery={setQuery} />
+          <AccountsMonth key={`accounts-${month}`} lines={lines} its={its!} month={month} today={today} statements={statements} closed={closed} section={section} onSection={setSection} query={query} onQuery={setQuery} />
         ) : view === 'receipts' ? (
           <>
             <AddReceipt waiting={receiptsWaiting} />

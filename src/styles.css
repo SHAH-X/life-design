@@ -2569,11 +2569,24 @@ button.line-button {
   text-align: left;
 }
 
-.money-screen .acc-tabs {
-  margin: 20px 0 0;
+/* Statements sits in the title row, not in the row of parts (v0.40.0): a setup task more than a view. A dot says one needs a look. */
+.money-screen .money-statements {
+  flex: none;
+  min-height: 36px;
+  margin-top: 0;
+  padding: 0 14px;
+  border: 1px solid var(--control-border);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-sm);
 }
 
-.money-screen .acc-tab[data-attention]::after {
+.money-screen .money-statements[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.money-screen .money-statements[data-attention]::after {
   width: 7px;
   height: 7px;
   margin-left: 6px;
