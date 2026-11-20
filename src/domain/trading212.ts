@@ -85,7 +85,7 @@ function dayAfter(date: string): string {
   return d.toISOString().slice(0, 10)
 }
 
-export function readTrading212(all: readonly TextPiece[]): { accounts: StatementAccount[]; investing: InvestingRead[] } | { problem: StatementProblem } | null {
+export function readTrading212(all: readonly TextPiece[]): { accounts: StatementAccount[]; investing: InvestingRead[]; labels?: Record<string, string> } | { problem: StatementProblem } | null {
   const pieces = all.filter((p) => p.size >= 1 && p.w > 0 && p.str.trim())
   if (!pieces.some((p) => /Trading 212 UK/i.test(p.str))) return null
   const kind = pieces.some((p) => /^Transactions Statement$/i.test(p.str.trim())) ? 'transactions' : pieces.some((p) => /^Activity statement$/i.test(p.str.trim())) ? 'activity' : null
@@ -97,6 +97,8 @@ export function readTrading212(all: readonly TextPiece[]): { accounts: Statement
   let period: { from: string; to: string } | null = null
   /** What the overview says of each account (activity only): its figures by their labels. */
   const printed = new Map<string, Record<string, number>>()
+  /** Each account's type as its overview heads it ("Stocks ISA"), by the name it is kept under. */
+  const labels: Record<string, string> = {}
   /** The "Account value" a Transactions Statement prints above each account's table. */
   const hasOverview = kind === 'activity'
 
@@ -134,7 +136,11 @@ export function readTrading212(all: readonly TextPiece[]): { accounts: Statement
       const id = idPiece.str.match(/(\d+)/)![1]!
       const band = (p: TextPiece) => Math.abs(p.x - idPiece.x) <= 6
       const heading = first.filter((p) => band(p) && p.y > idPiece.y && /^Trading 212 /.test(p.str)).sort((a, b) => a.y - b.y)[0]
-      if (heading) ids.set(heading.str.replace(/^Trading 212\s+/, '').trim().toLowerCase(), id)
+      if (heading) {
+        const type = heading.str.replace(/^Trading 212\s+/, '').trim()
+        ids.set(type.toLowerCase(), id)
+        labels[accountName(id)] = type
+      }
       const sums: Record<string, number> = {}
       // Accounts sit side by side: a figure is the line's last piece before the next account's block begins.
       const next = Math.min(...first.filter((p) => /^Account ID:\s*\d+/.test(p.str) && p.x > idPiece.x + 6).map((p) => p.x), Number.POSITIVE_INFINITY)
@@ -247,5 +253,5 @@ export function readTrading212(all: readonly TextPiece[]): { accounts: Statement
       summary: hasOverview && sums ? { accountValue: pick('Account value'), openResult: pick('Open result', 'Open return'), openResultChange: pick('Open result change', 'Open return change'), mismatches } : null,
     })
   }
-  return accounts.length || investing.length ? { accounts, investing } : { problem: 'no-table' }
+  return accounts.length || investing.length ? { accounts, investing, ...(Object.keys(labels).length ? { labels } : {}) } : { problem: 'no-table' }
 }

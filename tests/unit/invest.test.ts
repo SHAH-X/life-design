@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
-import { bringInInvesting } from '../../src/db/invest'
+import { bringInInvesting, nameInvestmentAccounts } from '../../src/db/invest'
+import { ACCOUNT_NAMES, accountNamesOf, nameAccount } from '../../src/db/statements'
 import { readStatement } from '../../src/domain/statements'
 import { piecesOf } from '../fixtures/pdf'
 import { activityLike, TRANSACTIONS_LIKE } from '../fixtures/trading212'
@@ -48,5 +49,24 @@ describe('bringInInvesting', () => {
     const [brought] = await bringInInvesting(investingOf(activityLike(undefined, { 'Closed result': 9999 })), phone, 5)
     expect(brought!.mismatches).toEqual(['Closed result £12.74, the statement says £99.99'])
     expect((await phone.investSummaries.toArray())[0]!.mismatches).toEqual(['Closed result £12.74, the statement says £99.99'])
+  })
+})
+
+describe('nameInvestmentAccounts: each account is shown by its type', () => {
+  const labels = { 'Trading 212 ···0001': 'Stocks ISA', 'Trading 212 ···0002': 'Invest' }
+  it('names each "Trading 212 Stocks ISA", the account itself still known by its digits', async () => {
+    await nameInvestmentAccounts(labels, phone)
+    expect(accountNamesOf(await phone.settings.get(ACCOUNT_NAMES))).toEqual({ 'Trading 212 ···0001': 'Trading 212 Stocks ISA', 'Trading 212 ···0002': 'Trading 212 Invest' })
+  })
+
+  it('leaves a name you gave as it is, and does the rest', async () => {
+    await nameAccount('Trading 212 ···0001', 'My ISA', phone)
+    await nameInvestmentAccounts(labels, phone)
+    expect(accountNamesOf(await phone.settings.get(ACCOUNT_NAMES))).toEqual({ 'Trading 212 ···0001': 'My ISA', 'Trading 212 ···0002': 'Trading 212 Invest' })
+  })
+
+  it('changes nothing when a statement had no types', async () => {
+    await nameInvestmentAccounts(undefined, phone)
+    expect(await phone.settings.get(ACCOUNT_NAMES)).toBeUndefined()
   })
 })

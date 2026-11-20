@@ -4,6 +4,7 @@
 import type { InvestingLineRead, InvestingRead } from '../domain/trading212'
 import { db as defaultDb, type LifeDesignDB } from './db'
 import { guardWrite } from './saveErrors'
+import { ACCOUNT_NAMES, accountNamesOf, nameAccount } from './statements'
 import type { InvestLine } from './types'
 
 /** What a statement brought in for an account, by kind of line. */
@@ -61,4 +62,14 @@ export async function bringInInvesting(read: readonly InvestingRead[], database:
       return brought
     }),
   )
+}
+
+/** Each Trading 212 account shown by its type (v0.44.0, owner 2026-11-20: "name them by type"): "Trading 212 Stocks ISA"
+ *  instead of "Trading 212 ···3186". Only an account with no name of yours is named, so one you renamed stays as you wrote it. */
+export async function nameInvestmentAccounts(labels: Readonly<Record<string, string>> | undefined, database: LifeDesignDB = defaultDb): Promise<void> {
+  if (!labels) return
+  const named = accountNamesOf(await database.settings.get(ACCOUNT_NAMES))
+  for (const [account, type] of Object.entries(labels)) {
+    if (!named[account]) await nameAccount(account, `Trading 212 ${type}`, database)
+  }
 }

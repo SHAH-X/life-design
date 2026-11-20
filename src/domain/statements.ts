@@ -260,7 +260,7 @@ export function balanceFollows(before: number | null | undefined, line: { amount
 export const preferOwed = (heldFollow: number, owedFollow: number): boolean => owedFollow > heldFollow
 
 /** A statement in a PDF's pieces of text: its accounts and their lines, or why there's none. */
-export function readStatement(all: readonly TextPiece[]): { accounts: StatementAccount[]; investing?: InvestingRead[] } | { problem: StatementProblem } {
+export function readStatement(all: readonly TextPiece[]): { accounts: StatementAccount[]; investing?: InvestingRead[]; labels?: Record<string, string> } | { problem: StatementProblem } {
   // Trading 212's own documents have their own layouts (v0.34.0).
   const trading212 = readTrading212(all)
   if (trading212) return trading212

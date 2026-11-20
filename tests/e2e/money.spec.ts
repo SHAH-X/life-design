@@ -225,10 +225,10 @@ test('a payment to Trading 212 is paired with its deposit and counts as neither 
   // The two Trading 212 documents cover the same days: the second adds nothing.
   await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveText([
     /^First Direct: 11 new/,
-    /^Trading 212: 3 new · 20 Sept? ?– ?18 Oct$/,
-    /^Trading 212 investing: 3 interest lines · 3 new$/,
-    /^Trading 212: 3 already here · 20 Sept? ?– ?18 Oct$/,
-    /^Trading 212 investing: 6 trades · 2 dividends · 3 interest lines · 8 new · 3 already here$/,
+    /^Trading 212 Stocks ISA: 3 new · 20 Sept? ?– ?18 Oct$/,
+    /^Trading 212 Stocks ISA investing: 3 interest lines · 3 new$/,
+    /^Trading 212 Stocks ISA: 3 already here · 20 Sept? ?– ?18 Oct$/,
+    /^Trading 212 Stocks ISA investing: 6 trades · 2 dividends · 3 interest lines · 8 new · 3 already here$/,
   ])
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
   // October's payments to the broker: £50 was paired with a deposit, £20 was not, so two payments went out (it and the shop).
@@ -239,8 +239,8 @@ test('a payment to Trading 212 is paired with its deposit and counts as neither 
   await expect(moved).toContainText('Between your accounts')
   // The account is listed, and its statement is its transfers.
   await accountView(page, 'Statements')
-  await page.getByRole('region', { name: 'Your accounts', exact: true }).getByRole('button', { name: 'Trading 212', exact: true }).click()
-  const view = page.getByRole('dialog', { name: 'Trading 212', exact: true })
+  await page.getByRole('region', { name: 'Your accounts', exact: true }).getByRole('button', { name: 'Trading 212 Stocks ISA', exact: true }).click()
+  const view = page.getByRole('dialog', { name: 'Trading 212 Stocks ISA', exact: true })
   await expect(view.getByRole('heading', { name: 'October 2026' })).toBeVisible()
   await expect(view.getByRole('listitem')).toHaveCount(2)
 })
@@ -254,10 +254,14 @@ test('Money → Investing shows a month’s profit and loss, costs and charges a
   await expect(page.getByRole('group', { name: 'Money sections' }).getByRole('button', { name: 'Investing' })).toHaveCount(0)
   const sheet = await bringIn(page, await pdf(testInfo.outputPath('trading212-activity.pdf'), activityLike()))
   await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveText([
-    /^Trading 212: 3 new · 20 Sept? ?– ?18 Oct$/,
-    /^Trading 212 investing: 6 trades · 2 dividends · 3 interest lines · 11 new$/,
+    /^Trading 212 Stocks ISA: 3 new · 20 Sept? ?– ?18 Oct$/,
+    /^Trading 212 Stocks ISA investing: 6 trades · 2 dividends · 3 interest lines · 11 new$/,
   ])
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  // Each Trading 212 account is told by its type, not only its digits (v0.44.0).
+  await accountView(page, 'Statements')
+  await expect(page.getByRole('region', { name: 'Your accounts', exact: true })).toContainText('Trading 212 Stocks ISA')
+  await expect(page.getByRole('region', { name: 'Your accounts', exact: true })).not.toContainText('Trading 212 ···0001')
   await page.getByRole('group', { name: 'Money sections' }).getByRole('button', { name: 'Investing' }).click()
   await expect(page.getByText('Checked against the totals your statement prints.')).toBeVisible()
 
