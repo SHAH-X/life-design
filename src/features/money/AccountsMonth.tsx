@@ -170,9 +170,15 @@ export function AccountsMonth(props: {
         </p>
         <p className="acc-caption">From your accounts</p>
         {split.committed > 0 ? (
-          <p className="acc-caption">
-            Committed {pounds(split.committed)} · Everyday {pounds(split.everyday)}
-          </p>
+          <>
+            <div className="acc-split" aria-hidden="true">
+              <span data-part="committed" style={{ flexGrow: split.committed }} />
+              <span data-part="everyday" style={{ flexGrow: Math.max(split.everyday, 0) }} />
+            </div>
+            <p className="acc-caption">
+              Committed {pounds(split.committed)} · Everyday {pounds(split.everyday)}
+            </p>
+          </>
         ) : null}
         <div className="acc-stats" role="group" aria-label="Money in and payments out">
           <button type="button" className="acc-stat" onClick={() => goTo('acc-money-in')}>
@@ -228,86 +234,108 @@ function Overview({
   const current = month === today.slice(0, 7)
   const coming = current ? upcoming(regular, today, COMING_DAYS) : []
   const lastMonth = monthName(shiftMonth(month, -1))
-  const anyRose = its.rose.ranked.length + its.rose.others.length > 0
+  const roseCount = its.rose.ranked.length + its.rose.others.length
+  const anyRose = roseCount > 0
+  const movedCount = roseCount + went.length + changes.started.length + changes.lapsed.length
+  const [open, setOpen] = useState<'regular' | 'moved' | null>(null)
+  const panelId = useId()
+  const toggle = (which: 'regular' | 'moved') => setOpen(open === which ? null : which)
+  const comingTotal = coming.reduce((sum, u) => sum + u.amount, 0)
+  const yearLabel = month.slice(0, 4) === today.slice(0, 4) ? `${month.slice(0, 4)} so far` : month.slice(0, 4)
   return (
     <>
       <div className="acc-chart">
         <Chart lines={lines} statements={statements} closed={closed} month={month} today={today} />
       </div>
-      {anyRose ? (
-        <Block title="Where it rose" status={current ? `Next to ${lastMonth} by the same day` : `Next to ${lastMonth}`}>
-          <Groups of={its.rose} line={(r: Rise) => <RiseRow key={r.payee.key} rise={r} />} fewer="Fewer than 3 payments, by name" />
-        </Block>
-      ) : null}
-      {went.length + changes.started.length + changes.lapsed.length ? (
-        <Block title="What changed">
-          <ul className="acc-list">
-            {went.map((r) => (
-              <Item key={`went-${r.payee.key}`} title={r.payee.name} sub={`went ${r.changed.to > r.changed.from ? 'up' : 'down'} from ${pounds(r.changed.from)} to ${pounds(r.changed.to)} · ${yearly(r.changed.year)}`} value={pounds(r.amount)}>
-                <LineList lines={r.lines} />
-              </Item>
-            ))}
-            {changes.started.map((c) => (
-              <Item key={`started-${c.payee.key}`} title={c.payee.name} sub={`new · first paid ${dayMonth(c.first)} · every ${c.every}`} value={pounds(c.amount)}>
-                <LineList lines={c.lines} />
-              </Item>
-            ))}
-            {changes.lapsed.map((c) => (
-              <Item key={`lapsed-${c.payee.key}`} title={c.payee.name} sub={`no payment since ${dayMonth(c.last)} · was every ${c.every}`} value={pounds(c.amount)}>
-                <LineList lines={c.lines} />
-              </Item>
-            ))}
-          </ul>
-        </Block>
-      ) : null}
-      {regular.length ? (
-        <Block title="Regular payments" status={regularStatus}>
-          <ul className="acc-list">
-            {coming.length ? (
-              <Item title="Coming up" sub={`${paymentsWord(coming.length)} in the next ${COMING_DAYS} days`} value={pounds(coming.reduce((sum, u) => sum + u.amount, 0))}>
+      <div className="acc-tiles" role="group" aria-label="More about this month">
+        {regular.length ? (
+          <button type="button" className="acc-tile" aria-expanded={open === 'regular'} aria-controls={panelId} onClick={() => toggle('regular')}>
+            <span className="acc-tile-label">Regular payments</span>
+            <span className="acc-tile-value">{cadence.join(' + ')}</span>
+            <span className="acc-tile-sub">{paymentsWord(regular.length)}{coming.length ? ` · ${pounds(comingTotal)} due soon` : ''}</span>
+          </button>
+        ) : null}
+        {movedCount ? (
+          <button type="button" className="acc-tile" aria-expanded={open === 'moved'} aria-controls={panelId} onClick={() => toggle('moved')}>
+            <span className="acc-tile-label">What moved</span>
+            <span className="acc-tile-value">{movedCount === 1 ? '1 change' : `${movedCount} changes`}</span>
+            <span className="acc-tile-sub">{[roseCount ? `${roseCount} rose` : '', went.length ? `${went.length} changed` : '', changes.started.length ? `${changes.started.length} new` : '', changes.lapsed.length ? `${changes.lapsed.length} stopped` : ''].filter(Boolean).join(' · ')}</span>
+          </button>
+        ) : null}
+        <a className="acc-tile" href={hashFor('money', month.slice(0, 4))}>
+          <span className="acc-tile-label">{yearLabel}</span>
+          <span className="acc-tile-value">{pounds(yearOut)} out</span>
+          <span className="acc-tile-sub">The year, month by month</span>
+        </a>
+      </div>
+      <div id={panelId}>
+        {open === 'regular' && regular.length ? (
+          <Block title="Regular payments" status={regularStatus}>
+            <ul className="acc-list">
+              {coming.length ? (
+                <Item title="Coming up" sub={`${paymentsWord(coming.length)} in the next ${COMING_DAYS} days`} value={pounds(comingTotal)}>
+                  <ul className="acc-list">
+                    {coming.map((u) => (
+                      <li key={`${u.payee.key}-${u.date}`} className="acc-li">
+                        <div className="acc-row">
+                          <span className="acc-row-text">
+                            <span className="acc-row-title">{u.payee.name}</span> <span className="acc-row-sub">around {dayMonth(u.date)}</span>
+                          </span>{' '}
+                          <span className="acc-row-value">{pounds(u.amount)}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </Item>
+              ) : null}
+              <li className="acc-li acc-total">
+                <div className="acc-row">
+                  <span className="acc-row-text">
+                    <span className="acc-row-title">Total regular payments</span>
+                    <span className="acc-row-sub">
+                      {totals.weekly > 0 && totals.monthly > 0 ? cadence.join(' + ') : `${paymentsWord(regular.length)}, all ${totals.weekly > 0 ? 'weekly' : 'monthly'}`}
+                    </span>
+                  </span>
+                  <span className="acc-row-value">{pounds(totals.year)} a year</span>
+                </div>
+              </li>
+              {regular.map((r) => (
+                <RegularRow key={r.payee.key} item={r} soon={current} />
+              ))}
+            </ul>
+          </Block>
+        ) : null}
+        {open === 'moved' ? (
+          <>
+            {anyRose ? (
+              <Block title="Where it rose" status={current ? `Next to ${lastMonth} by the same day` : `Next to ${lastMonth}`}>
+                <Groups of={its.rose} line={(r: Rise) => <RiseRow key={r.payee.key} rise={r} />} fewer="Fewer than 3 payments, by name" />
+              </Block>
+            ) : null}
+            {went.length + changes.started.length + changes.lapsed.length ? (
+              <Block title="What changed">
                 <ul className="acc-list">
-                  {coming.map((u) => (
-                    <li key={`${u.payee.key}-${u.date}`} className="acc-li">
-                      <div className="acc-row">
-                        <span className="acc-row-text">
-                          <span className="acc-row-title">{u.payee.name}</span> <span className="acc-row-sub">around {dayMonth(u.date)}</span>
-                        </span>{' '}
-                        <span className="acc-row-value">{pounds(u.amount)}</span>
-                      </div>
-                    </li>
+                  {went.map((r) => (
+                    <Item key={`went-${r.payee.key}`} title={r.payee.name} sub={`went ${r.changed.to > r.changed.from ? 'up' : 'down'} from ${pounds(r.changed.from)} to ${pounds(r.changed.to)} · ${yearly(r.changed.year)}`} value={pounds(r.amount)}>
+                      <LineList lines={r.lines} />
+                    </Item>
+                  ))}
+                  {changes.started.map((c) => (
+                    <Item key={`started-${c.payee.key}`} title={c.payee.name} sub={`new · first paid ${dayMonth(c.first)} · every ${c.every}`} value={pounds(c.amount)}>
+                      <LineList lines={c.lines} />
+                    </Item>
+                  ))}
+                  {changes.lapsed.map((c) => (
+                    <Item key={`lapsed-${c.payee.key}`} title={c.payee.name} sub={`no payment since ${dayMonth(c.last)} · was every ${c.every}`} value={pounds(c.amount)}>
+                      <LineList lines={c.lines} />
+                    </Item>
                   ))}
                 </ul>
-              </Item>
+              </Block>
             ) : null}
-            <li className="acc-li acc-total">
-              <div className="acc-row">
-                <span className="acc-row-text">
-                  <span className="acc-row-title">Total regular payments</span>
-                  <span className="acc-row-sub">
-                    {totals.weekly > 0 && totals.monthly > 0 ? cadence.join(' + ') : `${paymentsWord(regular.length)}, all ${totals.weekly > 0 ? 'weekly' : 'monthly'}`}
-                  </span>
-                </span>
-                <span className="acc-row-value">{pounds(totals.year)} a year</span>
-              </div>
-            </li>
-            {regular.map((r) => (
-              <RegularRow key={r.payee.key} item={r} soon={current} />
-            ))}
-          </ul>
-        </Block>
-      ) : null}
-      <nav aria-label="Year" className="acc-year">
-        <ul className="acc-list">
-          <li className="acc-li">
-            <a className="acc-row" href={hashFor('money', month.slice(0, 4))}>
-              <span className="acc-row-text">
-                <span className="acc-row-title">{month.slice(0, 4) === today.slice(0, 4) ? `${month.slice(0, 4)} so far` : month.slice(0, 4)}</span>
-              </span>{' '}
-              <span className="acc-row-value">{pounds(yearOut)} out</span>
-            </a>
-          </li>
-        </ul>
-      </nav>
+          </>
+        ) : null}
+      </div>
     </>
   )
 }

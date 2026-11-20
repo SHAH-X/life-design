@@ -32,6 +32,12 @@ async function bringIn(page: Page, path: string) {
 const part = (page: Page, name: 'Overview' | 'Spending' | 'Receipts' | 'Investing' | 'Statements') =>
   (name === 'Statements' ? page.locator('.money-title') : page.getByRole('group', { name: 'Money sections' })).getByRole('button', { name, exact: true })
 
+/** Overview's tiles (v0.41.0) open the lists that used to be on the screen: opens one, unless it already is. */
+async function openTile(page: Page, name: 'Regular payments' | 'What moved') {
+  const tile = page.getByRole('group', { name: 'More about this month' }).getByRole('button', { name: new RegExp(`^${name}`) })
+  if ((await tile.getAttribute('aria-expanded')) !== 'true') await tile.click()
+}
+
 async function accountView(page: Page, name: 'Overview' | 'Spending' | 'Statements') {
   await part(page, name).click()
 }
@@ -413,6 +419,8 @@ test('a regular payment can be renamed across existing transactions and a later 
   await restoreBackup(page, testInfo.outputPath('regular-payments.json'), backupWith({ bankLines }, now))
   await page.goto('./#/money')
 
+  await openTile(page, 'Regular payments')
+
   const regularPayments = page.getByRole('region', { name: 'Regular payments' })
   // Coming up is a row of its own above the payments, so pick the payment's row: it says "every month".
   const regular = regularPayments.locator('details.acc-item', { hasText: 'every month' })
@@ -470,6 +478,8 @@ test('regular payments total as a year: a monthly payment 12 times and a weekly 
   await restoreBackup(page, testInfo.outputPath('regular-total.json'), backupWith({ bankLines }, now))
   await page.goto('./#/money')
 
+  await openTile(page, 'Regular payments')
+
   const regularPayments = page.getByRole('region', { name: 'Regular payments' })
   const total = regularPayments.locator('li.acc-total')
   // £10.99 x 12 + £5.00 x 52 = £131.88 + £260.00; the old mixed figure was £15.99.
@@ -506,6 +516,8 @@ test('Money splits the month into committed and everyday, says when each regular
   await expect(page.getByText('£40.00 out')).toBeVisible()
   await expect(page.getByText('Committed £20.00 · Everyday £20.00')).toBeVisible()
 
+  await openTile(page, 'Regular payments')
+
   const regularPayments = page.getByRole('region', { name: 'Regular payments' })
   // A payment's row says how often; Coming up (closed) holds the same names, so the names alone would match it too.
   const streaming = regularPayments.locator('details.acc-item', { hasText: 'every month' })
@@ -525,10 +537,44 @@ test('Money splits the month into committed and everyday, says when each regular
 
   // An earlier month says nothing of what's next: no Coming up, no "next around".
   await page.goto('./#/money/2026-09')
+  await openTile(page, 'Regular payments')
   const earlier = page.getByRole('region', { name: 'Regular payments' })
   await expect(earlier).toContainText('every month')
   await expect(earlier).not.toContainText('next around')
   await expect(earlier).not.toContainText('Coming up')
+})
+
+// Money's Overview (v0.41.0, owner 2026-11-20: "each and every tab looks monotonous and like lists"): a bar for committed and
+// everyday under the figure, and tiles that open what used to be a stack of lists.
+test('Overview: a committed and everyday bar, and tiles that open Regular payments, What moved and the year', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const payment = (id: string, date: string, amount: number, description: string, createdAt: number) => ({ id, account: 'Lloyds ···4321', date, amount, description, type: 'DD', balance: null, adds: true, createdAt, updatedAt: createdAt })
+  const bankLines = [
+    ...['2026-07-14', '2026-08-13', '2026-09-12'].map((date, i) => payment(`month-${i}`, date, -1099, 'EXAMPLE STREAMING', i + 1)),
+    ...['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22'].map((date, i) => payment(`week-${i}`, date, -500, 'EXAMPLE WEEKLY BOX', i + 10)),
+    payment('shop', '2026-10-05', -2000, 'EXAMPLE CORNER SHOP', 20),
+  ]
+  await restoreBackup(page, testInfo.outputPath('overview-tiles.json'), backupWith({ bankLines }, now))
+  await page.goto('./#/money')
+
+  // The bar: committed £20 and everyday £20 of £40, half and half, and the words say the same.
+  const bar = page.locator('.acc-split')
+  await expect(bar).toBeVisible()
+  const widths = await bar.locator('span[data-part]').evaluateAll((els) => els.map((el) => Math.round((el as HTMLElement).getBoundingClientRect().width)))
+  expect(Math.abs(widths[0]! - widths[1]!)).toBeLessThanOrEqual(2)
+  await expect(page.getByText('Committed £20.00 · Everyday £20.00')).toBeVisible()
+
+  // The tiles: one number each. The lists they open are not on the screen until asked for.
+  const tiles = page.getByRole('group', { name: 'More about this month' })
+  await expect(tiles.getByRole('button', { name: /^Regular payments/ })).toContainText('£10.99 a month + £5.00 a week')
+  await expect(tiles.getByRole('link', { name: /^2026 so far/ })).toContainText('£72.97 out')
+  await expect(page.getByRole('region', { name: 'Regular payments' })).toHaveCount(0)
+  await tiles.getByRole('button', { name: /^Regular payments/ }).click()
+  await expect(tiles.getByRole('button', { name: /^Regular payments/ })).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('region', { name: 'Regular payments' })).toBeVisible()
+  await tiles.getByRole('button', { name: /^Regular payments/ }).click()
+  await expect(page.getByRole('region', { name: 'Regular payments' })).toHaveCount(0)
 })
 
 const LLOYDS = 'Lloyds ···4321'
@@ -548,6 +594,8 @@ test('What changed tells of a regular payment that went up, one that is new and 
   await restoreBackup(page, testInfo.outputPath('what-changed.json'), backupWith({ bankLines, statements: [statementRecord('2026-10-27')] }, now))
   await page.goto('./#/money')
 
+  await openTile(page, 'What moved')
+
   const changed = page.getByRole('region', { name: 'What changed' })
   const row = (name: string) => changed.locator('details.acc-item', { hasText: name })
   const summary = (name: string) => row(name).locator(':scope > summary')
@@ -559,6 +607,7 @@ test('What changed tells of a regular payment that went up, one that is new and 
   await expect(row('Example Gym Club')).toContainText('10 Jul')
 
   // The stopped one is no longer a regular payment: not in the list, the total or Coming up. The others are.
+  await openTile(page, 'Regular payments')
   const regularPayments = page.getByRole('region', { name: 'Regular payments' })
   await expect(regularPayments).toContainText('Example Broadband')
   await expect(regularPayments).toContainText('Example New Sub')

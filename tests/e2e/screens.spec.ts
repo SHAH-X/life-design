@@ -277,6 +277,7 @@ for (const scheme of ['light'] as const) {
       }))
       await restoreBackup(page, testInfo.outputPath('money-regular-rename.json'), backupWith({ bankLines }, EVENING))
       await page.goto('./#/money')
+      await page.getByRole('group', { name: 'More about this month' }).getByRole('button', { name: /^Regular payments/ }).click()
       const regularPayments = page.getByRole('region', { name: 'Regular payments' })
       // Coming up is a row above the payments (this month): pick the payment's row, which says "every month".
       const regular = regularPayments.locator('details.acc-item', { hasText: 'every month' })
