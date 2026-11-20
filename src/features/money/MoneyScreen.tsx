@@ -35,7 +35,7 @@ import { Loading } from '../../ui/Loading'
 import { EntrySheet, type EntrySheetState } from '../today/EntrySheet'
 import { useOwnWords } from '../today/useOwnWords'
 import { usePurposeSettings } from '../today/usePurpose'
-import { type AccountsSection, AccountsMonth, MonthStepper, neighbourMonths } from './AccountsMonth'
+import { type AccountsSection, AccountsMonth, MonthStepper, neighbourMonths, renameHint } from './AccountsMonth'
 import { Accounts, RenameSheet } from './Accounts'
 import { AccountsYear } from './AccountsYear'
 import { Investing } from './Investing'
@@ -309,18 +309,24 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             way={shown.way}
             receiptSummary={paymentReceiptSummary}
             kind={kindOf(shown.line, kinds)}
-            onKind={() => {
-              setKindFor({ payee: shown.line.payee, total: Math.abs(shown.line.amount), lines: [shown.line] })
-            }}
+            // A category is for money out: on money in or money moved it changes nothing on screen (audit 2026-11-20).
+            onKind={
+              shown.line.moving || (shown.line.amount > 0 && !shown.line.refund)
+                ? null
+                : () => {
+                    setKindFor({ payee: shown.line.payee, total: Math.abs(shown.line.amount), lines: [shown.line] })
+                  }
+            }
             onWho={!shown.line.moving && (shown.line.amount < 0 || shown.line.refund) ? () => setWhoFor(shown.line) : null}
             onRename={() => {
               setRenamingLine(shown.line)
               setRenaming(shown.line.payee)
             }}
+            // Whether it may be you moving money is the payee's (its payments, all of them), not where the sheet was opened from.
             onOwn={
-              shown.group && mayBeOwn(shown.group.lines)
+              mayBeOwn(lines.filter((l) => l.payee.key === shown.line.payee.key))
                 ? async () => {
-                    await markOwnPayee(shown.group!.payee.key, true)
+                    await markOwnPayee(shown.line.payee.key, true)
                     setPayment(null)
                   }
                 : null
@@ -367,7 +373,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
           <RenameSheet
             title="Rename transaction"
             shown={renaming.name}
-            hint={renaming.original ? `Statement says “${renaming.original}”. Left empty, it restores it.` : 'Applies to existing and future matching transactions.'}
+            hint={renameHint(renaming)}
             onSave={async (name) => {
               await namePayee(renaming.key, name)
             }}

@@ -232,6 +232,12 @@ function findLayoutFaults(): { faults: string[]; small: string[] } {
     const own = tapBox(el)
     const label = (el as HTMLInputElement).labels?.[0]
     const shownInput = el.checkVisibility({ opacityProperty: true }) && !el.closest('.visually-hidden')
+    // A file input hidden inside its button-looking label is opened by tapping the label: that is its tap target (audit 2026-11-20:
+    // "Choose statements" was flagged as 1x1px). Other hidden inputs (radio, checkbox, switch) must still cover their own target.
+    if (label && !shownInput && (el as HTMLInputElement).type === 'file') {
+      const box = label.getBoundingClientRect()
+      return { width: box.width, height: box.height }
+    }
     if (!label || !shownInput) return own
     const l = label.getBoundingClientRect() // the field or its label, whichever reaches further each way
     return { width: Math.max(own.width, l.width), height: Math.max(own.height, l.height) }

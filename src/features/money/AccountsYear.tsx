@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import type { StatementRecord } from '../../db/types'
-import { type BalanceMonth, committedOf, type KindGroup, type MoneyLine, monthEndBalances, moneyYear, type PayeeGroup } from '../../domain/money'
+import { type BalanceMonth, committedOf, type MoneyLine, monthEndBalances, moneyYear, type PayeeGroup } from '../../domain/money'
 import { formatPeriod, monthName, monthYear } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { BalanceChart } from '../../ui/charts/BalanceChart'
-import { Block, ForBlock, Groups, Item, KindRow, LineList, PayeeRow, paymentsWord, pounds, resultWords } from './AccountsMonth'
+import { Block, ForBlock, Item, KindsBlock, LineList, PayeeRow, paymentsWord, pounds, resultWords } from './AccountsMonth'
 import { useMoney } from './MoneyContext'
 import { Icon } from '../../ui/Icon'
 
@@ -72,7 +72,7 @@ export function AccountsYear(props: {
     <>
       <header className="acc-hero">
         <div className="acc-hero-top">
-          <p className="acc-label">{current ? `${year} so far` : year}</p>
+          <p className="acc-label">{current ? 'So far this year' : 'The year'}</p>
           <nav className="acc-stepper" aria-label="Years">
             {earlier ? (
               <a className="acc-step" href={hashFor('money', earlier)} aria-label={`Earlier: ${earlier}`}><Icon name="chevron-left" /></a>
@@ -92,25 +92,32 @@ export function AccountsYear(props: {
           </strong>
         </p>
         <p className="acc-caption">From your accounts{span ? ` · ${span}` : ''}</p>
+        {split.committed > 0 ? (
+          <>
+            <div className="acc-split" aria-hidden="true">
+              <span data-part="committed" style={{ flexGrow: split.committed }} />
+              <span data-part="everyday" style={{ flexGrow: Math.max(split.everyday, 0) }} />
+            </div>
+            <p className="acc-caption">
+              Committed {pounds(split.committed)} · Everyday {pounds(split.everyday)}
+            </p>
+          </>
+        ) : null}
         {its.months ? (
-          <p className="acc-caption">
-            Money in {pounds(its.in)} · {paymentsWord(its.outLines.length)} out
-          </p>
+          <div className="acc-stats" role="group" aria-label="Money in and payments out">
+            <div className="acc-stat">
+              <span className="acc-stat-label">Money in</span> <span className="acc-stat-value" data-in={its.in > 0 || undefined}>{pounds(its.in)}</span>
+            </div>
+            <div className="acc-stat">
+              <span className="acc-stat-label">Payments out</span> <span className="acc-stat-value">{paymentsWord(its.outLines.filter((l) => !l.refund).length)}</span>
+            </div>
+          </div>
         ) : (
           <p className="acc-caption">Nothing brought in for {year}.</p>
         )}
         {result ? <p className="acc-caption">{current ? `${result} so far` : result}</p> : null}
-        {split.committed > 0 ? (
-          <p className="acc-caption">
-            Committed {pounds(split.committed)} · Everyday {pounds(split.everyday)}
-          </p>
-        ) : null}
       </header>
-      {its.outLines.length ? (
-        <Block title="By what it was for">
-          <Groups of={its.kinds} line={(g: KindGroup) => <KindRow key={g.kind} group={g} totalOut={its.out} />} fewer="Fewer than 3 payments, by name" />
-        </Block>
-      ) : null}
+      {its.outLines.length ? <KindsBlock kinds={its.kinds} totalOut={its.out} /> : null}
       {its.forWho ? <ForBlock who={its.forWho} /> : null}
       {biggest.length ? (
         <Block title="Biggest payees" status={its.payees.out.ranked.length > BIGGEST ? `The ${BIGGEST} biggest, paid 3 times or more` : 'Paid 3 times or more, biggest first'}>

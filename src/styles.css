@@ -2742,6 +2742,12 @@ button.line-button {
   margin-bottom: 0;
 }
 
+/* A chart inside a section's card (the year's balances) sits in it with room all round (audit 2026-11-20: it was cut off by 10px). */
+.money-screen .acc-block > .chart {
+  margin: 0;
+  padding: 10px 20px 16px;
+}
+
 /* Every section is a card of its own (owner, 2026-11-19: "the different sections all look the same, not easily
    distinguished"): a tinted heading strip with its title and what it says, then its rows. */
 .money-screen .acc-block,
