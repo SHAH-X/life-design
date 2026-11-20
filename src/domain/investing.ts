@@ -3,6 +3,7 @@
 // nothing averaged, rated, compared or called good or bad (DECISIONS, "Never"); groups are ranked only with MIN_COUNT sales.
 import { MIN_COUNT } from '../analysis/stats'
 import type { InvestLine, InvestSummary } from '../db/types'
+import { dayMonth } from '../lib/dates'
 import type { Ranked } from './money'
 import { groupBy } from './shopping'
 
@@ -32,6 +33,8 @@ export interface InvestingMonth {
   result: {
     /** What the month's sales made (negative: lost), as the statement prints it. */
     closed: number
+    /** The closed result less the month's FX and exchange fees: the statement prints its result before them. */
+    afterCharges: number
     sells: number
     byInstrument: Ranked<InvestGroup>
     /** The statement that ends in this month: its value and what it still held's result, as printed. */
@@ -68,6 +71,8 @@ export function investingMonth(all: readonly InvestLine[], summaries: readonly I
     costs: { fxFees: fx, fees, tax, total: fx + fees + tax, fxLines, feeLines, taxLines },
     result: {
       closed: total(sells, (l) => l.result ?? 0),
+      /** The closed result less the month's FX and exchange fees: the statement prints its result before them. */
+      afterCharges: total(sells, (l) => l.result ?? 0) - fx - fees,
       sells: sells.length,
       byInstrument: {
         ranked: groups.filter((g) => g.lines.length >= MIN_COUNT).sort((a, b) => b.result - a.result),
@@ -77,6 +82,6 @@ export function investingMonth(all: readonly InvestLine[], summaries: readonly I
     },
     income: { dividends: total(dividends, (l) => l.value), dividendLines: dividends, interest: total(interest, (l) => l.value), interestLines: interest },
     checked: covering.length > 0,
-    mismatches: [...new Set(covering.flatMap((s) => s.mismatches))],
+    mismatches: [...new Set(covering.flatMap((s) => s.mismatches.map((m) => `${dayMonth(s.from)} – ${dayMonth(s.to)}: ${m}`)))],
   }
 }
