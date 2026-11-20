@@ -61,7 +61,7 @@ test('Money has its own tab, receipts and all: the month so far, next to last mo
   // £3.60 + £9.99 (what Aldi's printed, though its items don't add up) + £1.25 + £2.45 + £42.10, added up in pence.
   await expect(page.getByRole('paragraph').filter({ hasText: /^October so far$/ })).toBeVisible()
   await expect(page.getByRole('strong')).toHaveText('£59.39 spent')
-  await expect(line(page, 'By 24 September')).toContainText('£2.40')
+  await expect(line(page, 'Last month by 24 September')).toContainText('£2.40')
   await expect(line(page, '5 receipts from 3 shops')).toBeVisible()
   await expect(line(page, '£0.50 off with offers')).toBeVisible()
 

@@ -1,3 +1,4 @@
+import { useId, useState } from 'react'
 import type { InvestLine, InvestSummary } from '../../db/types'
 import { investingMonth } from '../../domain/investing'
 import { dayMonth, monthYear, shortDayMonth } from '../../lib/dates'
@@ -33,6 +34,8 @@ const tradeSub = (l: InvestLine) => `${shortDayMonth(l.date)} · ${l.direction =
 export function Investing({ lines, summaries, month }: { lines: readonly InvestLine[]; summaries: readonly InvestSummary[]; month: string }) {
   const its = investingMonth(lines, summaries, month)
   const { costs, result, income } = its
+  const [open, setOpen] = useState<'costs' | 'income' | null>(null)
+  const panelId = useId()
   const empty = !its.trades && !income.dividendLines.length && !income.interestLines.length
   if (empty) return <p className="muted acc-empty">Nothing from Trading 212 in {monthYear(month)}.</p>
   const held = result.summary
@@ -49,7 +52,12 @@ export function Investing({ lines, summaries, month }: { lines: readonly InvestL
 
       <Block title="Profit and loss" status="Before charges, as your statement prints it. Charges are under Costs and charges.">
         <ul className="acc-list">
-          <Row title="Closed result" sub={`${result.sells} ${result.sells === 1 ? 'sale' : 'sales'} · before charges`} value={signed(result.closed)} tone={toneOf(result.closed)} />
+          <li className="acc-pair">
+            <ul>
+              <Row title="Closed result" sub={`${result.sells} ${result.sells === 1 ? 'sale' : 'sales'} · before charges`} value={signed(result.closed)} tone={toneOf(result.closed)} />
+              <Row title="After charges" sub={`FX and exchange fees of ${pounds(costs.fxFees + costs.fees)} taken off`} value={signed(result.afterCharges)} tone={toneOf(result.afterCharges)} />
+            </ul>
+          </li>
           <li className="acc-madeof">
             <p className="acc-status">Made up of · instruments sold 3 or more times are named</p>
             <ul className="acc-lines">
@@ -88,17 +96,33 @@ export function Investing({ lines, summaries, month }: { lines: readonly InvestL
               ) : null}
             </ul>
           </li>
-          <Row title="After charges" sub={`FX and exchange fees of ${pounds(costs.fxFees + costs.fees)} taken off`} value={signed(result.afterCharges)} tone={toneOf(result.afterCharges)} />
-          {held ? (
-            <Row
-              title={`Held at ${dayMonth(held.to)}`}
-              sub={`${held.openResult !== null ? `open result ${signed(held.openResult)}` : ''}${held.openResultChange !== null ? ` · ${held.openResultChange >= 0 ? 'up' : 'down'} ${pounds(Math.abs(held.openResultChange))} over the statement` : ''}`}
-              value={held.accountValue !== null ? `${pounds(held.accountValue)} in all` : ''}
-            />
-          ) : null}
         </ul>
       </Block>
 
+      <div className="acc-tiles" role="group" aria-label="More about this month">
+        <button type="button" className="acc-tile" aria-expanded={open === 'costs'} aria-controls={panelId} onClick={() => setOpen(open === 'costs' ? null : 'costs')}>
+          <span className="acc-tile-label">Costs and charges</span>
+          <span className="acc-tile-value">{pounds(costs.total)}</span>
+          <span className="acc-tile-sub">on {its.trades} {its.trades === 1 ? 'trade' : 'trades'}</span>
+        </button>
+        <button type="button" className="acc-tile" aria-expanded={open === 'income'} aria-controls={panelId} onClick={() => setOpen(open === 'income' ? null : 'income')}>
+          <span className="acc-tile-label">Income</span>
+          <span className="acc-tile-value">{pounds(income.dividends + income.interest)}</span>
+          <span className="acc-tile-sub">dividends and interest</span>
+        </button>
+        {held ? (
+          <div className="acc-tile">
+            <span className="acc-tile-label">Held at {dayMonth(held.to)}</span>
+            <span className="acc-tile-value">{held.accountValue !== null ? `${pounds(held.accountValue)} in all` : ''}</span>
+            <span className="acc-tile-sub">
+              {held.openResult !== null ? `open result ${signed(held.openResult)}` : ''}
+              {held.openResultChange !== null ? ` · ${held.openResultChange >= 0 ? 'up' : 'down'} ${pounds(Math.abs(held.openResultChange))} over the statement` : ''}
+            </span>
+          </div>
+        ) : null}
+      </div>
+      <div id={panelId}>
+      {open === 'costs' ? (
       <Block title="Costs and charges" status={`${pounds(costs.total)} in all, on ${its.trades} ${its.trades === 1 ? 'trade' : 'trades'}`}>
         <ul className="acc-list">
           {costs.fxFees ? (
@@ -131,7 +155,9 @@ export function Investing({ lines, summaries, month }: { lines: readonly InvestL
           {!costs.total ? <Row title="No costs" sub="this month" value={pounds(0)} /> : null}
         </ul>
       </Block>
+      ) : null}
 
+      {open === 'income' ? (
       <Block title="Income" status="What it paid, after tax withheld">
         <ul className="acc-list">
           {income.dividendLines.length ? (
@@ -147,6 +173,8 @@ export function Investing({ lines, summaries, month }: { lines: readonly InvestL
           {!income.dividendLines.length && !income.interestLines.length ? <Row title="No income" sub="this month" value={pounds(0)} /> : null}
         </ul>
       </Block>
+      ) : null}
+      </div>
     </>
   )
 }
