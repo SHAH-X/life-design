@@ -1,6 +1,13 @@
-import { expect, test } from '@playwright/test'
+import { expect, type Page, test } from '@playwright/test'
 import { addEntry, captureBox, expectNoScores } from './helpers'
 import { backupWith, restoreBackup, restoreSeed } from './seed'
+
+/** Spending's lists of payments (v0.42.0) are folded to one row each: opens one, unless it already is (or there is none). */
+async function openFold(page: Page, name: string) {
+  const fold = page.getByRole('region', { name }).getByRole('button', { name: new RegExp(`^${name}`) })
+  if ((await fold.count()) && (await fold.getAttribute('aria-expanded')) !== 'true') await fold.click()
+}
+
 
 // The guard for Phase 2.6's rule: nothing asks for or shows a rating, score or scale (expectNoScores).
 // Search by meaning's screens are checked in meaning.spec.ts, which has the model.
@@ -91,6 +98,7 @@ test('Money’s month and year pages, with payments in, show no rating, score or
   await expect(page.getByRole('heading', { level: 1, name: '2026' })).toBeVisible()
   await expect(page.getByRole('region', { name: 'At each month’s end' })).toBeVisible()
   // A name filed under: money out by who it was for, counts and amounts only.
+  await openFold(page, 'Who it was for')
   await expect(page.getByRole('region', { name: 'Who it was for' })).toContainText('Home')
   await expectNoScores(page, 'Money, the year')
 })
