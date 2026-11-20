@@ -301,17 +301,17 @@ export function giftCardsBefore(lines: readonly MoneyLine[], date: string, max =
     .slice(0, max)
 }
 
-/** How far before a receipt its gift card may have been bought, in days: a card can sit in a drawer a while. */
-export const GIFT_CARD_DAYS = 90
 /** What a gift card may have cost, at the least, against what went on it (owner 2026-11-20: a £10 card bought for £9.50):
  *  four fifths. Not a percentage on screen: only the two amounts are ever shown. */
 const GIFT_CARD_LEAST = 4 / 5
 
 /** Each receipt paid (wholly or partly) by gift card, with the gift card bought for it (owner 2026-11-20: "if gift card
- *  provides 5% discount, I buy the gift card of 10 GBP at 9.5 GBP and then use the gift card to pay"): the Blc purchase
- *  before the receipt that cost no more than what went on the card and not far less, the nearest day first. Each purchase
- *  once, the oldest receipt first; a receipt with no printed date has none (it is not matched by itself either). Keyed by
- *  receipt id. Nothing about what Money counts changes: the purchase is spending, the receipt only says where it went. */
+ *  provides 5% discount, I buy the gift card of 10 GBP at 9.5 GBP and then use the gift card to pay"; "I buy the gift card
+ *  on the same day as receipt"): the Blc purchase on its day, or the few days a bank may post it after or before
+ *  (`RECEIPT_DAYS`), that cost no more than what went on the card and not far less, the nearest day first. A card bought on
+ *  another day is not this receipt's: with its own day's purchase not in the statements, there is none. Each purchase once,
+ *  the oldest receipt first; a receipt with no printed date has none (it is not matched by itself either). Keyed by receipt
+ *  id. Nothing about what Money counts changes: the purchase is spending, the receipt only says where it went. */
 export function linkGiftCards(lines: readonly MoneyLine[], receipts: readonly KnownReceipt[]): Map<string, MoneyLine> {
   const taken = new Set<string>()
   const found = new Map<string, MoneyLine>()
@@ -319,13 +319,10 @@ export function linkGiftCards(lines: readonly MoneyLine[], receipts: readonly Kn
   for (const receipt of [...receipts].filter((r) => r.dated && (r.byGiftCard ?? 0) > 0).sort((a, b) => a.date.localeCompare(b.date))) {
     if (receipt.currency && receipt.currency !== '£') continue
     const spent = receipt.byGiftCard!
+    const apart = (l: MoneyLine) => Math.abs(dayNumber(receipt.date) - dayNumber(l.date))
     const buy = buys
-      .filter((l) => {
-        const debit = -l.amount
-        const ago = dayNumber(receipt.date) - dayNumber(l.date)
-        return !taken.has(l.id) && debit <= spent && debit >= spent * GIFT_CARD_LEAST && ago >= 0 && ago <= GIFT_CARD_DAYS
-      })
-      .sort((a, b) => b.date.localeCompare(a.date))[0]
+      .filter((l) => !taken.has(l.id) && -l.amount <= spent && -l.amount >= spent * GIFT_CARD_LEAST && apart(l) <= RECEIPT_DAYS)
+      .sort((a, b) => apart(a) - apart(b) || a.amount - b.amount)[0]
     if (!buy) continue
     taken.add(buy.id)
     found.set(receipt.id, buy)
