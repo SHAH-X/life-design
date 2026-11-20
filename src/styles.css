@@ -2497,6 +2497,82 @@ button.line-button {
   letter-spacing: 0;
 }
 
+/* Committed and everyday as one bar under the figure (v0.41.0): the words under it say the same, so the colours carry nothing alone. */
+.money-screen .acc-split {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: 5px;
+}
+
+.money-screen .acc-split > span {
+  flex-basis: 0;
+  min-width: 4px;
+}
+
+.money-screen .acc-split > [data-part='committed'] {
+  background: var(--viz-axis);
+}
+
+.money-screen .acc-split > [data-part='everyday'] {
+  background: var(--viz-seq);
+}
+
+/* Tiles under the chart: one number each, opening what used to be a stack of lists. */
+.money-screen .acc-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.money-screen .acc-tiles > :last-child:nth-child(odd) {
+  grid-column: span 2;
+}
+
+.money-screen .acc-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 4px;
+  min-height: 96px;
+  padding: 14px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--list-shadow);
+  color: var(--text);
+  font-weight: 400;
+  text-align: left;
+  text-decoration: none;
+}
+
+.money-screen .acc-tile[aria-expanded='true'] {
+  border-color: var(--accent);
+}
+
+.money-screen .acc-tile-label {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.money-screen .acc-tile-value {
+  font-size: var(--fs-xl);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.money-screen .acc-tile-sub {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
 .money-screen .acc-caption {
   margin: 6px 0 0;
   color: var(--muted);
