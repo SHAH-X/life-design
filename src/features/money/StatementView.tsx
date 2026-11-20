@@ -60,14 +60,14 @@ export function StatementView(props: {
           {view.count ? (
             <div className="acc-stats" data-cells={view.closing !== null ? 3 : 2} role="group" aria-label="The month in figures">
               <div className="acc-stat">
-                <span className="acc-stat-label">In</span> <span className="acc-stat-value" data-in={view.in > 0 || undefined}>{pounds(view.in)}</span>
+                <span className="acc-stat-label">In</span> <span className="acc-stat-value" data-in={view.in > 0 || undefined}>{view.in > 0 ? '+' : ''}{pounds(view.in)}</span>
               </div>
               <div className="acc-stat">
                 <span className="acc-stat-label">Out</span> <span className="acc-stat-value">{pounds(view.out)}</span>
               </div>
               {view.closing !== null ? (
                 <div className="acc-stat">
-                  <span className="acc-stat-label">{view.owed ? 'Owed at the end' : 'Balance at the end'}</span> <span className="acc-stat-value">{pounds(view.closing)}</span>
+                  <span className="acc-stat-label">{view.owed ? 'End owed' : 'End balance'}</span> <span className="acc-stat-value">{pounds(view.closing)}</span>
                 </div>
               ) : null}
             </div>

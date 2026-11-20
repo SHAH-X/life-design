@@ -87,6 +87,11 @@ describe('Trading 212’s trades, dividends and interest (v0.36.0)', () => {
     expect(off.summary!.mismatches).toEqual(['FX fees £1.15, the statement says £2.00', 'Closed result £12.74, the statement says £99.99'])
   })
 
+  it('keeps the sign in what it says does not match (audit 2026-11-20: a result of -£12.74 against +£12.74 read as equal)', () => {
+    const off = investingOf(piecesOf(activityLike(undefined, { 'Closed result': -1274 })))!
+    expect(off.summary!.mismatches).toEqual(['Closed result £12.74, the statement says -£12.74'])
+  })
+
   it('reads a Transactions Statement’s interest, the same lines as the Activity statement’s, and no totals', () => {
     const read = investingOf(piecesOf(TRANSACTIONS_LIKE))!
     expect(read.interest).toEqual(TRADING212_INVESTING_EXPECT.interest)

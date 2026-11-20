@@ -2,11 +2,11 @@ import { useId, useState } from 'react'
 import { setPayeeKind } from '../../db/statements'
 import { isGiftCardBuy, type MoneyLine, nameOf, PAYMENT_KINDS } from '../../domain/money'
 import { money } from '../../domain/shopping'
-import { dayMonthLong } from '../../lib/dates'
+import { dayMonthLong, toDateKey } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
 
 // What a payment was for (owner, 2026-10-26: "other transactions in the bank account without receipts are not very
-// clear"): a kind for its payee, remembered for all its payments, and a note on one payment.
+// clear"): a kind for its payee, remembered for all its payments.
 
 /** What a payee is for: one tap picks it and it's kept; "Let the app guess" takes yours away. */
 export function KindSheet(props: { payeeKey: string; payee: string; chosen: string | null; guess: string | null; onClose: () => void }) {
@@ -101,7 +101,7 @@ export function ForSheet(props: {
       {suggestions.length ? (
         <>
           <p className="question-text top-gap">From your entries</p>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="for-suggestions">
             {suggestions.map((who) => (
               <button key={who} type="button" className="small-link" onClick={() => void file(who)}>
                 {who}
@@ -148,7 +148,8 @@ export function PaymentSheet(props: {
         {money(Math.abs(line.amount), '£')}
       </p>
       <p className="muted">
-        {dayMonthLong(line.date)} · {way}
+        {dayMonthLong(line.date)}
+        {line.date.slice(0, 4) === toDateKey(new Date()).slice(0, 4) ? '' : ` ${line.date.slice(0, 4)}`} · {way}
       </p>
       {isGiftCardBuy(line) ? <p className="muted small">A gift card bought through Blue Light Card</p> : null}
       {receiptSummary ? <p className="muted small receipt-payment-summary">{receiptSummary}</p> : null}

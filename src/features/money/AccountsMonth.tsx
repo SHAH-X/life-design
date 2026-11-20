@@ -207,7 +207,7 @@ export function AccountsMonth(props: {
             ) : null}
             <div className="acc-stats" role="group" aria-label="Money in and payments out">
               <button type="button" className="acc-stat" disabled={!its.inLines.length} onClick={() => goTo('acc-money-in')}>
-                <span className="acc-stat-label">Money in</span> <span className="acc-stat-value" data-in={its.in > 0 || undefined}>{pounds(its.in)}</span>
+                <span className="acc-stat-label">Money in</span> <span className="acc-stat-value" data-in={its.in > 0 || undefined}>{its.in > 0 ? '+' : ''}{pounds(its.in)}</span>
               </button>
               <button type="button" className="acc-stat" disabled={!its.outLines.length} onClick={() => goTo('acc-money-out')}>
                 <span className="acc-stat-label">Payments out</span> <span className="acc-stat-value">{paymentsWord(its.outLines.filter((l) => !l.refund).length)}</span>
@@ -526,7 +526,7 @@ function SpendingMonth({ its, jump }: { its: Its; jump: string | null }) {
         </Fold>
       ) : null}
       {its.forWho ? (
-        <Fold title="Who it was for" sub={`${its.forWho.ranked.length + its.forWho.others.length + (its.forWho.nobody ? 1 : 0)} ${its.forWho.ranked.length + its.forWho.others.length + (its.forWho.nobody ? 1 : 0) === 1 ? 'group' : 'groups'}`} open={opened.has('who')} onToggle={() => flip('who')}>
+        <Fold title="Who it was for" sub={`${its.forWho.ranked.length + its.forWho.others.length + (its.forWho.nobody ? 1 : 0)} ${its.forWho.ranked.length + its.forWho.others.length + (its.forWho.nobody ? 1 : 0) === 1 ? 'name' : 'names'}`} open={opened.has('who')} onToggle={() => flip('who')}>
           <Groups of={its.forWho} line={(g: ForGroup) => <ForRow key={g.who} group={g} />} fewer="Fewer than 3 payments, by name" />
           {its.forWho.nobody ? (
             <ul className="acc-list">
@@ -536,7 +536,7 @@ function SpendingMonth({ its, jump }: { its: Its; jump: string | null }) {
         </Fold>
       ) : null}
       {its.moved.length ? (
-        <Fold title="Moved between your accounts" sub="Left out of money in and out" open={opened.has('moved')} onToggle={() => flip('moved')}>
+        <Fold title="Moved between your accounts" sub={`${movesWord(its.moved.reduce((sum, m) => sum + joinMoves(m.lines).length, 0))} · left out of money in and out`} open={opened.has('moved')} onToggle={() => flip('moved')}>
           <ul className="acc-list">
             {its.moved.map((m) =>
               m.why === 'own' ? <OwnRows key={m.why} lines={m.lines} /> : (

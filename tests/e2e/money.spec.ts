@@ -132,6 +132,8 @@ test('a Monzo Flex statement reads as Monzo Flex, every line matching; an accoun
   await accounts.getByRole('button', { name: 'Change Monzo Flex' }).click()
   const naming = page.getByRole('dialog', { name: 'Change this account' })
   await naming.getByRole('button', { name: 'Remove', exact: true }).click()
+  // What removing does is said when Remove is tapped, not as a paragraph before it (audit 2026-11-20).
+  await expect(naming.getByText(/^Remove takes out the account/)).toBeVisible()
   await naming.getByRole('button', { name: 'Tap again to remove it' }).click()
   await expect(accounts.getByText('Bring in your bank and card statements to see all your spending.')).toBeVisible()
 })
@@ -191,7 +193,7 @@ test('several PDFs are brought in at once, and an account’s name opens its sta
   const view = page.getByRole('dialog', { name: 'First Direct', exact: true })
   // The latest month: its days newest first, a day's lines in the order its balances give, and what the month came to.
   await expect(view.getByRole('heading', { name: 'October 2026' })).toBeVisible()
-  await expect(view.getByRole('group', { name: 'The month in figures' })).toHaveText(/^In\s*£0\.00\s*Out\s*£77\.30\s*Balance at the end\s*£146\.25$/)
+  await expect(view.getByRole('group', { name: 'The month in figures' })).toHaveText(/^In\s*£0\.00\s*Out\s*£77\.30\s*End balance\s*£146\.25$/)
   const rows = view.getByRole('listitem')
   await expect(rows).toHaveCount(3)
   await expect(rows.nth(0)).toContainText('Example Shopping Card Sometown')
@@ -202,14 +204,14 @@ test('several PDFs are brought in at once, and an account’s name opens its sta
   // The month before.
   await view.getByRole('button', { name: 'Earlier: September 2026' }).click()
   await expect(view.getByRole('heading', { name: 'September 2026' })).toBeVisible()
-  await expect(view.getByRole('group', { name: 'The month in figures' })).toHaveText(/^In\s*£350\.00\s*Out\s*£126\.45\s*Balance at the end\s*£223\.55$/)
+  await expect(view.getByRole('group', { name: 'The month in figures' })).toHaveText(/^In\s*\+£350\.00\s*Out\s*£126\.45\s*End balance\s*£223\.55$/)
   await expect(view.getByRole('listitem')).toHaveCount(8)
   await expect(view.getByRole('button', { name: /^Earlier/ })).toHaveCount(0)
   await view.getByRole('button', { name: 'Close' }).click()
   // Another account has its own statement.
   await accounts.getByRole('button', { name: 'Lloyds', exact: true }).click()
   const lloyds = page.getByRole('dialog', { name: 'Lloyds', exact: true })
-  await expect(lloyds.getByRole('group', { name: 'The month in figures' })).toHaveText(/^In\s*£1,600\.00\s*Out\s*£55\.99\s*Balance at the end\s*£1,744\.01$/)
+  await expect(lloyds.getByRole('group', { name: 'The month in figures' })).toHaveText(/^In\s*\+£1,600\.00\s*Out\s*£55\.99\s*End balance\s*£1,744\.01$/)
   await expect(lloyds.getByRole('listitem')).toHaveCount(4)
 })
 
@@ -363,6 +365,41 @@ test('the payment sheet offers what the payment allows wherever it was opened fr
   await expect(outgoing.getByRole('button', { name: /^(\+ Assign category|Category: )/ })).toBeVisible()
   // (A direct debit is never you moving money.)
   await expect(outgoing.getByRole('button', { name: 'It’s me, moving money' })).toHaveCount(0)
+})
+
+// Audit 2026-11-20 (low): a payment's sheet said "March 5" even for one from a year ago, which a search can open.
+test('a payment’s sheet says the year when it is not this year’s', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const line = (id: string, date: string, i: number) => ({ id, account: 'Example Current', date, amount: -1200, description: 'EXAMPLE SHOP', type: 'DD', balance: null, adds: true, createdAt: i, updatedAt: i })
+  await restoreBackup(page, testInfo.outputPath('years.json'), backupWith({ bankLines: [line('a', '2025-03-05', 1), line('b', '2026-10-05', 2)] }, now))
+  await page.goto('./#/money')
+  await accountView(page, 'Spending')
+  await page.getByRole('searchbox', { name: 'Search every payment' }).fill('example')
+  const rows = page.getByRole('button', { name: /Example Shop/ })
+  await rows.nth(0).click() // newest first: this year's
+  await expect(page.getByRole('dialog', { name: 'Example Shop' })).not.toContainText('2026')
+  await page.getByRole('dialog', { name: 'Example Shop' }).getByRole('button', { name: 'Close' }).click()
+  await rows.nth(1).click()
+  await expect(page.getByRole('dialog', { name: 'Example Shop' })).toContainText('2025')
+})
+
+// Audit 2026-11-20 (low): Your accounts was in the order of the names a statement printed, not of the names shown.
+test('Your accounts is listed in the order of the names it shows, and a rename moves it', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date(2026, 8, 30, 12, 0))
+  await page.goto('./#/money')
+  for (const [name, layout] of [['lloyds.pdf', LLOYDS_LIKE], ['monzo.pdf', MONZO_LIKE]] as const) {
+    const sheet = await bringIn(page, await pdf(testInfo.outputPath(name), layout))
+    await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  }
+  const accounts = page.getByRole('region', { name: 'Your accounts', exact: true })
+  const order = () => accounts.locator('.acc-account-name').allInnerTexts()
+  await expect.poll(async () => (await order())[0]).toBe('Lloyds')
+  await accounts.getByRole('button', { name: 'Change Lloyds' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Change this account' })
+  await sheet.getByRole('textbox').fill('Zzz joint account')
+  await sheet.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect.poll(async () => (await order()).at(-1)).toBe('Zzz joint account')
 })
 
 // Trading 212 (v0.34.0, owner 2026-11-19: nearly all of a month's "money out" was what he sent to it): both of its
@@ -541,7 +578,7 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   // In: A N Other 100.00, the employer 1,500.00, the pot's interest 1.25. Flex and the pot's moves are left out.
   await expect(page.getByRole('strong')).toHaveText('£126.49 out')
   const summary = page.getByRole('group', { name: 'Money in and payments out' }).getByRole('button')
-  await expect(summary).toHaveText(['Money in £1,601.25', 'Payments out 8 payments'])
+  await expect(summary).toHaveText(['Money in +£1,601.25', 'Payments out 8 payments'])
   await accountView(page, 'Spending')
 
   // A N OTHER is you, paying yourself: once said, its money leaves the totals; and comes back when unsaid. Paid once,
@@ -551,7 +588,9 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   await moneyIn.getByRole('button', { name: /^A N Other/ }).click()
   await page.getByRole('dialog', { name: 'A N Other' }).getByRole('button', { name: 'It’s me, moving money' }).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(summary).toHaveText(['Money in £1,501.25', 'Payments out 8 payments'])
+  await expect(summary).toHaveText(['Money in +£1,501.25', 'Payments out 8 payments'])
+  // The folded row says how many moves are in it, as its neighbours say how many payments (audit 2026-11-20).
+  await expect(page.getByRole('region', { name: 'Moved between your accounts' }).getByRole('button', { name: /^Moved between your accounts/ })).toContainText('4 moves · left out of money in and out')
   await openFold(page, 'Moved between your accounts')
   const moved = page.getByRole('region', { name: 'Moved between your accounts' })
   await expect(moved.locator('summary')).toHaveText(['Monzo Flex 2 moves', 'Pots 1 move', 'A N Other Your own account · 1 move'])
@@ -571,7 +610,7 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   await moved.locator('summary', { hasText: 'Example savings' }).click()
   await expect(moved.locator('details', { hasText: 'Example savings' }).locator('.acc-lines li')).toHaveText([/^Sat,? 5 Sept? ?Example savings → Lloyds ?£100\.00$/])
   await moved.getByRole('button', { name: 'It’s not me: count it again' }).click()
-  await expect(summary).toHaveText(['Money in £1,601.25', 'Payments out 8 payments'])
+  await expect(summary).toHaveText(['Money in +£1,601.25', 'Payments out 8 payments'])
   // Paid by card or direct debit: never asked.
   await openFold(page, 'Money out')
   const moneyOut = page.getByRole('region', { name: 'Money out' })

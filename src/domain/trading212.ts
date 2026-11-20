@@ -66,8 +66,8 @@ export interface InvestingRead {
 /** "9.5", "$0.14823", "p329.28", "15%": the number in it. */
 const figure = (text: string): number => Number(text.replace(/[£$€,p%]/g, ''))
 
-/** £1,234.56 in words (no sign). */
-const pounds = (p: number) => `£${(Math.abs(p) / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+/** £1,234.56, with a minus for a loss: a result of -£12.74 against +£12.74 must not read as the same. */
+const pounds = (p: number) => `${p < 0 ? '-' : ''}£${(Math.abs(p) / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 /** "01/10/2026 07:05:49" as "2026-10-01 07:05:49". */
 const isoAt = (dmy: string): string | null => {

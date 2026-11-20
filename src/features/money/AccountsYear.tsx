@@ -106,7 +106,7 @@ export function AccountsYear(props: {
         {its.months ? (
           <div className="acc-stats" role="group" aria-label="Money in and payments out">
             <div className="acc-stat">
-              <span className="acc-stat-label">Money in</span> <span className="acc-stat-value" data-in={its.in > 0 || undefined}>{pounds(its.in)}</span>
+              <span className="acc-stat-label">Money in</span> <span className="acc-stat-value" data-in={its.in > 0 || undefined}>{its.in > 0 ? '+' : ''}{pounds(its.in)}</span>
             </div>
             <div className="acc-stat">
               <span className="acc-stat-label">Payments out</span> <span className="acc-stat-value">{paymentsWord(its.outLines.filter((l) => !l.refund).length)}</span>

@@ -638,6 +638,7 @@ function MatchPaymentDialog(props: {
   onClose: () => void
 }) {
   const { receipt, candidates, onMatch, onClose } = props
+  const { names } = useMoney()
   const addedDate = receipt.entryDate ?? receipt.date
   const [paymentId, setPaymentId] = useState('')
   const [reasonChoice, setReasonChoice] = useState('')
@@ -670,7 +671,7 @@ function MatchPaymentDialog(props: {
                   <input type="radio" name="receipt-payment" value={line.id} checked={paymentId === line.id} onChange={() => setPaymentId(line.id)} />
                   <span className="purpose-text">
                     <span className="purpose-label">{nameOf(line)} · {shortDayMonth(line.date)}</span>
-                    <span className="muted small">Debit {money(debit, '£')} · {line.account}{difference ? ` · difference ${money(difference, receipt.currency)}` : ''}</span>
+                    <span className="muted small">Debit {money(debit, '£')} · {names.get(line.account) ?? line.account}{difference ? ` · difference ${money(difference, receipt.currency)}` : ''}</span>
                   </span>
                 </label>
               )
