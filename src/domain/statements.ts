@@ -5,7 +5,7 @@
 // it. Tuned on the layouts of the owner's Monzo, Lloyds, Monzo Flex, M&S credit card and first direct statements
 // (tests/fixtures/statements.ts, made up).
 import { dateIn } from './receipts'
-import { readTrading212 } from './trading212'
+import { type InvestingRead, readTrading212 } from './trading212'
 
 /** A piece of text where it sits: its left edge and baseline (up the page), its width, its font size, its page (from 1). */
 export interface TextPiece {
@@ -260,7 +260,7 @@ export function balanceFollows(before: number | null | undefined, line: { amount
 export const preferOwed = (heldFollow: number, owedFollow: number): boolean => owedFollow > heldFollow
 
 /** A statement in a PDF's pieces of text: its accounts and their lines, or why there's none. */
-export function readStatement(all: readonly TextPiece[]): { accounts: StatementAccount[] } | { problem: StatementProblem } {
+export function readStatement(all: readonly TextPiece[]): { accounts: StatementAccount[]; investing?: InvestingRead[] } | { problem: StatementProblem } {
   // Trading 212's own documents have their own layouts (v0.34.0).
   const trading212 = readTrading212(all)
   if (trading212) return trading212

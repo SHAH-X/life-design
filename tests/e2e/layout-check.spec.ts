@@ -30,6 +30,14 @@ test('a clean page has no faults', async ({ page }) => {
   expect(await layoutFaults(page)).toEqual([])
 })
 
+test('a row opened to its lines may be tall; a plain row of the same height is still found', async ({ page }) => {
+  const lines = Array.from({ length: 40 }, (_, i) => `<li>Line ${i}</li>`).join('')
+  await show(page, `<ul><li><details open><summary style="min-height:44px">Opened row</summary><ul>${lines}</ul></details></li></ul>`)
+  expect(await layoutFaults(page)).toEqual([])
+  await show(page, `<ul><li>${'One long passage of free writing. '.repeat(80)}</li></ul>`)
+  expect((await layoutFaults(page)).join()).toMatch(/a list row takes over a third of the screen/)
+})
+
 test('a sheet stacked on another is judged alone: the one under it is behind it on purpose', async ({ page }) => {
   await show(page, `<dialog id="under" style="position:fixed;inset:0;width:100%;height:100%;margin:0;padding:16px;border:0"><button>Under, close</button></dialog>
     <dialog id="over" style="position:fixed;inset:auto 0 0 0;width:100%;height:60%;margin:0;padding:16px;border:0;background:#fff"><button>Over, close</button></dialog>`)

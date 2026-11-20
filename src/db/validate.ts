@@ -9,6 +9,8 @@ import {
   BALANCE_AREAS,
   type BackupData,
   type BankLine,
+  type InvestLine,
+  type InvestSummary,
   type Day,
   type Entry,
   type IdeaMap,
@@ -103,6 +105,47 @@ export function isBankLine(x: unknown): x is BankLine {
     isStr(x.type) &&
     (x.balance === null || Number.isInteger(x.balance)) &&
     typeof x.adds === 'boolean' &&
+    isNum(x.createdAt) &&
+    isNum(x.updatedAt)
+  )
+}
+
+/** A line of Trading 212's own account (v0.36.0): money in whole pence, a real day. */
+export function isInvestLine(x: unknown): x is InvestLine {
+  return (
+    isObj(x) &&
+    isNonEmptyStr(x.id) &&
+    isNonEmptyStr(x.account) &&
+    isOneOf(['trade', 'dividend', 'interest'] as const)(x.kind) &&
+    isDateKey(x.date) &&
+    isStr(x.at) &&
+    isStr(x.instrument) &&
+    isOneOf(['', 'Buy', 'Sell'] as const)(x.direction) &&
+    isStr(x.orderId) &&
+    Number.isInteger(x.value) &&
+    Number.isInteger(x.fxFee) &&
+    Number.isInteger(x.fees) &&
+    (x.result === null || Number.isInteger(x.result)) &&
+    Number.isInteger(x.tax) &&
+    isNum(x.createdAt) &&
+    isNum(x.updatedAt)
+  )
+}
+
+/** What a Trading 212 statement totalled (v0.36.0). */
+export function isInvestSummary(x: unknown): x is InvestSummary {
+  const pence = (v: unknown) => v === null || Number.isInteger(v)
+  return (
+    isObj(x) &&
+    isNonEmptyStr(x.id) &&
+    isNonEmptyStr(x.account) &&
+    isDateKey(x.from) &&
+    isDateKey(x.to) &&
+    pence(x.accountValue) &&
+    pence(x.openResult) &&
+    pence(x.openResultChange) &&
+    Array.isArray(x.mismatches) &&
+    x.mismatches.every(isStr) &&
     isNum(x.createdAt) &&
     isNum(x.updatedAt)
   )
@@ -366,6 +409,8 @@ export const VALIDATORS: { [K in TableName]: (x: unknown) => x is BackupData[K][
   bankLines: isBankLine,
   statements: isStatementRecord,
   ideaMaps: isIdeaMap,
+  investLines: isInvestLine,
+  investSummaries: isInvestSummary,
 }
 
 /** Fills in fields that older files don't have yet, after validation. */

@@ -471,6 +471,53 @@ export interface StatementRecord {
   updatedAt: number
 }
 
+/** A line of Trading 212's own account (v0.36.0): a trade, a dividend or interest on cash, read on the phone from its
+ *  Activity statement. Money in whole pence in the account's currency. Never sent anywhere. */
+export interface InvestLine {
+  id: string
+  account: string
+  kind: 'trade' | 'dividend' | 'interest'
+  /** The day, as the statement dates it (UTC). */
+  date: string
+  /** When, as printed ("2026-10-01 07:05:49", in this form from either of its documents), which tells two alike apart. */
+  at: string
+  /** The instrument's ticker, as printed; '' for interest. */
+  instrument: string
+  /** A trade's direction; '' for the others. */
+  direction: '' | 'Buy' | 'Sell'
+  /** A trade's order ID; '' for the others. */
+  orderId: string
+  /** A trade's value, a dividend's amount after tax, interest. */
+  value: number
+  /** A trade's FX fee, and its exchange and government fees; 0 for the others. */
+  fxFee: number
+  fees: number
+  /** What a sale made (negative: lost), as printed; null for a buy and for the others. */
+  result: number | null
+  /** Tax withheld from a dividend, worked out in the account's currency from its printed rate; 0 for the others. */
+  tax: number
+  createdAt: number
+  updatedAt: number
+}
+
+/** What a Trading 212 statement printed about an account that isn't a line (v0.36.0), and whether its lines added up to its
+ *  totals. */
+export interface InvestSummary {
+  /** Its account and days, so the same statement brought in again is one record. */
+  id: string
+  account: string
+  from: string
+  to: string
+  /** In pence; null when the statement printed none. */
+  accountValue: number | null
+  openResult: number | null
+  openResultChange: number | null
+  /** What didn't match the statement's own totals, in words; none when everything did. */
+  mismatches: string[]
+  createdAt: number
+  updatedAt: number
+}
+
 export interface BackupData {
   entries: Entry[]
   days: Day[]
@@ -489,6 +536,8 @@ export interface BackupData {
   bankLines: BankLine[]
   statements: StatementRecord[]
   ideaMaps: IdeaMap[]
+  investLines: InvestLine[]
+  investSummaries: InvestSummary[]
 }
 
 export type TableName = keyof BackupData
@@ -511,6 +560,8 @@ export const TABLE_NAMES: readonly TableName[] = [
   'bankLines',
   'statements',
   'ideaMaps',
+  'investLines',
+  'investSummaries',
 ]
 
 export const TABLE_LABELS: Record<TableName, string> = {
@@ -531,4 +582,6 @@ export const TABLE_LABELS: Record<TableName, string> = {
   bankLines: 'Bank and card lines',
   statements: 'Statements brought in',
   ideaMaps: 'Maps of your ideas',
+  investLines: 'Trading 212 trades, dividends and interest',
+  investSummaries: 'Trading 212 statement totals',
 }

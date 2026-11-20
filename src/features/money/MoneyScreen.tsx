@@ -24,6 +24,7 @@ import {
   receiptReviewState,
   unmatchReceiptPayment,
 } from '../../db/statements'
+import { investingMonths } from '../../domain/investing'
 import { cardAccountOf, classify, forNamesOf, giftCardsBefore, kindOf, labelsOf, linkReceipts, mayBeOwn, type MoneyLine, nameOf, type Payee, type PayeeGroup, paymentsWithoutReceipt, receiptOutcomes, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
 import { notReadYet } from '../../domain/aiReading'
 import { inWords, type KnownReceipt, money, onCard, receiptsAndCopies, rememberedKindsOf, rememberedNamesOf, shoppingMonth, shoppingMonths } from '../../domain/shopping'
@@ -37,6 +38,7 @@ import { usePurposeSettings } from '../today/usePurpose'
 import { type AccountsSection, AccountsMonth, MonthStepper, neighbourMonths } from './AccountsMonth'
 import { Accounts, RenameSheet } from './Accounts'
 import { AccountsYear } from './AccountsYear'
+import { Investing } from './Investing'
 import { MoneyContext } from './MoneyContext'
 import { AddReceipt } from './AddReceipt'
 import { ReceiptsMonth, ReceiptsShare, receiptsWord } from './Receipts'
@@ -57,6 +59,8 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const entries = useLiveQuery(() => db.entries.toArray(), [])
   const bankLines = useLiveQuery(() => db.bankLines.toArray(), [])
   const statements = useLiveQuery(() => db.statements.toArray(), [])
+  const investLines = useLiveQuery(() => db.investLines.toArray(), [])
+  const investSummaries = useLiveQuery(() => db.investSummaries.toArray(), [])
   const own = useLiveQuery(async () => ownPayeesOf(await db.settings.get(OWN_PAYEES)), [])
   const names = useAccountNames()
   const closed = useLiveQuery(async () => new Set(ownPayeesOf(await db.settings.get(CLOSED_ACCOUNTS))), [])
@@ -83,7 +87,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const suggestions = useLiveQuery(() => loadSuggestions(), [], NO_SUGGESTIONS)
   const [sheet, setSheet] = useState<EntrySheetState>(null)
   const [receiptId, setReceiptId] = useState<string | null>(null)
-  const [view, setView] = useState<'accounts' | 'receipts'>(legacyView ?? 'accounts')
+  const [view, setView] = useState<'accounts' | 'receipts' | 'investing'>(legacyView ?? 'accounts')
   // Which part of Accounts is open lives here, so stepping to another month keeps you where you were.
   const [section, setSection] = useState<AccountsSection>('overview')
   // What's typed in Spending's search box lives here too, for the same reason.
@@ -93,7 +97,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
     if (legacyView) setView(legacyView)
   }, [legacyView])
   // Render only once loaded, so nothing jumps under your finger.
-  if (entries === undefined || bankLines === undefined || statements === undefined || own === undefined || names === undefined || payeeNames === undefined || paymentNames === undefined || payeeFor === undefined || paymentFor === undefined || kinds === undefined || notes === undefined || remembered === undefined || itemFor === undefined || receiptReviews === undefined || cardAccounts === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
+  if (entries === undefined || bankLines === undefined || statements === undefined || investLines === undefined || investSummaries === undefined || own === undefined || names === undefined || payeeNames === undefined || paymentNames === undefined || payeeFor === undefined || paymentFor === undefined || kinds === undefined || notes === undefined || remembered === undefined || itemFor === undefined || receiptReviews === undefined || cardAccounts === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
 
   const byId = new Map(entries.map((e) => [e.id, e]))
   const openEntry = (receipt: KnownReceipt) => {
@@ -166,7 +170,16 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const year = view === 'accounts' && lines.length && sub && /^\d{4}$/.test(sub) ? sub : null
   // The arrows between months sit in the title row (Accounts only, where there is a month of money to step through).
   const { earlier: earlierMonth, later: laterMonth } = neighbourMonths(accountMonths, month, today)
-  const steps = view === 'accounts' && lines.length ? <MonthStepper thisMonth={thisMonth} earlier={earlierMonth} later={laterMonth} /> : null
+  // Investing (Trading 212's trades, dividends and interest) steps between its own months; with none in this month it opens on its latest.
+  const investMonths = investingMonths(investLines)
+  const investMonth = sub && /^\d{4}-\d{2}$/.test(sub) ? sub : investMonths.includes(thisMonth) ? thisMonth : (investMonths.at(-1) ?? thisMonth)
+  const investNeighbours = neighbourMonths(investMonths, investMonth, today)
+  const steps =
+    view === 'accounts' && lines.length ? (
+      <MonthStepper thisMonth={thisMonth} earlier={earlierMonth} later={laterMonth} />
+    ) : view === 'investing' && investLines.length ? (
+      <MonthStepper thisMonth={thisMonth} earlier={investNeighbours.earlier} later={investNeighbours.later} />
+    ) : null
   const earlier = shoppingMonths(receipts).filter((m) => m < thisMonth).sort().reverse()
   // The open payment is read afresh from the lines, so a name given to it shows in its sheet at once.
   const shown = payment ? { ...payment, line: lines.find((l) => l.id === payment.line.id) ?? payment.line } : null
@@ -186,7 +199,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             <BackLink href={hashFor('money')}>Money</BackLink>
             <h1>{year}</h1>
           </>
-        ) : month === thisMonth ? (
+        ) : (view === 'investing' ? investMonth : month) === thisMonth ? (
           <div className="money-title">
             <h1>Money</h1>
             {steps}
@@ -195,7 +208,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
           <>
             <BackLink href={hashFor('money')}>Money</BackLink>
             <div className="money-title">
-              <h1>{monthYear(month)}</h1>
+              <h1>{monthYear(view === 'investing' ? investMonth : month)}</h1>
               {steps}
             </div>
           </>
@@ -207,9 +220,16 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
           <button type="button" aria-pressed={view === 'receipts'} onClick={() => setView('receipts')}>
             Receipts
           </button>
+          {investLines.length ? (
+            <button type="button" aria-pressed={view === 'investing'} onClick={() => setView('investing')}>
+              Investing
+            </button>
+          ) : null}
         </div>
         {year ? (
           <AccountsYear key={`accounts-year-${year}`} lines={lines} year={year} today={today} statements={statements} closed={closed} years={accountYears} />
+        ) : view === 'investing' && investLines.length ? (
+          <Investing key={`investing-${investMonth}`} lines={investLines} summaries={investSummaries} month={investMonth} />
         ) : view === 'accounts' && lines.length ? (
           // Keyed by month: a month opened from another starts afresh (a tapped chart column doesn't carry over).
           <AccountsMonth key={`accounts-${month}`} lines={lines} month={month} today={today} statements={statements} closed={closed} section={section} onSection={setSection} query={query} onQuery={setQuery} />
