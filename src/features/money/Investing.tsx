@@ -7,18 +7,22 @@ import { Block, Item, pounds } from './AccountsMonth'
 // as cards. Profit and loss, costs and charges, and income, each a plain sum as the statement prints it, opening to the
 // lines behind it. No percentages, averages or scores. Instruments are named by their tickers, as the statement names them.
 
-/** What was made or lost, in words and never as a sign. */
-export const madeOrLost = (pence: number) => (pence >= 0 ? `${pounds(pence)} made` : `${pounds(-pence)} lost`)
+/** What was made or lost, as a sign and its figure: +£37.57 or −£12.30 (a true minus). Nothing at all is plain £0.00. */
+export const signed = (pence: number) => (pence > 0 ? `+${pounds(pence)}` : pence < 0 ? `−${pounds(-pence)}` : pounds(0))
+/** The colour of a result: green for made, red for lost (Money only, owner 2026-11-20); the sign says it too. */
+const toneOf = (pence: number): 'in' | 'loss' | undefined => (pence > 0 ? 'in' : pence < 0 ? 'loss' : undefined)
 
 /** One line behind a figure: the instrument, the day and how, and its amount. Not a payment: nothing opens. */
-function Row({ title, sub, value }: { title: string; sub: string; value: string }) {
+function Row({ title, sub, value, tone }: { title: string; sub: string; value: string; tone?: 'in' | 'loss' }) {
   return (
     <li className="acc-li">
       <div className="acc-row">
         <span className="acc-row-text">
           <span className="acc-row-title">{title}</span> <span className="acc-row-sub">{sub}</span>
         </span>{' '}
-        <span className="acc-row-value">{value}</span>
+        <span className="acc-row-value" data-in={tone === 'in' || undefined} data-loss={tone === 'loss' || undefined}>
+          {value}
+        </span>
       </div>
     </li>
   )
@@ -32,6 +36,7 @@ export function Investing({ lines, summaries, month }: { lines: readonly InvestL
   const empty = !its.trades && !income.dividendLines.length && !income.interestLines.length
   if (empty) return <p className="muted acc-empty">Nothing from Trading 212 in {monthYear(month)}.</p>
   const held = result.summary
+  const othersResult = result.byInstrument.others.reduce((sum, g) => sum + g.result, 0)
   return (
     <>
       {its.checked ? (
@@ -42,40 +47,51 @@ export function Investing({ lines, summaries, month }: { lines: readonly InvestL
         )
       ) : null}
 
-      <Block title="Profit and loss" status="What the month’s sales made or lost, as your statement prints it">
+      <Block title="Profit and loss" status="As your statement prints it. It doesn’t say if charges are already taken off; they’re listed below.">
         <ul className="acc-list">
-          <Row title="Closed result" sub={`${result.sells} ${result.sells === 1 ? 'sale' : 'sales'}`} value={madeOrLost(result.closed)} />
-          {result.byInstrument.ranked.map((g) => (
-            <Item key={g.instrument} title={g.instrument} sub={`${g.lines.length} ${g.lines.length === 1 ? 'sale' : 'sales'}`} value={madeOrLost(g.result)}>
-              <ul className="acc-lines">
-                {[...g.lines].sort((a, b) => b.at.localeCompare(a.at)).map((l) => (
-                  <Row key={l.id} title={shortDayMonth(l.date)} sub={`sold for ${pounds(l.value)}`} value={madeOrLost(l.result ?? 0)} />
-                ))}
-              </ul>
-            </Item>
-          ))}
-          {result.byInstrument.others.length ? (
-            <Item
-              title="Other instruments"
-              sub={`${result.byInstrument.others.length} ${result.byInstrument.others.length === 1 ? 'instrument' : 'instruments'}, fewer than 3 sales each`}
-              value={madeOrLost(result.byInstrument.others.reduce((sum, g) => sum + g.result, 0))}
-            >
-              <ul className="acc-lines">
-                {result.byInstrument.others.map((g) => (
-                  <Row
-                    key={g.instrument}
-                    title={g.instrument}
-                    sub={g.lines.length === 1 ? `${shortDayMonth(g.lines[0]!.date)} · sold for ${pounds(g.lines[0]!.value)}` : `${g.lines.length} sales`}
-                    value={madeOrLost(g.result)}
-                  />
-                ))}
-              </ul>
-            </Item>
-          ) : null}
+          <Row title="Closed result" sub={`${result.sells} ${result.sells === 1 ? 'sale' : 'sales'}`} value={signed(result.closed)} tone={toneOf(result.closed)} />
+          <li className="acc-madeof">
+            <p className="acc-status">Made up of · instruments sold 3 or more times are named</p>
+            <ul className="acc-lines">
+              {result.byInstrument.ranked.map((g) => (
+                <Item key={g.instrument} title={g.instrument} sub={`${g.lines.length} ${g.lines.length === 1 ? 'sale' : 'sales'}`} value={signed(g.result)} tone={toneOf(g.result)}>
+                  <ul className="acc-lines">
+                    {[...g.lines].sort((a, b) => b.at.localeCompare(a.at)).map((l) => (
+                      <Row key={l.id} title={shortDayMonth(l.date)} sub={`sold for ${pounds(l.value)}`} value={signed(l.result ?? 0)} tone={toneOf(l.result ?? 0)} />
+                    ))}
+                  </ul>
+                </Item>
+              ))}
+              {result.byInstrument.others.length ? (
+                <Item
+                  title="Other instruments"
+                  sub={`${result.byInstrument.others.length} ${result.byInstrument.others.length === 1 ? 'instrument' : 'instruments'}, fewer than 3 sales each`}
+                  value={signed(othersResult)}
+                  tone={toneOf(othersResult)}
+                >
+                  <ul className="acc-lines">
+                    {result.byInstrument.others.map((g) =>
+                      g.lines.length === 1 ? (
+                        <Row key={g.instrument} title={g.instrument} sub={`${shortDayMonth(g.lines[0]!.date)} · sold for ${pounds(g.lines[0]!.value)}`} value={signed(g.result)} tone={toneOf(g.result)} />
+                      ) : (
+                        <Item key={g.instrument} title={g.instrument} sub={`${g.lines.length} sales`} value={signed(g.result)} tone={toneOf(g.result)}>
+                          <ul className="acc-lines">
+                            {[...g.lines].sort((a, b) => b.at.localeCompare(a.at)).map((l) => (
+                              <Row key={l.id} title={shortDayMonth(l.date)} sub={`sold for ${pounds(l.value)}`} value={signed(l.result ?? 0)} tone={toneOf(l.result ?? 0)} />
+                            ))}
+                          </ul>
+                        </Item>
+                      ),
+                    )}
+                  </ul>
+                </Item>
+              ) : null}
+            </ul>
+          </li>
           {held ? (
             <Row
               title={`Held at ${dayMonth(held.to)}`}
-              sub={`${held.openResult !== null ? `open result ${madeOrLost(held.openResult)}` : ''}${held.openResultChange !== null ? ` · ${held.openResultChange >= 0 ? 'up' : 'down'} ${pounds(Math.abs(held.openResultChange))} over the statement` : ''}`}
+              sub={`${held.openResult !== null ? `open result ${signed(held.openResult)}` : ''}${held.openResultChange !== null ? ` · ${held.openResultChange >= 0 ? 'up' : 'down'} ${pounds(Math.abs(held.openResultChange))} over the statement` : ''}`}
               value={held.accountValue !== null ? `${pounds(held.accountValue)} in all` : ''}
             />
           ) : null}

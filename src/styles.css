@@ -58,6 +58,8 @@
   --warn-text: #7c4a00;
   /* Money in (owner, 2026-11-19, Money only): a green that is plainly not ink; AA on the card, the page and a day's band (palette.test.ts). */
   --money-in: #1f7a4d;
+  /* A loss in Money's Investing (owner, 2026-11-20: "use red"): the one red outside energy; AA on the same surfaces (palette.test.ts). */
+  --money-loss: #b3261e;
   --viz-pos: #2a78d6;
   --viz-neg: #e34948;
   --viz-seq: #1baf7a;
@@ -2724,6 +2726,20 @@ button.line-button {
 .money-screen .acc-stat-value[data-in],
 .money-screen .payment-sheet-amount[data-in] {
   color: var(--money-in);
+}
+
+/* A loss in Investing: a − and red (the − and the words say it too). */
+.money-screen .acc-row-value[data-loss] {
+  color: var(--money-loss);
+}
+
+/* What a total is made up of: set in from it, so the rows read as its parts. */
+.money-screen .acc-madeof {
+  padding: 0 0 6px;
+}
+
+.money-screen .acc-madeof > .acc-status {
+  margin: 10px 0 2px;
 }
 
 /* A day in an account's statement: a tinted band with its name and what it came to. */
