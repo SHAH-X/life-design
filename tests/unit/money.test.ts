@@ -327,6 +327,17 @@ describe('moneyMonth: a month of your accounts, worked out on the phone', () => 
     expect(october.toCheck.accounts).toEqual([{ account: CURRENT, until: '2026-10-18' }])
   })
 
+  it('says what needs a look the same whichever month you are viewing, and lets a statement be a week behind (audit 2026-11-20)', () => {
+    // The dot, the banner and the list used to come and go as you stepped months; and any statement short of today raised them.
+    const classed = classify(lines, new Set())
+    expect(moneyMonth(classed, '2026-09', TODAY, statements).toCheck.accounts).toEqual(october.toCheck.accounts)
+    expect(moneyMonth(classed, '2026-09', TODAY, statements).toCheck.lines.map((c) => c.description)).toEqual(october.toCheck.lines.map((c) => c.description))
+    const recent = [statement(BANK, '2026-01-01', '2026-10-26'), statement(CURRENT, '2026-01-01', '2026-10-22')]
+    expect(moneyMonth(classed, '2026-10', TODAY, recent).toCheck.accounts).toEqual([])
+    const behind = [statement(BANK, '2026-01-01', '2026-10-26'), statement(CURRENT, '2026-01-01', '2026-10-18')]
+    expect(moneyMonth(classed, '2026-10', TODAY, behind).toCheck.accounts).toEqual([{ account: CURRENT, until: '2026-10-18' }])
+  })
+
   it('gives each month’s money out for the chart, oldest first', () => {
     expect(moneyMonthTotals(classify(lines, new Set()), '2026-10', 3)).toEqual([
       { month: '2026-08', out: 0, lines: 0 },

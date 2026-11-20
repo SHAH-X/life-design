@@ -292,6 +292,36 @@ test('the title row does not move when you step to an earlier month, and This mo
   await expect(page.getByRole('link', { name: 'This month' })).toHaveCount(0)
 })
 
+// Audit 2026-11-20 (medium): "Payments out" counted a refund as a payment while the chart and the kinds did not.
+test('a refund is not counted as a payment out, in the figure, in Money out or in the chart', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const line = (id: string, date: string, amount: number, description: string, i: number) => ({ id, account: 'Example Current', date, amount, description, type: 'DD', balance: null, adds: true, createdAt: i, updatedAt: i })
+  const bankLines = [line('a', '2026-10-05', -1000, 'EXAMPLE SHOP', 1), line('b', '2026-10-08', -500, 'EXAMPLE CAFE', 2), line('c', '2026-10-12', 300, 'EXAMPLE SHOP', 3)]
+  const statements = [{ id: 'example:2026-10-01:2026-10-27', account: 'Example Current', from: '2026-10-01', to: '2026-10-27', lines: 3, createdAt: 1, updatedAt: 1 }]
+  await restoreBackup(page, testInfo.outputPath('refund-count.json'), backupWith({ bankLines, statements }, now))
+  await page.goto('./#/money')
+  await expect(page.getByRole('group', { name: 'Money in and payments out' })).toContainText('2 payments')
+  await accountView(page, 'Spending')
+  await expect(page.getByRole('region', { name: 'Money out' }).getByRole('button', { name: /^Money out/ })).toContainText('2 payments')
+})
+
+// Audit 2026-11-20 (medium): one receipt showed what was paid in the matching lists and what was spent (after a returned item) elsewhere.
+test('a receipt with a returned item says what it came to after returns where it shows what was paid', async ({ page }, testInfo) => {
+  const now = new Date(2026, 8, 30, 12, 0)
+  await page.clock.setFixedTime(now)
+  const ai = { by: 'Gemini · gemini-test', at: 1, text: '', description: '', receipt: { shop: 'Corner Shop', date: '2026-09-01', currency: '£', items: [{ name: 'Thing', price: 1000, quantity: 1 }, { name: 'Other', price: 240, quantity: 1, returned: true }], total: 1240 } }
+  await restoreBackup(page, testInfo.outputPath('returned.json'), backupWith({ entries: [{ ...freeWriting('e-corner', '', 29, now), photos: [{ id: 'p-corner', text: null, ai }] }] }, now))
+  await page.goto('./#/money')
+  const sheet = await bringIn(page, await pdf(testInfo.outputPath('monzo.pdf'), MONZO_LIKE))
+  await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  const matches = page.getByRole('region', { name: 'Receipts and payments' })
+  await matches.locator('summary', { hasText: 'matched to a payment' }).click()
+  await expect(matches.getByRole('button', { name: /Corner Shop/ })).toContainText('£12.40')
+  await expect(matches.getByRole('button', { name: /Corner Shop/ })).toContainText('£10.00 after returns')
+})
+
 // Trading 212 (v0.34.0, owner 2026-11-19: nearly all of a month's "money out" was what he sent to it): both of its
 // documents are read for the cash that moved, the bank's side is paired with it, and neither counts as spending.
 test('a payment to Trading 212 is paired with its deposit and counts as neither spending nor money in', async ({ page }, testInfo) => {

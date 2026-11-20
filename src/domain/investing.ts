@@ -69,7 +69,10 @@ export function investingMonth(all: readonly InvestLine[], summaries: readonly I
   const feeLines = trades.filter((l) => l.fees !== 0)
   const taxLines = dividends.filter((l) => l.tax !== 0)
   const groups = groupBy(sells, (l) => l.instrument).map((same): InvestGroup => ({ instrument: same[0]!.instrument, result: total(same, (l) => l.result ?? 0), lines: same }))
-  const covering = summaries.filter((s) => s.from.slice(0, 7) <= month && month <= s.to.slice(0, 7))
+  // A statement checks the month only when its days reach all the month's lines (audit 2026-11-20): one that covers the first days
+  // of a month a later document fills in has checked those, not the month.
+  const days = lines.map((l) => l.date).sort()
+  const covering = summaries.filter((s) => (days.length ? s.from <= days[0]! && s.to >= days.at(-1)! : s.from.slice(0, 7) <= month && month <= s.to.slice(0, 7)))
   const fx = total(trades, (l) => l.fxFee)
   const fees = total(trades, (l) => l.fees)
   const tax = total(dividends, (l) => l.tax)

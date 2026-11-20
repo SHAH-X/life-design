@@ -3,7 +3,7 @@ import { useId, useState } from 'react'
 import { db } from '../../db/db'
 import { accountNamesOf, CARD_ACCOUNTS, CLOSED_ACCOUNTS, markClosed, nameAccount, ownPayeesOf, removeAccount } from '../../db/statements'
 import type { StatementRecord } from '../../db/types'
-import { notBroughtIn } from '../../domain/money'
+import { needStatement } from '../../domain/money'
 import { notMatchingWords } from '../../domain/trading212'
 import { formatPeriod, toDateKey } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
@@ -68,7 +68,7 @@ export function Accounts() {
       {list?.length && names ? (
         <ul className="acc-list">
           {list.map((a) => {
-            const missing = notBroughtIn(a.statements, today, a.closed)
+            const missing = needStatement(a.statements, today, a.closed)
             const state = a.closed ? 'closed' : missing.length ? 'missing' : 'ok'
             const itsCards = Object.entries(cards ?? {}).flatMap(([last4, account]) => (account === a.name ? [last4] : [])).sort()
             return (

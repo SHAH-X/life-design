@@ -206,7 +206,7 @@ export function AccountsMonth(props: {
                 <span className="acc-stat-label">Money in</span> <span className="acc-stat-value" data-in={its.in > 0 || undefined}>{pounds(its.in)}</span>
               </button>
               <button type="button" className="acc-stat" onClick={() => goTo('acc-money-out')}>
-                <span className="acc-stat-label">Payments out</span> <span className="acc-stat-value">{paymentsWord(its.outLines.length)}</span>
+                <span className="acc-stat-label">Payments out</span> <span className="acc-stat-value">{paymentsWord(its.outLines.filter((l) => !l.refund).length)}</span>
               </button>
             </div>
           </>
@@ -499,7 +499,7 @@ function SpendingMonth({ its, jump }: { its: Its; jump: string | null }) {
         </Block>
       ) : null}
       {its.outLines.length ? (
-        <Fold id="acc-money-out" title="Money out" sub={`${paymentsWord(its.outLines.length)} · ${moneyOut} ${moneyOut === 1 ? 'name' : 'names'}`} open={opened.has('acc-money-out')} onToggle={() => flip('acc-money-out')}>
+        <Fold id="acc-money-out" title="Money out" sub={`${paymentsWord(its.outLines.filter((l) => !l.refund).length)} · ${moneyOut} ${moneyOut === 1 ? 'name' : 'names'}`} open={opened.has('acc-money-out')} onToggle={() => flip('acc-money-out')}>
           <Groups of={its.payees.out} line={(g: PayeeGroup) => <PayeeRow key={g.payee.key} group={g} out />} fewer="Fewer than 3 payments, by name" />
         </Fold>
       ) : null}
