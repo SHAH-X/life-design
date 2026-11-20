@@ -26,7 +26,7 @@ test('the tab dock floats: inset 12px, 8px up, 64px tall, rounded, glass; the ac
   expect(look.bg).toBe('rgba(255, 253, 249, 0.72)')
   // Every tab stays and can be tapped.
   const tabs = dock.getByRole('link')
-  await expect(tabs).toHaveCount(6)
+  await expect(tabs).toHaveCount(5)
   for (const tab of await tabs.all()) expect((await tab.boundingBox())!.width).toBeGreaterThanOrEqual(44)
   const pill = (await dock.locator('a[aria-current="page"] svg').boundingBox())!
   expect([Math.round(pill.width), Math.round(pill.height)]).toEqual([56, 32])

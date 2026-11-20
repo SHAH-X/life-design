@@ -171,9 +171,10 @@ test('R10, R11: the evening card: the moon sits in the title, a box is 52px and 
   expect(info.x + info.width).toBeLessThan(view.width - 40)
 })
 
+// (Ask is a page under Logs since v0.39.0, with its "‹ Logs" above the title, like the pages under More.)
 test('R12: every page title starts at the same height (Today has its notice above it)', async ({ page }) => {
   const tops: Record<string, number> = {}
-  for (const [path, name] of [['entries', 'Logs'], ['ask', 'Ask'], ['money', 'Money'], ['more', 'More']] as const) {
+  for (const [path, name] of [['entries', 'Logs'], ['money', 'Money'], ['more', 'More']] as const) {
     await page.goto(`./#/${path}`)
     const h1 = page.getByRole('heading', { level: 1, name })
     await expect(h1).toBeVisible()
@@ -190,7 +191,7 @@ test('R13, R14: list dividers are inset 20px on Today too; the active tab is one
   await expect(page.locator('.entry-list li + li').first()).toBeVisible()
   expect(await style(page.locator('.entry-list li + li').first(), ['left', 'right', 'height'], '::before')).toEqual({ left: '20px', right: '20px', height: '1px' })
   expect(await page.locator('.entry-list li + li').first().evaluate((el) => getComputedStyle(el).borderTopWidth)).toBe('0px')
-  for (const tab of ['Today', 'Logs', 'Ask', 'Money', 'Insights', 'More']) {
+  for (const tab of ['Today', 'Logs', 'Money', 'Insights', 'More']) {
     await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: tab }).click()
     const icon = page.locator('nav.tabbar a[aria-current="page"] svg')
     await expect(icon).toBeVisible()

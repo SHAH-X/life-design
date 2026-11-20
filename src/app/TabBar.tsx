@@ -35,16 +35,6 @@ const ITEMS: { tab: Tab; label: string; icon: ReactNode }[] = [
     ),
   },
   {
-    tab: 'ask',
-    label: 'Ask',
-    icon: (
-      <svg {...ICON_PROPS}>
-        <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" />
-        <path d="M10 9.5a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.2v.5M12 16h.01" />
-      </svg>
-    ),
-  },
-  {
     tab: 'money',
     label: 'Money',
     icon: (
@@ -76,12 +66,14 @@ const ITEMS: { tab: Tab; label: string; icon: ReactNode }[] = [
   },
 ]
 
+/** Ask has no tab of its own (v0.39.0): it opens from the top of Logs, so Logs is the tab marked while it is open. */
 export function TabBar({ current }: { current: Tab }) {
+  const here = current === 'ask' ? 'entries' : current
   return (
     <nav className="tabbar" aria-label="Main">
       <div className="tabbar-inner">
         {ITEMS.map(({ tab, label, icon }) => (
-          <a key={tab} href={hashFor(tab)} aria-current={tab === current ? 'page' : undefined}>
+          <a key={tab} href={hashFor(tab)} aria-current={tab === here ? 'page' : undefined}>
             {icon}
             <span>{label}</span>
           </a>

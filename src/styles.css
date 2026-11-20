@@ -1740,6 +1740,32 @@ input[type='search'] {
   box-shadow: 0 0 0 4px var(--accent-soft);
 }
 
+/* Ask opens from here (v0.39.0): a plain row under the search, not another box to type in. */
+.logs-ask {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-bottom: 8px;
+  padding: 0 16px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.logs-ask > span:first-child {
+  display: flex;
+  flex: none;
+  color: var(--accent);
+}
+
+.logs-ask > span:nth-child(2) {
+  flex: 1;
+}
+
+.logs-ask > .icon {
+  color: var(--muted);
+}
+
 /* Free writing is read in serif, two lines of it. */
 .entry-row[data-kind='free'] .entry-note {
   font-family: ui-serif, 'New York', Georgia, serif;

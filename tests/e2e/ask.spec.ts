@@ -2,7 +2,7 @@ import { expect, type Page, type Route, test } from '@playwright/test'
 import { RECEIPTS } from '../fixtures/receipts'
 import { backupWith, freeWriting, restoreBackup } from './seed'
 
-// Ask (v0.18, its own tab) in WebKit: a question about the journal, answered with your AI on a tap. The AI service is
+// Ask (v0.18; reached from the top of Logs since v0.39.0, owner 2026-11-20: "the Ask section is not used enough, maybe it can be merged with logs") in WebKit: a question about the journal, answered with your AI on a tap. The AI service is
 // a stand-in for Gemini (page.route) playing what the real one does: it asks the phone for receipts, then for a total,
 // then answers with the phone's total. No real key is used and nothing leaves the test. Fictional receipts.
 
@@ -56,12 +56,26 @@ test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(SATURDAY)
 })
 
-test('Ask has its own tab: a question is asked on a tap, answered with the phone’s total, and kept with what was sent', async ({ page }, testInfo) => {
+test('Ask is no tab of its own: the dock has five, Logs opens Ask, and Ask goes back to Logs', async ({ page }) => {
+  await page.goto('./#/entries')
+  const dock = page.getByRole('navigation', { name: 'Main' })
+  await expect(dock.getByRole('link')).toHaveText(['Today', 'Logs', 'Money', 'Insights', 'More'])
+  await page.getByRole('link', { name: 'Ask your journal' }).click()
+  await expect(page).toHaveURL(/#\/ask$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Ask' })).toBeVisible()
+  // Logs is the tab it sits under, so it is the one marked as here.
+  await expect(dock.locator('a[aria-current="page"]')).toHaveText('Logs')
+  await page.getByRole('link', { name: 'Back to Logs' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Logs' })).toBeVisible()
+})
+
+test('Ask is reached from Logs: a question is asked on a tap, answered with the phone’s total, and kept with what was sent', async ({ page }, testInfo) => {
   const sent = await fakeGemini(page)
   await restoreReceipts(page, testInfo.outputPath('receipts.json'))
   await setUpGemini(page)
 
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Ask' }).click()
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Logs' }).click()
+  await page.getByRole('link', { name: 'Ask your journal' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Ask' })).toBeVisible()
   // The composer is an opaque card with a serif label (it was a tinted box).
   const composer = page.getByRole('region', { name: 'Ask your journal' })
