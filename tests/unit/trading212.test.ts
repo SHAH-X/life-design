@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { classify } from '../../src/domain/money'
 import { readStatement, type TextPiece } from '../../src/domain/statements'
 import { notMatchingWords } from '../../src/domain/trading212'
-import { piecesOf } from '../fixtures/pdf'
-import { activityLike, TRADING212_EXPECT, TRANSACTIONS_LIKE } from '../fixtures/trading212'
+import { piecesFromPdf } from '../../src/lib/pdfText'
+import { makePdf, piecesOf } from '../fixtures/pdf'
+import { activityLike, TRADING212_EXPECT, TRADING212_INVESTING_EXPECT, TRANSACTIONS_LIKE } from '../fixtures/trading212'
 
 // Trading 212's two documents (v0.34.0, owner 2026-11-19: his transfers to it counted as spending): the cash it took in and
 // paid out, as an account of its own. Fictional statements only.
@@ -33,6 +34,60 @@ describe('a Trading 212 Activity statement', () => {
     const off = readStatement(piecesOf(activityLike(16000)))
     if ('problem' in off) throw new Error(off.problem)
     expect(off.accounts[0]!.lines.every((l) => !l.adds)).toBe(true)
+  })
+})
+
+/** What a statement says about the account's trades, dividends and interest, as the fixtures write it. */
+function investingOf(pieces: readonly TextPiece[]) {
+  const read = readStatement(pieces)
+  if ('problem' in read) throw new Error(read.problem)
+  const one = read.investing?.[0]
+  if (!one) return null
+  const of = (kind: string) => one.lines.filter((l) => l.kind === kind)
+  return {
+    account: one.account,
+    trades: of('trade').map((l) => [l.at, l.instrument, l.direction, l.orderId, l.value, l.fxFee, l.fees, l.result]),
+    dividends: of('dividend').map((l) => [l.date, l.instrument, l.value, l.tax]),
+    interest: of('interest').map((l) => [l.at, l.value]),
+    summary: one.summary,
+  }
+}
+
+describe('Trading 212’s trades, dividends and interest (v0.36.0)', () => {
+  it('reads an Activity statement’s trades (fees and what each sale made), dividends (after tax, and the tax) and interest, with its overview’s figures and none of them in doubt', () => {
+    const read = investingOf(piecesOf(activityLike()))!
+    expect(read.account).toBe('Trading 212 ···0001')
+    expect(read.trades).toEqual(TRADING212_INVESTING_EXPECT.trades)
+    expect(read.dividends).toEqual(TRADING212_INVESTING_EXPECT.dividends)
+    expect(read.interest).toEqual(TRADING212_INVESTING_EXPECT.interest)
+    expect(read.summary).toEqual(TRADING212_INVESTING_EXPECT.summary)
+  })
+
+  it('says which of the overview’s totals the lines do not add up to', () => {
+    const off = investingOf(piecesOf(activityLike(undefined, { 'FX fee': -200, 'Closed result': 9999 })))!
+    expect(off.summary!.mismatches).toEqual(['FX fees £1.15, the statement says £2.00', 'Closed result £12.74, the statement says £99.99'])
+  })
+
+  it('reads a Transactions Statement’s interest, the same lines as the Activity statement’s, and no totals', () => {
+    const read = investingOf(piecesOf(TRANSACTIONS_LIKE))!
+    expect(read.interest).toEqual(TRADING212_INVESTING_EXPECT.interest)
+    expect(read.trades).toEqual([])
+    expect(read.dividends).toEqual([])
+    expect(read.summary).toBeNull()
+  })
+})
+
+describe('Trading 212’s documents as real PDFs (PDF.js joins words that touch, so this is what the phone reads)', () => {
+  it('reads both documents’ transfers, and the Activity statement’s trades, dividends, interest and totals, as it does the pieces', async () => {
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
+    expect(asRead(await piecesFromPdf(pdfjs, makePdf(TRANSACTIONS_LIKE)))).toEqual(TRADING212_EXPECT)
+    const activity = await piecesFromPdf(pdfjs, makePdf(activityLike()))
+    expect(asRead(activity)).toEqual(TRADING212_EXPECT)
+    const read = investingOf(activity)!
+    expect(read.trades).toEqual(TRADING212_INVESTING_EXPECT.trades)
+    expect(read.dividends).toEqual(TRADING212_INVESTING_EXPECT.dividends)
+    expect(read.interest).toEqual(TRADING212_INVESTING_EXPECT.interest)
+    expect(read.summary).toEqual(TRADING212_INVESTING_EXPECT.summary)
   })
 })
 

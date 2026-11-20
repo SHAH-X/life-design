@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { type InvestBrought, bringInInvesting } from '../../db/invest'
 import { type BroughtIn, bringInStatement } from '../../db/statements'
 import { readStatement, type StatementProblem } from '../../domain/statements'
 import { notMatchingWords } from '../../domain/trading212'
@@ -17,7 +18,7 @@ const PROBLEMS: Record<StatementProblem, string> = {
 }
 
 /** What became of one file: the accounts it brought in, or why it wasn't. */
-type Outcome = { file: string; brought: BroughtIn[] } | { file: string; error: string }
+type Outcome = { file: string; brought: BroughtIn[]; invested: InvestBrought[] } | { file: string; error: string }
 
 type State = { kind: 'choose'; error?: string } | { kind: 'reading'; at: number; of: number } | { kind: 'done'; outcomes: Outcome[] }
 
@@ -28,10 +29,25 @@ async function bringIn(file: File): Promise<Outcome> {
   try {
     const read = readStatement(await readPdf(file))
     if ('problem' in read) return { file: file.name, error: PROBLEMS[read.problem] }
-    return { file: file.name, brought: await bringInStatement(read.accounts) }
+    return { file: file.name, brought: await bringInStatement(read.accounts), invested: read.investing?.length ? await bringInInvesting(read.investing) : [] }
   } catch (error) {
     return { file: file.name, error: error instanceof PdfError ? error.message : COULDNT }
   }
+}
+
+/** Trading 212's trades, dividends and interest (v0.36.0): "256 trades · 11 dividends · 39 interest · 300 new". */
+function toldInvesting(b: InvestBrought): string {
+  const n = (count: number, one: string, many: string) => (count ? `${count} ${count === 1 ? one : many}` : '')
+  return [
+    n(b.trades, 'trade', 'trades'),
+    n(b.dividends, 'dividend', 'dividends'),
+    n(b.interest, 'interest line', 'interest lines'),
+    b.added || !b.already ? `${b.added} new` : '',
+    b.already ? `${b.already} already here` : '',
+    b.mismatches.length ? `doesn’t match the statement’s totals: ${b.mismatches.join('; ')}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 /** "4 new · 1–30 Sep", "12 already here", "1 doesn’t match its printed balance". */
@@ -100,11 +116,18 @@ export function StatementImport({ onClose }: { onClose: () => void }) {
                       <strong>{o.file}</strong>: {o.error}
                     </li>,
                   ]
-                : o.brought.map((b) => (
-                    <li key={`${o.file}:${b.account}`}>
-                      <strong>{names?.get(b.account) ?? b.account}</strong>: {told(b)}
-                    </li>
-                  )),
+                : [
+                    ...o.brought.map((b) => (
+                      <li key={`${o.file}:${b.account}`}>
+                        <strong>{names?.get(b.account) ?? b.account}</strong>: {told(b)}
+                      </li>
+                    )),
+                    ...o.invested.map((b) => (
+                      <li key={`${o.file}:${b.account}:investing`}>
+                        <strong>{names?.get(b.account) ?? b.account} investing</strong>: {toldInvesting(b)}
+                      </li>
+                    )),
+                  ],
             )}
           </ul>
           <button type="button" className="primary wide top-gap" onClick={onClose}>

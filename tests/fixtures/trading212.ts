@@ -82,9 +82,37 @@ export const TRANSACTIONS_LIKE: Placed[][] = [
 
 // ---------- The Activity statement: an overview of every account, then each one's trades, positions, cash and transactions ----------
 
+/** The ISA's trades, oldest first (account currency, pence): a buy has no result; a sale's result is what it made or lost. */
+const TRADES = [
+  { at: '2026-10-01 07:05:49', ticker: 'EXMP', isin: 'GB00EXMP0001', order: '1000000001', dir: 'Buy', fxFee: 0, fees: 50, result: null, value: 10018 },
+  { at: '2026-10-02 13:39:46', ticker: 'EXMP', isin: 'GB00EXMP0001', order: '1000000002', dir: 'Sell', fxFee: 0, fees: 0, result: 251, value: 10219 },
+  { at: '2026-10-05 14:22:10', ticker: 'EXMQ', isin: 'US00EXMQ0001', order: '1000000003', dir: 'Sell', fxFee: 55, fees: 0, result: 856, value: 36563 },
+  { at: '2026-10-06 14:01:26', ticker: 'EXMQ', isin: 'US00EXMQ0001', order: '1000000004', dir: 'Sell', fxFee: 30, fees: 0, result: -333, value: 20178 },
+  { at: '2026-10-07 15:59:02', ticker: 'EXMR', isin: 'US00EXMR0001', order: '1000000005', dir: 'Sell', fxFee: 15, fees: 0, result: 500, value: 5000 },
+  { at: '2026-10-08 09:01:37', ticker: 'EXMQ', isin: 'US00EXMQ0001', order: '1000000006', dir: 'Buy', fxFee: 15, fees: 0, result: null, value: 10004 },
+] as const
+
+/** Its dividends: what the account got after tax, and the tax withheld in the instrument's currency at its printed rate. */
+const DIVIDENDS = [
+  { ticker: 'EXMP', isin: 'US00EXMP0001', country: 'United States', held: '0.81', pay: '01.10.2026 14:39', perShare: '$1.22', fx: '0.75471', total: '$0.9882', rate: '15%', wht: '$0.14823', net: 63 },
+  { ticker: 'EXMQ', isin: 'GB00EXMQ0001', country: 'United Kingdom', held: '2.352', pay: '05.10.2026 09:26', perShare: 'p140', fx: '0.01', total: 'p329.28', rate: '0%', wht: 'p0', net: 329 },
+] as const
+
+const sum = (values: readonly number[]) => values.reduce((a, b) => a + b, 0)
+const FX_FEES = sum(TRADES.map((t) => t.fxFee))
+const FEES = sum(TRADES.map((t) => t.fees))
+const CLOSED = sum(TRADES.map((t) => t.result ?? 0))
+const DIVIDENDS_NET = sum(DIVIDENDS.map((d) => d.net))
+const INTEREST = sum(ROWS.filter((r) => r.type === 'Interest on cash').map((r) => r.pence))
+
 const BLOCKS = [
   { x: 20, name: 'Trading 212 Invest', id: '20000002', rows: [['Deposits', 0], ['Withdrawals', 0], ['Account value', 0]] },
-  { x: 160, name: 'Trading 212 Stocks ISA', id: '20000001', rows: [['Deposits', 15000], ['Withdrawals', -7525], ['Dividends and distributions', 188], ['Interest on cash', 9], ['Account value', 500000]] },
+  {
+    x: 160,
+    name: 'Trading 212 Stocks ISA',
+    id: '20000001',
+    rows: [['Deposits', 15000], ['Withdrawals', -7525], ['Closed result', CLOSED], ['Open result', -41250], ['Open result change', -3120], ['Dividends and distributions', DIVIDENDS_NET], ['Interest on cash', INTEREST], ['FX fee', -FX_FEES], ['Third-party fees', -FEES], ['Account value', 500000]],
+  },
   { x: 300, name: 'Trading 212 Cash ISA', id: '20000003', rows: [['Deposits', 0], ['Withdrawals', 0], ['Account balance', 0]] },
   { x: 440, name: 'Trading 212 CFD', id: '20000004', rows: [['Deposits', 0], ['Withdrawals', 0], ['Account value', 0]] },
 ] as const
@@ -92,13 +120,13 @@ const BLOCKS = [
 /** The overview prints every sum with its pence: "£1,234.56", "-£75.25". */
 const printed = (pence: number) => `${pence < 0 ? '-' : ''}£${(Math.abs(pence) / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-const overview = (over: { deposits?: number } = {}): Placed[] =>
+const overview = (over: Readonly<Record<string, number>> = {}): Placed[] =>
   BLOCKS.flatMap((b) => [
     { text: b.name, x: b.x, y: 440, size: 9 },
     { text: `Account ID: ${b.id}`, x: b.x, y: 426, size: 7 },
     ...b.rows.flatMap(([label, pence], i): Placed[] => [
       { text: label as string, x: b.x + 4, y: 400 - i * 16, size: 7 },
-      { text: printed(over.deposits !== undefined && label === 'Deposits' && b.id === '20000001' ? over.deposits : (pence as number)), x: b.x + 130, y: 400 - i * 16, size: 7, right: true },
+      { text: printed(b.id === '20000001' && over[label as string] !== undefined ? over[label as string]! : (pence as number)), x: b.x + 130, y: 400 - i * 16, size: 7, right: true },
     ]),
   ])
 
@@ -118,39 +146,113 @@ const acRows = (rows: readonly (typeof ROWS)[number][], top: number): Placed[] =
     ]
   })
 
-/** `deposits`: what the overview says the deposits came to, when a test wants it wrong. */
-export const activityLike = (deposits?: number): Placed[][] => [
+// Spaced as the real one is: PDF.js joins words that touch ("Sell1.5"), so no column runs into the next.
+const TRADE_COLUMNS = { time: 18, ticker: 95, isin: 150, order: 230, dir: 275, qty: 330, price: 365, valueInstr: 400, fxRate: 432, fxFee: 468, fees: 505, result: 543, value: 580 }
+
+const tradeHeading = (y: number): Placed[] => [
+  { text: 'EXECUTION TIME', x: TRADE_COLUMNS.time, y, size: 6 },
+  { text: 'INSTRUMENT', x: TRADE_COLUMNS.ticker, y, size: 6 },
+  { text: 'ISIN', x: TRADE_COLUMNS.isin, y, size: 6 },
+  { text: 'ORDER ID', x: TRADE_COLUMNS.order, y, size: 6 },
+  { text: 'DIRECTION', x: TRADE_COLUMNS.dir, y, size: 6 },
+  { text: 'QUANTITY', x: TRADE_COLUMNS.qty, y, size: 6, right: true },
+  { text: 'EXECUTION PRICE', x: TRADE_COLUMNS.price, y, size: 6, right: true },
+  { text: 'VALUE', x: TRADE_COLUMNS.valueInstr, y, size: 6, right: true },
+  { text: 'FX RATE', x: TRADE_COLUMNS.fxRate, y, size: 6, right: true },
+  { text: 'FX FEE', x: TRADE_COLUMNS.fxFee, y, size: 6, right: true },
+  { text: 'EXCHANGE &', x: TRADE_COLUMNS.fees, y: y + 8, size: 6, right: true },
+  { text: 'GOVT FEES', x: TRADE_COLUMNS.fees, y, size: 6, right: true },
+  { text: 'RETURN', x: TRADE_COLUMNS.result, y, size: 6, right: true },
+  { text: 'VALUE', x: TRADE_COLUMNS.value, y, size: 6, right: true },
+]
+
+/** A trade's money as it prints it: "£0.5", "-£3.33", and "-" for none. */
+const none = (pence: number | null) => (pence === null || pence === 0 ? '-' : printedShort(pence))
+const printedShort = (pence: number) => `${pence < 0 ? '-' : ''}£${(Math.abs(pence) / 100).toLocaleString('en-GB', { maximumFractionDigits: 2 })}`
+
+const tradeRows = (rows: readonly (typeof TRADES)[number][], top: number): Placed[] =>
+  rows.flatMap((t, i) => {
+    const y = top - i * 20
+    return [
+      { text: t.at, x: TRADE_COLUMNS.time, y, size: 7 },
+      { text: t.ticker, x: TRADE_COLUMNS.ticker, y, size: 7 },
+      { text: t.isin, x: TRADE_COLUMNS.isin, y, size: 7 },
+      { text: t.order, x: TRADE_COLUMNS.order, y, size: 7 },
+      { text: t.dir, x: TRADE_COLUMNS.dir, y, size: 7 },
+      { text: '1.5', x: TRADE_COLUMNS.qty, y, size: 7, right: true },
+      { text: '$10.5', x: TRADE_COLUMNS.price, y, size: 7, right: true },
+      { text: '$15.75', x: TRADE_COLUMNS.valueInstr, y, size: 7, right: true },
+      { text: '1.3', x: TRADE_COLUMNS.fxRate, y, size: 7, right: true },
+      { text: none(t.fxFee), x: TRADE_COLUMNS.fxFee, y, size: 7, right: true },
+      { text: none(t.fees), x: TRADE_COLUMNS.fees, y, size: 7, right: true },
+      { text: none(t.result), x: TRADE_COLUMNS.result, y, size: 7, right: true },
+      { text: printedShort(t.value), x: TRADE_COLUMNS.value, y, size: 7, right: true },
+    ]
+  })
+
+const dividendHeading = (y: number): Placed[] => [
+  { text: 'INSTRUMENT', x: 18, y, size: 6 },
+  { text: 'PAY DATE', x: 230, y, size: 6 },
+  { text: 'FX RATE', x: 380, y, size: 6, right: true },
+  { text: 'TOTAL AMOUNT', x: 420, y, size: 6, right: true },
+  { text: 'WHT RATE', x: 460, y, size: 6, right: true },
+  { text: 'WHT', x: 500, y, size: 6, right: true },
+  { text: 'TOTAL AMOUNT (ACCOUNT CURRENCY)', x: 580, y, size: 6, right: true },
+]
+
+const dividendRows = (rows: readonly (typeof DIVIDENDS)[number][], top: number): Placed[] =>
+  rows.flatMap((d, i) => {
+    const y = top - i * 20
+    return [
+      { text: d.ticker, x: 18, y, size: 7 },
+      { text: d.isin, x: 80, y, size: 7 },
+      { text: d.country, x: 140, y, size: 7 },
+      { text: d.held, x: 200, y, size: 7 },
+      { text: d.pay, x: 230, y, size: 7 },
+      { text: d.perShare, x: 340, y, size: 7, right: true },
+      { text: d.fx, x: 380, y, size: 7, right: true },
+      { text: d.total, x: 420, y, size: 7, right: true },
+      { text: d.rate, x: 460, y, size: 7, right: true },
+      { text: d.wht, x: 500, y, size: 7, right: true },
+      { text: printedShort(d.net), x: 580, y, size: 7, right: true },
+    ]
+  })
+
+/** `deposits`: what the overview says the deposits came to, when a test wants it wrong; `overrides`: any other of its figures. */
+export const activityLike = (deposits?: number, overrides: Readonly<Record<string, number>> = {}): Placed[][] => [
   [
     { text: 'Activity statement', x: 220, y: 560, size: 20 },
     { text: 'Generated by Trading 212 UK Ltd. on 19 October 2026, covering from 19.09.2026 21:00 (UTC) to 18.10.2026 21:59 (UTC).', x: 40, y: 530, size: 7 },
     { text: 'Overview', x: 250, y: 480, size: 14 },
-    ...overview(deposits === undefined ? {} : { deposits }),
+    ...overview({ ...(deposits === undefined ? {} : { Deposits: deposits }), ...overrides }),
   ],
-  // Trades carry times in the same form as transactions: they are no money moved.
-  [
-    { text: 'Stocks ISA account - executed trades', x: 150, y: 560, size: 14 },
-    { text: 'EXECUTION TIME', x: 18, y: 520, size: 7 },
-    { text: 'INSTRUMENT', x: 128, y: 520, size: 7 },
-    { text: 'VALUE', x: 480, y: 520, size: 7, right: true },
-    { text: '2026-10-01 07:05:49', x: 18, y: 500, size: 8 },
-    { text: 'EXMP', x: 128, y: 500, size: 8 },
-    { text: '£100.18', x: 480, y: 500, size: 8, right: true },
-    { text: '2026-10-02 13:39:46', x: 18, y: 478, size: 8 },
-    { text: 'EXMQ', x: 128, y: 478, size: 8 },
-    { text: '£102.19', x: 480, y: 478, size: 8, right: true },
-  ],
+  // Trades: their times are in the same form as transactions', and they are no money moved.
+  [{ text: 'Stocks ISA account - executed trades', x: 150, y: 560, size: 14 }, ...tradeHeading(520), ...tradeRows(TRADES.slice(0, 3), 498)],
+  // The table carries on with its heading again and no title.
+  [...tradeHeading(540), ...tradeRows(TRADES.slice(3), 518)],
   [{ text: 'Stocks ISA account - transactions and dividends', x: 120, y: 560, size: 14 }, { text: 'Transactions', x: 18, y: 530, size: 11 }, ...acHeading(510), ...acRows(ROWS.slice(0, 3), 488)],
   // The table carries on with no title, and the dividends follow on the same page.
   [
     ...acHeading(540),
     ...acRows(ROWS.slice(3), 518),
     { text: 'Dividends', x: 18, y: 430, size: 11 },
-    { text: 'INSTRUMENT', x: 18, y: 410, size: 7 },
-    { text: 'PAY DATE', x: 200, y: 410, size: 7 },
-    { text: 'TOTAL AMOUNT', x: 480, y: 410, size: 7, right: true },
-    { text: 'EXMP', x: 18, y: 390, size: 8 },
-    { text: '01.10.2026 14:39', x: 200, y: 390, size: 8 },
-    { text: '£1.88', x: 480, y: 390, size: 8, right: true },
+    ...dividendHeading(410),
+    ...dividendRows(DIVIDENDS, 388),
   ],
   [{ text: 'Cash ISA account - transactions', x: 150, y: 560, size: 14 }, ...acHeading(520), { text: 'No data available', x: 220, y: 490, size: 8 }],
 ]
+
+/** What a person reads of the ISA's trades, dividends and interest (the Activity statement's): [what, when/ticker…, pence…]. */
+export const TRADING212_INVESTING_EXPECT = {
+  trades: TRADES.map((t) => [t.at, t.ticker, t.dir, t.order, t.value, t.fxFee, t.fees, t.result]),
+  /** [day, ticker, net pence, tax withheld in pence at the printed rate]. */
+  dividends: [
+    ['2026-10-01', 'EXMP', 63, 11],
+    ['2026-10-05', 'EXMQ', 329, 0],
+  ],
+  /** [at, pence], oldest first. */
+  interest: ROWS.filter((r) => r.type === 'Interest on cash')
+    .map((r) => [r.iso, r.pence])
+    .reverse(),
+  summary: { accountValue: 500000, openResult: -41250, openResultChange: -3120, mismatches: [] as string[] },
+}

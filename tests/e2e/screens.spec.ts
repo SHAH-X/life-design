@@ -6,6 +6,7 @@ import { expectCleanLayout } from './layout'
 import { backupWith, freeWriting, restoreBackup, restoreSeed } from './seed'
 import { makePdf } from '../fixtures/pdf'
 import { MONZO_LIKE } from '../fixtures/statements'
+import { activityLike } from '../fixtures/trading212'
 
 // Every main screen and sheet (light only: no dark mode since v0.14.1, owner's choice), with the fictional seed at a fixed evening: the general layout
 // check on each, plus a reference screenshot. A changed screenshot fails until it's looked at and accepted with
@@ -321,6 +322,25 @@ for (const scheme of ['light'] as const) {
       await expect(page.getByText(/Duplicate · counted once/)).toBeVisible()
       await expect(page.getByText(/Date not read · using Wed, Oct 21/)).toBeVisible()
       await look(page, `${scheme}-money-duplicate`)
+    })
+
+    // v0.36.0: Money → Investing, from a Trading 212 Activity statement (fictional): profit and loss, costs and charges, income.
+    test(`Money investing, ${scheme}`, async ({ page }, testInfo) => {
+      await page.clock.setFixedTime(new Date(2026, 9, 18, 12, 0))
+      await page.goto('./#/money')
+      const statementPath = testInfo.outputPath('trading212-activity.pdf')
+      await writeFile(statementPath, makePdf(activityLike()))
+      await page.getByRole('button', { name: 'Bring in a statement' }).click()
+      const statementSheet = page.getByRole('dialog', { name: 'Bring in a statement' })
+      await statementSheet.locator('input[type="file"]').setInputFiles(statementPath)
+      await expect(statementSheet.getByRole('list', { name: 'Brought in' })).toBeVisible()
+      await statementSheet.getByRole('button', { name: 'Done', exact: true }).click()
+      await page.getByRole('group', { name: 'Money sections' }).getByRole('button', { name: 'Investing' }).click()
+      await expect(page.getByRole('region', { name: 'Costs and charges' })).toBeVisible()
+      await look(page, `${scheme}-money-investing`)
+      for (const summary of await page.getByRole('region', { name: 'Costs and charges' }).locator('summary').all()) await summary.click()
+      await page.getByRole('region', { name: 'Profit and loss' }).locator('summary', { hasText: 'Other instruments' }).click()
+      await look(page, `${scheme}-money-investing-open`)
     })
 
     // v0.35.0: a month's receipts and payments from both sides, each list opened.

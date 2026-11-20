@@ -209,7 +209,9 @@ test('a payment to Trading 212 is paired with its deposit and counts as neither 
   await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveText([
     /^First Direct: 11 new/,
     /^Trading 212: 3 new · 20 Sept? ?– ?18 Oct$/,
+    /^Trading 212 investing: 3 interest lines · 3 new$/,
     /^Trading 212: 3 already here · 20 Sept? ?– ?18 Oct$/,
+    /^Trading 212 investing: 6 trades · 2 dividends · 3 interest lines · 8 new · 3 already here$/,
   ])
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
   // October's payments to the broker: £50 was paired with a deposit, £20 was not, so two payments went out (it and the shop).
@@ -223,6 +225,49 @@ test('a payment to Trading 212 is paired with its deposit and counts as neither 
   const view = page.getByRole('dialog', { name: 'Trading 212', exact: true })
   await expect(view.getByRole('heading', { name: 'October 2026' })).toBeVisible()
   await expect(view.getByRole('listitem')).toHaveCount(2)
+})
+
+// Trading 212's Investing view (v0.36.0, owner 2026-11-19: "profit made, cost and charges, etc"): what its Activity statement
+// prints of trades, dividends and interest, a month at a time as plain sums.
+test('Money → Investing shows a month’s profit and loss, costs and charges and income from the Trading 212 statement, each opening to its lines', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date(2026, 9, 18, 12, 0))
+  await page.goto('./#/money')
+  // With nothing from Trading 212 brought in, there is no Investing part.
+  await expect(page.getByRole('group', { name: 'Money sections' }).getByRole('button', { name: 'Investing' })).toHaveCount(0)
+  const sheet = await bringIn(page, await pdf(testInfo.outputPath('trading212-activity.pdf'), activityLike()))
+  await expect(sheet.getByRole('list', { name: 'Brought in' }).getByRole('listitem')).toHaveText([
+    /^Trading 212: 3 new · 20 Sept? ?– ?18 Oct$/,
+    /^Trading 212 investing: 6 trades · 2 dividends · 3 interest lines · 11 new$/,
+  ])
+  await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  await page.getByRole('group', { name: 'Money sections' }).getByRole('button', { name: 'Investing' }).click()
+  await expect(page.getByText('Checked against the totals your statement prints.')).toBeVisible()
+
+  // Profit and loss: what the month's sales made or lost, by ticker, and what the statement still held.
+  const profit = page.getByRole('region', { name: 'Profit and loss' })
+  await expect(profit.getByText('£12.74 made').first()).toBeVisible()
+  // Fewer than 3 sales of an instrument: all in one line that opens, by name.
+  await profit.locator('summary', { hasText: 'Other instruments' }).click()
+  await expect(profit.getByText('3 instruments, fewer than 3 sales each')).toBeVisible()
+  await expect(profit.getByText('EXMQ').first()).toBeVisible()
+  await expect(profit).toContainText('£5.23 made')
+  await expect(profit).toContainText('Held at')
+  await expect(profit).toContainText('open result £412.50 lost')
+  await expect(profit).toContainText('£5000.00 in all')
+
+  // Costs and charges: FX fees, exchange and government fees, and tax withheld, with the trades they came on.
+  const costs = page.getByRole('region', { name: 'Costs and charges' })
+  await expect(costs).toContainText('£1.76 in all, on 6 trades')
+  await expect(costs.locator('summary', { hasText: 'FX fees' })).toContainText('£1.15')
+  await expect(costs.locator('summary', { hasText: 'Exchange and government fees' })).toContainText('£0.50')
+  await expect(costs.locator('summary', { hasText: 'Tax withheld on dividends' })).toContainText('£0.11')
+
+  // Income: dividends after tax, and interest on cash.
+  const income = page.getByRole('region', { name: 'Income' })
+  await expect(income.locator('summary', { hasText: 'Dividends' })).toContainText('£3.92')
+  await expect(income.getByText('Interest on cash')).toBeVisible()
+  // Nothing in it reads as a rating or a percentage.
+  await expect(page.locator('.money-screen')).not.toContainText('%')
 })
 
 // Wherever a payment is listed it opens the same sheet, with Rename, Assign category and Who was it for (owner, 2026-11-19:

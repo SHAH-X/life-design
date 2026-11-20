@@ -4,7 +4,7 @@ import { applyImport, BACKUP_SCHEMA_VERSION, createBackup, detectFile, planImpor
 import { lockText, unlockText } from '../../src/db/crypto'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { newReview } from '../../src/db/repo'
-import { isAiReview, isBankLine, isEntry, isQuestion } from '../../src/db/validate'
+import { isAiReview, isBankLine, isEntry, isInvestLine, isInvestSummary, isQuestion } from '../../src/db/validate'
 import { emptyPlan } from '../../src/domain/lifeDesign'
 import { ITEM_KINDS } from '../../src/domain/receipts'
 import { PROVIDERS } from '../../src/lib/ai'
@@ -50,6 +50,8 @@ const emptyRaw = (): RawData => ({
   bankLines: [],
   statements: [],
   ideaMaps: [],
+  investLines: [],
+  investSummaries: [],
 })
 
 let phone: LifeDesignDB
@@ -536,10 +538,27 @@ describe('backup and restore', () => {
     expect(detectFile(text)).toEqual({ format: 'too-new', schemaVersion: BACKUP_SCHEMA_VERSION + 1 })
   })
 
+  it('backs up and restores Trading 212’s lines and statement totals, and refuses a damaged one (v0.36.0)', async () => {
+    const line = { id: 'i1', account: 'Trading 212 ···0001', kind: 'trade' as const, date: '2026-10-02', at: '2026-10-02 13:39:46', instrument: 'EXMP', direction: 'Sell' as const, orderId: '1000000002', value: 10219, fxFee: 0, fees: 0, result: 251, tax: 0, createdAt: 5, updatedAt: 5 }
+    const summary = { id: 'Trading 212 ···0001:2026-09-20:2026-10-18', account: 'Trading 212 ···0001', from: '2026-09-20', to: '2026-10-18', accountValue: 500000, openResult: -41250, openResultChange: -3120, mismatches: ['FX fees £1.00, the statement says £1.10'], createdAt: 5, updatedAt: 5 }
+    await phone.investLines.put(line)
+    await phone.investSummaries.put(summary)
+    const detected = detectFile(JSON.stringify(await createBackup(phone)))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    await applyImport(detected.raw, newPhone)
+    expect(await newPhone.investLines.get('i1')).toEqual(line)
+    expect(await newPhone.investSummaries.toArray()).toEqual([summary])
+    expect(isInvestLine({ ...line, value: 102.19 })).toBe(false)
+    expect(isInvestLine({ ...line, kind: 'bonus' })).toBe(false)
+    expect(isInvestLine({ ...line, result: null })).toBe(true)
+    expect(isInvestSummary({ ...summary, mismatches: [3] })).toBe(false)
+    expect(isInvestSummary({ ...summary, openResult: null })).toBe(true)
+  })
+
   it('moves to a new backup format with each new item kind: an older version would skip an entry with one, its writing too', () => {
     // v0.19.2 added Clothes and shoes and format 10; v0.20.37 added Baby and toddler and format 12 (v0.23's maps of
-    // your ideas took 13). A new kind: raise the format, then both numbers here.
-    expect({ format: BACKUP_SCHEMA_VERSION, kinds: ITEM_KINDS.length }).toEqual({ format: 13, kinds: 14 })
+    // your ideas took 13 and v0.36.0's Trading 212 lines 14). A new kind: raise the format, then both numbers here.
+    expect({ format: BACKUP_SCHEMA_VERSION, kinds: ITEM_KINDS.length }).toEqual({ format: 14, kinds: 14 })
   })
 
   it('recognises locked backups, v1 files and everything else', async () => {

@@ -270,7 +270,8 @@ function findLayoutFaults(): { faults: string[]; small: string[] } {
   // iPhone: a free-writing entry shown whole, in bold, pushed "+ Reflect on an activity" out of sight).
   for (const li of root.querySelectorAll('li')) {
     const h = li.getBoundingClientRect().height
-    if (seen(li) && h > window.innerHeight / 3) report(faults, `${name(li)} is ${px(h)}px tall: a list row takes over a third of the screen`)
+    // A row you opened (a disclosure) is as tall as what's in it: that is your choice, not one entry crowding out the rest.
+    if (seen(li) && !li.querySelector('details[open]') && h > window.innerHeight / 3) report(faults, `${name(li)} is ${px(h)}px tall: a list row takes over a third of the screen`)
   }
 
   // 7. A link the app never styled: still the browser's own underlined blue (v0.11: "All next steps ›").
