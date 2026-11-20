@@ -245,11 +245,10 @@ for (const scheme of ['light'] as const) {
       await statementSheet.getByRole('button', { name: 'Done', exact: true }).click()
       await look(page, at('money-accounts'))
       // The other two parts of Accounts: where September's money went (the statement is September's), and the accounts.
-      const part = (name: string) => page.locator('.acc-tabs').getByRole('button', { name, exact: true })
       await page.goto('./#/money/2026-09')
-      await part('Spending').click()
+      await page.getByRole('group', { name: 'Money sections' }).getByRole('button', { name: 'Spending', exact: true }).click()
       await look(page, at('money-spending'))
-      await part('Statements').click()
+      await page.locator('.money-title').getByRole('button', { name: 'Statements', exact: true }).click()
       await look(page, at('money-statements'))
       // An account's own statement (its name), and a payment in it opened: the same sheet as anywhere a payment is listed.
       await page.getByRole('region', { name: 'Your accounts', exact: true }).getByRole('button', { name: 'Monzo', exact: true }).click()

@@ -19,16 +19,21 @@ async function pdf(path: string, pages: Placed[][]) {
 
 async function bringIn(page: Page, path: string) {
   // With statements in, "Bring in a statement" is under Statements; with none, it's the whole page.
-  const statements = page.locator('.acc-tabs').getByRole('button', { name: 'Statements', exact: true })
-  if (await statements.count()) await statements.click()
+  const statements = page.locator('.money-title').getByRole('button', { name: 'Statements', exact: true })
+  // (It toggles, so only open it when it isn't.)
+  if ((await statements.count()) && (await statements.getAttribute('aria-pressed')) !== 'true') await statements.click()
   await page.getByRole('button', { name: 'Bring in a statement' }).click()
   const sheet = page.getByRole('dialog', { name: 'Bring in a statement' })
   await sheet.locator('input[type="file"]').setInputFiles(path)
   return sheet
 }
 
+/** Money's one row of parts (v0.40.0): Overview, Spending, Receipts and Investing; Statements is a button in the title row. */
+const part = (page: Page, name: 'Overview' | 'Spending' | 'Receipts' | 'Investing' | 'Statements') =>
+  (name === 'Statements' ? page.locator('.money-title') : page.getByRole('group', { name: 'Money sections' })).getByRole('button', { name, exact: true })
+
 async function accountView(page: Page, name: 'Overview' | 'Spending' | 'Statements') {
-  await page.locator('.acc-tabs').getByRole('button', { name, exact: true }).click()
+  await part(page, name).click()
 }
 
 test('a statement’s PDF is read on the phone and its accounts kept, each line once; nothing leaves this site', async ({ page, baseURL }, testInfo) => {
@@ -1160,7 +1165,6 @@ test('a receipt says which card paid; said once which account that is, every rec
   await receipt.getByRole('button', { name: 'Close', exact: true }).click()
 
   // Your accounts lists the cards you said are each.
-  await page.getByRole('button', { name: 'Accounts', exact: true }).click()
   await accountView(page, 'Statements')
   await expect(page.locator('.acc-account', { hasText: 'Lloyds' })).toContainText('Card ending 4417')
   await expect(page.locator('.acc-account', { hasText: 'Monzo' }).first()).not.toContainText('ending')
@@ -1240,7 +1244,7 @@ test('Accounts steps between months, keeps its part open, and says when an accou
   await restoreBackup(page, testInfo.outputPath('months.json'), backupWith({ bankLines, statements }, now))
   await page.goto('./#/money')
   const months = page.getByRole('navigation', { name: 'Months' })
-  const tab = (name: string) => page.locator('.acc-tabs').getByRole('button', { name, exact: true })
+  const tab = (name: 'Overview' | 'Spending' | 'Statements') => part(page, name)
 
   // October is the latest month: nothing later to step to. Its statements stop at 30 Sep, and it says so.
   await expect(page.getByRole('strong')).toHaveText('£30.00 out')
@@ -1271,7 +1275,7 @@ test('Accounts steps between months, keeps its part open, and says when an accou
   await expect(page.getByRole('region', { name: 'Your accounts' }).getByRole('listitem')).toContainText('Needs statement')
 })
 
-test('Money: one segmented control in two sizes, the month arrows in the title row, names in title case, "Not sorted yet" in neutral ink', async ({ page }, testInfo) => {
+test('Money: one row of parts, Statements a button in the title row, the month arrows in the title row, names in title case, "Not sorted yet" in neutral ink', async ({ page }, testInfo) => {
   await page.clock.setFixedTime(new Date(2026, 8, 30, 12, 0))
   await page.goto('./#/money')
   for (const [name, layout] of [['lloyds.pdf', LLOYDS_LIKE], ['monzo.pdf', MONZO_LIKE]] as const) {
@@ -1279,17 +1283,27 @@ test('Money: one segmented control in two sizes, the month arrows in the title r
     await sheet.getByRole('button', { name: 'Done', exact: true }).click()
   }
 
-  // The same component twice: Accounts / Receipts (44px) and Overview / Spending / Statements (36px), as pills, not underlines.
-  const large = page.locator('.money-switch')
-  const small = page.locator('.acc-tabs')
-  for (const [bar, height] of [[large, 44], [small, 36]] as const) {
-    await expect(bar).toHaveClass(/segmented/)
-    expect(await bar.evaluate((el) => getComputedStyle(el).borderTopLeftRadius)).toBe('999px')
-    const pressed = bar.locator('button[aria-pressed="true"]')
-    expect(Math.round((await pressed.boundingBox())!.height)).toBe(height)
-    expect(await pressed.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(255, 253, 249)')
-    expect(await pressed.evaluate((el) => getComputedStyle(el, '::before').content)).not.toBe('""') // no underline bar
-  }
+  // One row (owner 2026-11-20: "the money section is too congested"): Overview / Spending / Receipts, as pills, 44px, and no
+  // second row under the figures. Statements is not one of them: it is a button in the title row.
+  const bar = page.locator('.money-switch')
+  await part(page, 'Overview').click() // (bringing the statements in left Statements open)
+  await expect(bar).toHaveClass(/segmented/)
+  await expect(bar.getByRole('button')).toHaveText(['Overview', 'Spending', 'Receipts'])
+  await expect(page.locator('.acc-tabs')).toHaveCount(0)
+  expect(await bar.evaluate((el) => getComputedStyle(el).borderTopLeftRadius)).toBe('999px')
+  const pressed = bar.locator('button[aria-pressed="true"]')
+  await expect(pressed).toHaveText('Overview')
+  expect(Math.round((await pressed.boundingBox())!.height)).toBe(44)
+  await expect(pressed).toHaveCSS('background-color', 'rgb(255, 253, 249)') // (it eases in after the tap)
+  expect(await pressed.evaluate((el) => getComputedStyle(el, '::before').content)).not.toBe('""') // no underline bar
+  // Statements: in the title row, pressed while it is open, and pressing it again goes back to Overview.
+  const statements = part(page, 'Statements')
+  await expect(statements).toHaveAttribute('aria-pressed', 'false')
+  await statements.click()
+  await expect(statements).toHaveAttribute('aria-pressed', 'true')
+  await expect(pressed).toHaveCount(0)
+  await statements.click()
+  await expect(pressed).toHaveText('Overview')
 
   // The month arrows share the title's row (and are 44px), no longer in the figure's block.
   const title = (await page.locator('.money-title h1').boundingBox())!

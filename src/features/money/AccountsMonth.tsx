@@ -78,11 +78,8 @@ const MOVED: Record<Moving, string> = {
 
 export type AccountsSection = 'overview' | 'spending' | 'statements'
 
-const SECTIONS: readonly { id: AccountsSection; label: string }[] = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'spending', label: 'Spending' },
-  { id: 'statements', label: 'Statements' },
-]
+/** What Money works out for a month of your accounts. */
+export type MoneyMonthSums = ReturnType<typeof moneyMonth>
 
 /** The months either side of `month` that Accounts steps to: the one before with something in it, and the one after (or this month). */
 export function neighbourMonths(months: readonly string[], month: string, today: string): { earlier?: string; later?: string } {
@@ -122,6 +119,8 @@ export function MonthStepper({ thisMonth, earlier, later }: { thisMonth: string;
 /** A month of your accounts: out and in, where it rose, regular payments, by payee, money moved, to check. */
 export function AccountsMonth(props: {
   lines: readonly MoneyLine[]
+  /** The month's sums, worked out once by Money (its title row says whether a statement needs attention). */
+  its: MoneyMonthSums
   month: string
   today: string
   statements: readonly StatementRecord[]
@@ -132,10 +131,9 @@ export function AccountsMonth(props: {
   query: string
   onQuery: (query: string) => void
 }) {
-  const { lines, month, today, statements, closed, section, onSection, query, onQuery } = props
+  const { lines, its, month, today, statements, closed, section, onSection, query, onQuery } = props
   const { kinds } = useMoney()
   const [jump, setJump] = useState<string | null>(null)
-  const its = moneyMonth(lines, month, today, statements, closed, kinds)
   const changes = regularChanges(lines, month, today, statements, closed)
   // A payment that has stopped is no longer something you're committed to: it is told under What changed instead.
   const stopped = new Set(changes.lapsed.map((l) => l.payee.key))
@@ -192,13 +190,6 @@ export function AccountsMonth(props: {
           </button>
         ) : null}
       </header>
-      <nav className="acc-tabs segmented small" aria-label="Account details">
-        {SECTIONS.map(({ id, label }) => (
-          <button key={id} type="button" className="acc-tab" aria-pressed={section === id} data-attention={id === 'statements' && (stale || its.toCheck.lines.length) ? '' : undefined} onClick={() => onSection(id)}>
-            {label}
-          </button>
-        ))}
-      </nav>
       {section === 'overview' ? <Overview its={its} lines={lines} regular={regular} changes={changes} yearOut={yearOut} statements={statements} closed={closed} month={month} today={today} /> : null}
       {section === 'spending' ? <Spending its={its} lines={lines} query={query} onQuery={onQuery} /> : null}
       {section === 'statements' ? <Statements its={its} /> : null}
@@ -206,7 +197,7 @@ export function AccountsMonth(props: {
   )
 }
 
-type Its = ReturnType<typeof moneyMonth>
+type Its = MoneyMonthSums
 
 function Overview({
   its,
