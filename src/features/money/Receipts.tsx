@@ -22,6 +22,8 @@ import {
   shoppingMonth,
 } from '../../domain/shopping'
 import { type MoneyLine, NOBODY, nameOf, type ReceiptOutcome } from '../../domain/money'
+import { ThisMonth } from './AccountsMonth'
+import { PaymentRow } from './PaymentRow'
 import { useMoney } from './MoneyContext'
 import { dayMonth, dayMonthLong, monthName, monthYear, shortDayMonth } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -123,7 +125,6 @@ function Matches(props: {
   onOpen: (r: KnownReceipt) => void
 }) {
   const { receipts, outcomes, without, accountName, onOpen } = props
-  const { openPayment } = useMoney()
   const sorted = [...receipts].sort((a, b) => b.date.localeCompare(a.date))
   const matched = sorted.filter((r) => outcomes.get(r.id)?.state === 'matched')
   const unmatched = sorted.filter((r) => outcomes.get(r.id)?.state !== 'matched' && outcomes.has(r.id))
@@ -172,9 +173,7 @@ function Matches(props: {
               <RowSummary label={`${without.length} payment${without.length === 1 ? '' : 's'} with no receipt`} sub="since your first receipt" />
               <ul className="plain-list compact evidence-list">
                 {without.map((l) => (
-                  <li key={l.id}>
-                    <RowButton date={shortDayMonth(l.date)} title={nameOf(l)} sub={`out of ${accountName(l.account)}`} amount={money(Math.abs(l.amount), '£')} onClick={() => openPayment(l, `Out of ${accountName(l.account)}`)} />
-                  </li>
+                  <PaymentRow key={l.id} line={l} title={nameOf(l)} sub={`${shortDayMonth(l.date)} · out of ${accountName(l.account)}`} way={`Out of ${accountName(l.account)}`} />
                 ))}
               </ul>
             </details>
@@ -236,7 +235,7 @@ export function ReceiptsMonth(props: {
       <div className="card money-overview receipt-overview">
         <div className="money-overview-heading">
           <p className="muted small">{month === today.slice(0, 7) ? `${monthName(month)} so far` : monthYear(month)}</p>
-          <p className="muted small">From your photos</p>
+          {month === today.slice(0, 7) ? <p className="muted small">From your photos</p> : <ThisMonth href={hashFor('money')} />}
         </div>
         <p className="money-overview-total">
           <strong>{inWords(its.spent)} <span>spent</span></strong>
@@ -361,7 +360,7 @@ function Shops({ its, onOpen }: { its: ShoppingMonth; onOpen: (r: KnownReceipt) 
       {its.small ? (
         <ul>
           <ReceiptLine
-            label={`${its.small.receipts.length} shops under £${SMALL_SHOP / 100}`}
+            label={`${receiptsWord(its.small.receipts.length)} under £${SMALL_SHOP / 100}`}
             amount={`${inWords(its.small.spent)} in all`}
             receipts={its.small.receipts}
             onOpen={onOpen}
@@ -529,6 +528,7 @@ function ReceiptList(props: {
   onOpen: (r: KnownReceipt) => void
 }) {
   const { receipts, why, copyOf, onOpen } = props
+  const { names } = useMoney()
   const listed = [...receipts].sort((a, b) => b.date.localeCompare(a.date))
   const [matching, setMatching] = useState<KnownReceipt | null>(null)
   return (
@@ -579,14 +579,8 @@ function ReceiptList(props: {
                           {candidates.map((line) => {
                             const debit = Math.abs(line.amount)
                             const difference = Math.abs(onCard(r) - debit)
-                            return (
-                              <li key={line.id}>
-                                <span>
-                                  {nameOf(line)} · {shortDayMonth(line.date)} · receipt {money(onCard(r), r.currency)}{r.byGiftCard ? ' after gift card' : ''} · debit {money(debit, '£')}
-                                  {difference ? ` · difference ${money(difference, r.currency)}` : ''}
-                                </span>
-                              </li>
-                            )
+                            const sub = `${shortDayMonth(line.date)} · receipt ${money(onCard(r), r.currency)}${r.byGiftCard ? ' after gift card' : ''} · debit ${money(debit, '£')}${difference ? ` · difference ${money(difference, r.currency)}` : ''}`
+                            return <PaymentRow key={line.id} line={line} title={nameOf(line)} sub={sub} way={`Out of ${names.get(line.account) ?? line.account}`} />
                           })}
                         </ul>
                       ) : null}

@@ -2532,6 +2532,11 @@ button.line-button {
   line-height: 1.05;
 }
 
+.money-screen .acc-figure-none {
+  font-size: var(--fs-2xl);
+  letter-spacing: -0.02em;
+}
+
 .money-screen .acc-figure span {
   color: var(--muted);
   font-size: 0.45em;
@@ -4563,6 +4568,11 @@ body:has(dialog.sheet.full[open]) :is(.tabbar, .banner, .notice.strip) {
   margin: 0;
   padding: 0;
   border-left: 0;
+}
+
+/* A payment row inside a receipts list (the payments with no receipt, a receipt's likely payments) sits as the receipt rows do. */
+.money-screen .evidence-list .acc-row {
+  padding: 10px 14px;
 }
 
 /* A to-check line is marked by a small warm dot. */

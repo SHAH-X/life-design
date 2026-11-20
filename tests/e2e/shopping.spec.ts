@@ -71,7 +71,7 @@ test('Money has its own tab, receipts and all: the month so far, next to last mo
   await expect(where.getByText('Fewer than 3 receipts, by name')).toBeVisible()
   await expect(where.locator('summary', { hasText: 'ALDI' })).toHaveText('ALDI · 1 receipt · £9.99')
   await expect(where.locator('summary', { hasText: 'J Sainsbury plc' })).toBeVisible()
-  await expect(where.locator('summary', { hasText: 'shops under £10' })).toHaveText('4 shops under £10 · £17.29 in all')
+  await expect(where.locator('summary', { hasText: 'under £10' })).toHaveText('4 receipts under £10 · £17.29 in all')
 
   // A line opens to its receipts, and a receipt opens to its items.
   await where.locator('summary').first().click()
@@ -344,14 +344,14 @@ test('the chart has a table and a readout, and an earlier month has its own page
   await expect(chart.locator('.chart-readout')).toHaveText('September 2026: £2.40 · 1 receipt')
   await chart.getByRole('link', { name: 'Open September 2026' }).click()
   await expect(page).toHaveURL(/#\/money\/2026-09$/)
-  await expect(page.getByRole('heading', { level: 1, name: 'September 2026' })).toBeVisible()
+  await expect(page.getByRole('paragraph').filter({ hasText: /^September 2026$/ })).toBeVisible()
   await expect(page.getByRole('strong')).toHaveText('£2.40 spent')
   // The page's month has its amount on its column's cap, in pounds and pence.
   await expect(page.locator('figure.chart svg text', { hasText: '£2.' })).toHaveText('£2.40')
   await expectNoScores(page, 'Money → September')
 
   // From this month, Earlier months lists it too.
-  await page.getByRole('link', { name: 'Back to Money' }).click()
+  await page.getByRole('link', { name: 'This month' }).click()
   await expect(page.getByRole('region', { name: 'Earlier months' }).getByRole('link')).toHaveText([/September 2026\s*£2\.40 on 1 receipt/])
 })
 
@@ -455,6 +455,18 @@ test('an undated receipt can be accepted or matched to a statement payment, then
   await expect(page.getByRole('region', { name: 'Receipts to check' })).toHaveCount(0)
 })
 
+// Audit 2026-11-20 (high): with no statement brought in a month of receipts said "0 of 2 receipts matched to your bank" and listed
+// every receipt as having no payment, as if matching had failed against a bank never added.
+test('with no statement brought in, receipts say nothing of matching to your bank', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(SATURDAY)
+  await restoreReceipts(page, testInfo.outputPath('no-statements.json'))
+  await page.goto('./#/money')
+  await page.getByRole('group', { name: 'Money sections' }).getByRole('button', { name: 'Receipts', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'From your receipts' })).toBeVisible()
+  await expect(page.getByText(/matched to your bank/)).toHaveCount(0)
+  await expect(page.getByRole('region', { name: 'Receipts and payments' })).toHaveCount(0)
+})
+
 test('a dated receipt can be matched to a smaller debit with an owner-recorded reason', async ({ page }, testInfo) => {
   const datedReceipt = receiptEntry('dated-mismatch', '2026-10-10', reading('Corner Shop', '2026-10-10', [['Groceries', 8850]]))
   const payment = {
@@ -478,6 +490,10 @@ test('a dated receipt can be matched to a smaller debit with an owner-recorded r
   await expect(check.locator('details > summary')).toContainText('Payment differs')
   await check.locator('summary').click()
   await expect(check).toContainText('receipt £88.50 · debit £82.71 · difference £5.79')
+  // The likely payment is a payment like any other (audit 2026-11-20): one tap opens its sheet, with Rename, Category, Who it was for.
+  await check.locator('.receipt-check-candidates').getByRole('button', { name: /Corner Shop/ }).click()
+  await expect(page.getByRole('dialog', { name: 'Corner Shop' }).getByRole('button', { name: 'Rename transaction' })).toBeVisible()
+  await page.getByRole('dialog', { name: 'Corner Shop' }).getByRole('button', { name: 'Close' }).click()
   await check.getByRole('button', { name: 'Review payment' }).click()
 
   const match = page.getByRole('dialog', { name: 'Match a payment' })

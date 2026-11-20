@@ -61,14 +61,23 @@ describe('investingMonth', () => {
   })
 
   it('says what the statement ending in the month printed of what is still held, and only in that month', () => {
-    expect(investingMonth(LINES, [summary()], '2026-11').result.summary).toMatchObject({ openResult: -41250, accountValue: 500000 })
-    expect(october.result.summary).toBeNull()
+    expect(investingMonth(LINES, [summary()], '2026-11').result.held[0]).toMatchObject({ openResult: -41250, accountValue: 500000 })
+    expect(october.result.held).toEqual([])
   })
 
   it('takes the month’s FX and exchange fees off the closed result, which the statement prints before charges (owner 2026-11-20)', () => {
     // The statement's result is the sale less the purchase with every fee added back (16 of 18 buy-and-sell pairs on a real one);
     // its own account value takes the fees off separately. Tax on dividends is not here: dividends are already after it.
     expect(october.result.afterCharges).toBe(october.result.closed - 115 - 50)
+  })
+
+  it('keeps what each account held, not only one of them (audit 2026-11-20: "Held … in all" showed one account\'s value)', () => {
+    const other = summary({ id: 's2', account: 'Trading 212 ···0002', accountValue: 120000, openResult: 5000, openResultChange: null })
+    const both = investingMonth(LINES, [summary(), other], '2026-11')
+    expect(both.result.held.map((h) => [h.account, h.accountValue, h.openResult])).toEqual([['Trading 212 ···0001', 500000, -41250], ['Trading 212 ···0002', 120000, 5000]])
+    // Two statements for one account ending in the month: the later one.
+    const later = summary({ id: 's3', to: '2026-11-20', accountValue: 510000 })
+    expect(investingMonth(LINES, [summary(), later], '2026-11').result.held.map((h) => h.accountValue)).toEqual([510000])
   })
 
   it('adds up the month’s income: dividends after tax and interest, each opening to its lines', () => {

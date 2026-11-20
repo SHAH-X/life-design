@@ -213,6 +213,85 @@ test('several PDFs are brought in at once, and an account’s name opens its sta
   await expect(lloyds.getByRole('listitem')).toHaveCount(4)
 })
 
+// Audit 2026-11-20 (high): in an account's own statement a line moved between your accounts looked the same in as out (no sign,
+// no words) and the day's band left moved money in out of "in". Every line says which way it went, and the bands add up to
+// the month's In and Out.
+test('an account’s statement says in or out on every line, and its days add up to the month’s In and Out, moves between your accounts included', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date(2026, 9, 18, 12, 0))
+  await page.goto('./#/money')
+  const sheet = await bringIn(page, await pdf(testInfo.outputPath('monzo.pdf'), MONZO_LIKE))
+  await sheet.getByRole('button', { name: 'Done', exact: true }).click()
+  await accountView(page, 'Statements')
+  await page.getByRole('region', { name: 'Your accounts', exact: true }).getByRole('button', { name: 'Monzo', exact: true }).click()
+  const view = page.getByRole('dialog', { name: 'Monzo', exact: true })
+  await expect(view.getByRole('heading', { name: 'September 2026' })).toBeVisible()
+  const subs = await view.locator('.acc-row-sub').allInnerTexts()
+  expect(subs.length).toBeGreaterThan(3)
+  for (const sub of subs) expect(sub, sub).toMatch(/^(In|Out|Refund) · /)
+  const pence = (text: string) => Math.round(Number(text.replace(/[^0-9.]/g, '')) * 100)
+  const figure = async (label: string) => pence((await view.getByRole('group', { name: 'The month in figures' }).locator('.acc-stat', { hasText: new RegExp(`^${label}`) }).locator('.acc-stat-value').innerText()) ?? '')
+  const bands = await view.locator('.acc-day-total').allInnerTexts()
+  const total = (word: string) => bands.reduce((sum, band) => sum + (band.split(' · ').map((part) => part.match(new RegExp(`^\\+?(£[\\d,.]+) ${word}$`))?.[1]).filter(Boolean).map((v) => pence(v!))[0] ?? 0), 0)
+  expect(total('in')).toBe(await figure('In'))
+  expect(total('out')).toBe(await figure('Out'))
+})
+
+// Audit 2026-11-20 (high): a month no statement covers, with nothing in it, said "£0.00 out · 0 payments" like a month where
+// nothing was spent, and the chart drew months before any statement as £0.
+test('a month no statement covers says so instead of "£0.00 out", and the chart says the same of its months', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const bankLines = [{ id: 'p1', account: 'Example Current', date: '2026-09-10', amount: -1200, description: 'EXAMPLE SHOP', type: 'DD', balance: null, adds: true, createdAt: 1, updatedAt: 1 }]
+  const statements = [{ id: 'example:2026-09-01:2026-09-30', account: 'Example Current', from: '2026-09-01', to: '2026-09-30', lines: 1, createdAt: 1, updatedAt: 1 }]
+  await restoreBackup(page, testInfo.outputPath('uncovered.json'), backupWith({ bankLines, statements }, now))
+  await page.goto('./#/money')
+  // October: nothing in it and no statement reaching it.
+  await expect(page.locator('.acc-hero')).toContainText('No statement yet')
+  await expect(page.locator('.acc-hero')).toContainText('Bring in a statement that covers October')
+  await expect(page.getByText('£0.00 out')).toHaveCount(0)
+  await expect(page.getByRole('group', { name: 'Money in and payments out' })).toHaveCount(0)
+  // The chart's months before the first statement say so (in what a tap reads out and in its table); September does not.
+  const chart = page.locator('.acc-chart')
+  await expect(chart.getByRole('button', { name: /^May/ })).toHaveAttribute('aria-label', /no statement for this month/)
+  await expect(chart.getByRole('button', { name: /^Sep/ })).not.toHaveAttribute('aria-label', /no statement for this month/)
+  await chart.getByText('Show as table').click()
+  await expect(chart.getByRole('row', { name: /^May/ })).toContainText('no statement for this month')
+  // September has its figure.
+  await page.goto('./#/money/2026-09')
+  await expect(page.locator('.acc-hero')).toContainText('£12.00 out')
+})
+
+// Audit 2026-11-20 (high): stepping to an earlier month swapped the title for the month, put a back link above it and wrapped it,
+// so the month arrows and the Statements button moved down under the finger. The title row is the same on every month.
+test('the title row does not move when you step to an earlier month, and This month brings you back', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const bankLines = ['2026-08-10', '2026-09-10', '2026-10-10'].map((date, i) => ({ id: `m${i}`, account: 'Example Current', date, amount: -1000 * (i + 1), description: 'EXAMPLE SHOP', type: 'DD', balance: null, adds: true, createdAt: i + 1, updatedAt: i + 1 }))
+  const statements = [{ id: 'example:2026-08-01:2026-10-31', account: 'Example Current', from: '2026-08-01', to: '2026-10-31', lines: 3, createdAt: 1, updatedAt: 1 }]
+  await restoreBackup(page, testInfo.outputPath('title-row.json'), backupWith({ bankLines, statements }, now))
+  const where = async () => ({
+    title: await page.locator('.money-title h1').boundingBox(),
+    arrows: await page.locator('.money-title .acc-step').first().boundingBox(),
+    statements: await page.locator('.money-title .money-statements').boundingBox(),
+    switchRow: await page.locator('.money-switch').boundingBox(),
+  })
+  await page.goto('./#/money')
+  await expect(page.getByRole('heading', { level: 1, name: 'Money' })).toBeVisible()
+  const now0 = await where()
+  await page.getByRole('navigation', { name: 'Months' }).getByRole('link', { name: 'Earlier: September 2026' }).click()
+  await expect(page.locator('.acc-hero')).toContainText('September 2026')
+  await expect(page.getByRole('heading', { level: 1, name: 'Money' })).toBeVisible()
+  const before = await where()
+  for (const key of ['title', 'arrows', 'statements', 'switchRow'] as const) {
+    expect(Math.round(before[key]!.y), key).toBe(Math.round(now0[key]!.y))
+    expect(Math.round(before[key]!.x), key).toBe(Math.round(now0[key]!.x))
+  }
+  // And back to this month in one tap.
+  await page.getByRole('link', { name: 'This month' }).click()
+  await expect(page.locator('.acc-hero')).toContainText('October so far')
+  await expect(page.getByRole('link', { name: 'This month' })).toHaveCount(0)
+})
+
 // Trading 212 (v0.34.0, owner 2026-11-19: nearly all of a month's "money out" was what he sent to it): both of its
 // documents are read for the cash that moved, the bank's side is paired with it, and neither counts as spending.
 test('a payment to Trading 212 is paired with its deposit and counts as neither spending nor money in', async ({ page }, testInfo) => {
@@ -717,6 +796,9 @@ test('each month says what came in against what went out, and Overview opens the
   // Overview ends with the way in to the year: £40 + £20 + 3 x £10.99 out in 2026.
   await page.goto('./#/money')
   await page.getByRole('link', { name: /2026 so far/ }).click()
+  // The year is a page of its own, with its back link: the row of parts (which would do nothing here) is not on it (audit 2026-11-20).
+  await expect(page.getByRole('heading', { level: 1, name: '2026' })).toBeVisible()
+  await expect(page.locator('.money-switch')).toHaveCount(0)
   await expect(page.getByRole('heading', { level: 1, name: '2026' })).toBeVisible()
   await expect(page.getByText('£92.97 out', { exact: true })).toBeVisible()
   await expect(page.getByText('From your accounts · Aug – Oct', { exact: true })).toBeVisible()
@@ -901,9 +983,10 @@ test('a month with an account’s statements missing, or not begun, is left out 
   await expect(chart.locator('.chart-readout')).toHaveText('October 2026: £60.00 · 1 payment · not every statement is in: Example Card')
   await chart.getByRole('button', { name: /^August 2026/ }).click()
   await expect(chart.locator('.chart-readout')).toHaveText('August 2026: £40.00 · 1 payment')
-  // The month you are in has no note: it is still being brought in.
+  // The month you are in has no "not every statement" note (it is still being brought in), but when no statement reaches it at
+  // all it says so, as the figure above does.
   await chart.getByRole('button', { name: /^November so far/ }).click()
-  await expect(chart.locator('.chart-readout')).toHaveText('November so far: no payments')
+  await expect(chart.locator('.chart-readout')).toHaveText('November so far: no payments · no statement for this month')
 })
 
 test('Spending finds any payment across every month and year: by name, by amount, by your note; each year says what it comes to', async ({ page }, testInfo) => {
@@ -1234,6 +1317,12 @@ test('a month’s receipts say which payment each was matched to or why there is
   await expect(matches.getByRole('button', { name: /Greenleaf Pharmacy/ })).toContainText('No payment of £5.00 within 3 days at Greenleaf Pharmacy')
   // Payments since the first receipt that no receipt is linked to.
   await expect(matches.locator('summary', { hasText: 'with no receipt' })).toHaveText(/^1 payment with no receipt · since your first receipt$/)
+  // The payment with no receipt is a payment like any other (audit 2026-11-20): one tap opens the same sheet.
+  await matches.locator('summary', { hasText: 'with no receipt' }).click()
+  await matches.locator('button.acc-row', { hasText: 'Coffee Place Sometown' }).click()
+  const sheet2 = page.getByRole('dialog', { name: /Coffee Place/ })
+  await expect(sheet2.getByRole('button', { name: 'Rename transaction' })).toBeVisible()
+  await expect(sheet2.getByRole('button', { name: '+ Assign category' })).toBeVisible()
 })
 
 // Which card paid (v0.24.0, owner 2026-11-06: "detect the card from the receipt … so I know which account to look for
