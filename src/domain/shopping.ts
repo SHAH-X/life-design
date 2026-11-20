@@ -342,7 +342,10 @@ function addTo(amounts: Amounts, currency: string, minor: number): void {
 export function amountsOf(receipts: readonly KnownReceipt[]): Amounts {
   const amounts: Amounts = []
   for (const r of receipts) addTo(amounts, r.currency, spentOn(r))
-  return amounts
+  // A currency that came to nothing is not an amount: a receipt read with no sign and no prices was "£260.23 and 0.00 spent"
+  // (owner, 2026-11-20). When everything came to nothing, the first stays, so "£0.00" is still said.
+  const some = amounts.filter((a) => a.minor !== 0)
+  return some.length ? some : amounts.slice(0, 1)
 }
 
 /** "£15.97", "£15.97 and €7.30"; "nothing" when there's none. */

@@ -344,6 +344,28 @@ describe('the same receipt added twice is counted once (v0.19.5)', () => {
   })
 })
 
+// Owner, 2026-11-20: Receipts said "£260.23 and 0.00 spent". A receipt read with no currency sign (the AI is asked for "£, $, €
+// or empty", and the phone finds none on a receipt with no prices) kept '' as its currency, so its nothing was a second amount
+// in a currency of its own, shown without a sign.
+describe('a receipt read with no currency sign and nothing spent is not an amount of its own', () => {
+  const entry = (id: string, createdAt: number, photo: Entry['photos'][number]): Entry => ({ ...areaEntry({ id, text: '', expect: [] }, '2026-10-24'), createdAt, photos: [photo] })
+  const AI = (shop: string, currency: string, price: number) => ({
+    by: 'Gemini · gemini-test', at: 1, text: '', description: '', version: 2,
+    receipt: { shop, date: '2026-10-24', currency, items: [{ name: 'Tea', price, quantity: 1, kind: 'Dairy and eggs' as const }], total: price },
+  })
+
+  it('says only what was spent in pounds, not "£4.20 and 0.00"', () => {
+    const { receipts } = receiptsAndCopies([entry('e1', 1, { id: 'a', text: null, ai: AI('Corner Shop', '£', 420) }), entry('e2', 2, { id: 'b', text: null, ai: AI('Other Shop', '', 0) })])
+    expect(inWords(amountsOf(receipts))).toBe('£4.20')
+  })
+
+  it('still says what was spent in each currency that came to something, and "£0.00" when nothing did', () => {
+    const { receipts } = receiptsAndCopies([entry('e1', 1, { id: 'a', text: null, ai: AI('Corner Shop', '£', 420) }), entry('e2', 2, { id: 'b', text: null, ai: AI('Euro Shop', '€', 730) })])
+    expect(inWords(amountsOf(receipts))).toBe('£4.20 and €7.30')
+    expect(inWords(amountsOf(receiptsAndCopies([entry('e1', 1, { id: 'a', text: null, ai: AI('Corner Shop', '£', 0) })]).receipts))).toBe('£0.00')
+  })
+})
+
 // Owner, 2026-11-01: a return slip showed as spent; "just show it as refund receipt at max, don't include in any
 // calculation, as I will also be marking it as returned in the original receipt".
 describe('a refund slip is shown, never counted (v0.20.20)', () => {
