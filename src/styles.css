@@ -3064,10 +3064,91 @@ button.line-button {
   transform: rotate(90deg);
 }
 
-/* The regular payments' total (owner, 2026-10-28: a prominent summary at the top of the list): the first row, its figure larger. */
-.money-screen .acc-total .acc-row-value {
-  font-size: var(--fs-xl);
+/* The regular payments' total (owner 2026-10-28), and what is due soon, apart from the list of payments (v0.45.0, owner
+   2026-11-20: "3 different types of information, all looking part of the same list"): the total is a header, Coming up a
+   tinted part of its own with dated rows, and the payments are under their own label. */
+.money-screen .acc-total {
+  padding: 16px 0 14px;
+}
+
+.money-screen .acc-total p {
+  margin: 0;
+}
+
+.money-screen .acc-total .acc-total-label,
+.money-screen .acc-sublabel {
+  color: var(--muted);
+  font-size: var(--fs-xs);
   font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.money-screen .acc-total .acc-total-year {
+  margin-top: 4px;
+  font-size: var(--fs-2xl);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.money-screen .acc-total .acc-total-year span {
+  color: var(--muted);
+  font-size: var(--fs-md);
+  font-weight: 500;
+}
+
+.money-screen .acc-total .acc-total-sub {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.money-screen .acc-sublabel {
+  margin: 0;
+}
+
+.money-screen .acc-coming {
+  margin: 0 0 4px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.money-screen .acc-coming ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.money-screen .acc-coming li {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.money-screen .acc-coming li + li {
+  border-top: 1px solid var(--border);
+}
+
+.money-screen .acc-coming-date {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.money-screen .acc-coming-name {
+  overflow-wrap: anywhere;
+}
+
+.money-screen .acc-coming-amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.money-screen .acc-sublabel-list {
+  padding: 16px 0 4px;
 }
 
 .money-screen .acc-open {

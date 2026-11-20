@@ -503,7 +503,7 @@ test('regular payments total as a year: a monthly payment 12 times and a weekly 
   await openTile(page, 'Regular payments')
 
   const regularPayments = page.getByRole('region', { name: 'Regular payments' })
-  const total = regularPayments.locator('li.acc-total')
+  const total = regularPayments.locator('.acc-total')
   // £10.99 x 12 + £5.00 x 52 = £131.88 + £260.00; the old mixed figure was £15.99.
   await expect(total).toContainText('Total regular payments')
   await expect(total).toContainText('£391.88 a year')
@@ -549,13 +549,18 @@ test('Money splits the month into committed and everyday, says when each regular
   await expect(weekly.locator('summary')).toContainText('every week · next around 29 Oct · £260.00 a year')
 
   // The next 30 days from 27 Oct run to 26 Nov: the weekly box on 29 Oct, 5, 12, 19 and 26 Nov, the streaming one on 12 Nov.
-  const coming = regularPayments.locator('details.acc-item', { hasText: 'Coming up' })
-  await expect(coming.locator('summary')).toContainText('6 payments in the next 30 days')
-  await expect(coming.locator('summary')).toContainText('£35.99')
-  await coming.locator('summary').click()
-  await expect(coming.locator('li.acc-li')).toHaveCount(6)
-  await expect(coming.locator('li.acc-li').first()).toContainText('Example Weekly Box')
-  await expect(coming.locator('li.acc-li').first()).toContainText('around 29 Oct')
+  // Coming up is a part of its own (v0.45.0, owner 2026-11-20: "3 different types of information, all looking part of the same
+  // list"): a labelled run of dated payments, not a row that opens, and apart from the total and from each regular payment.
+  const coming = regularPayments.getByRole('region', { name: 'Coming up' })
+  await expect(coming).toContainText('6 payments in the next 30 days')
+  await expect(coming).toContainText('£35.99')
+  await expect(coming.getByRole('listitem')).toHaveCount(6)
+  await expect(coming.getByRole('listitem').first()).toContainText('Example Weekly Box')
+  await expect(coming.getByRole('listitem').first()).toContainText('29 Oct')
+  // The total is a header, not a row of the list; the payments are under their own label.
+  await expect(regularPayments.locator('.acc-total')).toContainText('Total regular payments')
+  await expect(regularPayments.locator('li.acc-total')).toHaveCount(0)
+  await expect(regularPayments.getByText('Each regular payment')).toBeVisible()
 
   // An earlier month says nothing of what's next: no Coming up, no "next around".
   await page.goto('./#/money/2026-09')
@@ -672,7 +677,7 @@ test('What changed tells of a regular payment that went up, one that is new and 
   await expect(regularPayments).toContainText('Example Broadband')
   await expect(regularPayments).toContainText('Example New Sub')
   await expect(regularPayments).not.toContainText('Example Gym Club')
-  await expect(regularPayments.locator('li.acc-total')).toContainText('2 payments, all monthly')
+  await expect(regularPayments.locator('.acc-total')).toContainText('2 payments, all monthly')
 })
 
 test('a missing statement is never a stopped payment', async ({ page }, testInfo) => {

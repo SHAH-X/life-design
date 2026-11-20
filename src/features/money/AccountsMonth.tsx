@@ -230,7 +230,6 @@ function Overview({
   const totals = regularPaymentsTotal(regular)
   const went = regular.filter((r): r is Regular & { changed: NonNullable<Regular['changed']> } => r.changed !== null)
   const cadence = [totals.monthly > 0 ? `${pounds(totals.monthly)} a month` : '', totals.weekly > 0 ? `${pounds(totals.weekly)} a week` : ''].filter(Boolean)
-  const regularStatus = `${cadence.join(' + ')} · ${paymentsWord(regular.length)}`
   const current = month === today.slice(0, 7)
   const coming = current ? upcoming(regular, today, COMING_DAYS) : []
   const lastMonth = monthName(shiftMonth(month, -1))
@@ -270,35 +269,35 @@ function Overview({
       </div>
       <div id={panelId}>
         {open === 'regular' && regular.length ? (
-          <Block title="Regular payments" status={regularStatus}>
+          <Block title="Regular payments">
+            {/* Three kinds of information, kept apart (v0.45.0): what they come to, what is due soon, and each payment. */}
+            <div className="acc-total">
+              <p className="acc-total-label">Total regular payments</p>
+              <p className="acc-total-year">
+                {pounds(totals.year)} <span>a year</span>
+              </p>
+              <p className="acc-total-sub">
+                {totals.weekly > 0 && totals.monthly > 0 ? `${cadence.join(' + ')} · ${paymentsWord(regular.length)}` : `${paymentsWord(regular.length)}, all ${totals.weekly > 0 ? 'weekly' : 'monthly'}`}
+              </p>
+            </div>
+            {coming.length ? (
+              <section className="acc-coming" aria-labelledby={`${panelId}-coming`}>
+                <p id={`${panelId}-coming`} className="acc-sublabel">
+                  Coming up · {paymentsWord(coming.length)} in the next {COMING_DAYS} days · {pounds(comingTotal)}
+                </p>
+                <ul>
+                  {coming.map((u) => (
+                    <li key={`${u.payee.key}-${u.date}`}>
+                      <span className="acc-coming-date">{dayMonth(u.date)}</span>
+                      <span className="acc-coming-name">{u.payee.name}</span>
+                      <span className="acc-coming-amount">{pounds(u.amount)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+            <p className="acc-sublabel acc-sublabel-list">Each regular payment</p>
             <ul className="acc-list">
-              {coming.length ? (
-                <Item title="Coming up" sub={`${paymentsWord(coming.length)} in the next ${COMING_DAYS} days`} value={pounds(comingTotal)}>
-                  <ul className="acc-list">
-                    {coming.map((u) => (
-                      <li key={`${u.payee.key}-${u.date}`} className="acc-li">
-                        <div className="acc-row">
-                          <span className="acc-row-text">
-                            <span className="acc-row-title">{u.payee.name}</span> <span className="acc-row-sub">around {dayMonth(u.date)}</span>
-                          </span>{' '}
-                          <span className="acc-row-value">{pounds(u.amount)}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </Item>
-              ) : null}
-              <li className="acc-li acc-total">
-                <div className="acc-row">
-                  <span className="acc-row-text">
-                    <span className="acc-row-title">Total regular payments</span>
-                    <span className="acc-row-sub">
-                      {totals.weekly > 0 && totals.monthly > 0 ? cadence.join(' + ') : `${paymentsWord(regular.length)}, all ${totals.weekly > 0 ? 'weekly' : 'monthly'}`}
-                    </span>
-                  </span>
-                  <span className="acc-row-value">{pounds(totals.year)} a year</span>
-                </div>
-              </li>
               {regular.map((r) => (
                 <RegularRow key={r.payee.key} item={r} soon={current} />
               ))}
