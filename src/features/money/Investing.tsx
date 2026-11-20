@@ -41,15 +41,15 @@ export function Investing({ lines, summaries, month }: { lines: readonly InvestL
     <>
       {its.checked ? (
         its.mismatches.length ? (
-          <p className="acc-account-line acc-account-missing">Doesn’t match the statement’s totals: {its.mismatches.join('; ')}</p>
+          <p className="acc-account-line acc-account-missing">What these lines add up to isn’t what the statement prints, so some may be missing. {its.mismatches.join('; ')}</p>
         ) : (
           <p className="acc-status">Checked against the totals your statement prints.</p>
         )
       ) : null}
 
-      <Block title="Profit and loss" status="As your statement prints it. It doesn’t say if charges are already taken off; they’re listed below.">
+      <Block title="Profit and loss" status="Before charges, as your statement prints it. Charges are under Costs and charges.">
         <ul className="acc-list">
-          <Row title="Closed result" sub={`${result.sells} ${result.sells === 1 ? 'sale' : 'sales'}`} value={signed(result.closed)} tone={toneOf(result.closed)} />
+          <Row title="Closed result" sub={`${result.sells} ${result.sells === 1 ? 'sale' : 'sales'} · before charges`} value={signed(result.closed)} tone={toneOf(result.closed)} />
           <li className="acc-madeof">
             <p className="acc-status">Made up of · instruments sold 3 or more times are named</p>
             <ul className="acc-lines">
@@ -88,6 +88,7 @@ export function Investing({ lines, summaries, month }: { lines: readonly InvestL
               ) : null}
             </ul>
           </li>
+          <Row title="After charges" sub={`FX and exchange fees of ${pounds(costs.fxFees + costs.fees)} taken off`} value={signed(result.afterCharges)} tone={toneOf(result.afterCharges)} />
           {held ? (
             <Row
               title={`Held at ${dayMonth(held.to)}`}

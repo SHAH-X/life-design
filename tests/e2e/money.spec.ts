@@ -253,7 +253,9 @@ test('Money → Investing shows a month’s profit and loss, costs and charges a
   await expect(profit.locator('.acc-madeof')).toContainText('Other instruments')
   await expect(profit).not.toContainText(/\bmade\b(?! up)/)
   await expect(profit).not.toContainText(/\blost\b/)
-  await expect(profit).toContainText('doesn’t say if charges are already taken off')
+  // The statement's result is before charges (its fees are printed apart); the card says so and takes them off in one row.
+  await expect(profit).toContainText('Before charges')
+  await expect(profit.getByRole('listitem').filter({ hasText: 'After charges' })).toContainText('+£11.09')
   // Fewer than 3 sales of an instrument: all in one line that opens, by name.
   await profit.locator('summary', { hasText: 'Other instruments' }).click()
   await expect(profit.getByText('3 instruments, fewer than 3 sales each')).toBeVisible()

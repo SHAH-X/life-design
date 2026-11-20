@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { InvestLine, InvestSummary } from '../../src/db/types'
 import { investingMonth, investingMonths } from '../../src/domain/investing'
+import { dayMonth } from '../../src/lib/dates'
 
 // Trading 212's costs and charges, profit and loss, and income, a month at a time (v0.36.0): plain sums, as printed; nothing
 // averaged, rated or compared. Fictional lines only.
@@ -64,6 +65,12 @@ describe('investingMonth', () => {
     expect(october.result.summary).toBeNull()
   })
 
+  it('takes the month’s FX and exchange fees off the closed result, which the statement prints before charges (owner 2026-11-20)', () => {
+    // The statement's result is the sale less the purchase with every fee added back (16 of 18 buy-and-sell pairs on a real one);
+    // its own account value takes the fees off separately. Tax on dividends is not here: dividends are already after it.
+    expect(october.result.afterCharges).toBe(october.result.closed - 115 - 50)
+  })
+
   it('adds up the month’s income: dividends after tax and interest, each opening to its lines', () => {
     expect(october.income).toMatchObject({ dividends: 392, interest: 7 })
     expect(october.income.dividendLines.map((l) => l.instrument)).toEqual(['EXMP', 'EXMQ'])
@@ -73,7 +80,8 @@ describe('investingMonth', () => {
   it('carries what the statement’s totals did not match, for the months it covers', () => {
     const off = investingMonth(LINES, [summary({ mismatches: ['Closed result £12.74, the statement says £99.99'] })], '2026-10')
     expect(off.checked).toBe(true)
-    expect(off.mismatches).toEqual(['Closed result £12.74, the statement says £99.99'])
+    // Each says which statement it is about, so the right one can be found.
+    expect(off.mismatches).toEqual([`${dayMonth('2026-10-01')} – ${dayMonth('2026-11-18')}: Closed result £12.74, the statement says £99.99`])
     expect(october.mismatches).toEqual([])
     expect(investingMonth(LINES, [], '2026-10').checked).toBe(false)
   })
