@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { money } from '../../lib/money'
 import { endPath } from './DayCountChart'
 import { scaleTop } from './MonthChart'
 
@@ -56,7 +57,7 @@ export function BalanceChart(props: {
   const shown = active ?? labelled
   const activeMonth = active === null ? undefined : months[active]
   const tick = (pence: number) => `£${(pence / 100).toLocaleString()}`
-  const cap = (pence: number) => `£${(pence / 100).toFixed(2)}`
+  const cap = (pence: number) => money(pence, '£')
 
   return (
     <figure className="chart">

@@ -60,6 +60,7 @@ export function Investing({ lines, summaries, month, latest, thisMonth }: { line
         )
       ) : null}
 
+      {result.sells ? (
       <Block title="Profit and loss" status="Before charges, as your statement prints it. Charges are under Costs and charges.">
         <ul className="acc-list">
           <li className="acc-pair">
@@ -69,7 +70,7 @@ export function Investing({ lines, summaries, month, latest, thisMonth }: { line
             </ul>
           </li>
           <li className="acc-madeof">
-            <p className="acc-status">Made up of · instruments sold 3 or more times are named</p>
+            <p className="acc-status">{result.byInstrument.ranked.length ? 'Made up of · instruments sold 3 or more times are named' : 'By instrument'}</p>
             <ul className="acc-lines">
               {result.byInstrument.ranked.map((g) => (
                 <Item key={g.instrument} title={g.instrument} sub={`${g.lines.length} ${g.lines.length === 1 ? 'sale' : 'sales'}`} value={signed(g.result)} tone={toneOf(g.result)}>
@@ -84,8 +85,9 @@ export function Investing({ lines, summaries, month, latest, thisMonth }: { line
                 <Item
                   title="Other instruments"
                   sub={`${result.byInstrument.others.length} ${result.byInstrument.others.length === 1 ? 'instrument' : 'instruments'}, fewer than 3 sales each`}
-                  value={signed(othersResult)}
-                  tone={toneOf(othersResult)}
+                  // With none named this one row is the whole total: it is not said twice.
+                  value={result.byInstrument.ranked.length ? signed(othersResult) : undefined}
+                  tone={result.byInstrument.ranked.length ? toneOf(othersResult) : undefined}
                 >
                   <ul className="acc-lines">
                     {result.byInstrument.others.map((g) =>
@@ -108,12 +110,13 @@ export function Investing({ lines, summaries, month, latest, thisMonth }: { line
           </li>
         </ul>
       </Block>
+      ) : null}
 
       <div className="acc-tiles" role="group" aria-label="More about this month">
         <button type="button" className="acc-tile" aria-expanded={open === 'costs'} aria-controls={panelId} onClick={() => setOpen(open === 'costs' ? null : 'costs')}>
           <span className="acc-tile-label">Costs and charges</span>
           <span className="acc-tile-value">{pounds(costs.total)}</span>
-          <span className="acc-tile-sub">on {its.trades} {its.trades === 1 ? 'trade' : 'trades'}</span>
+          <span className="acc-tile-sub">{costs.tax ? `${pounds(costs.fxFees + costs.fees)} fees + ${pounds(costs.tax)} tax` : `on ${its.trades} ${its.trades === 1 ? 'trade' : 'trades'}`}</span>
         </button>
         <button type="button" className="acc-tile" aria-expanded={open === 'income'} aria-controls={panelId} onClick={() => setOpen(open === 'income' ? null : 'income')}>
           <span className="acc-tile-label">Income</span>
@@ -121,7 +124,7 @@ export function Investing({ lines, summaries, month, latest, thisMonth }: { line
           <span className="acc-tile-sub">dividends and interest</span>
         </button>
         {held.length ? (
-          <div className="acc-tile">
+          <div className="acc-tile acc-tile-static">
             <span className="acc-tile-label">Held at {dayMonth(held.map((h) => h.to).sort().at(-1)!)}</span>
             <span className="acc-tile-value">{held.length === 1 ? (held[0]!.accountValue !== null ? `${pounds(held[0]!.accountValue)} in all` : '') : heldTotal !== null ? `${pounds(heldTotal)} in all` : ''}</span>
             {held.map((h) => (

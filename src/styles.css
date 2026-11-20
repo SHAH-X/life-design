@@ -59,7 +59,7 @@
   /* Money in (owner, 2026-11-19, Money only): a green that is plainly not ink; AA on the card, the page and a day's band (palette.test.ts). */
   --money-in: #1f7a4d;
   /* A loss in Money's Investing (owner, 2026-11-20: "use red"): the one red outside energy; AA on the same surfaces (palette.test.ts). */
-  --money-loss: #b3261e;
+  --money-loss: #a2281f;
   --viz-pos: #2a78d6;
   --viz-neg: #e34948;
   --viz-seq: #1baf7a;
@@ -2356,7 +2356,10 @@ button.line-button {
 }
 
 .money-screen .rc-tile-link {
-  display: block;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px;
+  align-items: start;
+  column-gap: 10px;
   width: 100%;
   min-height: 84px;
   padding: 12px;
@@ -2368,8 +2371,14 @@ button.line-button {
   text-align: left;
 }
 
+.money-screen .rc-tile-link .icon {
+  color: var(--muted);
+  transform: rotate(90deg);
+}
+
+/* What was spent is a figure, not an action: in ink, the sage is for what you can tap (audit 2026-11-20). */
 .money-screen .receipt-overview .money-overview-total strong {
-  color: var(--accent);
+  color: var(--text);
 }
 
 .money-screen details.week-line > summary.money-overview-summary {
@@ -2560,11 +2569,11 @@ button.line-button {
 }
 
 .money-screen .acc-split > [data-part='committed'] {
-  background: var(--viz-axis);
+  background: color-mix(in srgb, var(--text) 22%, transparent);
 }
 
 .money-screen .acc-split > [data-part='everyday'] {
-  background: var(--viz-seq);
+  background: color-mix(in srgb, var(--text) 60%, transparent);
 }
 
 /* Tiles under the chart: one number each, opening what used to be a stack of lists. */
@@ -2595,6 +2604,12 @@ button.line-button {
   font-weight: 400;
   text-align: left;
   text-decoration: none;
+}
+
+.money-screen .acc-tile-static {
+  border-color: var(--border);
+  background: transparent;
+  box-shadow: none;
 }
 
 .money-screen .acc-tile[aria-expanded='true'] {
@@ -3011,11 +3026,15 @@ button.line-button {
 .money-screen .acc-kinds-bar > span {
   flex-basis: 0;
   min-width: 4px;
-  background: var(--viz-seq);
+  background: var(--text);
 }
 
 .money-screen .acc-kinds-bar > [data-part='rest'] {
   background: var(--viz-axis);
+}
+
+.money-screen .acc-kinds-bar > [data-part='unsorted'] {
+  background: color-mix(in srgb, var(--text) 14%, transparent);
 }
 
 .money-screen .acc-row-text:has(> .acc-swatch) {
@@ -3030,7 +3049,12 @@ button.line-button {
   width: 10px;
   height: 10px;
   border-radius: 3px;
-  background: var(--viz-seq);
+  background: var(--text);
+}
+
+.money-screen .acc-swatch[data-unsorted] {
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+  box-shadow: inset 0 0 0 1px var(--control-border);
 }
 
 /* A list of payments folded to one row, opened by a tap. */
@@ -4479,10 +4503,6 @@ body:has(dialog.sheet.full[open]) :is(.tabbar, .banner, .notice.strip) {
   min-height: 64px;
   padding: 10px 14px;
   border-radius: 0;
-}
-
-.money-screen .receipt-overview details.week-line > summary.rc-row {
-  padding-inline: 2px;
 }
 
 .money-screen details.week-line > summary.rc-row::after,

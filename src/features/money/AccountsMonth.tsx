@@ -57,7 +57,8 @@ const COMING_DAYS = 30
 
 export const pounds = (pence: number) => money(pence, '£')
 /** A change over a year, in words: +£48.00 a year, or £12.00 a year less. */
-const yearly = (pence: number) => (pence >= 0 ? `+${pounds(pence)} a year` : `${pounds(-pence)} a year less`)
+// In words, not a bare + (green + means money in in Money; audit 2026-11-20).
+const yearly = (pence: number) => (pence >= 0 ? `${pounds(pence)} a year more` : `${pounds(-pence)} a year less`)
 export const paymentsWord = (n: number) => `${n} payment${n === 1 ? '' : 's'}`
 const movesWord = (n: number) => `${n} move${n === 1 ? '' : 's'}`
 
@@ -170,6 +171,7 @@ export function AccountsMonth(props: {
 
   return (
     <>
+      {section === 'statements' ? null : (
       <header className="acc-hero">
         <div className="acc-hero-top">
           <p className="acc-label">{current ? `${monthName(month)} so far` : monthYear(month)}</p>
@@ -202,10 +204,10 @@ export function AccountsMonth(props: {
               </>
             ) : null}
             <div className="acc-stats" role="group" aria-label="Money in and payments out">
-              <button type="button" className="acc-stat" onClick={() => goTo('acc-money-in')}>
+              <button type="button" className="acc-stat" disabled={!its.inLines.length} onClick={() => goTo('acc-money-in')}>
                 <span className="acc-stat-label">Money in</span> <span className="acc-stat-value" data-in={its.in > 0 || undefined}>{pounds(its.in)}</span>
               </button>
-              <button type="button" className="acc-stat" onClick={() => goTo('acc-money-out')}>
+              <button type="button" className="acc-stat" disabled={!its.outLines.length} onClick={() => goTo('acc-money-out')}>
                 <span className="acc-stat-label">Payments out</span> <span className="acc-stat-value">{paymentsWord(its.outLines.filter((l) => !l.refund).length)}</span>
               </button>
             </div>
@@ -219,6 +221,7 @@ export function AccountsMonth(props: {
           </button>
         ) : null}
       </header>
+      )}
       {section === 'overview' ? <Overview its={its} lines={lines} regular={regular} changes={changes} yearOut={yearOut} statements={statements} closed={closed} month={month} today={today} /> : null}
       {section === 'spending' ? <Spending its={its} lines={lines} query={query} onQuery={onQuery} jump={jump} /> : null}
       {section === 'statements' ? <Statements its={its} /> : null}
@@ -434,7 +437,7 @@ function Spending({ its, lines, query, onQuery, jump }: { its: Its; lines: reado
 /** How many kinds are named in the bar and the rows under it; the rest are one piece, "Everything else". */
 const TOP_KINDS = 5
 /** The bar's pieces, biggest first, each a lighter tint of the one green: a row's swatch is the same tint (the figures are in the rows). */
-const tintOf = (rank: number) => 1 - rank * 0.17
+const tintOf = (rank: number) => 0.75 - rank * 0.12
 
 /** One line that opens a list of payments (v0.42.0): its name and what is in it, closed until asked for. */
 function Fold({ id, title, sub, open, onToggle, children }: { id?: string; title: string; sub: string; open: boolean; onToggle: () => void; children: ReactNode }) {
@@ -464,30 +467,36 @@ function SpendingMonth({ its, jump }: { its: Its; jump: string | null }) {
   }, [jump])
   const flip = (id: string) => setOpened((now) => { const next = new Set(now); if (!next.delete(id)) next.add(id); return next })
   const top = its.kinds.ranked.slice(0, TOP_KINDS)
-  const rest = [...its.kinds.ranked.slice(TOP_KINDS), ...its.kinds.others]
+  // "Not sorted yet" is the kind to act on, so it is a row of its own, not folded into the rest (audit 2026-11-20).
+  const unsorted = its.kinds.others.find((g) => g.kind === NOT_SORTED)
+  const otherKinds = its.kinds.others.filter((g) => g.kind !== NOT_SORTED)
+  const rest = [...its.kinds.ranked.slice(TOP_KINDS), ...otherKinds]
   const restTotal = rest.reduce((sum, g) => sum + g.total, 0)
   const restPayments = rest.reduce((sum, g) => sum + g.lines.filter((l) => !l.refund).length, 0)
-  const bar = [...top.map((g, i) => ({ total: g.total, part: String(i) })), ...(rest.length ? [{ total: restTotal, part: 'rest' }] : [])].filter((p) => p.total > 0)
+  const bar = [...top.map((g, i) => ({ total: g.total, part: String(i) })), ...(unsorted ? [{ total: unsorted.total, part: 'unsorted' }] : []), ...(rest.length ? [{ total: restTotal, part: 'rest' }] : [])].filter((p) => p.total > 0)
   const moneyOut = its.payees.out.ranked.length + its.payees.out.others.length
   const moneyIn = its.payees.in.ranked.length + its.payees.in.others.length
+  const nothing = !its.outLines.length && !its.inLines.length && !its.moved.length
   return (
     <>
+      {nothing ? <p className="muted acc-empty">No payments in {monthName(its.month)} yet.</p> : null}
       {its.outLines.length ? (
         <Block title="By what it was for">
           {top.length ? (
             <>
               <div className="acc-kinds-bar" aria-hidden="true">
                 {bar.map((p) => (
-                  <span key={p.part} data-part={p.part} style={{ flexGrow: p.total, ...(p.part === 'rest' ? {} : { opacity: tintOf(Number(p.part)) }) }} />
+                  <span key={p.part} data-part={p.part} style={{ flexGrow: p.total, ...(p.part === 'rest' || p.part === 'unsorted' ? {} : { opacity: tintOf(Number(p.part)) }) }} />
                 ))}
               </div>
               <ul className="acc-list">
                 {top.map((g, i) => (
                   <KindRow key={g.kind} group={g} totalOut={its.out} tint={tintOf(i)} />
                 ))}
+                {unsorted ? <KindRow key={unsorted.kind} group={unsorted} totalOut={its.out} tint={0.3} /> : null}
                 {rest.length ? (
                   <Item title="Everything else" sub={`${rest.length} ${rest.length === 1 ? 'kind' : 'kinds'} · ${paymentsWord(restPayments)}`} value={pounds(restTotal)}>
-                    <Groups of={{ ranked: its.kinds.ranked.slice(TOP_KINDS), others: its.kinds.others }} line={(g: KindGroup) => <KindRow key={g.kind} group={g} totalOut={its.out} />} fewer="Fewer than 3 payments, by name" />
+                    <Groups of={{ ranked: its.kinds.ranked.slice(TOP_KINDS), others: otherKinds }} line={(g: KindGroup) => <KindRow key={g.kind} group={g} totalOut={its.out} />} fewer="Fewer than 3 payments, by name" />
                   </Item>
                 ) : null}
               </ul>
@@ -584,7 +593,7 @@ export function Item({ title, sub, value, tone, meter, swatch, unsorted = false,
       <details className="acc-item">
         <summary className="acc-row">
           <span className="acc-row-text">
-            {swatch !== undefined ? <span className="acc-swatch" style={{ opacity: swatch }} aria-hidden="true" /> : null}
+            {swatch !== undefined ? <span className="acc-swatch" data-unsorted={unsorted || undefined} style={unsorted ? undefined : { opacity: swatch }} aria-hidden="true" /> : null}
             <span className="acc-row-title">{title}</span>
             {sub ? (
               <>
@@ -729,7 +738,7 @@ function RiseRow({ rise }: { rise: Rise }) {
       sub={`was ${pounds(rise.before)} last month`}
       value={
         <>
-          {pounds(rise.now)} <span className="acc-delta">+{pounds(rise.now - rise.before)}</span>
+          {pounds(rise.now)} <span className="acc-delta">{pounds(rise.now - rise.before)} more</span>
         </>
       }
     >
