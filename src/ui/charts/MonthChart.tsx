@@ -1,4 +1,5 @@
 import { type ReactNode, useId } from 'react'
+import { money } from '../../lib/money'
 import { endPath } from './DayCountChart'
 
 export interface MonthColumn {
@@ -82,7 +83,7 @@ export function MonthChart(props: {
   const activeMonth = active === null ? undefined : months[active]
   // Gridlines are whole pounds (scaleTop); a column's cap says its pounds and pence.
   const tick = (pence: number) => `${currency}${(pence / 100).toLocaleString()}`
-  const cap = (pence: number) => `${currency}${(pence / 100).toFixed(2)}`
+  const cap = (pence: number) => money(pence, currency)
 
   return (
     <figure className="chart">

@@ -2,6 +2,7 @@
 // spend_by_shop gives these totals as they are, so Ask and Money’s receipts can’t disagree. Money stays in pence (minor
 // units), so sums are exact, and pounds and euros are never added together. Counts and amounts only: nothing averaged,
 // rated or set as a limit (DECISIONS, "Never").
+import { money } from '../lib/money'
 import { MIN_COUNT } from '../analysis/stats'
 import type { Entry, ItemChange, PhotoRef } from '../db/types'
 import { addMonths } from '../lib/dates'
@@ -264,8 +265,7 @@ export function shopKey(name: string): string {
   return chainOf(name)?.key ?? shopWords(name).filter((word, i) => i === 0 || !BRANCH_WORDS.has(word)).join(' ')
 }
 
-/** Pence as money, "£3.55" or "-£0.50". */
-export const money = (minor: number, currency: string) => `${minor < 0 ? '-' : ''}${currency}${(Math.abs(minor) / 100).toFixed(2)}`
+export { money }
 
 /** What a receipt counts for: its printed total, the amount paid, else its items' sum. */
 export const paid = (r: KnownReceipt) => r.total ?? r.items.reduce((s, item) => s + paidFor(item), 0)

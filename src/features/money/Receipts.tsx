@@ -252,6 +252,7 @@ export function ReceiptsMonth(props: {
             <li>
               <button type="button" className="rc-tile-link" onClick={() => document.getElementById('rc-matches')?.scrollIntoView({ block: 'start' })}>
                 <span className="rc-label">{matchedCount} of {receiptsWord(its.receipts.length)} matched to your bank</span>
+                <Icon name="chevron-right" size={16} />
               </button>
             </li>
           ) : null}

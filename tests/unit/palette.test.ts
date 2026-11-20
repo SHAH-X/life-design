@@ -134,6 +134,8 @@ describe('the colour palette', () => {
     const ratio = (a: string, b: string) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05)
     for (const on of [hex('surface'), hex('bg'), '#f2f0ec']) expect(ratio(hex('money-loss'), on), on).toBeGreaterThanOrEqual(4.5)
     expect(ratio(hex('money-loss'), hex('money-in'))).toBeGreaterThan(1.05)
+    // Not the delete red: a loss is not a warning to confirm (audit 2026-11-20).
+    expect(hex('money-loss')).not.toBe(hex('danger'))
     // Used for a loss and nothing else.
     expect([...css.matchAll(/var\(--money-loss\)/g)]).toHaveLength(1)
   })

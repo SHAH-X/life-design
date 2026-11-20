@@ -209,7 +209,7 @@ test('several PDFs are brought in at once, and an account’s name opens its sta
   // Another account has its own statement.
   await accounts.getByRole('button', { name: 'Lloyds', exact: true }).click()
   const lloyds = page.getByRole('dialog', { name: 'Lloyds', exact: true })
-  await expect(lloyds.getByRole('group', { name: 'The month in figures' })).toHaveText(/^In\s*£1600\.00\s*Out\s*£55\.99\s*Balance at the end\s*£1744\.01$/)
+  await expect(lloyds.getByRole('group', { name: 'The month in figures' })).toHaveText(/^In\s*£1,600\.00\s*Out\s*£55\.99\s*Balance at the end\s*£1,744\.01$/)
   await expect(lloyds.getByRole('listitem')).toHaveCount(4)
 })
 
@@ -322,6 +322,26 @@ test('a receipt with a returned item says what it came to after returns where it
   await expect(matches.getByRole('button', { name: /Corner Shop/ })).toContainText('£10.00 after returns')
 })
 
+// Audit 2026-11-20 (medium): Spending for a month with no payments was a bare search box, and the figures at the top that jump to its
+// lists still jumped to nothing.
+test('Spending for a month with nothing in it says so, and the figures that open its lists do not open nothing', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const bankLines = [{ id: 'p1', account: 'Example Current', date: '2026-09-10', amount: -1200, description: 'EXAMPLE SHOP', type: 'DD', balance: null, adds: true, createdAt: 1, updatedAt: 1 }]
+  const statements = [{ id: 'example:2026-09-01:2026-10-27', account: 'Example Current', from: '2026-09-01', to: '2026-10-27', lines: 1, createdAt: 1, updatedAt: 1 }]
+  await restoreBackup(page, testInfo.outputPath('empty-spending.json'), backupWith({ bankLines, statements }, now))
+  await page.goto('./#/money')
+  const figures = page.getByRole('group', { name: 'Money in and payments out' })
+  await expect(figures.getByRole('button', { name: /^Money in/ })).toBeDisabled()
+  await expect(figures.getByRole('button', { name: /^Payments out/ })).toBeDisabled()
+  await accountView(page, 'Spending')
+  await expect(page.getByText('No payments in October yet.')).toBeVisible()
+  // A month with payments has them, and its figures open its lists.
+  await page.goto('./#/money/2026-09')
+  await expect(page.getByRole('group', { name: 'Money in and payments out' }).getByRole('button', { name: /^Payments out/ })).toBeEnabled()
+  await expect(page.getByText(/^No payments in/)).toHaveCount(0)
+})
+
 // Trading 212 (v0.34.0, owner 2026-11-19: nearly all of a month's "money out" was what he sent to it): both of its
 // documents are read for the cash that moved, the bank's side is paired with it, and neither counts as spending.
 test('a payment to Trading 212 is paired with its deposit and counts as neither spending nor money in', async ({ page }, testInfo) => {
@@ -380,8 +400,10 @@ test('Money → Investing shows a month’s profit and loss, costs and charges a
   // The total, then what it is made up of (owner 2026-11-20: "APP and other instruments don't look like a breakdown"): a
   // sign and green for made, a true minus and red for lost, never the words "made" or "lost".
   await expect(profit.locator('.acc-row-value[data-in]').first()).toHaveText('+£12.74')
-  await expect(profit.getByText('Made up of')).toBeVisible()
+  // No instrument was sold 3 times, so there is nothing "named": the list is by instrument and its one row does not repeat the total.
+  await expect(profit.getByText('By instrument')).toBeVisible()
   await expect(profit.locator('.acc-madeof')).toContainText('Other instruments')
+  await expect(profit.locator('.acc-madeof summary', { hasText: 'Other instruments' }).locator('.acc-row-value')).toHaveCount(0)
   await expect(profit).not.toContainText(/\bmade\b(?! up)/)
   await expect(profit).not.toContainText(/\blost\b/)
   // The statement's result is before charges (its fees are printed apart); the card says so and takes them off in one row.
@@ -396,22 +418,31 @@ test('Money → Investing shows a month’s profit and loss, costs and charges a
   await profit.locator('summary', { hasText: 'EXMQ' }).click()
   const lost = profit.locator('.acc-row-value[data-loss]')
   await expect(lost).toHaveText('−£3.33')
-  await expect(lost).toHaveCSS('color', 'rgb(179, 38, 30)')
+  await expect(lost).toHaveCSS('color', 'rgb(162, 40, 31)')
   await expect(profit.locator('.acc-row-value[data-in]').first()).toHaveCSS('color', 'rgb(31, 122, 77)')
   // What is held is a tile of its own (v0.43.0), beside Costs and charges and Income, which open under the tiles.
   const tiles = page.getByRole('group', { name: 'More about this month' })
   await expect(tiles).toContainText('Held at')
   await expect(tiles).toContainText('open result −£412.50')
-  await expect(tiles).toContainText('£5000.00 in all')
+  await expect(tiles).toContainText('£5,000.00 in all')
 
   // Costs and charges: FX fees, exchange and government fees, and tax withheld, with the trades they came on.
   await expect(page.getByRole('region', { name: 'Costs and charges' })).toHaveCount(0)
+  // The tile says its two parts, so it does not read as a different figure from "After charges" (audit 2026-11-20).
+  await expect(tiles.getByRole('button', { name: /^Costs and charges/ })).toContainText('£1.65 fees + £0.11 tax')
   await tiles.getByRole('button', { name: /^Costs and charges/ }).click()
   const costs = page.getByRole('region', { name: 'Costs and charges' })
   await expect(costs).toContainText('£1.76 in all, on 6 trades')
   await expect(costs.locator('summary', { hasText: 'FX fees' })).toContainText('£1.15')
   await expect(costs.locator('summary', { hasText: 'Exchange and government fees' })).toContainText('£0.50')
   await expect(costs.locator('summary', { hasText: 'Tax withheld on dividends' })).toContainText('£0.11')
+
+  // A month with only interest has no Profit and loss: no card of zeros (audit 2026-11-20).
+  await page.getByRole('navigation', { name: 'Months' }).getByRole('link', { name: 'Earlier: September 2026' }).click()
+  await expect(page.getByRole('region', { name: 'Profit and loss' })).toHaveCount(0)
+  await expect(page.getByText('0 sales')).toHaveCount(0)
+  await page.getByRole('link', { name: 'Latest' }).or(page.getByRole('link', { name: 'This month' })).click()
+  await expect(page.getByRole('region', { name: 'Profit and loss' })).toBeVisible()
 
   // Income: dividends after tax, and interest on cash.
   await tiles.getByRole('button', { name: /^Income/ }).click()
@@ -482,11 +513,12 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
     const sheet = await bringIn(page, await pdf(testInfo.outputPath(name), layout))
     await sheet.getByRole('button', { name: 'Done', exact: true }).click()
   }
+  await accountView(page, 'Overview') // (bringing the statements in left Statements open, which has no month's figures)
   // Out: energy 45.00, streaming 10.99, corner shop 12.40, supermarket 23.10, software 4.00, gym 25.00, two coffees 3.00.
   // In: A N Other 100.00, the employer 1,500.00, the pot's interest 1.25. Flex and the pot's moves are left out.
   await expect(page.getByRole('strong')).toHaveText('£126.49 out')
   const summary = page.getByRole('group', { name: 'Money in and payments out' }).getByRole('button')
-  await expect(summary).toHaveText(['Money in £1601.25', 'Payments out 8 payments'])
+  await expect(summary).toHaveText(['Money in £1,601.25', 'Payments out 8 payments'])
   await accountView(page, 'Spending')
 
   // A N OTHER is you, paying yourself: once said, its money leaves the totals; and comes back when unsaid. Paid once,
@@ -496,7 +528,7 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   await moneyIn.getByRole('button', { name: /^A N Other/ }).click()
   await page.getByRole('dialog', { name: 'A N Other' }).getByRole('button', { name: 'It’s me, moving money' }).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(summary).toHaveText(['Money in £1501.25', 'Payments out 8 payments'])
+  await expect(summary).toHaveText(['Money in £1,501.25', 'Payments out 8 payments'])
   await openFold(page, 'Moved between your accounts')
   const moved = page.getByRole('region', { name: 'Moved between your accounts' })
   await expect(moved.locator('summary')).toHaveText(['Monzo Flex 2 moves', 'Pots 1 move', 'A N Other Your own account · 1 move'])
@@ -516,7 +548,7 @@ test('Money adds up your accounts, leaving out Monzo Flex, pots and a payee you 
   await moved.locator('summary', { hasText: 'Example savings' }).click()
   await expect(moved.locator('details', { hasText: 'Example savings' }).locator('.acc-lines li')).toHaveText([/^Sat,? 5 Sept? ?Example savings → Lloyds ?£100\.00$/])
   await moved.getByRole('button', { name: 'It’s not me: count it again' }).click()
-  await expect(summary).toHaveText(['Money in £1601.25', 'Payments out 8 payments'])
+  await expect(summary).toHaveText(['Money in £1,601.25', 'Payments out 8 payments'])
   // Paid by card or direct debit: never asked.
   await openFold(page, 'Money out')
   const moneyOut = page.getByRole('region', { name: 'Money out' })
@@ -732,13 +764,14 @@ test('Spending: a bar by kind with the five biggest kinds under it, the rest fol
   const bar = page.locator('.acc-kinds-bar')
   await expect(bar).toBeVisible()
   const widths = await bar.locator('span[data-part]').evaluateAll((els) => els.map((el) => Math.round((el as HTMLElement).getBoundingClientRect().width)))
-  expect(widths).toHaveLength(6)
+  expect(widths).toHaveLength(7)
   expect(widths.slice(0, 5)).toEqual([...widths.slice(0, 5)].sort((a, b) => b - a))
   const kinds = page.getByRole('region', { name: 'By what it was for' })
-  await expect(kinds.locator(':scope > ul > li > details > summary')).toHaveText([/^Groceries 3 payments £90\.00$/, /^Eating out 3 payments £75\.00$/, /^Transport 3 payments £60\.00$/, /^Bills 3 payments £45\.00$/, /^Health 3 payments £30\.00$/, /^Everything else /])
+  await expect(kinds.locator(':scope > ul > li > details > summary')).toHaveText([/^Groceries 3 payments £90\.00$/, /^Eating out 3 payments £75\.00$/, /^Transport 3 payments £60\.00$/, /^Bills 3 payments £45\.00$/, /^Health 3 payments £30\.00$/, /^Not sorted yet 1 payment £7\.00$/, /^Everything else 1 kind · 3 payments £15\.00$/])
   await kinds.locator('summary', { hasText: 'Everything else' }).click()
+  // "Not sorted yet" is the kind to act on: a row of its own (audit 2026-11-20), not inside the grey rest.
   await expect(kinds).toContainText('Fun')
-  await expect(kinds).toContainText('Not sorted yet')
+  await expect(kinds.locator('details', { hasText: 'Everything else' })).not.toContainText('Not sorted yet')
 
   // Every list of payments is one row; it opens to its list.
   const out = page.getByRole('region', { name: 'Money out' })
@@ -773,7 +806,7 @@ test('What changed tells of a regular payment that went up, one that is new and 
   const changed = page.getByRole('region', { name: 'What changed' })
   const row = (name: string) => changed.locator('details.acc-item', { hasText: name })
   const summary = (name: string) => row(name).locator(':scope > summary')
-  await expect(summary('Example Broadband')).toContainText('went up from £32.50 to £36.50 · +£48.00 a year')
+  await expect(summary('Example Broadband')).toContainText('went up from £32.50 to £36.50 · £48.00 a year more')
   await expect(summary('Example New Sub')).toContainText('new · first paid 12 Aug · every month')
   await expect(summary('Example Gym Club')).toContainText('no payment since 10 Aug · was every month')
   // It opens to its payments.
@@ -832,8 +865,8 @@ test('each month says what came in against what went out, and Overview opens the
   await expect(page.getByRole('heading', { level: 1, name: '2026' })).toBeVisible()
   await expect(page.getByText('£92.97 out', { exact: true })).toBeVisible()
   await expect(page.getByText('From your accounts · Aug – Oct', { exact: true })).toBeVisible()
-  await expect(page.getByText('Money in £2000.00 · 5 payments out', { exact: true })).toBeVisible()
-  await expect(page.getByText('£1907.03 more in than out so far', { exact: true })).toBeVisible()
+  await expect(page.getByText('Money in £2,000.00 · 5 payments out', { exact: true })).toBeVisible()
+  await expect(page.getByText('£1,907.03 more in than out so far', { exact: true })).toBeVisible()
   await expect(page.getByText('Committed £32.97 · Everyday £60.00', { exact: true })).toBeVisible()
 
   // The regular payment it paid in the year, and the month with no statement.
@@ -1065,7 +1098,7 @@ test('Spending finds any payment across every month and year: by name, by amount
 
   // Money in, and nothing found.
   await search.fill('employer')
-  await expect(page.getByRole('region', { name: '2026' })).toContainText('£2000.00 in')
+  await expect(page.getByRole('region', { name: '2026' })).toContainText('£2,000.00 in')
   await search.fill('zzzz')
   await expect(page.getByText('Nothing found.')).toBeVisible()
 
@@ -1536,6 +1569,8 @@ test('Accounts steps between months, keeps its part open, and says when an accou
   await notice.click()
   await expect(tab('Statements')).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('region', { name: 'Your accounts' }).getByRole('listitem')).toContainText('Needs statement')
+  // Statements is about all months, so one month's figures are not above it (audit 2026-11-20).
+  await expect(page.locator('.acc-hero')).toHaveCount(0)
   // "To check" said the same of each account again ("statements up to 30 Sep"), which Your accounts already says with the days it
   // covers and is missing (owner 2026-11-20: "I don't know what is the purpose of To check"): it is gone.
   await expect(page.getByRole('region', { name: 'To check' })).toHaveCount(0)

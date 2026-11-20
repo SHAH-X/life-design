@@ -6,7 +6,8 @@
 // pointed out.
 import type { ChatMessage, ToolCall, ToolSpec } from '../lib/ai'
 import { itemShown, paidFor } from './receipts'
-import { type KnownReceipt, money, shopKey, spendByShop, spentOn } from './shopping'
+import { moneyPlain as money } from '../lib/money'
+import { type KnownReceipt, shopKey, spendByShop, spentOn } from './shopping'
 
 export interface FoundEntry {
   id: string
