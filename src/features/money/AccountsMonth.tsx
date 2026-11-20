@@ -513,30 +513,17 @@ function SpendingMonth({ its, jump }: { its: Its; jump: string | null }) {
 }
 
 function Statements({ its }: { its: Its }) {
-  const { names } = useMoney()
-  const { lines, accounts } = its.toCheck
+  // Which account needs a newer statement is said by Your accounts itself, with the days it covers and is missing (v0.46.0, owner
+  // 2026-11-20: "I don't know what is the purpose of To check"); what is left here is payments, and only when there are some.
+  const { lines } = its.toCheck
   return (
     <>
-      {lines.length || accounts.length ? (
-        <Block title="To check">
-          {accounts.length ? (
-            <ul className="acc-list">
-              {accounts.map((a) => (
-                <li key={a.account} className="acc-li">
-                  <div className="acc-row">
-                    <span className="acc-row-text">
-                      <span className="acc-row-title">{names.get(a.account) ?? a.account}</span>
-                      <span className="acc-row-sub">statements up to {dayMonth(a.until)}</span>
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {lines.length ? <LineList lines={lines} why="doesn’t match its printed balance" /> : null}
+      <Accounts />
+      {lines.length ? (
+        <Block title="Payments to check" status="Their statement’s printed balance doesn’t match">
+          <LineList lines={lines} why="doesn’t match its printed balance" />
         </Block>
       ) : null}
-      <Accounts />
     </>
   )
 }
