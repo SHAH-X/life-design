@@ -99,10 +99,10 @@ function RowButton(props: { date: string; title: string; sub?: string; amount: s
 }
 
 /** A titled group of lines on one white sheet; `count` marks one that needs you. */
-function Group({ title, status, count, children }: { title: string; status?: string; count?: number; children: ReactNode }) {
+function Group({ id, title, status, count, children }: { id?: string; title: string; status?: string; count?: number; children: ReactNode }) {
   const headingId = useId()
   return (
-    <section aria-labelledby={headingId} className="rc-group">
+    <section id={id} aria-labelledby={headingId} className="rc-group">
       <h2 id={headingId} className="rc-title">
         {title}
         {count ? <span className="rc-count"> {count}</span> : null}
@@ -129,7 +129,7 @@ function Matches(props: {
   const unmatched = sorted.filter((r) => outcomes.get(r.id)?.state !== 'matched' && outcomes.has(r.id))
   if (!matched.length && !unmatched.length && !without.length) return null
   return (
-    <Group title="Receipts and payments">
+    <Group id="rc-matches" title="Receipts and payments">
       <ul>
         {matched.length ? (
           <li>
@@ -209,6 +209,8 @@ export function ReceiptsMonth(props: {
   const its = shoppingMonth(receipts, month, today, props.copies, props.reviewedDates, props.possiblePaymentIds)
   const shops = its.shops.ranked.length + its.shops.others.filter((s) => s.name !== null).length
   const refunds = props.refunds.filter((r) => r.date.slice(0, 7) === month)
+  // How many of the month's receipts sit against a payment on a statement; said only when there are statements to match to.
+  const matchedCount = its.receipts.some((r) => props.outcomes.has(r.id)) ? its.receipts.filter((r) => props.outcomes.get(r.id)?.state === 'matched').length : null
   if (its.receipts.length === 0) {
     return (
       <section aria-labelledby={headingId}>
@@ -240,10 +242,17 @@ export function ReceiptsMonth(props: {
           <strong>{inWords(its.spent)} <span>spent</span></strong>
         </p>
         <ul className="plain-list compact money-overview-breakdown">
-          {its.before ? <ReceiptLine label={`By ${dayMonthLong(its.before.until)}`} amount={inWords(its.before.spent)} receipts={its.before.receipts} onOpen={onOpen} /> : null}
+          {its.before ? <ReceiptLine label={`Last month by ${dayMonthLong(its.before.until)}`} amount={inWords(its.before.spent)} receipts={its.before.receipts} onOpen={onOpen} /> : null}
           <ReceiptLine label={`${receiptsWord(its.receipts.length)} from ${shops} shop${shops === 1 ? '' : 's'}`} receipts={its.receipts} onOpen={onOpen} />
           {refunds.length ? <RefundLine refunds={refunds} onOpen={onOpen} /> : null}
           {its.offers.saved.length ? <ReceiptLine label={`${inWords(its.offers.saved)} off with offers`} receipts={its.offers.receipts} onOpen={onOpen} /> : null}
+          {matchedCount !== null ? (
+            <li>
+              <button type="button" className="rc-tile-link" onClick={() => document.getElementById('rc-matches')?.scrollIntoView({ block: 'start' })}>
+                <span className="rc-label">{matchedCount} of {receiptsWord(its.receipts.length)} matched to your bank</span>
+              </button>
+            </li>
+          ) : null}
         </ul>
       </div>
       <div className="card">

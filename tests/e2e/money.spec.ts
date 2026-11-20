@@ -273,7 +273,7 @@ test('Money → Investing shows a month’s profit and loss, costs and charges a
   await expect(profit).not.toContainText(/\blost\b/)
   // The statement's result is before charges (its fees are printed apart); the card says so and takes them off in one row.
   await expect(profit).toContainText('Before charges')
-  await expect(profit.getByRole('listitem').filter({ hasText: 'After charges' })).toContainText('+£11.09')
+  await expect(profit.locator('.acc-pair li', { hasText: 'After charges' })).toContainText('+£11.09')
   // Fewer than 3 sales of an instrument: all in one line that opens, by name.
   await profit.locator('summary', { hasText: 'Other instruments' }).click()
   await expect(profit.getByText('3 instruments, fewer than 3 sales each')).toBeVisible()
@@ -285,11 +285,15 @@ test('Money → Investing shows a month’s profit and loss, costs and charges a
   await expect(lost).toHaveText('−£3.33')
   await expect(lost).toHaveCSS('color', 'rgb(179, 38, 30)')
   await expect(profit.locator('.acc-row-value[data-in]').first()).toHaveCSS('color', 'rgb(31, 122, 77)')
-  await expect(profit).toContainText('Held at')
-  await expect(profit).toContainText('open result −£412.50')
-  await expect(profit).toContainText('£5000.00 in all')
+  // What is held is a tile of its own (v0.43.0), beside Costs and charges and Income, which open under the tiles.
+  const tiles = page.getByRole('group', { name: 'More about this month' })
+  await expect(tiles).toContainText('Held at')
+  await expect(tiles).toContainText('open result −£412.50')
+  await expect(tiles).toContainText('£5000.00 in all')
 
   // Costs and charges: FX fees, exchange and government fees, and tax withheld, with the trades they came on.
+  await expect(page.getByRole('region', { name: 'Costs and charges' })).toHaveCount(0)
+  await tiles.getByRole('button', { name: /^Costs and charges/ }).click()
   const costs = page.getByRole('region', { name: 'Costs and charges' })
   await expect(costs).toContainText('£1.76 in all, on 6 trades')
   await expect(costs.locator('summary', { hasText: 'FX fees' })).toContainText('£1.15')
@@ -297,6 +301,7 @@ test('Money → Investing shows a month’s profit and loss, costs and charges a
   await expect(costs.locator('summary', { hasText: 'Tax withheld on dividends' })).toContainText('£0.11')
 
   // Income: dividends after tax, and interest on cash.
+  await tiles.getByRole('button', { name: /^Income/ }).click()
   const income = page.getByRole('region', { name: 'Income' })
   await expect(income.locator('summary', { hasText: 'Dividends' })).toContainText('£3.92')
   await expect(income.getByText('Interest on cash')).toBeVisible()
@@ -1202,6 +1207,16 @@ test('a month’s receipts say which payment each was matched to or why there is
   const sheet = await bringIn(page, await pdf(testInfo.outputPath('monzo.pdf'), MONZO_LIKE))
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
   await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  // The month's lines are tiles two to a row (v0.43.0), one of them how many receipts sit against a payment, which takes you to the
+  // card that says which.
+  const tiles = page.locator('.receipt-overview .money-overview-breakdown > li')
+  const matchedTile = page.getByRole('button', { name: /receipts? matched to your bank$/ })
+  await expect(matchedTile).toHaveText(/^\d of \d receipts? matched to your bank$/)
+  const [a, b] = [await tiles.nth(0).boundingBox(), await tiles.nth(1).boundingBox()]
+  expect(Math.abs(a!.y - b!.y)).toBeLessThan(2)
+  expect(b!.x).toBeGreaterThan(a!.x + a!.width - 1)
+  await matchedTile.click()
+  await expect(page.getByRole('region', { name: 'Receipts and payments' })).toBeInViewport()
   const matches = page.getByRole('region', { name: 'Receipts and payments' })
   await expect(matches.locator('summary', { hasText: 'matched to a payment' })).toHaveText(/^2 receipts matched to a payment$/)
   await matches.locator('summary', { hasText: 'matched to a payment' }).click()

@@ -2318,12 +2318,54 @@ button.line-button {
   border-top: 0;
 }
 
-.money-screen .receipt-overview .money-overview-breakdown {
-  grid-template-columns: 1fr;
+/* The month's lines as tiles (v0.43.0, owner 2026-11-20: "each and every tab looks monotonous and like lists"): two to a row;
+   one that is opened takes the whole row, as it did. */
+.money-screen .receipt-overview ul.plain-list.compact.money-overview-breakdown {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.money-screen .receipt-overview .money-overview-breakdown > li {
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
 }
 
 .money-screen .receipt-overview .money-overview-breakdown > li + li {
   border-top: 1px solid var(--border);
+}
+
+.money-screen .receipt-overview details.week-line > summary.rc-row {
+  grid-template-columns: minmax(0, 1fr) 16px;
+  align-items: start;
+  min-height: 84px;
+  padding: 12px;
+}
+
+.money-screen .receipt-overview details.week-line > summary.rc-row::after {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.money-screen .receipt-overview .rc-row .rc-amount {
+  grid-column: 1;
+  grid-row: 2;
+  font-size: var(--fs-xl);
+  text-align: left;
+}
+
+.money-screen .rc-tile-link {
+  display: block;
+  width: 100%;
+  min-height: 84px;
+  padding: 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-weight: 500;
+  text-align: left;
 }
 
 .money-screen .receipt-overview .money-overview-total strong {
@@ -2846,6 +2888,31 @@ button.line-button {
 /* A loss in Investing: a − and red (the − and the words say it too). */
 .money-screen .acc-row-value[data-loss] {
   color: var(--money-loss);
+}
+
+/* The two figures a month's result comes to, side by side (v0.43.0): before and after charges. */
+.money-screen .acc-pair > ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.money-screen .acc-pair > ul > li {
+  border-bottom: 0;
+}
+
+.money-screen .acc-pair .acc-row {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 4px 0;
+}
+
+.money-screen .acc-pair .acc-row-value {
+  font-size: var(--fs-xl);
 }
 
 /* What a total is made up of: set in from it, so the rows read as its parts. */
