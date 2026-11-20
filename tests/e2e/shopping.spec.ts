@@ -3,6 +3,13 @@ import { captureShareSheet, expectNoScores, sharedFile } from './helpers'
 import { REFUND_SLIP } from '../fixtures/receipts'
 import { backupWith, freeWriting, restoreBackup } from './seed'
 
+/** Spending's lists of payments (v0.42.0) are folded to one row each: opens one, unless it already is (or there is none). */
+async function openFold(page: Page, name: string) {
+  const fold = page.getByRole('region', { name }).getByRole('button', { name: new RegExp(`^${name}`) })
+  if ((await fold.count()) && (await fold.getAttribute('aria-expanded')) !== 'true') await fold.click()
+}
+
+
 // Money's receipts (v0.19 as the Shopping tab, part of Money from v0.20) in WebKit: what was spent, from the receipts in
 // photos, worked out on the phone with no AI.
 // Fictional receipts, as an AI read them (so every shop, date and price is exact). No AI is called.
@@ -213,6 +220,7 @@ test('an item can be filed under who it was for, on every receipt at that shop, 
   await page.goto('./#/money')
   await page.getByRole('button', { name: 'Receipts', exact: true }).click()
   // Nothing is filed: no block.
+  await openFold(page, 'Who it was for')
   await expect(page.getByRole('region', { name: 'Who it was for' })).toHaveCount(0)
 
   // On one Tesco receipt: both Tesco receipts follow, the ASDA one does not.
@@ -230,6 +238,7 @@ test('an item can be filed under who it was for, on every receipt at that shop, 
   await expect(item.getByRole('button', { name: 'For: Riya' })).toBeVisible()
   await item.getByRole('button', { name: 'Close' }).click()
   await receipt.getByRole('button', { name: 'Close', exact: true }).click()
+  await openFold(page, 'Who it was for')
   const who = page.getByRole('region', { name: 'Who it was for' })
   await expect(who.locator('summary')).toHaveText(['Riya · 2 items · £29.00', 'Nobody in particular · 2 items · £14.94'])
 
@@ -238,6 +247,7 @@ test('an item can be filed under who it was for, on every receipt at that shop, 
   await expect(who.locator('details', { hasText: 'Riya' }).getByRole('button')).toHaveCount(2)
   await page.reload()
   await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  await openFold(page, 'Who it was for')
   await expect(page.getByRole('region', { name: 'Who it was for' }).locator('summary')).toHaveText(['Riya · 2 items · £29.00', 'Nobody in particular · 2 items · £14.94'])
   await line(page, /3 receipts from 2 shops/).click()
   await page.getByRole('button', { name: /Sat 17 Oct ASDA/ }).click()
@@ -247,6 +257,7 @@ test('an item can be filed under who it was for, on every receipt at that shop, 
   await page.getByRole('dialog', { name: FORMULA }).getByRole('button', { name: 'Close' }).click()
   await page.getByRole('dialog', { name: 'ASDA' }).getByRole('button', { name: 'Close', exact: true }).click()
   // Three items now: ranked, with what no name was given to last.
+  await openFold(page, 'Who it was for')
   await expect(page.getByRole('region', { name: 'Who it was for' }).locator('summary')).toHaveText(['Riya · 3 items · £42.99', 'Nobody in particular · 1 item · £0.95'])
 })
 
@@ -425,9 +436,10 @@ test('an undated receipt can be accepted or matched to a statement payment, then
   await match.getByRole('button', { name: 'Match receipt' }).click()
   await expect(check).toHaveCount(0)
 
-  const moneyOut = page.getByRole('region', { name: 'Money out' })
   // Money out is under Spending (v0.20.14); one payment is its own row (v0.20.17), opening directly.
   await page.getByRole('group', { name: 'Money sections' }).getByRole('button', { name: 'Spending', exact: true }).click()
+  await openFold(page, 'Money out')
+  const moneyOut = page.getByRole('region', { name: 'Money out' })
   await moneyOut.getByRole('button', { name: /Corner Shop.*Receipt £4\.20/i }).click()
   const paymentSheet = page.getByRole('dialog', { name: 'Corner Shop' })
   await paymentSheet.getByRole('button', { name: 'Unlink receipt' }).click()
@@ -483,8 +495,9 @@ test('a dated receipt can be matched to a smaller debit with an owner-recorded r
   await expect(page.getByRole('strong')).toHaveText('£96.50 spent')
   await page.getByRole('group', { name: 'Money sections' }).getByRole('button', { name: 'Overview', exact: true }).click()
   await expect(page.getByRole('strong')).toHaveText('£90.71 out')
-  const moneyOut = page.getByRole('region', { name: 'Money out' })
   await page.getByRole('group', { name: 'Money sections' }).getByRole('button', { name: 'Spending', exact: true }).click()
+  await openFold(page, 'Money out')
+  const moneyOut = page.getByRole('region', { name: 'Money out' })
   // The row says it has a receipt, at the debit's amount; the sheet gives both amounts and why they differ.
   await moneyOut.getByRole('button', { name: /Corner Shop.*Receipt £90\.71$/i }).click()
   const paymentSheet = page.getByRole('dialog', { name: 'Corner Shop' })
@@ -504,6 +517,7 @@ test('a dated receipt can be matched to a smaller debit with an owner-recorded r
   await reason.fill('Part paid with a stored-value card')
   await secondMatch.getByRole('button', { name: 'Match receipt' }).click()
   await page.getByRole('group', { name: 'Money sections' }).getByRole('button', { name: 'Spending', exact: true }).click()
+  await openFold(page, 'Money out')
   await moneyOut.getByRole('button', { name: /Corner Shop.*Receipt £90\.71$/i }).click()
   await expect(paymentSheet).toContainText('Receipt £96.50 · debit £90.71 · difference £5.79 · Part paid with a stored-value card')
 })

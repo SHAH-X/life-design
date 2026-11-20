@@ -2926,6 +2926,77 @@ button.line-button {
   background: color-mix(in srgb, var(--text) 30%, transparent);
 }
 
+/* Spending's bar (v0.42.0): the five biggest kinds in tints of the one green, everything else in grey; the rows say the figures. */
+.money-screen .acc-kinds-bar {
+  display: flex;
+  gap: 2px;
+  height: 14px;
+  margin: 4px 0 8px;
+  overflow: hidden;
+  border-radius: 7px;
+}
+
+.money-screen .acc-kinds-bar > span {
+  flex-basis: 0;
+  min-width: 4px;
+  background: var(--viz-seq);
+}
+
+.money-screen .acc-kinds-bar > [data-part='rest'] {
+  background: var(--viz-axis);
+}
+
+.money-screen .acc-row-text:has(> .acc-swatch) {
+  position: relative;
+  padding-left: 20px;
+}
+
+.money-screen .acc-swatch {
+  position: absolute;
+  top: 5px;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--viz-seq);
+}
+
+/* A list of payments folded to one row, opened by a tap. */
+.money-screen .acc-block.acc-fold .acc-fold-heading {
+  margin: 0;
+  font-family: inherit;
+  font-size: var(--fs-md);
+}
+
+.money-screen .acc-fold-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+
+.money-screen .acc-fold-top .acc-row-sub {
+  font-weight: 400;
+}
+
+.money-screen .acc-fold-chevron {
+  display: flex;
+  color: var(--muted);
+}
+
+.money-screen .acc-fold-top[aria-expanded='true'] .acc-fold-chevron {
+  transform: rotate(90deg);
+}
+
 /* The regular payments' total (owner, 2026-10-28: a prominent summary at the top of the list): the first row, its figure larger. */
 .money-screen .acc-total .acc-row-value {
   font-size: var(--fs-xl);

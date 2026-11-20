@@ -197,7 +197,7 @@ export function AccountsMonth(props: {
         ) : null}
       </header>
       {section === 'overview' ? <Overview its={its} lines={lines} regular={regular} changes={changes} yearOut={yearOut} statements={statements} closed={closed} month={month} today={today} /> : null}
-      {section === 'spending' ? <Spending its={its} lines={lines} query={query} onQuery={onQuery} /> : null}
+      {section === 'spending' ? <Spending its={its} lines={lines} query={query} onQuery={onQuery} jump={jump} /> : null}
       {section === 'statements' ? <Statements its={its} /> : null}
     </>
   )
@@ -377,7 +377,7 @@ function SearchResults({ found }: { found: readonly MoneyLine[] }) {
   )
 }
 
-function Spending({ its, lines, query, onQuery }: { its: Its; lines: readonly MoneyLine[]; query: string; onQuery: (query: string) => void }) {
+function Spending({ its, lines, query, onQuery, jump }: { its: Its; lines: readonly MoneyLine[]; query: string; onQuery: (query: string) => void; jump: string | null }) {
   const searchId = useId()
   const box = useRef<HTMLInputElement>(null)
   const searching = query.trim().length >= MIN_SEARCH
@@ -404,32 +404,100 @@ function Spending({ its, lines, query, onQuery }: { its: Its; lines: readonly Mo
           ><Icon name="close" size={16} /></button>
         ) : null}
       </div>
-      {searching ? <SearchResults found={searchPayments(lines, query)} /> : <SpendingMonth its={its} />}
+      {searching ? <SearchResults found={searchPayments(lines, query)} /> : <SpendingMonth its={its} jump={jump} />}
     </>
   )
 }
 
-function SpendingMonth({ its }: { its: Its }) {
+/** How many kinds are named in the bar and the rows under it; the rest are one piece, "Everything else". */
+const TOP_KINDS = 5
+/** The bar's pieces, biggest first, each a lighter tint of the one green: a row's swatch is the same tint (the figures are in the rows). */
+const tintOf = (rank: number) => 1 - rank * 0.17
+
+/** One line that opens a list of payments (v0.42.0): its name and what is in it, closed until asked for. */
+function Fold({ id, title, sub, open, onToggle, children }: { id?: string; title: string; sub: string; open: boolean; onToggle: () => void; children: ReactNode }) {
+  const titleId = useId()
+  return (
+    <section id={id} className="acc-block acc-fold" aria-labelledby={titleId}>
+      <h2 className="acc-fold-heading">
+        <button type="button" className="acc-fold-top" aria-expanded={open} onClick={onToggle}>
+          <span className="acc-row-text">
+            <span id={titleId} className="acc-row-title">{title}</span> <span className="acc-row-sub">{sub}</span>
+          </span>
+          <span className="acc-fold-chevron" aria-hidden="true">
+            <Icon name="chevron-right" size={16} />
+          </span>
+        </button>
+      </h2>
+      {open ? children : null}
+    </section>
+  )
+}
+
+function SpendingMonth({ its, jump }: { its: Its; jump: string | null }) {
+  // The lists a figure at the top opens ("Payments out") come open; the rest are closed.
+  const [opened, setOpened] = useState<ReadonlySet<string>>(() => new Set(jump ? [jump] : []))
+  useEffect(() => {
+    if (jump) setOpened((now) => new Set(now).add(jump))
+  }, [jump])
+  const flip = (id: string) => setOpened((now) => { const next = new Set(now); if (!next.delete(id)) next.add(id); return next })
+  const top = its.kinds.ranked.slice(0, TOP_KINDS)
+  const rest = [...its.kinds.ranked.slice(TOP_KINDS), ...its.kinds.others]
+  const restTotal = rest.reduce((sum, g) => sum + g.total, 0)
+  const restPayments = rest.reduce((sum, g) => sum + g.lines.filter((l) => !l.refund).length, 0)
+  const bar = [...top.map((g, i) => ({ total: g.total, part: String(i) })), ...(rest.length ? [{ total: restTotal, part: 'rest' }] : [])].filter((p) => p.total > 0)
+  const moneyOut = its.payees.out.ranked.length + its.payees.out.others.length
+  const moneyIn = its.payees.in.ranked.length + its.payees.in.others.length
   return (
     <>
       {its.outLines.length ? (
         <Block title="By what it was for">
-          <Groups of={its.kinds} line={(g: KindGroup) => <KindRow key={g.kind} group={g} totalOut={its.out} />} fewer="Fewer than 3 payments, by name" />
+          {top.length ? (
+            <>
+              <div className="acc-kinds-bar" aria-hidden="true">
+                {bar.map((p) => (
+                  <span key={p.part} data-part={p.part} style={{ flexGrow: p.total, ...(p.part === 'rest' ? {} : { opacity: tintOf(Number(p.part)) }) }} />
+                ))}
+              </div>
+              <ul className="acc-list">
+                {top.map((g, i) => (
+                  <KindRow key={g.kind} group={g} totalOut={its.out} tint={tintOf(i)} />
+                ))}
+                {rest.length ? (
+                  <Item title="Everything else" sub={`${rest.length} ${rest.length === 1 ? 'kind' : 'kinds'} · ${paymentsWord(restPayments)}`} value={pounds(restTotal)}>
+                    <Groups of={{ ranked: its.kinds.ranked.slice(TOP_KINDS), others: its.kinds.others }} line={(g: KindGroup) => <KindRow key={g.kind} group={g} totalOut={its.out} />} fewer="Fewer than 3 payments, by name" />
+                  </Item>
+                ) : null}
+              </ul>
+            </>
+          ) : (
+            // No kind has 3 payments yet: a bar of one grey piece says nothing, so these are listed by name as before.
+            <Groups of={its.kinds} line={(g: KindGroup) => <KindRow key={g.kind} group={g} totalOut={its.out} />} fewer="Fewer than 3 payments, by name" />
+          )}
         </Block>
       ) : null}
-      {its.forWho ? <ForBlock who={its.forWho} /> : null}
       {its.outLines.length ? (
-        <Block id="acc-money-out" title="Money out">
+        <Fold id="acc-money-out" title="Money out" sub={`${paymentsWord(its.outLines.length)} · ${moneyOut} ${moneyOut === 1 ? 'name' : 'names'}`} open={opened.has('acc-money-out')} onToggle={() => flip('acc-money-out')}>
           <Groups of={its.payees.out} line={(g: PayeeGroup) => <PayeeRow key={g.payee.key} group={g} out />} fewer="Fewer than 3 payments, by name" />
-        </Block>
+        </Fold>
       ) : null}
       {its.inLines.length ? (
-        <Block id="acc-money-in" title="Money in">
+        <Fold id="acc-money-in" title="Money in" sub={`${paymentsWord(its.inLines.length)} · ${moneyIn} ${moneyIn === 1 ? 'name' : 'names'}`} open={opened.has('acc-money-in')} onToggle={() => flip('acc-money-in')}>
           <Groups of={its.payees.in} line={(g: PayeeGroup) => <PayeeRow key={g.payee.key} group={g} />} fewer="Fewer than 3 payments, by name" />
-        </Block>
+        </Fold>
+      ) : null}
+      {its.forWho ? (
+        <Fold title="Who it was for" sub={`${its.forWho.ranked.length + its.forWho.others.length + (its.forWho.nobody ? 1 : 0)} ${its.forWho.ranked.length + its.forWho.others.length + (its.forWho.nobody ? 1 : 0) === 1 ? 'group' : 'groups'}`} open={opened.has('who')} onToggle={() => flip('who')}>
+          <Groups of={its.forWho} line={(g: ForGroup) => <ForRow key={g.who} group={g} />} fewer="Fewer than 3 payments, by name" />
+          {its.forWho.nobody ? (
+            <ul className="acc-list">
+              <ForRow group={its.forWho.nobody} />
+            </ul>
+          ) : null}
+        </Fold>
       ) : null}
       {its.moved.length ? (
-        <Block title="Moved between your accounts" status="Left out of money in and out">
+        <Fold title="Moved between your accounts" sub="Left out of money in and out" open={opened.has('moved')} onToggle={() => flip('moved')}>
           <ul className="acc-list">
             {its.moved.map((m) =>
               m.why === 'own' ? <OwnRows key={m.why} lines={m.lines} /> : (
@@ -439,7 +507,7 @@ function SpendingMonth({ its }: { its: Its }) {
               ),
             )}
           </ul>
-        </Block>
+        </Fold>
       ) : null}
     </>
   )
@@ -501,12 +569,13 @@ export function Groups<T>({ of, line, fewer }: { of: Ranked<T>; line: (item: T) 
 
 /** The one kind of row: what it is, what it says underneath, and its figure; it opens to what's behind it. */
 /** `unsorted`: the meter is neutral ink, not the green of a kind (green reads as success, and this is the one to sort). */
-export function Item({ title, sub, value, tone, meter, unsorted = false, children }: { title: string; sub?: ReactNode; value?: ReactNode; tone?: 'in' | 'loss'; meter?: number; unsorted?: boolean; children: ReactNode }) {
+export function Item({ title, sub, value, tone, meter, swatch, unsorted = false, children }: { title: string; sub?: ReactNode; value?: ReactNode; tone?: 'in' | 'loss'; meter?: number; /** A kind's tint in the bar above (its opacity). */ swatch?: number; unsorted?: boolean; children: ReactNode }) {
   return (
     <li className="acc-li">
       <details className="acc-item">
         <summary className="acc-row">
           <span className="acc-row-text">
+            {swatch !== undefined ? <span className="acc-swatch" style={{ opacity: swatch }} aria-hidden="true" /> : null}
             <span className="acc-row-title">{title}</span>
             {sub ? (
               <>
@@ -634,11 +703,11 @@ function ForRow({ group }: { group: ForGroup }) {
   )
 }
 
-export function KindRow({ group, totalOut }: { group: KindGroup; totalOut: number }) {
+export function KindRow({ group, totalOut, tint }: { group: KindGroup; totalOut: number; tint?: number }) {
   const count = group.lines.filter((l) => !l.refund).length
   const share = totalOut > 0 ? Math.min(100, Math.max(2, Math.round((group.total / totalOut) * 100))) : 0
   return (
-    <Item title={group.kind} sub={paymentsWord(count)} value={pounds(group.total)} meter={share} unsorted={group.kind === NOT_SORTED}>
+    <Item title={group.kind} sub={paymentsWord(count)} value={pounds(group.total)} meter={tint === undefined ? share : undefined} swatch={tint} unsorted={group.kind === NOT_SORTED}>
       <LineList lines={group.lines} />
     </Item>
   )
