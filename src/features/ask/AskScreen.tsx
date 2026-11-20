@@ -9,6 +9,7 @@ import { AI_PROBLEMS, AiError, chatWithTools, PROVIDERS } from '../../lib/ai'
 import { embed } from '../../lib/embedder'
 import { shortDate, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
+import { BackLink } from '../../ui/BackLink'
 import { Icon } from '../../ui/Icon'
 import { Loading } from '../../ui/Loading'
 import { useEntryTitle } from '../areas/AreasProvider'
@@ -22,7 +23,7 @@ import { Answer } from './Answer'
 type State = { kind: 'idle' } | { kind: 'asking' } | { kind: 'problem'; message: string }
 
 /**
- * Ask (v0.18, its own tab; owner: "asking in the log search box is not helping"): a question about your journal,
+ * Ask (v0.18, its own tab until v0.39.0, now opened from the top of Logs; owner: "asking in the log search box is not helping"): a question about your journal,
  * answered by the AI you set up, on a tap. The phone finds what the question needs and does every sum
  * (src/domain/ask.ts); each answer is kept here, newest first, with everything that was sent for it.
  */
@@ -71,6 +72,7 @@ export function AskScreen() {
 
   return (
     <div className="ask-screen">
+      <BackLink href={hashFor('entries')}>Logs</BackLink>
       <header className="ask-header">
         <h1>Ask</h1>
       </header>

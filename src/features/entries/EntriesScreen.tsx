@@ -5,6 +5,7 @@ import { loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
 import type { Entry } from '../../db/types'
 import { matchesSearch } from '../../domain/search'
 import { longDate, PART_ORDER } from '../../lib/dates'
+import { hashFor } from '../../lib/route'
 import { Loading } from '../../ui/Loading'
 import { SwipeRow } from '../../ui/SwipeRow'
 import { useStuckHeading } from '../../ui/useStuckHeading'
@@ -81,6 +82,13 @@ export function EntriesScreen() {
         </label>
         <input id={searchId} type="search" placeholder="Search your logs" value={query} onChange={(e) => setQuery(e.target.value)} />
       </div>
+      <a className="logs-ask" href={hashFor('ask')}>
+        <span aria-hidden="true">
+          <Icon name="sparkle" size={18} />
+        </span>
+        <span>Ask your journal</span>
+        <Icon name="chevron-right" size={16} />
+      </a>
       {searching && meaning === 'unasked' ? <MeaningOffer /> : null}
 
       {drafts.length ? (
