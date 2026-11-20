@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { type InvestBrought, bringInInvesting } from '../../db/invest'
+import { type InvestBrought, bringInInvesting, nameInvestmentAccounts } from '../../db/invest'
 import { type BroughtIn, bringInStatement } from '../../db/statements'
 import { readStatement, type StatementProblem } from '../../domain/statements'
 import { notMatchingWords } from '../../domain/trading212'
@@ -29,7 +29,10 @@ async function bringIn(file: File): Promise<Outcome> {
   try {
     const read = readStatement(await readPdf(file))
     if ('problem' in read) return { file: file.name, error: PROBLEMS[read.problem] }
-    return { file: file.name, brought: await bringInStatement(read.accounts), invested: read.investing?.length ? await bringInInvesting(read.investing) : [] }
+    const brought = await bringInStatement(read.accounts)
+    const invested = read.investing?.length ? await bringInInvesting(read.investing) : []
+    await nameInvestmentAccounts(read.labels)
+    return { file: file.name, brought, invested }
   } catch (error) {
     return { file: file.name, error: error instanceof PdfError ? error.message : COULDNT }
   }

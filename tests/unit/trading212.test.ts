@@ -53,6 +53,25 @@ function investingOf(pieces: readonly TextPiece[]) {
   }
 }
 
+describe('Trading 212 accounts told apart by their type (v0.44.0, owner 2026-11-20: "name them by type")', () => {
+  it('says each account’s type, from its overview’s heading, for all four, those with nothing in them too', () => {
+    const read = readStatement(piecesOf(activityLike()))
+    if ('problem' in read) throw new Error(read.problem)
+    expect(read.labels).toEqual({
+      'Trading 212 ···0002': 'Invest',
+      'Trading 212 ···0001': 'Stocks ISA',
+      'Trading 212 ···0003': 'Cash ISA',
+      'Trading 212 ···0004': 'CFD',
+    })
+  })
+
+  it('has no types for a Transactions Statement, which prints none', () => {
+    const read = readStatement(piecesOf(TRANSACTIONS_LIKE))
+    if ('problem' in read) throw new Error(read.problem)
+    expect(read.labels).toBeUndefined()
+  })
+})
+
 describe('Trading 212’s trades, dividends and interest (v0.36.0)', () => {
   it('reads an Activity statement’s trades (fees and what each sale made), dividends (after tax, and the tax) and interest, with its overview’s figures and none of them in doubt', () => {
     const read = investingOf(piecesOf(activityLike()))!
