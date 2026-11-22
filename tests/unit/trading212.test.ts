@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { classify } from '../../src/domain/money'
 import { readStatement, type TextPiece } from '../../src/domain/statements'
-import { notMatchingWords } from '../../src/domain/trading212'
+import { doesntMatchWords, notMatchingWords } from '../../src/domain/trading212'
 import { piecesFromPdf } from '../../src/lib/pdfText'
 import { makePdf, piecesOf } from '../fixtures/pdf'
 import { activityLike, TRADING212_EXPECT, TRADING212_INVESTING_EXPECT, TRANSACTIONS_LIKE } from '../fixtures/trading212'
@@ -33,7 +33,17 @@ describe('a Trading 212 Activity statement', () => {
     // The overview says £160.00 came in, the lines say £150.00.
     const off = readStatement(piecesOf(activityLike(16000)))
     if ('problem' in off) throw new Error(off.problem)
-    expect(off.accounts[0]!.lines.every((l) => !l.adds)).toBe(true)
+    // Only the money in is in doubt: the withdrawals still add up to what the overview says (v0.52.3, owner 2026-11-22: dozens flagged at once).
+    expect(off.accounts[0]!.lines.filter((l) => l.amount > 0).every((l) => !l.adds)).toBe(true)
+    expect(off.accounts[0]!.lines.filter((l) => l.amount < 0).length).toBeGreaterThan(0)
+    expect(off.accounts[0]!.lines.filter((l) => l.amount < 0).every((l) => l.adds)).toBe(true)
+  })
+
+  it('flags only the money out when only the withdrawals differ (v0.52.3)', () => {
+    const off = readStatement(piecesOf(activityLike(undefined, { Withdrawals: -9999 })))
+    if ('problem' in off) throw new Error(off.problem)
+    expect(off.accounts[0]!.lines.filter((l) => l.amount < 0).every((l) => !l.adds)).toBe(true)
+    expect(off.accounts[0]!.lines.filter((l) => l.amount > 0).every((l) => l.adds)).toBe(true)
   })
 })
 
@@ -141,5 +151,12 @@ describe('notMatchingWords', () => {
     expect(notMatchingWords('Lloyds ···4321', 3)).toBe('3 don’t match their printed balance')
     expect(notMatchingWords('Trading 212 ···0001', 1)).toBe('1 doesn’t match the statement’s totals')
     expect(notMatchingWords('Trading 212 ···0001', 2)).toBe('2 don’t match the statement’s totals')
+  })
+})
+
+describe('doesntMatchWords (v0.52.3, owner 2026-11-22: Trading 212 lines said "printed balance", which they have none of)', () => {
+  it('says a line’s check in the words of what it was checked against', () => {
+    expect(doesntMatchWords('Lloyds ···4321')).toBe('doesn’t match its printed balance')
+    expect(doesntMatchWords('Trading 212 Stocks ISA')).toBe('doesn’t match the statement’s totals')
   })
 })

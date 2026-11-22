@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { db } from '../../db/db'
 import type { StatementRecord } from '../../db/types'
 import { accountMonth, accountMonths } from '../../domain/accountStatement'
+import { doesntMatchWords } from '../../domain/trading212'
 import { nameOf, notBroughtIn } from '../../domain/money'
 import { formatPeriod, monthYear, shortWeekday, dayMonth } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
@@ -11,6 +12,8 @@ import { Loading } from '../../ui/Loading'
 import { pounds } from './AccountsMonth'
 import { useMoney } from './MoneyContext'
 import { PaymentRow } from './PaymentRow'
+
+const upFirst = (words: string) => words[0]!.toUpperCase() + words.slice(1)
 
 // One account's statement (v0.30.0): tap its name under Your accounts. The PDFs aren't kept, only their lines, so it's
 // rebuilt from them: a month at a time, newest day first, with what came in and went out and the balance at its end.
@@ -93,7 +96,7 @@ export function StatementView(props: {
                     const account = names.get(l.account) ?? l.account
                     const way = l.amount < 0 ? `Out of ${account}` : line?.refund ? `Back into ${account}` : `Into ${account}`
                     // Every line says which way it went in words: a move between your accounts has no sign or green of its own.
-                    const sub = [l.amount < 0 ? 'Out' : line?.refund ? 'Refund' : 'In', l.type, l.balance !== null ? `${view.owed ? 'Owed' : 'Balance'} ${pounds(l.balance)}` : '', l.adds ? '' : 'Doesn’t match its printed balance'].filter(Boolean).join(' · ')
+                    const sub = [l.amount < 0 ? 'Out' : line?.refund ? 'Refund' : 'In', l.type, l.balance !== null ? `${view.owed ? 'Owed' : 'Balance'} ${pounds(l.balance)}` : '', l.adds ? '' : upFirst(doesntMatchWords(l.account))].filter(Boolean).join(' · ')
                     return line ? <PaymentRow key={l.id} line={line} title={nameOf(line)} sub={sub} way={way} /> : null
                   })}
                 </ul>

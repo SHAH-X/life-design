@@ -36,6 +36,7 @@ import {
   upcoming,
 } from '../../domain/money'
 import { money, paid, shiftMonth } from '../../domain/shopping'
+import { doesntMatchWords } from '../../domain/trading212'
 import { dayMonth, monthName, monthYear, shortDayMonth } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { MonthChart } from '../../ui/charts/MonthChart'
@@ -560,8 +561,8 @@ function Statements({ its }: { its: Its }) {
     <>
       <Accounts />
       {lines.length ? (
-        <Block title="Payments to check" status="Their statement’s printed balance doesn’t match">
-          <LineList lines={lines} why="doesn’t match its printed balance" />
+        <Block title="Payments to check" status="What their statement prints doesn’t match">
+          <LineList lines={lines} why={(l) => doesntMatchWords(l.account)} />
         </Block>
       ) : null}
     </>
@@ -876,7 +877,7 @@ const flexPurchase = (l: MoneyLine) => l.label ?? titleCaseShouted(l.payee.name.
  *  ("Savings pot → Monzo"). The payee is named only where the rows' payees differ, or always with `named` (a search's
  *  results). A payment with its receipt opens it;
  *  with why, when it needs a look. */
-export function LineList({ lines, why, moves = false, named = false }: { lines: readonly MoneyLine[]; why?: string; moves?: boolean; named?: boolean }) {
+export function LineList({ lines, why, moves = false, named = false }: { lines: readonly MoneyLine[]; why?: (line: MoneyLine) => string; moves?: boolean; named?: boolean }) {
   const { links, receiptReasons, names } = useMoney()
   const rows = moves ? joinMoves(lines) : [...lines].sort((a, b) => b.date.localeCompare(a.date)).map((line) => ({ line }))
   const name = (account: string) => names.get(account) ?? account
@@ -902,7 +903,7 @@ export function LineList({ lines, why, moves = false, named = false }: { lines: 
         // With a name to show (payees differ, a search, a name you gave it) the name leads and the day goes underneath.
         const named_ = payees || Boolean(row.line.label)
         const day = shortDayMonth(row.line.date)
-        const sub = [named_ ? day : '', where(row, true), receiptDetail, why ?? ''].filter(Boolean).join(' · ')
+        const sub = [named_ ? day : '', where(row, true), receiptDetail, why?.(row.line) ?? ''].filter(Boolean).join(' · ')
         const title = row.line.moving === 'flex' && !('to' in row && row.to) ? flexPurchase(row.line) : nameOf(row.line)
         return <PaymentRow key={row.line.id} line={row.line} title={named_ ? title : day} sub={sub} way={where(row)} />
       })}

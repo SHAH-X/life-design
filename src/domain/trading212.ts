@@ -14,6 +14,9 @@ export const isInvestmentAccount = (account: string): boolean => account.startsW
 export const notMatchingWords = (account: string, count: number): string =>
   `${count} ${count === 1 ? 'doesn’t match its' : 'don’t match their'} ${isInvestmentAccount(account) ? 'statement’s totals' : 'printed balance'}`.replace('its statement’s', 'the statement’s').replace('their statement’s', 'the statement’s')
 
+/** What one line is checked against, in words: a bank's printed balance, Trading 212's statement totals (it prints no balance per line). */
+export const doesntMatchWords = (account: string): string => `doesn’t match ${isInvestmentAccount(account) ? 'the statement’s totals' : 'its printed balance'}`
+
 /** An amount as these print it: "250", "0.1", "-300.25", "£200", "-£190", "£1,234.56"; in pence, or null. */
 function pence(text: string): number | null {
   const m = text.trim().replace(/[£,]/g, '').match(/^(-)?(\d+)(?:\.(\d{1,2}))?$/)
@@ -218,10 +221,14 @@ export function readTrading212(all: readonly TextPiece[]): { accounts: Statement
     const sums = printed.get(id)
     // What the overview says came in and went out must be what these add up to.
     const total = (positive: boolean) => moved.filter((r) => r.amount > 0 === positive).reduce((sum, r) => sum + r.amount, 0)
-    const matches = !sums || ((sums.Deposits === undefined || sums.Deposits === total(true)) && (sums.Withdrawals === undefined || sums.Withdrawals === total(false)))
+    // Money in is checked against the overview's Deposits and money out against its Withdrawals, each on its own: a total that is
+    // off puts only its own side in doubt (owner, 2026-11-22: dozens of lines flagged at once, the withdrawals among them).
+    const addsUp = (positive: boolean, said: number | undefined) => said === undefined || said === total(positive)
+    const depositsAddUp = !sums || addsUp(true, sums.Deposits)
+    const withdrawalsAddUp = !sums || addsUp(false, sums.Withdrawals)
     const lines: StatementLine[] = moved
       .sort((a, b) => a.date.localeCompare(b.date))
-      .map((r) => ({ date: r.date, amount: r.amount, description: r.description, type: '', balance: null, adds: matches }))
+      .map((r) => ({ date: r.date, amount: r.amount, description: r.description, type: '', balance: null, adds: r.amount > 0 ? depositsAddUp : withdrawalsAddUp }))
     const dates = [...mine, ...trades.filter((t) => t.id === id), ...dividends.filter((d) => d.id === id)].map((r) => r.date).sort()
     const [from, to] = [period?.from ?? dates[0]!, period?.to ?? dates.at(-1)!]
     const name = accountName(id)
