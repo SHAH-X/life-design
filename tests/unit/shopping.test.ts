@@ -366,6 +366,34 @@ describe('a receipt read with no currency sign and nothing spent is not an amoun
   })
 })
 
+// Owner, 2026-11-22: Receipts still said "£267.73 and 5.00 spent" after v0.40.1. A receipt read with no currency sign but a
+// real total is pounds (the app's own currency: Money's payments, the chart's default), not a currency of its own.
+describe('a receipt read with no currency sign is in pounds (v0.52.2)', () => {
+  const entry = (id: string, createdAt: number, photo: Entry['photos'][number]): Entry => ({ ...areaEntry({ id, text: '', expect: [] }, '2026-10-24'), createdAt, photos: [photo] })
+  const AI = (shop: string, currency: string, price: number) => ({
+    by: 'Gemini · gemini-test', at: 1, text: '', description: '', version: 2,
+    receipt: { shop, date: '2026-10-24', currency, items: [{ name: 'Tea', price, quantity: 1, kind: 'Dairy and eggs' as const }], total: price },
+  })
+
+  it('adds an unsigned total to the pounds, not "£4.20 and 5.00"', () => {
+    const { receipts } = receiptsAndCopies([entry('e1', 1, { id: 'a', text: null, ai: AI('Corner Shop', '£', 420) }), entry('e2', 2, { id: 'b', text: null, ai: AI('Sweet Mart', '', 500) })])
+    expect(inWords(amountsOf(receipts))).toBe('£9.20')
+    expect(receipts.every((r) => r.currency === '£')).toBe(true)
+  })
+
+  it('says "£5.00" when the only receipt has no sign, and keeps a euro receipt apart', () => {
+    expect(inWords(amountsOf(receiptsAndCopies([entry('e1', 1, { id: 'a', text: null, ai: AI('Sweet Mart', '', 500) })]).receipts))).toBe('£5.00')
+    const { receipts } = receiptsAndCopies([entry('e1', 1, { id: 'a', text: null, ai: AI('Sweet Mart', '', 500) }), entry('e2', 2, { id: 'b', text: null, ai: AI('Euro Shop', '€', 730) })])
+    expect(inWords(amountsOf(receipts))).toBe('£5.00 and €7.30')
+  })
+
+  it('still counts one receipt once when it was read with a sign and again without', () => {
+    const { receipts, copies } = receiptsAndCopies([entry('e1', 1, { id: 'a', text: null, ai: AI('Corner Shop', '£', 420) }), entry('e2', 2, { id: 'b', text: null, ai: AI('Corner Shop', '', 420) })])
+    expect(receipts).toHaveLength(1)
+    expect(copies).toHaveLength(1)
+  })
+})
+
 // Owner, 2026-11-01: a return slip showed as spent; "just show it as refund receipt at max, don't include in any
 // calculation, as I will also be marking it as returned in the original receipt".
 describe('a refund slip is shown, never counted (v0.20.20)', () => {

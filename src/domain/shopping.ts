@@ -213,7 +213,9 @@ export function receiptsAndCopies(entries: readonly Entry[], remembered: Remembe
     if (of && !one.receipt.refund) copies.push({ copy: one.receipt, of: of.receipt })
     else if (!of) counted.push(one)
   }
-  const byDate = counted.map((c) => c.receipt).sort((a, b) => a.date.localeCompare(b.date))
+  // A receipt read with no currency sign is in pounds, the app's own currency (owner, 2026-11-22: "£267.73 and 5.00 spent"). It is
+  // done after the copies are found, since `sameReceipt` takes a missing sign as "could be either".
+  const byDate = counted.map((c) => (c.receipt.currency ? c.receipt : { ...c.receipt, currency: '£' })).sort((a, b) => a.date.localeCompare(b.date))
   return { receipts: byDate.filter((r) => !r.refund), copies, refunds: byDate.filter((r) => r.refund) }
 }
 

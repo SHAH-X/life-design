@@ -60,7 +60,7 @@ describe('the tools: what the phone answers', () => {
     const found = (await parsed(call('find_receipts', { from: '2026-10-01', to: '2026-10-15' }))) as { receipts: { id: string; items: { id: string; name: string; price: string }[]; total: string }[] }
     expect(found.receipts.map((r) => r.id)).toEqual(['p1', 'p2'])
     expect(found.receipts[1]!.items[0]).toEqual({ id: 'p2:0', name: 'Semi skimmed milk 2pt', price: '£1.65' })
-    expect(found.receipts[0]!.total).toBe('14.20')
+    expect(found.receipts[0]!.total).toBe('£14.20')
   })
 
   // v0.25.1: a receipt paid with loyalty points prints no money; Ask is told so, never that it was free.
@@ -109,7 +109,7 @@ describe('the tools: what the phone answers', () => {
     const odd: Entry = { ...areaEntry({ id: 'odd', text: '', expect: [] }, '2026-10-10'), photos: [{ id: 'p9', text: 'SHOP\nBread 1.20\nMilk 0.90\nTOTAL 3.10' }] }
     const j = journal({ receipts: receiptsOf([odd]) })
     expect(j.receipts[0]!.adds).toBe(false)
-    expect((await parsed(call('sum', { receipt_ids: ['p9'] }), j)).total).toBe('3.10')
+    expect((await parsed(call('sum', { receipt_ids: ['p9'] }), j)).total).toBe('£3.10')
   })
 
   it('find_receipts says which items were returned, and sum leaves them out (v0.20.18)', async () => {
@@ -117,8 +117,8 @@ describe('the tools: what the phone answers', () => {
     const j = journal({ receipts: receiptsOf([back]) })
     const found = (await parsed(call('find_receipts', {}), j)).receipts as { items: object[] }[]
     expect(found[0]!.items[1]).toMatchObject({ name: 'Milk', returned: true })
-    expect((await parsed(call('sum', { receipt_ids: ['p8'] }), j)).total).toBe('1.20')
-    expect((await parsed(call('sum', { item_ids: ['p8:0', 'p8:1'] }), j)).total).toBe('1.20')
+    expect((await parsed(call('sum', { receipt_ids: ['p8'] }), j)).total).toBe('£1.20')
+    expect((await parsed(call('sum', { item_ids: ['p8:0', 'p8:1'] }), j)).total).toBe('£1.20')
   })
 
   it('find_receipts gives an item on offer at what was paid, with what it was and the saving; sum adds what was paid (v0.20.19)', async () => {
@@ -126,14 +126,14 @@ describe('the tools: what the phone answers', () => {
     const j = journal({ receipts: receiptsOf([offer]) })
     const found = (await parsed(call('find_receipts', {}), j)).receipts as { items: object[] }[]
     expect(found[0]!.items).toEqual([
-      { id: 'p7:0', name: 'Soap', price: '1.60', was: '2.00', saving: '0.40' },
-      { id: 'p7:1', name: 'Bread', price: '1.20' },
+      { id: 'p7:0', name: 'Soap', price: '£1.60', was: '£2.00', saving: '£0.40' },
+      { id: 'p7:1', name: 'Bread', price: '£1.20' },
     ])
-    expect((await parsed(call('sum', { item_ids: ['p7:0'] }), j)).total).toBe('1.60')
+    expect((await parsed(call('sum', { item_ids: ['p7:0'] }), j)).total).toBe('£1.60')
   })
 
-  it("sum never adds pounds to receipts with no currency: it gives each its own total", async () => {
-    expect((await parsed(call('sum', { receipt_ids: ['p1', 'p2'] }))).total).toEqual(['14.20', '£10.71'])
+  it('sum adds a receipt with no currency sign to the pounds (v0.52.2: it is pounds)', async () => {
+    expect((await parsed(call('sum', { receipt_ids: ['p1', 'p2'] }))).total).toBe('£24.91')
   })
 
   it('find_entries asks the phone, and an unknown tool or bad arguments are said plainly', async () => {
