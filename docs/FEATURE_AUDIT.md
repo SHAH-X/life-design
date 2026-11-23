@@ -68,10 +68,10 @@ The app is a phone-only journal with a Money tab. No server, account, cloud sync
 | Capability | Status | Where / note |
 |---|---|---|
 | Ask over receipts and journal | EXISTING | 4 fixed read-only tools; the phone does every sum; amounts the AI wrote are flagged |
-| Ask over bank payments | MISSING by rule | Statements go to no AI (owner, 2026-10-26); planned as on-phone quick answers |
+| Ask over bank payments | EXISTING (v0.58.0), on the phone | Statements go to no AI (owner, 2026-10-26): eight quick answers worked out by the phone, with period, facts apart from an estimate and a thing to look at |
 
 ## G. Automation: MISSING by design
-The phone can't run in the background. Present: receipts are read when added, a backup nudge after 7 days, duplicate checks.
+The phone can't run in the background. Present: receipts are read when added, a backup nudge after 7 days, duplicate checks, and (v0.58.0) one quiet line on Today when it is opened (a payment far above its payee's earlier ones, or a price that rose). No automation log: nothing runs unseen.
 
 ## Reliability and security notes
 - Data loss is the main risk: backup is by hand (share menu); iOS can clear website data. The backup nudge now counts documents, bills, budgets and products too (v0.57.0: it didn't).

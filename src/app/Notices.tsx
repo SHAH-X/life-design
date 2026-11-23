@@ -1,7 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { countChangesSince, firstEntryCreatedAt, getSetting, setSetting } from '../db/repo'
+import { MONEY_NOTICES_SEEN, markNoticeSeen, seenNotices } from '../db/moneyNotices'
+import { db } from '../db/db'
+import { moneyNotice, type MoneyNotice } from '../domain/answers'
 import { exportNudge, type Nudge } from '../domain/nudge'
+import { useAnswerData } from '../features/ask/useAnswerData'
 import { DAY_MS } from '../lib/dates'
 import { isStandalone } from '../lib/storage'
 import { useDialogs } from './dialogs'
@@ -16,10 +20,20 @@ export function useExportNudge(): Nudge | undefined {
   }, [])
 }
 
-/** At most one notice at the top of Today, most important first: backup, then installing. */
+/** The one quiet line about your money (step 6): a payment far above any earlier one to the same payee, or a price that rose; undefined while
+ *  loading, null when there is none. */
+function useMoneyNotice(): MoneyNotice | null | undefined {
+  const data = useAnswerData()
+  const seen = useLiveQuery(async () => new Set(seenNotices(await db.settings.get(MONEY_NOTICES_SEEN))), [])
+  if (!data || !seen) return undefined
+  return moneyNotice(data, seen)
+}
+
+/** At most one notice at the top of Today, most important first: backup, then installing, then a quiet line about your money. */
 export function Notices({ nudge }: { nudge: Nudge }) {
   const { open } = useDialogs()
   const [installed] = useState(isStandalone)
+  const money = useMoneyNotice()
 
   if (nudge.due) {
     return (
@@ -40,6 +54,28 @@ export function Notices({ nudge }: { nudge: Nudge }) {
     return (
       <aside className="notice strip">
         <p>Install: Share → Add to Home Screen, so Safari keeps your data.</p>
+      </aside>
+    )
+  }
+  if (money) {
+    return (
+      <aside className="notice strip" aria-label="About your money">
+        <p>{money.text}</p>
+        <div className="row">
+          <button
+            type="button"
+            className="primary"
+            onClick={() => {
+              void markNoticeSeen(money.key)
+              window.location.hash = money.href
+            }}
+          >
+            See it
+          </button>
+          <button type="button" onClick={() => void markNoticeSeen(money.key)}>
+            Got it
+          </button>
+        </div>
       </aside>
     )
   }

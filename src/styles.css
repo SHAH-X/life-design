@@ -4907,3 +4907,46 @@ button.doc-row {
   margin: var(--space-2) 0;
   border: 1px solid var(--border);
 }
+
+/* Quick answers (step 6): their three kinds of statement kept apart. The layout pass is still owed. */
+.answer-tag {
+  display: inline-block;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+.answer-tag[data-kind='estimate'] {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+.answer-tag[data-kind='look'] {
+  background: var(--field);
+  color: var(--muted);
+}
+.answer-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin: var(--space-3) 0;
+}
+.product-row-flat {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px var(--space-2);
+  width: 100%;
+}
+.answer-row > summary {
+  cursor: pointer;
+  list-style: none;
+}
+.answer-row > summary::-webkit-details-marker {
+  display: none;
+}
+.answer-payments {
+  padding: var(--space-2) 0 var(--space-2) var(--space-3);
+  color: var(--muted);
+}

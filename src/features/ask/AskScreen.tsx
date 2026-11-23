@@ -19,6 +19,8 @@ import { EntrySheet, type EntrySheetState } from '../today/EntrySheet'
 import { usePurposeSettings } from '../today/usePurpose'
 import { useOwnWords } from '../today/useOwnWords'
 import { Answer } from './Answer'
+import { QuickAnswers } from './QuickAnswers'
+import { useAnswerData } from './useAnswerData'
 
 type State = { kind: 'idle' } | { kind: 'asking' } | { kind: 'problem'; message: string }
 
@@ -41,8 +43,9 @@ export function AskScreen() {
   const [state, setState] = useState<State>({ kind: 'idle' })
   const [latest, setLatest] = useState<string | null>(null)
   const [sheet, setSheet] = useState<EntrySheetState>(null)
+  const answerData = useAnswerData()
   // Render only once loaded, so nothing jumps under your finger.
-  if (ai === undefined || meaning === undefined || questions === undefined || entries === undefined || own === undefined || purpose === undefined) return <Loading />
+  if (ai === undefined || meaning === undefined || questions === undefined || entries === undefined || answerData === undefined || own === undefined || purpose === undefined) return <Loading />
 
   const byId = new Map(entries.map((e) => [e.id, e]))
   const open = (entry: Entry) => setSheet({ kind: 'open', entry })
@@ -76,6 +79,7 @@ export function AskScreen() {
       <header className="ask-header">
         <h1>Ask</h1>
       </header>
+      <QuickAnswers data={answerData} />
       {ready ? (
         <section className="card ask-composer" aria-label="Ask your journal">
           <label className="question-text" htmlFor={boxId}>
