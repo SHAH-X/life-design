@@ -302,7 +302,8 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             <nav className="money-month-history" aria-labelledby={earlierId}>
               {earlier.map((m) => {
                 const bought = shoppingMonth(receipts, m, today)
-                const said = `${inWords(bought.spent)} on ${receiptsWord(bought.receipts.length)}`
+                const notCounted = held.filter((r) => r.date.slice(0, 7) === m).length
+                const said = [bought.receipts.length ? `${inWords(bought.spent)} on ${receiptsWord(bought.receipts.length)}` : 'Nothing counted', notCounted ? `${notCounted} not counted yet` : ''].filter(Boolean).join(' · ')
                 return (
                   <a key={m} className="money-month-card" href={hashFor('money', m)}>
                     <span className="list-text">

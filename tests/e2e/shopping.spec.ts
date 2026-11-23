@@ -147,6 +147,24 @@ test('a receipt whose items do not add up is left out of what was spent until yo
   await expect(page.getByRole('strong')).toHaveText('£49.40 spent')
 })
 
+// Audit 2026-11-23 (critical): a month whose only receipt is held back showed "Receipts you photograph show here", and its way to count or
+// correct it was never drawn, so a first receipt that didn't add up seemed to vanish.
+test('a month with only a receipt held back still lists it to count or correct, and the earlier months card says so', async ({ page }, testInfo) => {
+  const only = [receiptEntry('h1', '2026-09-12', reading('ALDI', '2026-09-12', [['Coffee', 450, 'Drinks']], 999))]
+  await restoreBackup(page, testInfo.outputPath('held-only.json'), backupWith({ entries: only }, SATURDAY))
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  const card = page.getByRole('navigation', { name: 'Earlier months' }).getByRole('link', { name: /September 2026/ })
+  await expect(card).toContainText('Nothing counted · 1 not counted yet')
+  await card.click()
+  await expect(page.getByText('Receipts you photograph show here.')).toHaveCount(0)
+  const check = page.getByRole('region', { name: 'Receipts to check' })
+  await expect(check).toContainText("Not counted · total doesn't add up")
+  await check.locator('details', { hasText: 'ALDI' }).locator('summary').click()
+  await check.getByRole('button', { name: 'Count it anyway' }).click()
+  await expect(page.getByRole('strong')).toHaveText('£9.99 spent')
+})
+
 // Step 2 (owner-approved plan, 2026-11-23: "allow editing before final approval"): a receipt the reading got wrong is put right
 // from its own sheet. The Aldi receipt's items stop at £4.50 and it printed £9.99: the missing item is added, and it counts.
 test('a receipt held for a missed item is corrected by adding it, counts, and goes back to as read', async ({ page }, testInfo) => {

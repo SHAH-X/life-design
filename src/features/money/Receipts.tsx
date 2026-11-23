@@ -216,13 +216,30 @@ export function ReceiptsMonth(props: {
   const refunds = props.refunds.filter((r) => r.date.slice(0, 7) === month)
   // How many of the month's receipts sit against a payment on a statement; said only when there are statements to match to.
   const matchedCount = its.receipts.some((r) => props.outcomes.has(r.id)) ? its.receipts.filter((r) => props.outcomes.get(r.id)?.state === 'matched').length : null
+  // The receipts to check (held back ones included): drawn also for a month with nothing counted, so a first receipt that doesn't add up is
+  // never out of reach (audit 2026-11-23).
+  const checkGroup = its.toCheck.length ? (
+    <Group title="Receipts to check" count={its.toCheck.length}>
+      <ReceiptList
+        receipts={its.toCheck.map((c) => c.receipt)}
+        why={new Map(its.toCheck.map((c) => [c.receipt.id, c.why]))}
+        copyOf={new Map(its.toCheck.flatMap((c) => (c.copyOf ? [[c.receipt.id, c.copyOf] as const] : [])))}
+        reviewedDates={props.reviewedDates}
+        matchCandidates={props.matchCandidates}
+        onAcceptDate={props.onAcceptDate}
+        onApprove={props.onApprove}
+        onMatchPayment={props.onMatchPayment}
+        onOpen={onOpen}
+      />
+    </Group>
+  ) : null
   if (its.receipts.length === 0) {
     return (
       <section aria-labelledby={headingId}>
         <h2 id={headingId} className="week-title">
           From your receipts
         </h2>
-        <p className="muted rc-empty">{receipts.length || refunds.length ? `No receipts in ${monthYear(month)}.` : 'Receipts you photograph show here.'}</p>
+        <p className="muted rc-empty">{receipts.length || refunds.length || props.held.length ? `No receipts counted in ${monthYear(month)}.` : 'Receipts you photograph show here.'}</p>
         {refunds.length ? (
           <div className="rc-body">
             <ul>
@@ -230,6 +247,7 @@ export function ReceiptsMonth(props: {
             </ul>
           </div>
         ) : null}
+        {checkGroup}
       </section>
     )
   }
@@ -264,21 +282,7 @@ export function ReceiptsMonth(props: {
       <div className="card">
         <Months receipts={receipts} month={month} today={today} />
       </div>
-      {its.toCheck.length ? (
-        <Group title="Receipts to check" count={its.toCheck.length}>
-          <ReceiptList
-            receipts={its.toCheck.map((c) => c.receipt)}
-            why={new Map(its.toCheck.map((c) => [c.receipt.id, c.why]))}
-            copyOf={new Map(its.toCheck.flatMap((c) => (c.copyOf ? [[c.receipt.id, c.copyOf] as const] : [])))}
-            reviewedDates={props.reviewedDates}
-            matchCandidates={props.matchCandidates}
-            onAcceptDate={props.onAcceptDate}
-            onApprove={props.onApprove}
-            onMatchPayment={props.onMatchPayment}
-            onOpen={onOpen}
-          />
-        </Group>
-      ) : null}
+      {checkGroup}
       <Matches receipts={its.receipts} outcomes={props.outcomes} without={props.withoutReceipt.filter((l) => l.date.slice(0, 7) === month)} accountName={props.accountName} onOpen={onOpen} />
       <Shops its={its} onOpen={onOpen} />
       {its.kinds ? <ByKind kinds={its.kinds} onOpen={onOpen} /> : null}
