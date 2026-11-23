@@ -127,6 +127,16 @@ describe('calendar events for your bills', () => {
     expect(text).toContain('Cancel online\\, 30 days notice')
     expect(text.match(/BEGIN:VEVENT/g)).toHaveLength(3)
   })
+  it('keeps a bill paid on the 29th to 31st in every month, on the last day a short month has, never skipping one', () => {
+    const rule = (every: Bill['every'], next: string) => billEvents([bill({ every, next })], '2026-01-01')[0]!.rrule
+    expect(rule('month', '2026-01-31')).toBe('FREQ=MONTHLY;BYMONTHDAY=28,29,30,31;BYSETPOS=-1')
+    expect(rule('month', '2026-01-30')).toBe('FREQ=MONTHLY;BYMONTHDAY=27,28,29,30;BYSETPOS=-1')
+    expect(rule('month', '2026-01-29')).toBe('FREQ=MONTHLY;BYMONTHDAY=26,27,28,29;BYSETPOS=-1')
+    expect(rule('quarter', '2026-01-31')).toBe('FREQ=MONTHLY;INTERVAL=3;BYMONTHDAY=28,29,30,31;BYSETPOS=-1')
+    expect(rule('month', '2026-01-28')).toBe('FREQ=MONTHLY')
+    expect(rule('year', '2026-03-31')).toBe('FREQ=YEARLY')
+    expect(rule('week', '2026-01-31')).toBe('FREQ=WEEKLY')
+  })
   it('adds a one-off event for a renewal, with no repeat', () => {
     const events = billEvents([bill({ renewal: '2027-02-14', notes: 'Contract ends' })], '2026-11-23')
     expect(events.map((e) => [e.summary, e.startDate, e.rrule])).toEqual([['Streaming £10.99 due', '2026-12-03', 'FREQ=MONTHLY'], ['Streaming renews', '2027-02-14', undefined]])

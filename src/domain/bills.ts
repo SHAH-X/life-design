@@ -109,7 +109,22 @@ export function quartersOf(months: readonly { month: string; out: number }[]): {
   return [...found].sort(([a], [b]) => a.localeCompare(b)).map(([quarter, v]) => ({ quarter, ...v }))
 }
 
-const RRULES: Record<BillEvery, string> = { week: 'FREQ=WEEKLY', month: 'FREQ=MONTHLY', quarter: 'FREQ=MONTHLY;INTERVAL=3', year: 'FREQ=YEARLY' }
+/** How a bill repeats. A day after the 28th falls in no short month, and a calendar drops a month that has no such day; the app moves it to the
+ *  month's last day (`dueAfter`), so the rule picks the last of the few days up to it that the month has (audit 2026-11-23). */
+export function repeatRule(every: BillEvery, start: string): string {
+  const day = Number(start.slice(8))
+  const late = day > 28 ? `;BYMONTHDAY=${[day - 3, day - 2, day - 1, day].join(',')};BYSETPOS=-1` : ''
+  switch (every) {
+    case 'week':
+      return 'FREQ=WEEKLY'
+    case 'month':
+      return `FREQ=MONTHLY${late}`
+    case 'quarter':
+      return `FREQ=MONTHLY;INTERVAL=3${late}`
+    case 'year':
+      return 'FREQ=YEARLY'
+  }
+}
 const APP = 'https://shah-x.github.io/life-design/#/money'
 
 /** Calendar events for your bills (a calendar file you add yourself): each repeats on its cycle from its next payment with an
@@ -118,15 +133,16 @@ export function billEvents(bills: readonly Bill[], today: string): IcsEvent[] {
   return bills.flatMap((bill): IcsEvent[] => {
     const what = `${bill.name} ${money(bill.amount, '£')}`
     const description = [`Paid ${EVERY_WORDS[bill.every]}`, bill.method, bill.notes].filter(Boolean).join('. ')
+    const start = nextPayment(bill, today)
     const due: IcsEvent = {
       uid: `bill-${bill.id}@life-design`,
       summary: `${what} due`,
       description,
       url: APP,
-      startDate: nextPayment(bill, today),
+      startDate: start,
       startTime: '09:00',
       durationMinutes: 15,
-      rrule: RRULES[bill.every],
+      rrule: repeatRule(bill.every, start),
       alarm: `${what} is due in 2 days`,
       alarmBefore: '-P2D',
     }
