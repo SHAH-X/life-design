@@ -121,8 +121,9 @@ describe('receiptsOf: whether a date was read, and who read it', () => {
     const found = receiptsOf([{ ...areaEntry({ id: 'e1', text: '', expect: [] }, '2026-10-12'), photos }])
     expect(found.map((r) => [r.id, r.items.map((i) => i.name), r.total, r.adds])).toEqual([['p1', ['Oat milk', 'Bread', 'Apples'], 360, true]])
     // Its first photo taken off, a part is a photo of its own again.
-    const alone = receiptsOf([{ ...areaEntry({ id: 'e1', text: '', expect: [] }, '2026-10-12'), photos: [photos[1]!] }])
-    expect(alone.map((r) => [r.id, r.total])).toEqual([['p2', 360]])
+    // A part alone has a total its items don't reach: held back until approved (step 1), but still read.
+    const alone = receiptsAndCopies([{ ...areaEntry({ id: 'e1', text: '', expect: [] }, '2026-10-12'), photos: [photos[1]!] }])
+    expect(alone.held.map((r) => [r.id, r.total])).toEqual([['p2', 360]])
   })
 
   // v0.25.1 (owner, 2026-11-07: "Listed, not counted"): a receipt paid with loyalty points. Made-up values.
@@ -283,6 +284,66 @@ describe('a saving joins the item it follows: counted at what was paid (v0.20.19
     expect(sparks.items.map((item) => item.saving)).toEqual([undefined, undefined, undefined])
     const month = shoppingMonth([sparks], '2026-10', TODAY)
     expect(month.offers.saved).toEqual([{ currency: '£', minor: 50 }])
+  })
+})
+
+// Step 1 (owner-approved plan, 2026-11-23): "never silently accept uncertain financial information". A receipt whose items
+// don't add up to its printed total is held back: in no sum, kind, price change or answer, listed to check, until you say
+// to count it. What you approved is the figures you saw: a new reading with other figures asks again.
+describe('a receipt that does not add up is held until you approve it', () => {
+  type Photo = Entry['photos'][number]
+  const reading = (items: [name: string, price: number][], total: number): NonNullable<Photo['ai']> => ({
+    by: 'Gemini · gemini-test',
+    at: 1,
+    text: 'CORNER SHOP\n12/10/2026\nTotal',
+    description: '',
+    version: 2,
+    receipt: { shop: 'Corner Shop', date: '2026-10-12', currency: '£', items: items.map(([name, price]) => ({ name, price, quantity: 1 })), total },
+  })
+  const entry = (photo: Photo): Entry => ({ ...areaEntry({ id: 'e1', text: '', expect: [] }, '2026-10-12'), createdAt: 1, photos: [photo] })
+  const ADDS = reading([['Tea', 300], ['Milk', 120]], 420)
+  const SHORT = reading([['Tea', 300], ['Milk', 120]], 999)
+
+  it('counts one that adds up, and holds one that does not', () => {
+    const fine = receiptsAndCopies([entry({ id: 'ok', text: null, ai: ADDS })])
+    expect([fine.receipts.map((r) => r.id), fine.held.map((r) => r.id)]).toEqual([['ok'], []])
+    const odd = receiptsAndCopies([entry({ id: 'odd', text: null, ai: SHORT })])
+    expect([odd.receipts.map((r) => r.id), odd.held.map((r) => r.id)]).toEqual([[], ['odd']])
+    expect(odd.held[0]).toMatchObject({ adds: false, held: true })
+  })
+
+  it('leaves a held receipt out of what was spent, and lists it to check, the month it is from', () => {
+    const { receipts, held, copies } = receiptsAndCopies([entry({ id: 'odd', text: null, ai: SHORT })])
+    const month = shoppingMonth(receipts, '2026-10', TODAY, copies, new Set(), new Set(), held)
+    expect(inWords(month.spent)).toBe('nothing')
+    expect(month.receipts).toEqual([])
+    expect(month.toCheck.map((c) => [c.receipt.id, c.why, c.held])).toEqual([['odd', ["its items don't add up to its total", 'not counted until you approve it'], true]])
+    expect(shoppingMonths([...receipts, ...held])).toEqual(['2026-10'])
+  })
+
+  it('counts it once approved for the figures you saw, and says it was approved', () => {
+    const approved: Photo = { id: 'odd', text: null, ai: SHORT, approved: { total: 999, sum: 420 } }
+    const { receipts, held } = receiptsAndCopies([entry(approved)])
+    expect([receipts.map((r) => r.id), held]).toEqual([['odd'], []])
+    expect(receipts[0]).toMatchObject({ adds: false, approved: true })
+    expect(inWords(shoppingMonth(receipts, '2026-10', TODAY).spent)).toBe('£9.99')
+  })
+
+  it('asks again when a new reading changes the total or the items', () => {
+    const was: Photo = { id: 'odd', text: null, ai: reading([['Tea', 300], ['Milk', 120]], 888), approved: { total: 999, sum: 420 } }
+    expect(receiptsAndCopies([entry(was)]).held.map((r) => r.id)).toEqual(['odd'])
+    const items: Photo = { id: 'odd', text: null, ai: reading([['Tea', 300], ['Milk', 120], ['Bread', 100]], 999), approved: { total: 999, sum: 420 } }
+    expect(receiptsAndCopies([entry(items)]).held.map((r) => r.id)).toEqual(['odd'])
+  })
+
+  it('never lets a held receipt into what Ask is told', () => {
+    expect(receiptsOf([entry({ id: 'odd', text: null, ai: SHORT })])).toEqual([])
+  })
+
+  it('does not hold a receipt with no printed total, one with a total and no items, or one the phone read that adds up', () => {
+    expect(receiptsAndCopies([entry({ id: 'no-total', text: null, ai: { ...ADDS, receipt: { ...ADDS.receipt!, total: null } } })]).held).toEqual([])
+    expect(receiptsAndCopies([entry({ id: 'bare', text: null, ai: { ...ADDS, receipt: { ...ADDS.receipt!, items: [], total: 850 } } })]).held).toEqual([])
+    expect(receiptsAndCopies([entry({ id: 'phone', text: 'CORNER SHOP\n12/10/2026\nTea 3.00\nMilk 1.20\nTOTAL 4.20' })]).held).toEqual([])
   })
 })
 

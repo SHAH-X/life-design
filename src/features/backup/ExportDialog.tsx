@@ -144,8 +144,8 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         <div className="top-gap">
           <FileActions file={ready.file} onSaved={() => void markSaved()} />
           <p className="muted small top-gap">
-            In the menu that opens, tap <strong>Save to Files</strong> (pick <em>On My iPhone</em> or iCloud Drive, then Save), or
-            send it by AirDrop, WhatsApp or email.
+            In the menu that opens, tap <strong>AirDrop</strong> and choose your Mac. The file arrives in its Downloads folder: move
+            it somewhere safe.
           </p>
         </div>
       ) : null}

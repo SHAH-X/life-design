@@ -4,7 +4,7 @@
 // with none printed, as many as one statement has).
 import type { StatementAccount, StatementLine } from '../domain/statements'
 import { db as defaultDb, type LifeDesignDB } from './db'
-import { setSetting } from './repo'
+import { changeSetting, setSetting } from './repo'
 import type { BankLine } from './types'
 import { guardWrite } from './saveErrors'
 
@@ -60,8 +60,7 @@ export const ownPayeesOf = (setting: { value: unknown } | undefined): string[] =
   Array.isArray(setting?.value) ? setting.value.filter((key): key is string => typeof key === 'string') : []
 
 export async function markOwnPayee(key: string, own: boolean, database: LifeDesignDB = defaultDb): Promise<void> {
-  const now = ownPayeesOf(await database.settings.get(OWN_PAYEES))
-  await setSetting(OWN_PAYEES, own ? [...new Set([...now, key])] : now.filter((k) => k !== key), database)
+  await changeSetting(OWN_PAYEES, (row) => (own ? [...new Set([...ownPayeesOf(row), key])] : ownPayeesOf(row).filter((k) => k !== key)), database)
 }
 
 /** The names you gave your accounts (owner, 2026-10-26), by the account as its statement names it: a setting, so it's
@@ -76,8 +75,14 @@ export const accountNamesOf = (setting: { value: unknown } | undefined): Record<
 
 /** Gives an account your name for it; a blank name goes back to the bank's. */
 export async function nameAccount(account: string, name: string, database: LifeDesignDB = defaultDb): Promise<void> {
-  const { [account]: _, ...rest } = accountNamesOf(await database.settings.get(ACCOUNT_NAMES))
-  await setSetting(ACCOUNT_NAMES, name.trim() ? { ...rest, [account]: name.trim() } : rest, database)
+  await changeSetting(
+    ACCOUNT_NAMES,
+    (row) => {
+      const { [account]: _, ...rest } = accountNamesOf(row)
+      return name.trim() ? { ...rest, [account]: name.trim() } : rest
+    },
+    database,
+  )
 }
 
 /** Which of your accounts each card is (v0.24.0, owner 2026-11-06: "name all those cards … so I know which account to
@@ -87,8 +92,14 @@ export const CARD_ACCOUNTS = 'cardAccounts'
 
 /** Says which account a card is ("" for none of them), or forgets it (null). */
 export async function nameCard(last4: string, account: string | null, database: LifeDesignDB = defaultDb): Promise<void> {
-  const { [last4]: _, ...rest } = accountNamesOf(await database.settings.get(CARD_ACCOUNTS))
-  await setSetting(CARD_ACCOUNTS, account === null ? rest : { ...rest, [last4]: account }, database)
+  await changeSetting(
+    CARD_ACCOUNTS,
+    (row) => {
+      const { [last4]: _, ...rest } = accountNamesOf(row)
+      return account === null ? rest : { ...rest, [last4]: account }
+    },
+    database,
+  )
 }
 
 /** The names you gave payees you move money to (owner, 2026-10-26: a statement prints your own name, not which account), by the
@@ -97,8 +108,14 @@ export const PAYEE_NAMES = 'payeeNames'
 
 /** Gives a payee your name for it; a blank name goes back to the printed one. */
 export async function namePayee(key: string, name: string, database: LifeDesignDB = defaultDb): Promise<void> {
-  const { [key]: _, ...rest } = accountNamesOf(await database.settings.get(PAYEE_NAMES))
-  await setSetting(PAYEE_NAMES, name.trim() ? { ...rest, [key]: name.trim() } : rest, database)
+  await changeSetting(
+    PAYEE_NAMES,
+    (row) => {
+      const { [key]: _, ...rest } = accountNamesOf(row)
+      return name.trim() ? { ...rest, [key]: name.trim() } : rest
+    },
+    database,
+  )
 }
 
 /** The names you gave single payments (owner, 2026-11-01: three medicines from one pharmacy), by the line's id: a setting,
@@ -109,10 +126,23 @@ export const PAYMENT_NAMES = 'paymentNames'
 /** Gives one payment a name of its own; a blank name goes back to its payee's. A note written on it before v0.20.36 was
  *  its name, so naming it, or emptying its name, takes the note away: it would come back as the name otherwise. */
 export async function namePayment(lineId: string, name: string, database: LifeDesignDB = defaultDb): Promise<void> {
-  const { [lineId]: _, ...rest } = accountNamesOf(await database.settings.get(PAYMENT_NAMES))
-  await setSetting(PAYMENT_NAMES, name.trim() ? { ...rest, [lineId]: name.trim() } : rest, database)
-  const { [lineId]: __, ...notes } = accountNamesOf(await database.settings.get(PAYMENT_NOTES))
-  if (lineId in accountNamesOf(await database.settings.get(PAYMENT_NOTES))) await setSetting(PAYMENT_NOTES, notes, database)
+  await guardWrite(() =>
+    database.transaction('rw', database.settings, async () => {
+      await changeSetting(
+        PAYMENT_NAMES,
+        (row) => {
+          const { [lineId]: _, ...rest } = accountNamesOf(row)
+          return name.trim() ? { ...rest, [lineId]: name.trim() } : rest
+        },
+        database,
+      )
+      const notes = accountNamesOf(await database.settings.get(PAYMENT_NOTES))
+      if (lineId in notes) {
+        const { [lineId]: __, ...rest } = notes
+        await setSetting(PAYMENT_NOTES, rest, database)
+      }
+    }),
+  )
 }
 
 /** Who a payee's payments were for (v0.20.38, owner 2026-11-01: what goes on one person), by the payee's key, and who one
@@ -154,8 +184,7 @@ export async function removeAccount(account: string, database: LifeDesignDB = de
 export const CLOSED_ACCOUNTS = 'closedAccounts'
 
 export async function markClosed(account: string, closed: boolean, database: LifeDesignDB = defaultDb): Promise<void> {
-  const now = ownPayeesOf(await database.settings.get(CLOSED_ACCOUNTS))
-  await setSetting(CLOSED_ACCOUNTS, closed ? [...new Set([...now, account])] : now.filter((a) => a !== account), database)
+  await changeSetting(CLOSED_ACCOUNTS, (row) => (closed ? [...new Set([...ownPayeesOf(row), account])] : ownPayeesOf(row).filter((a) => a !== account)), database)
 }
 
 /** What each payee is for, as you chose it (owner, 2026-10-26), by the payee's key: a setting, so in backups. Read with
@@ -164,8 +193,14 @@ export const PAYEE_KINDS = 'payeeKinds'
 
 /** Sets what a payee is for; null goes back to the guess. */
 export async function setPayeeKind(key: string, kind: string | null, database: LifeDesignDB = defaultDb): Promise<void> {
-  const { [key]: _, ...rest } = accountNamesOf(await database.settings.get(PAYEE_KINDS))
-  await setSetting(PAYEE_KINDS, kind ? { ...rest, [key]: kind } : rest, database)
+  await changeSetting(
+    PAYEE_KINDS,
+    (row) => {
+      const { [key]: _, ...rest } = accountNamesOf(row)
+      return kind ? { ...rest, [key]: kind } : rest
+    },
+    database,
+  )
 }
 
 /** What you wrote on a payment before v0.20.36, "What was it for?" ("Birthday present"), by the line's id: a setting, so

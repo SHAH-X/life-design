@@ -5,7 +5,7 @@ import { type LifeDesignDB, openDb } from '../../src/db/db'
 import type { Entry, Photo } from '../../src/db/types'
 import { AI_READING_INSTRUCTIONS, amount, dueForAi, looksLikeReceipt, MAX_TRIES, notReadYet, PARTS_INSTRUCTION, parseAiReading, READING_VERSION } from '../../src/domain/aiReading'
 import { photoTexts } from '../../src/domain/search'
-import { receiptsOf } from '../../src/domain/shopping'
+import { receiptsAndCopies, receiptsOf } from '../../src/domain/shopping'
 import { photoReader } from '../../src/features/photos/photoReader'
 import { AiError, readPhotoWithAi } from '../../src/lib/ai'
 import { toBase64 } from '../../src/lib/photo'
@@ -146,7 +146,9 @@ describe('what the AI read, used', () => {
     const [receipt] = receiptsOf([photoEntry('e1', { id: 'p1', text: 'GREENLEAF MARKET\nTOTAL 3.05', ai: reading })])
     expect(receipt).toMatchObject({ id: 'p1', shop: 'Greenleaf Market', date: '2026-10-12', total: 305, adds: true, currency: '£' })
     const claimsTooMuch = { ...reading, receipt: { ...reading.receipt!, total: 999 } }
-    expect(receiptsOf([photoEntry('e1', { id: 'p1', text: null, ai: claimsTooMuch })])[0]?.adds).toBe(false)
+    // Held back from every sum until approved (step 1), but still read, and still says it doesn't add up.
+    const odd = receiptsAndCopies([photoEntry('e1', { id: 'p1', text: null, ai: claimsTooMuch })])
+    expect([odd.receipts, odd.held.map((r) => [r.id, r.adds])]).toEqual([[], [['p1', false]]])
   })
 
   it('search and meaning read the AI’s text and description, else the phone’s text', () => {

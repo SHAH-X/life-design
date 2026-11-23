@@ -557,8 +557,9 @@ describe('backup and restore', () => {
 
   it('moves to a new backup format with each new item kind: an older version would skip an entry with one, its writing too', () => {
     // v0.19.2 added Clothes and shoes and format 10; v0.20.37 added Baby and toddler and format 12 (v0.23's maps of
-    // your ideas took 13 and v0.36.0's Trading 212 lines 14). A new kind: raise the format, then both numbers here.
-    expect({ format: BACKUP_SCHEMA_VERSION, kinds: ITEM_KINDS.length }).toEqual({ format: 14, kinds: 14 })
+    // your ideas took 13, v0.36.0's Trading 212 lines 14 and v0.53.0's receipt approval 15). A new kind: raise the format,
+    // then both numbers here.
+    expect({ format: BACKUP_SCHEMA_VERSION, kinds: ITEM_KINDS.length }).toEqual({ format: 15, kinds: 14 })
   })
 
   it('recognises locked backups, v1 files and everything else', async () => {

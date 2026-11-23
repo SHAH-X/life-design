@@ -171,6 +171,9 @@ export interface PhotoRef {
   partOf?: string
   /** What your AI read in it (v0.18), when it was sent: a receipt's items and total, or what it shows. */
   ai?: AiReading
+  /** You said to count this receipt though its items don't add up to its printed total (step 1, 2026-11-23): the total and
+   *  the items' sum you saw. A new reading with other figures isn't approved: it asks again. */
+  approved?: { total: number | null; sum: number }
   /** Your changes to a receipt's items (v0.20.18): a kind you chose, an item you returned. Kept apart from `ai`, so a
    *  new reading never wipes them; `key` is from `itemKeys` (src/domain/shopping.ts). */
   items?: ItemChange[]

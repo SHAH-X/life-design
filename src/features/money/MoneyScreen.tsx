@@ -27,8 +27,8 @@ import {
 import { investingMonths } from '../../domain/investing'
 import { cardAccountOf, classify, forNamesOf, giftCardsBefore, isGiftCardBuy, kindOf, labelsOf, linkGiftCards, linkReceipts, mayBeOwn, type MoneyLine, moneyMonth, nameOf, type Payee, type PayeeGroup, paymentsWithoutReceipt, type ReceiptOutcome, receiptOutcomes, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
 import { notReadYet } from '../../domain/aiReading'
-import { inWords, type KnownReceipt, money, onCard, receiptsAndCopies, rememberedKindsOf, rememberedNamesOf, shoppingMonth, shoppingMonths } from '../../domain/shopping'
-import { ITEM_FOR_SETTING, ITEM_KINDS_SETTING } from '../../db/receiptItems'
+import { approvalOf, inWords, type KnownReceipt, money, onCard, receiptsAndCopies, rememberedKindsOf, rememberedNamesOf, shoppingMonth, shoppingMonths } from '../../domain/shopping'
+import { approveReceipt, ITEM_FOR_SETTING, ITEM_KINDS_SETTING } from '../../db/receiptItems'
 import { dayMonth, monthYear, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { Loading } from '../../ui/Loading'
@@ -104,15 +104,15 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
     const entry = byId.get(receipt.entryId)
     if (entry) setSheet({ kind: 'open', entry })
   }
-  const { receipts, copies, refunds } = receiptsAndCopies(entries, remembered, itemFor)
+  const { receipts, copies, refunds, held } = receiptsAndCopies(entries, remembered, itemFor)
   // Receipts added here not read yet (v0.26.0): said, so one never vanishes until it's read.
-  const counted = new Set([...receipts, ...refunds].map((r) => r.id).concat(copies.map((c) => c.copy.id)))
+  const counted = new Set([...receipts, ...held, ...refunds].map((r) => r.id).concat(copies.map((c) => c.copy.id)))
   const receiptsWaiting = entries.filter((e) => e.status !== 'draft').flatMap((e) => e.photos ?? []).filter((p) => notReadYet(p) && !counted.has(p.id)).length
   // A receipt opens to its items; an extra copy, counted nowhere, opens its entry, where it can be deleted.
   const copyIds = new Set(copies.map((c) => c.copy.id))
   const open = (receipt: KnownReceipt) => (copyIds.has(receipt.id) ? openEntry(receipt) : setReceiptId(receipt.id))
   // A refund slip (v0.20.20) opens the same way; it's counted nowhere.
-  const openReceipt = receiptId ? [...receipts, ...refunds].find((r) => r.id === receiptId) : undefined
+  const openReceipt = receiptId ? [...receipts, ...held, ...refunds].find((r) => r.id === receiptId) : undefined
   const lines = withFor(classify(bankLines, new Set(own), payeeNames, labelsOf(notes, paymentNames)), payeeFor, paymentFor)
   const forNames = forNamesOf(payeeFor, paymentFor, itemFor)
   const forSuggestions = suggestedPeople(entries.flatMap((e) => e.people), forNames)
@@ -203,7 +203,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
     ) : view === 'investing' && investLines.length ? (
       <MonthStepper thisMonth={thisMonth} earlier={investNeighbours.earlier} later={investNeighbours.later} />
     ) : null
-  const earlier = shoppingMonths(receipts).filter((m) => m < thisMonth).sort().reverse()
+  const earlier = shoppingMonths([...receipts, ...held]).filter((m) => m < thisMonth).sort().reverse()
   // The open payment is read afresh from the lines, so a name given to it shows in its sheet at once.
   const shown = payment ? { ...payment, line: lines.find((l) => l.id === payment.line.id) ?? payment.line } : null
   const manualReceiptId = payment ? manualReceiptByPayment.get(payment.line.id) : undefined
@@ -270,6 +270,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
               key={`receipts-${month}`}
               receipts={receipts}
               refunds={refunds}
+              held={held}
               copies={copies}
               month={month}
               today={today}
@@ -280,6 +281,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
               withoutReceipt={withoutReceipt}
               accountName={(account) => names.get(account) ?? account}
               onAcceptDate={acceptReceiptDate}
+              onApprove={(r, approve) => approveReceipt(r.entryId, r.id, approve ? approvalOf(r) : null)}
               onMatchPayment={(receiptId, paymentId, reason) => matchReceiptPayment(receiptId, paymentId, reason, new Set(receipts.map((r) => r.id)))}
               onOpen={open}
             />
@@ -407,6 +409,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             names={forNames}
             suggestions={forSuggestions}
             paidWith={openReceipt.refund ? undefined : paidWith(openReceipt)}
+            onApprove={(approve) => approveReceipt(openReceipt.entryId, openReceipt.id, approve ? approvalOf(openReceipt) : null)}
             onOpenEntry={() => {
               setReceiptId(null)
               openEntry(openReceipt)

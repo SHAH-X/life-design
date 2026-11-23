@@ -1,7 +1,7 @@
 import type { ItemKind } from '../domain/receipts'
 import { rememberedKey, rememberedKindsOf, rememberedNamesOf } from '../domain/shopping'
 import { db as defaultDb, type LifeDesignDB } from './db'
-import { setSetting } from './repo'
+import { changeSetting } from './repo'
 import { guardWrite } from './saveErrors'
 import type { ItemChange } from './types'
 
@@ -36,6 +36,23 @@ export async function changeItem(
   )
 }
 
+/** Says to count a receipt whose items don't add up to its printed total, for those figures (step 1, 2026-11-23); null takes
+ *  it back. Kept on the photo, so a new reading with other figures asks again. An edit you made: updatedAt moves. */
+export async function approveReceipt(entryId: string, photoId: string, basis: { total: number | null; sum: number } | null, database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() =>
+    database.transaction('rw', database.entries, async () => {
+      const entry = await database.entries.get(entryId)
+      if (!entry?.photos.some((p) => p.id === photoId)) return
+      const photos = entry.photos.map((p) => {
+        if (p.id !== photoId) return p
+        const { approved: _, ...rest } = p
+        return basis ? { ...rest, approved: { total: basis.total, sum: basis.sum } } : rest
+      })
+      await database.entries.update(entryId, { photos, updatedAt: Date.now() })
+    }),
+  )
+}
+
 /** The kinds you chose for an item at a shop (v0.20.37, owner 2026-11-01: infant formula was filed under dairy on every
  *  receipt): a setting by `rememberedKey`, so in backups. Read with `rememberedKindsOf`; laid over your AI's kind by
  *  `receiptsAndCopies`, on past receipts too. */
@@ -43,8 +60,15 @@ export const ITEM_KINDS_SETTING = 'itemKinds'
 
 /** Keeps the kind for an item at a shop, on every receipt; null goes back to your AI's. */
 export async function rememberItemKind(shop: string, name: string, kind: ItemKind | null, database: LifeDesignDB = defaultDb): Promise<void> {
-  const { [rememberedKey(shop, name)]: _, ...rest } = rememberedKindsOf((await database.settings.get(ITEM_KINDS_SETTING))?.value)
-  await setSetting(ITEM_KINDS_SETTING, kind ? { ...rest, [rememberedKey(shop, name)]: kind } : rest, database)
+  const key = rememberedKey(shop, name)
+  await changeSetting(
+    ITEM_KINDS_SETTING,
+    (row) => {
+      const { [key]: _, ...rest } = rememberedKindsOf(row?.value)
+      return kind ? { ...rest, [key]: kind } : rest
+    },
+    database,
+  )
 }
 
 /** Who you filed an item under at a shop (v0.20.39: what goes on one person): a setting by `rememberedKey`, so in
@@ -53,6 +77,13 @@ export const ITEM_FOR_SETTING = 'itemFor'
 
 /** Files the item at a shop under a name, on every receipt; blank takes it back. */
 export async function fileItem(shop: string, name: string, who: string, database: LifeDesignDB = defaultDb): Promise<void> {
-  const { [rememberedKey(shop, name)]: _, ...rest } = rememberedNamesOf((await database.settings.get(ITEM_FOR_SETTING))?.value)
-  await setSetting(ITEM_FOR_SETTING, who.trim() ? { ...rest, [rememberedKey(shop, name)]: who.trim() } : rest, database)
+  const key = rememberedKey(shop, name)
+  await changeSetting(
+    ITEM_FOR_SETTING,
+    (row) => {
+      const { [key]: _, ...rest } = rememberedNamesOf(row?.value)
+      return who.trim() ? { ...rest, [key]: who.trim() } : rest
+    },
+    database,
+  )
 }

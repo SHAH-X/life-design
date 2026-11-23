@@ -9,7 +9,7 @@ interface Props {
 }
 
 /**
- * Where the phone supports it, one button that opens the share menu (Save to Files, AirDrop, WhatsApp…).
+ * Where the phone supports it, one button that opens the share menu (AirDrop to the Mac, Save to Files…).
  * No download link there: in an iPhone Home Screen app a download opens a viewer that can save the file wrongly.
  * Browsers without a share menu get a plain download.
  */

@@ -17,6 +17,7 @@ import {
   type PhotoRef,
   type Purpose,
   type Review,
+  type Setting,
   type Step,
   type StepKind,
   type StepStatus,
@@ -355,6 +356,17 @@ export async function getSetting<T>(key: string, fallback: T, database: LifeDesi
 
 export async function setSetting(key: string, value: unknown, database: LifeDesignDB = defaultDb): Promise<void> {
   await guardWrite(() => database.settings.put({ key, value, updatedAt: Date.now() }))
+}
+
+/** Reads a setting, changes it and writes it back in one transaction. A list kept in a setting that two saves read, added
+ *  to and wrote back at once lost the earlier one (step 1, 2026-11-23); in a transaction the second waits for the first.
+ *  `change` gets the stored row, or undefined, and gives the new value. */
+export async function changeSetting(key: string, change: (row: Setting | undefined) => unknown, database: LifeDesignDB = defaultDb): Promise<void> {
+  await guardWrite(() =>
+    database.transaction('rw', database.settings, async () => {
+      await database.settings.put({ key, value: change(await database.settings.get(key)), updatedAt: Date.now() })
+    }),
+  )
 }
 
 /** Removes a setting outright (e.g. the AI key: "Remove key" leaves nothing behind). */

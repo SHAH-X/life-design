@@ -68,11 +68,14 @@ function hasValidJournalFields(x: Rec): boolean {
     isOptional(x.status, isOneOf(['draft', 'done'])) &&
     isOptional(x.skipped, (v) => Array.isArray(v) && v.every(isOneOf(['engagement', 'energy']))) &&
     isOptional(x.replyTo, (v) => v === null || (isObj(v) && isNonEmptyStr(v.id) && isStr(v.question))) &&
-    isOptional(x.photos, (v) => Array.isArray(v) && v.every((p) => isObj(p) && isNonEmptyStr(p.id) && (p.text === null || isStr(p.text)) && isOptional(p.textVersion, isNum) && isOptional(p.receipt, (v) => v === true) && isOptional(p.partOf, isNonEmptyStr) && isOptional(p.ai, isAiReading) && isOptional(p.items, isItemChanges)))
+    isOptional(x.photos, (v) => Array.isArray(v) && v.every((p) => isObj(p) && isNonEmptyStr(p.id) && (p.text === null || isStr(p.text)) && isOptional(p.textVersion, isNum) && isOptional(p.receipt, (v) => v === true) && isOptional(p.partOf, isNonEmptyStr) && isOptional(p.ai, isAiReading) && isOptional(p.items, isItemChanges) && isOptional(p.approved, isApproval)))
   )
 }
 
 /** A photo as the AI read it (v0.18): its text, and a receipt's items with prices in minor units. */
+/** The figures you approved a receipt for (step 1, 2026-11-23): its printed total (or none) and its items' sum, in minor units. */
+const isApproval = (x: unknown): boolean => isObj(x) && (x.total === null || Number.isInteger(x.total)) && Number.isInteger(x.sum)
+
 /** Your changes to a receipt's items (v0.20.18): a key, a kind from the list or none, returned or not. */
 const isItemChanges = (x: unknown): boolean =>
   Array.isArray(x) && x.every((c) => isObj(c) && isNonEmptyStr(c.key) && isOptional(c.kind, isOneOf(ITEM_KINDS)) && isOptional(c.returned, (v) => v === true))

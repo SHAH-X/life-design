@@ -16,12 +16,13 @@ export const APP_ID = 'life-design'
  * photos, and each entry's question and photos (v0.16); 9 adds the questions asked of the journal (v0.18); 10 adds the
  * kind Clothes and shoes (v0.19.2: an older version would skip an entry with one, its writing too); 11 adds statements
  * brought in and their lines (v0.20); 12 adds the kind Baby and toddler (v0.20.37); 13 adds maps of your ideas (v0.23); 14 adds
- * Trading 212's trades, dividends and interest, and its statements' totals (v0.36.0).
+ * Trading 212's trades, dividends and interest, and its statements' totals (v0.36.0); 15 adds a receipt's approval
+ * (`PhotoRef.approved`, v0.53.0): an older version would drop it, and the receipt would be held back again.
  * Older files still
  * restore (their next steps become steps); newer ones are refused by older app versions. The AI key never goes into a
  * backup.
  */
-export const BACKUP_SCHEMA_VERSION = 14
+export const BACKUP_SCHEMA_VERSION = 15
 
 /** Settings that never leave the phone, not even inside a backup: the AI keys (for Ask and reviews, and for photos),
  *  and whether search by meaning and reading photos are on (their downloads are this phone's: a phone restored to

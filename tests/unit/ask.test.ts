@@ -13,7 +13,7 @@ import {
   notFromPhoneLine,
   runTool,
 } from '../../src/domain/ask'
-import { type KnownReceipt, receiptsOf } from '../../src/domain/shopping'
+import { type KnownReceipt, receiptsAndCopies, receiptsOf } from '../../src/domain/shopping'
 import { AiError, chatWithTools, type ToolCall } from '../../src/lib/ai'
 import { areaEntry } from '../fixtures/areas'
 import { RECEIPTS } from '../fixtures/receipts'
@@ -107,7 +107,8 @@ describe('the tools: what the phone answers', () => {
 
   it('sum totals a receipt that doesn\u2019t add up by what it printed, the amount paid', async () => {
     const odd: Entry = { ...areaEntry({ id: 'odd', text: '', expect: [] }, '2026-10-10'), photos: [{ id: 'p9', text: 'SHOP\nBread 1.20\nMilk 0.90\nTOTAL 3.10' }] }
-    const j = journal({ receipts: receiptsOf([odd]) })
+    // Held back from Ask until approved (step 1): approved here, it is told with what it printed.
+    const j = journal({ receipts: receiptsAndCopies([{ ...odd, photos: [{ ...odd.photos[0]!, approved: { total: 310, sum: 210 } }] }]).receipts })
     expect(j.receipts[0]!.adds).toBe(false)
     expect((await parsed(call('sum', { receipt_ids: ['p9'] }), j)).total).toBe('£3.10')
   })

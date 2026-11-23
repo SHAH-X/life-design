@@ -20,6 +20,11 @@ export interface KnownReceipt extends Omit<Receipt, 'date'> {
   dated: boolean
   /** The AI that read it ("Gemini · gemini-2.5-flash"); null when the phone read it. */
   readBy: string | null
+  /** Its items don't add up to its printed total and you haven't said to count it (step 1, 2026-11-23): it is in `held`,
+   *  counted nowhere, until you approve it. */
+  held?: true
+  /** Its items don't add up, and you said to count it for these figures. */
+  approved?: true
 }
 
 /** A long receipt's later part (v0.27.0), read with its first photo, while that's still in the entry. */
@@ -188,10 +193,19 @@ export interface ReceiptCopy {
   of: KnownReceipt
 }
 
+/** Whether you said to count this receipt for the figures it has now: a new reading with another total or other items
+ *  isn't what you approved. */
+const approvedNow = (photo: Pick<PhotoRef, 'approved'>, receipt: Pick<Receipt, 'total' | 'items'>): boolean =>
+  photo.approved !== undefined && photo.approved.total === approvalOf(receipt).total && photo.approved.sum === approvalOf(receipt).sum
+
+/** The figures an approval is for: the printed total and the items' sum, as the receipt shows them now. */
+export const approvalOf = (receipt: Pick<Receipt, 'total' | 'items'>): { total: number | null; sum: number } => ({ total: receipt.total, sum: receipt.items.reduce((s, item) => s + item.price, 0) })
+
 /** The receipts in finished entries, oldest first, each counted once (`sameReceipt`), and the copies left out. Refund
  *  slips (v0.20.20) are kept apart in `refunds`, each listed once and counted nowhere: every sum, payment match, Ask and
- *  the spreadsheet read `receipts`. */
-export function receiptsAndCopies(entries: readonly Entry[], remembered: Remembered = {}, itemFor: NamesFiled = {}): { receipts: KnownReceipt[]; copies: ReceiptCopy[]; refunds: KnownReceipt[] } {
+ *  the spreadsheet read `receipts`. A receipt whose items don't add up to its printed total (step 1, 2026-11-23: never
+ *  silently accept uncertain figures) is in `held`, not `receipts`, until you approve it for those figures. */
+export function receiptsAndCopies(entries: readonly Entry[], remembered: Remembered = {}, itemFor: NamesFiled = {}): { receipts: KnownReceipt[]; copies: ReceiptCopy[]; refunds: KnownReceipt[]; held: KnownReceipt[] } {
   const added = entries
     .filter((e) => e.status !== 'draft')
     .sort((a, b) => a.createdAt - b.createdAt)
@@ -203,7 +217,10 @@ export function receiptsAndCopies(entries: readonly Entry[], remembered: Remembe
         if (!receipt) return []
         const readBy = photo.ai?.receipt ? photo.ai.by : null
         const time = receiptTime(photo.ai?.text || photo.text || '', receipt.currency === '$')
-        return [{ receipt: { ...receipt, id: photo.id, entryId: entry.id, entryDate: entry.date, date: receipt.date ?? entry.date, dated: receipt.date !== null, readBy }, time }]
+        // Items that contradict the printed total. A total with no items read isn't contradicted: it is flagged, as before.
+        const odd = !receipt.adds && !receipt.refund && receipt.items.length > 0
+        const flag = odd ? (approvedNow(photo, receipt) ? { approved: true as const } : { held: true as const }) : {}
+        return [{ receipt: { ...receipt, ...flag, id: photo.id, entryId: entry.id, entryDate: entry.date, date: receipt.date ?? entry.date, dated: receipt.date !== null, readBy }, time }]
       }),
     )
   const counted: typeof added = []
@@ -216,7 +233,7 @@ export function receiptsAndCopies(entries: readonly Entry[], remembered: Remembe
   // A receipt read with no currency sign is in pounds, the app's own currency (owner, 2026-11-22: "£267.73 and 5.00 spent"). It is
   // done after the copies are found, since `sameReceipt` takes a missing sign as "could be either".
   const byDate = counted.map((c) => (c.receipt.currency ? c.receipt : { ...c.receipt, currency: '£' })).sort((a, b) => a.date.localeCompare(b.date))
-  return { receipts: byDate.filter((r) => !r.refund), copies, refunds: byDate.filter((r) => r.refund) }
+  return { receipts: byDate.filter((r) => !r.refund && !r.held), copies, refunds: byDate.filter((r) => r.refund), held: byDate.filter((r) => !r.refund && r.held) }
 }
 
 /** The receipts in finished entries, oldest first, each counted once: what Shopping and Ask add up. */
@@ -227,13 +244,13 @@ export const receiptsOf = (entries: readonly Entry[], remembered: Remembered = {
 export function entryReceipt(entry: Entry): { title: string; words: string } | null {
   const photos = entry.photos ?? []
   if (entry.status === 'draft' || entry.note.trim() || !photos.length) return null
-  const { receipts, refunds } = receiptsAndCopies([entry])
-  const all = [...receipts, ...refunds]
+  const { receipts, refunds, held } = receiptsAndCopies([entry])
+  const all = [...receipts, ...held, ...refunds]
   if (all.length === 1) {
     const r = all[0]!
     const items = r.items.filter((item) => item.price >= 0).length
     const total = money(Math.abs(paid(r)), r.currency || '£')
-    return { title: r.shop || 'Receipt', words: r.refund ? `Refund slip · ${total} back` : ['Receipt', total, items ? `${items} ${items === 1 ? 'item' : 'items'}` : ''].filter(Boolean).join(' · ') }
+    return { title: r.shop || 'Receipt', words: r.refund ? `Refund slip · ${total} back` : ['Receipt', total, items ? `${items} ${items === 1 ? 'item' : 'items'}` : '', r.held ? 'not counted yet' : ''].filter(Boolean).join(' · ') }
   }
   if (all.length > 1) {
     const currencies = new Set(all.map((r) => r.currency || '£'))
@@ -400,6 +417,8 @@ export interface ToCheck {
   /** The earlier receipt retained in totals when this receipt is a duplicate. */
   copyOf?: KnownReceipt
   possiblePayment?: boolean
+  /** Held back from every sum until you approve it (step 1). */
+  held?: boolean
 }
 
 /** The month's items of one kind, at what was paid for them: after the offers joined to them (v0.20.19). */
@@ -563,6 +582,7 @@ export function shoppingMonth(
   copies: readonly ReceiptCopy[] = [],
   reviewedDates: ReadonlySet<string> = new Set(),
   possiblePaymentIds: ReadonlySet<string> = new Set(),
+  held: readonly KnownReceipt[] = [],
 ): ShoppingMonth {
   const receipts = all.filter((r) => r.date.slice(0, 7) === month)
   const currency = mainCurrency(receipts)
@@ -595,14 +615,16 @@ export function shoppingMonth(
       all.filter((r) => inMonths(r, shiftMonth(month, -(REPEAT_MONTHS - 1)), month)),
       currency,
     ),
-    toCheck: receipts
+    toCheck: [...receipts, ...held.filter((r) => r.date.slice(0, 7) === month)]
       .map((receipt) => ({
         receipt,
         why: [
-          receipt.adds ? '' : "its items don't add up to its total",
+          receipt.adds || receipt.approved ? '' : "its items don't add up to its total",
+          receipt.held ? 'not counted until you approve it' : '',
           shopKey(receipt.shop) ? '' : 'no shop read',
           receipt.dated || reviewedDates.has(receipt.id) ? '' : 'no date read',
         ].filter(Boolean),
+        ...(receipt.held ? { held: true } : {}),
       }))
       .filter((c) => c.why.length > 0 || possiblePaymentIds.has(c.receipt.id))
       .map((c) => (possiblePaymentIds.has(c.receipt.id) ? { ...c, possiblePayment: true } : c))

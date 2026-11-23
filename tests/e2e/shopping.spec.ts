@@ -26,13 +26,14 @@ const reading = (shop: string, date: string | null, items: Item[], total?: numbe
 })
 
 const daysBefore = (date: string) => Math.round((new Date(2026, 9, 24).getTime() - new Date(`${date}T00:00:00`).getTime()) / 86_400_000)
-const receiptEntry = (id: string, date: string, ai: ReturnType<typeof reading>) => ({ ...freeWriting(`e-${id}`, '', daysBefore(date), SATURDAY), photos: [{ id, text: null, ai }] })
+const receiptEntry = (id: string, date: string, ai: ReturnType<typeof reading>, more: object = {}) => ({ ...freeWriting(`e-${id}`, '', daysBefore(date), SATURDAY), photos: [{ id, text: null, ai, ...more }] })
 
 const MILK = 'Semi Skimmed Milk 2.27L'
 const ENTRIES = [
   receiptEntry('t1', '2026-09-12', reading('Tesco Express', '2026-09-12', [[MILK, 145, 'Dairy and eggs'], ['Bananas', 95, 'Fruit and veg']])),
   receiptEntry('t2', '2026-10-03', reading('TESCO', '2026-10-03', [[MILK, 145, 'Dairy and eggs'], ['Bananas', 95, 'Fruit and veg'], ['Bread', 120, 'Bread and bakery']])),
-  receiptEntry('a1', '2026-10-05', reading('ALDI', '2026-10-05', [['Coffee', 450, 'Drinks']], 999)),
+  // Its items don't reach its printed total: counted here because it was approved (step 1); the test of the gate itself has it unapproved.
+  receiptEntry('a1', '2026-10-05', reading('ALDI', '2026-10-05', [['Coffee', 450, 'Drinks']], 999), { approved: { total: 999, sum: 450 } }),
   receiptEntry('t3', '2026-10-10', reading('Tesco', '2026-10-10', [['Bananas', 95, 'Fruit and veg'], ['Pasta', 80, 'Cupboard'], ['Clubcard saving', -50]])),
   receiptEntry('t4', '2026-10-17', reading('Tesco Stores Ltd', '2026-10-17', [[MILK, 165, 'Dairy and eggs'], ['Pasta', 80, 'Cupboard']])),
   // No date read: it counts on its entry's day, the 23rd. Its item has no kind: read before kinds.
@@ -85,6 +86,7 @@ test('Money has its own tab, receipts and all: the month so far, next to last mo
   await where.locator('summary', { hasText: 'ALDI' }).click()
   await where.locator('details', { hasText: 'ALDI' }).getByRole('button').click()
   await expect(page.getByRole('dialog', { name: 'ALDI' })).toContainText('Its items don’t add up to this total')
+  await expect(page.getByRole('dialog', { name: 'ALDI' })).toContainText('Counted, as you said, though its items don’t add up.')
   await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click()
 
   // By kind: none has 3 items, so they're in the list's own order, never ranked; then what has no kind.
@@ -108,16 +110,41 @@ test('Money has its own tab, receipts and all: the month so far, next to last mo
   const again = page.getByRole('region', { name: 'Bought again and again' }).locator('summary')
   await expect(again).toHaveText([`${MILK}3× · on 3 receipts · £4.55`, 'Bananas3× · on 3 receipts · £2.85'])
 
-  // To check: the receipt that doesn't add up, and the one with no date read.
+  // To check: the one with no date read. The Aldi receipt that doesn't add up was approved, so it isn't here.
   const check = page.getByRole('region', { name: 'Receipts to check' }).locator('li')
-  await expect(check.locator('details > summary')).toHaveText([
-    /Date not read · using Fri 23 Oct.*J Sainsbury plc · £42\.10/,
-    /Total doesn't add up.*ALDI · £9\.99/,
-  ])
+  await expect(check.locator('details > summary')).toHaveText([/Date not read · using Fri 23 Oct.*J Sainsbury plc · £42\.10/])
   await expect(check.locator('details[open]')).toHaveCount(0)
 
   for (const summary of await page.locator('details.week-line > summary').all()) await summary.click()
   await expectNoScores(page, 'Money, opened')
+})
+
+// Step 1 (owner-approved plan, 2026-11-23: "never silently accept uncertain financial information"): a receipt whose items
+// don't add up to its printed total is left out of what was spent until you say to count it, and you can take that back.
+test('a receipt whose items do not add up is left out of what was spent until you count it', async ({ page }, testInfo) => {
+  const unapproved = ENTRIES.map((e) => (e.photos[0]!.id === 'a1' ? receiptEntry('a1', '2026-10-05', reading('ALDI', '2026-10-05', [['Coffee', 450, 'Drinks']], 999)) : e))
+  await restoreBackup(page, testInfo.outputPath('receipts.json'), backupWith({ entries: unapproved }, SATURDAY))
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  // £59.39 with it; the Aldi £9.99 is not in it.
+  await expect(page.getByRole('strong')).toHaveText('£49.40 spent')
+  const check = page.getByRole('region', { name: 'Receipts to check' }).locator('li')
+  await expect(check.locator('details > summary')).toHaveText([/Date not read/, /Not counted · total doesn't add up.*ALDI · £9\.99/])
+  await check.locator('details', { hasText: 'ALDI' }).locator('summary').click()
+  await expect(check.locator('details', { hasText: 'ALDI' })).toContainText('Left out of what you spent until you say to count it.')
+  await check.locator('details', { hasText: 'ALDI' }).getByRole('button', { name: 'Count it anyway' }).click()
+  await expect(page.getByRole('strong')).toHaveText('£59.39 spent')
+  await expect(check.locator('details > summary')).toHaveText([/Date not read/])
+
+  // Taken back from the receipt's own sheet.
+  await line(page, '5 receipts from 3 shops').click()
+  await page.getByRole('button', { name: /Mon 5 Oct ALDI/ }).click()
+  const sheet = page.getByRole('dialog', { name: 'ALDI' })
+  await expect(sheet).toContainText('Counted, as you said, though its items don’t add up.')
+  await sheet.getByRole('button', { name: 'Stop counting it' }).click()
+  await expect(sheet).toContainText('Not counted as spent yet.')
+  await sheet.getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(page.getByRole('strong')).toHaveText('£49.40 spent')
 })
 
 // Owner, 2026-10-31: "i cannot see the item in that receipt or which category the item … is assigned to", and things

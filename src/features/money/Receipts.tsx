@@ -192,6 +192,8 @@ export function ReceiptsMonth(props: {
   receipts: readonly KnownReceipt[]
   /** Refund slips (v0.20.20): shown, counted nowhere. */
   refunds: readonly KnownReceipt[]
+  /** Receipts whose items don't add up to their total (step 1): counted nowhere until you approve them. */
+  held: readonly KnownReceipt[]
   copies: readonly ReceiptCopy[]
   month: string
   today: string
@@ -199,6 +201,7 @@ export function ReceiptsMonth(props: {
   matchCandidates: ReadonlyMap<string, readonly MoneyLine[]>
   possiblePaymentIds: ReadonlySet<string>
   onAcceptDate: (receiptId: string) => Promise<void>
+  onApprove: (receipt: KnownReceipt, approve: boolean) => Promise<void>
   onMatchPayment: (receiptId: string, paymentId: string, reason: string) => Promise<void>
   /** What became of each receipt, and the payments with no receipt (v0.35.0): told from both sides. */
   outcomes: ReadonlyMap<string, ReceiptOutcome>
@@ -208,7 +211,7 @@ export function ReceiptsMonth(props: {
 }) {
   const { receipts, month, today, onOpen } = props
   const headingId = useId()
-  const its = shoppingMonth(receipts, month, today, props.copies, props.reviewedDates, props.possiblePaymentIds)
+  const its = shoppingMonth(receipts, month, today, props.copies, props.reviewedDates, props.possiblePaymentIds, props.held)
   const shops = its.shops.ranked.length + its.shops.others.filter((s) => s.name !== null).length
   const refunds = props.refunds.filter((r) => r.date.slice(0, 7) === month)
   // How many of the month's receipts sit against a payment on a statement; said only when there are statements to match to.
@@ -270,6 +273,7 @@ export function ReceiptsMonth(props: {
             reviewedDates={props.reviewedDates}
             matchCandidates={props.matchCandidates}
             onAcceptDate={props.onAcceptDate}
+            onApprove={props.onApprove}
             onMatchPayment={props.onMatchPayment}
             onOpen={onOpen}
           />
@@ -528,6 +532,7 @@ function ReceiptList(props: {
   reviewedDates?: ReadonlySet<string>
   matchCandidates?: ReadonlyMap<string, readonly MoneyLine[]>
   onAcceptDate?: (receiptId: string) => Promise<void>
+  onApprove?: (receipt: KnownReceipt, approve: boolean) => Promise<void>
   onMatchPayment?: (receiptId: string, paymentId: string, reason: string) => Promise<void>
   onOpen: (r: KnownReceipt) => void
 }) {
@@ -549,7 +554,9 @@ function ReceiptList(props: {
           ? 'Duplicate · counted once'
           : missingDate
             ? `Date not read · using ${shortDayMonth(r.date)}`
-            : !r.adds
+            : r.held
+              ? "Not counted · total doesn't add up"
+              : !r.adds
               ? "Total doesn't add up"
               : !shopKey(r.shop)
                 ? 'Shop not read'
@@ -572,6 +579,7 @@ function ReceiptList(props: {
                   ) : (
                     <>
                       {!r.adds ? <p>Items and total differ.</p> : null}
+                      {r.held ? <p>Left out of what you spent until you say to count it.</p> : null}
                       {!shopKey(r.shop) ? <p>Shop not read.</p> : null}
                       {missingDate ? (
                         <>
@@ -588,16 +596,23 @@ function ReceiptList(props: {
                           })}
                         </ul>
                       ) : null}
-                      {!duplicateOf && (missingDate || hasPaymentCandidates) ? (
+                      {!duplicateOf && (r.held || missingDate || hasPaymentCandidates) ? (
                         <div className="receipt-check-actions">
+                          {r.held ? (
+                            <button type="button" onClick={() => void props.onApprove?.(r, true)}>
+                              Count it anyway
+                            </button>
+                          ) : null}
                           {missingDate ? (
                             <button type="button" onClick={() => void props.onAcceptDate?.(r.id)}>
                               Use {shortDayMonth(r.date)}
                             </button>
                           ) : null}
-                          <button type="button" onClick={() => setMatching(r)}>
-                            {missingDate ? 'Match a payment' : 'Review payment'}
-                          </button>
+                          {missingDate || hasPaymentCandidates ? (
+                            <button type="button" onClick={() => setMatching(r)}>
+                              {missingDate ? 'Match a payment' : 'Review payment'}
+                            </button>
+                          ) : null}
                         </div>
                       ) : null}
                     </>

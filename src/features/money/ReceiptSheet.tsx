@@ -43,8 +43,8 @@ export interface PaidWith {
 const cardWords = (card: CardPaid) => `${card.scheme ?? 'Card'} ending ${card.last4}`
 
 /** A receipt's items and what it came to; "Open the entry" for its photo and journal. */
-export function ReceiptSheet(props: { receipt: KnownReceipt; names: string[]; suggestions: string[]; paidWith?: PaidWith; onOpenEntry: () => void; onClose: () => void }) {
-  const { receipt, names, suggestions, paidWith, onOpenEntry, onClose } = props
+export function ReceiptSheet(props: { receipt: KnownReceipt; names: string[]; suggestions: string[]; paidWith?: PaidWith; onApprove: (approve: boolean) => Promise<void>; onOpenEntry: () => void; onClose: () => void }) {
+  const { receipt, names, suggestions, paidWith, onApprove, onOpenEntry, onClose } = props
   const [chosen, setChosen] = useState<number | null>(null)
   const [choosingCard, setChoosingCard] = useState(false)
   const keys = itemKeys(receipt.items).map((key, i) => receipt.items[i]!.key ?? key)
@@ -95,6 +95,22 @@ export function ReceiptSheet(props: { receipt: KnownReceipt; names: string[]; su
           <TotalNote strong>{`${money(spentOn(receipt), receipt.currency)} spent`}</TotalNote>
         ) : null}
       </p>
+      {/* Step 1 (2026-11-23): items that don't reach the printed total aren't counted until you say so. */}
+      {receipt.held ? (
+        <>
+          <p>Not counted as spent yet.</p>
+          <button type="button" onClick={() => void onApprove(true)}>
+            Count it anyway
+          </button>
+        </>
+      ) : receipt.approved ? (
+        <>
+          <p className="muted small">Counted, as you said, though its items don’t add up.</p>
+          <button type="button" onClick={() => void onApprove(false)}>
+            Stop counting it
+          </button>
+        </>
+      ) : null}
     </Dialog>
   )
 }
