@@ -2,9 +2,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useId, useState } from 'react'
 import { type BillDraft, removeBill, saveBill, setBudget } from '../../db/bills'
 import { db } from '../../db/db'
-import type { Bill, BillEvery } from '../../db/types'
+import type { Bill, BillEvery, StatementRecord } from '../../db/types'
 import { billEvents, billsTotal, budgetRows, draftFromRegular, dueSoon, EVERY_WORDS, nextPayment, paidAgainst, renewalIn } from '../../domain/bills'
-import { type MoneyLine, PAYMENT_KINDS, type Regular } from '../../domain/money'
+import { type MoneyLine, monthCoverage, PAYMENT_KINDS, type Regular } from '../../domain/money'
 import { monthYear, shortDayMonth } from '../../lib/dates'
 import { amountField, money, parseMoney } from '../../lib/money'
 import { canShareFile, downloadFile, shareFile } from '../../lib/share'
@@ -20,7 +20,7 @@ const DUE_DAYS = 14
 const EVERY: readonly BillEvery[] = ['week', 'month', 'quarter', 'year']
 
 /** The tile in Overview: what your bills come to in a year, and what is due soon. */
-export function BillsTile(props: { regular: readonly Regular[]; lines: readonly MoneyLine[]; kindSpend: Readonly<Record<string, number>>; month: string; today: string }) {
+export function BillsTile(props: { regular: readonly Regular[]; lines: readonly MoneyLine[]; kindSpend: Readonly<Record<string, number>>; statements: readonly StatementRecord[]; closed: ReadonlySet<string>; month: string; today: string }) {
   const bills = useLiveQuery(() => db.bills.toArray(), [])
   const budgets = useLiveQuery(() => db.budgets.toArray(), [])
   const [open, setOpen] = useState(false)
@@ -51,11 +51,13 @@ function BillsSheet(props: {
   regular: readonly Regular[]
   lines: readonly MoneyLine[]
   kindSpend: Readonly<Record<string, number>>
+  statements: readonly StatementRecord[]
+  closed: ReadonlySet<string>
   month: string
   today: string
   onClose: () => void
 }) {
-  const { bills, budgets, regular, lines, kindSpend, month, today, onClose } = props
+  const { bills, budgets, regular, lines, kindSpend, statements, closed, month, today, onClose } = props
   const [editing, setEditing] = useState<Editing>(null)
   const [budgeting, setBudgeting] = useState<string | 'new' | null>(null)
   const total = billsTotal(bills)
@@ -63,6 +65,10 @@ function BillsSheet(props: {
   const kept = new Set(bills.flatMap((b) => (b.payee ? [b.payee] : [])))
   const offered = regular.filter((r) => !kept.has(r.payee.key))
   const budget = budgetRows(budgets.map((b) => ({ ...b, createdAt: 0, updatedAt: 0 })), kindSpend)
+  // What the month's statements leave unsaid (audit 2026-11-23): a month no statement reaches is not £0 spent, and one still going or with a
+  // statement missing is only what the statements show.
+  const cover = monthCoverage(statements, closed, [month], today)[0]!
+  const known: 'none' | 'part' | 'all' = cover.uncovered ? 'none' : cover.complete ? 'all' : 'part'
 
   // Built inside the tap, because iPhone only opens the share menu straight from a tap.
   function calendarFile() {
@@ -138,20 +144,21 @@ function BillsSheet(props: {
 
         <h3 className="question-text top-gap">Budgets · {monthYear(month)}</h3>
         <p className="muted small">An amount for each kind of spending, a month. Only what you spent and what is left.</p>
+        {known === 'none' && budget.rows.length ? <p className="muted small">No statement reaches {monthYear(month)} yet, so what was spent is not known.</p> : null}
         {budget.rows.length ? (
           <ul className="plain-list compact">
             {budget.rows.map((r) => (
               <li key={r.kind}>
                 <button type="button" className="line-button product-row" onClick={() => setBudgeting(r.kind)}>
                   <span className="product-name">{r.kind}</span>
-                  <span className="product-change">{r.left >= 0 ? `${pounds(r.left)} left` : `${pounds(-r.left)} over`}</span>
+                  {known === 'none' ? null : <span className="product-change">{r.left >= 0 ? `${pounds(r.left)} left` : `${pounds(-r.left)} over`}</span>}
                   <span className="product-sub">
-                    {pounds(r.spent)} of {pounds(r.budget)}
+                    {known === 'none' ? `${pounds(r.budget)} a month` : `${pounds(r.spent)} of ${pounds(r.budget)}${known === 'part' ? ' · only what the statements show so far' : ''}`}
                   </span>
                 </button>
               </li>
             ))}
-            {budget.total ? (
+            {budget.total && known !== 'none' ? (
               <li className="product-shop">
                 <span>All of these</span>
                 <span>

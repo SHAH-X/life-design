@@ -45,6 +45,7 @@ import { AddReceipt } from './AddReceipt'
 import { ReceiptsMonth, ReceiptsShare, receiptsWord } from './Receipts'
 import { StatementImport } from './StatementImport'
 import { ForSheet, KindSheet, PaymentSheet } from './PaymentSheets'
+import { BillsTile } from './Bills'
 import { PricesGroup, ProductSheet } from './Prices'
 import { type PaidWith, ReceiptSheet } from './ReceiptSheet'
 import { useAccountNames } from './useAccountNames'
@@ -318,7 +319,15 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
           </section>
         ) : null}
         {view === 'receipts' && month === thisMonth && receipts.length ? <ReceiptsShare receipts={receipts} /> : null}
-        {view === 'accounts' && !lines.length ? <Accounts /> : null}
+        {view === 'accounts' && !lines.length ? (
+          <>
+            {/* Bills and budgets are listed by you: not out of reach until a statement is in (audit 2026-11-23). */}
+            <div className="acc-tiles">
+              <BillsTile regular={[]} lines={[]} kindSpend={{}} statements={[]} closed={new Set()} month={thisMonth} today={today} />
+            </div>
+            <Accounts />
+          </>
+        ) : null}
         {importing ? <StatementImport onClose={() => setImporting(false)} /> : null}
         {shown ? (
           <PaymentSheet
