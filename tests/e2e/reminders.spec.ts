@@ -132,7 +132,7 @@ test('More is a short list of pages, each with a way back', async ({ page }) => 
 test('More: every row has a 32px sage tile with its icon', async ({ page }) => {
   await page.goto('./#/more')
   const tiles = page.locator('.list-row .icon-tile')
-  await expect(tiles).toHaveCount(10)
+  await expect(tiles).toHaveCount(11)
   for (const tile of await tiles.all()) {
     const box = (await tile.boundingBox())!
     expect([Math.round(box.width), Math.round(box.height)]).toEqual([32, 32])

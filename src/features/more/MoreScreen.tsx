@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
+import { db } from '../../db/db'
 import { getOwnWords, getSetting } from '../../db/repo'
 import type { Purpose } from '../../db/types'
 import { asProvider, PROVIDERS } from '../../lib/ai'
@@ -7,6 +8,7 @@ import { buildInfo, formatBuildInfo } from '../../lib/buildInfo'
 import { shortDate, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { isPersisted, isStandalone } from '../../lib/storage'
+import { needsLook } from '../../domain/documents'
 import { PURPOSE_EFFECT, PURPOSE_KEYS, purposeInfo } from '../../domain/purposes'
 import { normalizeReminderPlan } from '../../reminders/schedule'
 import { Loading } from '../../ui/Loading'
@@ -18,6 +20,7 @@ import { ExportCard } from './ExportCard'
 import { MEANING_INFO, MeaningSettings } from './MeaningSettings'
 import { PHOTO_TEXT_INFO, PhotoTextSettings } from './PhotoTextSettings'
 import { DEFAULT_PURPOSE } from '../today/usePurpose'
+import { DocumentsScreen } from '../documents/DocumentsScreen'
 import { OwnWords } from './OwnWords'
 import { PurposeSettings } from './PurposeSettings'
 import { RemindersCard } from './RemindersCard'
@@ -27,6 +30,7 @@ import { Icon, type IconName } from '../../ui/Icon'
 import { BackLink } from '../../ui/BackLink'
 
 const PAGES = {
+  documents: 'Documents',
   reminders: 'Reminders',
   purpose: 'Your purpose',
   words: 'Your feeling words',
@@ -41,6 +45,7 @@ const PAGES = {
 
 /** The icon in each row's sage tile. */
 const ROW_ICONS = {
+  documents: 'file',
   reminders: 'bell',
   purpose: 'target',
   words: 'tag',
@@ -85,6 +90,7 @@ function MorePage({ page }: { page: Page }) {
       ) : (
         <h1>{PAGES[page]}</h1>
       )}
+      {page === 'documents' ? <DocumentsScreen /> : null}
       {page === 'reminders' ? <RemindersPage /> : null}
       {page === 'purpose' ? <PurposeSettings /> : null}
       {page === 'words' ? <OwnWords /> : null}
@@ -124,9 +130,12 @@ function useListStatus() {
       getSetting<unknown>('meaningSearch', null),
       getSetting<unknown>('photoText', null),
     ])
+    const docs = await db.documents.toArray()
+    const looks = needsLook(docs, toDateKey(new Date()), 60)
     const plan = normalizeReminderPlan(reminders, toDateKey(new Date()))
     const on = (Object.keys(REMINDER_NAMES) as (keyof typeof REMINDER_NAMES)[]).filter((k) => plan[k].on).map((k) => REMINDER_NAMES[k])
     return {
+      documents: docs.length ? `${docs.length}${looks.length ? ` · ${looks.length} need a look` : ''}` : 'None yet',
       reminders: on.length ? on.join(' · ') : 'Off',
       purpose: purposeInfo(PURPOSE_KEYS.includes(primary as Purpose) ? (primary as Purpose) : DEFAULT_PURPOSE).label,
       backup: lastExportAt ? `Last: ${shortDate(lastExportAt)}` : 'No backup yet',
@@ -147,6 +156,7 @@ function MoreList() {
   if (status === undefined) return <Loading />
 
   const rows: { page: Page; status?: string }[] = [
+    { page: 'documents', status: status.documents },
     { page: 'reminders', status: status.reminders },
     { page: 'purpose', status: status.purpose },
     { page: 'words', status: status.words },

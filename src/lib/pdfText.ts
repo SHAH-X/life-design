@@ -25,6 +25,11 @@ interface PdfJs {
 
 /** Every piece of text in a PDF, page by page. */
 export async function piecesFromPdf(pdfjs: PdfJs, data: Uint8Array): Promise<TextPiece[]> {
+  return (await documentFromPdf(pdfjs, data)).pieces
+}
+
+/** Every piece of text in a PDF and how many pages it has (a scan has pages and no pieces). */
+export async function documentFromPdf(pdfjs: PdfJs, data: Uint8Array): Promise<{ pieces: TextPiece[]; pages: number }> {
   const task = pdfjs.getDocument({ data, isEvalSupported: false, disableFontFace: true, useSystemFonts: false, verbosity: 0 })
   try {
     let doc: Awaited<typeof task.promise>
@@ -42,7 +47,7 @@ export async function piecesFromPdf(pdfjs: PdfJs, data: Uint8Array): Promise<Tex
         pieces.push({ str: item.str, x, y, w: item.width ?? 0, size: Math.hypot(c, d) || Math.hypot(a, b), page: n })
       }
     }
-    return pieces
+    return { pieces, pages: doc.numPages }
   } finally {
     await task.destroy()
   }
@@ -50,10 +55,20 @@ export async function piecesFromPdf(pdfjs: PdfJs, data: Uint8Array): Promise<Tex
 
 let worker: Worker | undefined
 
-/** A statement's PDF, read in PDF.js's own worker. */
-export async function readPdf(file: Blob): Promise<TextPiece[]> {
+/** PDF.js, with its own worker (handed each file, fetching nothing): for reading a PDF and for drawing one. */
+export async function loadPdfJs() {
   const pdfjs = await import('pdfjs-dist')
   worker ??= new Worker(new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url), { type: 'module' })
   pdfjs.GlobalWorkerOptions.workerPort = worker
-  return piecesFromPdf(pdfjs as unknown as PdfJs, new Uint8Array(await file.arrayBuffer()))
+  return pdfjs
+}
+
+/** A statement's PDF, read in PDF.js's own worker. */
+export async function readPdf(file: Blob): Promise<TextPiece[]> {
+  return piecesFromPdf((await loadPdfJs()) as unknown as PdfJs, new Uint8Array(await file.arrayBuffer()))
+}
+
+/** A document's PDF: its text pieces and its page count. */
+export async function readPdfDocument(file: Blob): Promise<{ pieces: TextPiece[]; pages: number }> {
+  return documentFromPdf((await loadPdfJs()) as unknown as PdfJs, new Uint8Array(await file.arrayBuffer()))
 }

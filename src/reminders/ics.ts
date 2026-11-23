@@ -14,8 +14,8 @@ export interface IcsEvent {
   /** How it repeats; none for a one-off event. */
   rrule?: string
   alarm: string
-  /** How long before it the alert goes, as iCalendar says it ("-P2D"); at the start when none. */
-  alarmBefore?: string
+  /** How long before it an alert goes, as iCalendar says it ("-P2D"), or several; at the start when none. */
+  alarmBefore?: string | readonly string[]
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -67,11 +67,7 @@ export function buildIcs(events: readonly IcsEvent[], stamp: Date): string {
       `SUMMARY:${escapeIcsText(e.summary)}`,
       `DESCRIPTION:${escapeIcsText(e.description)}`,
       `URL:${e.url}`,
-      'BEGIN:VALARM',
-      'ACTION:DISPLAY',
-      `DESCRIPTION:${escapeIcsText(e.alarm)}`,
-      `TRIGGER:${e.alarmBefore ?? 'PT0M'}`,
-      'END:VALARM',
+      ...[e.alarmBefore ?? 'PT0M'].flat().flatMap((trigger) => ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${escapeIcsText(e.alarm)}`, `TRIGGER:${trigger}`, 'END:VALARM']),
       'END:VEVENT',
     )
   }

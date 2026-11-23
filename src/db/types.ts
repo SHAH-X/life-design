@@ -605,6 +605,48 @@ export interface Budget {
   updatedAt: number
 }
 
+/** What a date in a document is: it renews, expires, ends, is due or starts. */
+export type TrackKind = 'renews' | 'expires' | 'ends' | 'due' | 'starts'
+
+/** A date in a document you chose to track (step 5, 2026-11-23): never tracked on its own. */
+export interface Tracked {
+  date: string
+  kind: TrackKind
+  /** The words before it in the document, or what you called it. */
+  label: string
+}
+
+/** A document you added (step 5): its details. The file itself is `DocumentFile`, so a list of documents never loads the files. */
+export interface DocumentRecord {
+  id: string
+  title: string
+  /** A kind from DOC_TYPES. */
+  type: string
+  kind: 'pdf' | 'image'
+  mime: string
+  /** Bytes of the file as kept. */
+  size: number
+  pages: number | null
+  /** The words read from it: null until read, '' when it has none (a scan). */
+  text: string | null
+  tracked: Tracked[]
+  /** Suggested dates you said are not worth tracking: `date|kind`. */
+  dismissed: string[]
+  /** A bill you linked it to. */
+  billId: string | null
+  notes: string
+  createdAt: number
+  updatedAt: number
+}
+
+/** The file of a document, as it was added: a PDF byte for byte, a photo shrunk like a receipt's. Base64. */
+export interface DocumentFile {
+  id: string
+  data: string
+  createdAt: number
+  updatedAt: number
+}
+
 export interface BackupData {
   entries: Entry[]
   days: Day[]
@@ -629,6 +671,8 @@ export interface BackupData {
   products: Product[]
   bills: Bill[]
   budgets: Budget[]
+  documents: DocumentRecord[]
+  documentFiles: DocumentFile[]
 }
 
 export type TableName = keyof BackupData
@@ -657,6 +701,8 @@ export const TABLE_NAMES: readonly TableName[] = [
   'products',
   'bills',
   'budgets',
+  'documents',
+  'documentFiles',
 ]
 
 export const TABLE_LABELS: Record<TableName, string> = {
@@ -683,4 +729,6 @@ export const TABLE_LABELS: Record<TableName, string> = {
   products: 'Products you listed or joined',
   bills: 'Bills and subscriptions',
   budgets: 'Monthly budgets',
+  documents: 'Documents',
+  documentFiles: 'Document files',
 }

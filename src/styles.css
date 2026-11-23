@@ -4868,3 +4868,42 @@ button.product-row {
   color: var(--muted);
   font-size: var(--fs-sm);
 }
+
+/* Documents (step 5): the list, a document's sheet and its drawn PDF. The layout pass is still owed. */
+button.doc-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px var(--space-2);
+  width: 100%;
+  text-align: left;
+}
+.doc-row mark {
+  background: var(--warn-bg);
+  color: inherit;
+  padding: 0 1px;
+}
+.doc-add {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin: var(--space-3) 0;
+}
+.doc-date {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+}
+.doc-date-actions,
+.doc-file-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.doc-image,
+.pdf-pages canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: var(--space-2) 0;
+  border: 1px solid var(--border);
+}

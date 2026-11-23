@@ -425,7 +425,7 @@ export async function loadSuggestions(database: LifeDesignDB = defaultDb): Promi
   return computeSuggestions(recent)
 }
 
-/** Entries, days, evening answers, reviews, plans, views and maps created or changed after `since` (everything when never backed up). */
+/** Entries, days, evening answers, reviews, plans, views, maps, products, bills, budgets and documents created or changed after `since` (everything when never backed up). */
 export async function countChangesSince(since: number | null, database: LifeDesignDB = defaultDb): Promise<number> {
   const tables = [
     database.entries,
@@ -440,7 +440,11 @@ export async function countChangesSince(since: number | null, database: LifeDesi
     database.ideaMaps,
   ] as const
   const counts = await Promise.all(tables.map((t) => (since === null ? t.count() : t.where('updatedAt').above(since).count())))
-  return counts.reduce((sum, n) => sum + n, 0)
+  // Yours too, and in every backup (v0.57.0: they weren't counted, so a day of adding documents read "no changes"): counted by
+  // `updatedAt` without an index for those made before it was thought of.
+  const more = [database.products, database.bills, database.budgets, database.documents] as const
+  const counted = await Promise.all(more.map((t) => (since === null ? t.count() : t.filter((r) => r.updatedAt > since).count())))
+  return [...counts, ...counted].reduce((sum, n) => sum + n, 0)
 }
 
 const emptyNote = (entryId: string | null = null): AeiouNote => ({

@@ -52,8 +52,17 @@ The app is a phone-only journal with a Money tab. No server, account, cloud sync
 | Reminders | PARTIAL (v0.56.0) | A calendar file you add yourself (an alert two days before, repeating); no push by rule |
 | Forgotten subscriptions | PARTIAL | A bill shows when it was last paid, so a quiet one shows; nothing can tell a subscription you no longer use |
 
-## E. Documents: MISSING
-Reusable: photo storage, OCR, PDF.js, search by meaning, calendar files.
+## E. Documents
+| Capability | Status | Where / note |
+|---|---|---|
+| Upload and store; originals never overwritten | EXISTING (v0.57.0) | `documents` + `documentFiles`; a PDF byte for byte (10 MB cap), a photo shrunk; deleted only by you |
+| Text extraction | PARTIAL | PDF text layer and the on-phone photo reader; a scanned PDF has no text (kept, said so); OCR of scanned PDFs not built |
+| Classification | EXISTING | `guessType`, by words, changed by you |
+| Dates, renewal and expiry | EXISTING | `datesIn` suggests, you track; "Needs a look" for 60 days; calendar file with alerts 30 and 2 days before |
+| Keyword search | EXISTING | every word, exact, with snippets |
+| Natural-language search and questions | MISSING | meaning search could cover documents; asking in plain words is the assistant step |
+| Link to expenses or recurring payments | PARTIAL | a document links to a bill; not to a payment or receipt |
+| Preserved file viewing | EXISTING | PDF.js draws the pages here; "Send it…" through the share menu |
 
 ## F. Assistant
 | Capability | Status | Where / note |
@@ -65,7 +74,7 @@ Reusable: photo storage, OCR, PDF.js, search by meaning, calendar files.
 The phone can't run in the background. Present: receipts are read when added, a backup nudge after 7 days, duplicate checks.
 
 ## Reliability and security notes
-- Data loss is the main risk: backup is by hand (share menu); iOS can clear website data.
+- Data loss is the main risk: backup is by hand (share menu); iOS can clear website data. The backup nudge now counts documents, bills, budgets and products too (v0.57.0: it didn't).
 - Money choices are lists in `settings`. Read-then-write races lost choices made at once: fixed in v0.53.0 (`changeSetting`).
 - Receipt approvals and corrections leave a note in `auditLog` (v0.54.0); other changes (payment names, kinds) leave none.
 - IndexedDB, including the AI key, is not encrypted at rest; a backup can be password-protected.

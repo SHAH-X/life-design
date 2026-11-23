@@ -11,6 +11,8 @@ import {
   type InvestLine,
   type InvestSummary,
   type Day,
+  type DocumentFile,
+  type DocumentRecord,
   type Entry,
   type IdeaMap,
   entryDefaults,
@@ -57,6 +59,8 @@ export type LifeDesignDB = Dexie & {
   products: EntityTable<Product, 'id'>
   bills: EntityTable<Bill, 'id'>
   budgets: EntityTable<Budget, 'id'>
+  documents: EntityTable<DocumentRecord, 'id'>
+  documentFiles: EntityTable<DocumentFile, 'id'>
 }
 
 export const DB_NAME = 'life-design'
@@ -223,6 +227,12 @@ export function openDb(name = DB_NAME): LifeDesignDB {
   database.version(17).stores({
     bills: 'id, next',
     budgets: 'id',
+  })
+  // Step 5 (v0.57.0): documents you added, and their files kept apart so a list never loads them: yours, so in a backup. Two new,
+  // empty tables.
+  database.version(18).stores({
+    documents: 'id, type, createdAt',
+    documentFiles: 'id',
   })
   return database
 }

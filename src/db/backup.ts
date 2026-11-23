@@ -19,12 +19,12 @@ export const APP_ID = 'life-design'
  * Trading 212's trades, dividends and interest, and its statements' totals (v0.36.0); 15 adds a receipt's approval
  * (`PhotoRef.approved`, v0.53.0): an older version would drop it, and the receipt would be held back again; 16 adds the
  * notes of receipt corrections and the corrections themselves (v0.54.0); 17 adds the products you listed or joined (v0.55.0); 18 adds
- * your bills and monthly budgets (v0.56.0).
+ * your bills and monthly budgets (v0.56.0); 19 adds your documents and their files (v0.57.0).
  * Older files still
  * restore (their next steps become steps); newer ones are refused by older app versions. The AI key never goes into a
  * backup.
  */
-export const BACKUP_SCHEMA_VERSION = 18
+export const BACKUP_SCHEMA_VERSION = 19
 
 /** Settings that never leave the phone, not even inside a backup: the AI keys (for Ask and reviews, and for photos),
  *  and whether search by meaning and reading photos are on (their downloads are this phone's: a phone restored to
@@ -99,6 +99,8 @@ export async function createBackup(database: LifeDesignDB = defaultDb, now: Date
     products: await database.products.toArray(),
     bills: await database.bills.toArray(),
     budgets: await database.budgets.toArray(),
+    documents: await database.documents.toArray(),
+    documentFiles: await database.documentFiles.toArray(),
   }))
   return { app: APP_ID, kind: 'backup', schemaVersion: BACKUP_SCHEMA_VERSION, exportedAt: now.toISOString(), data }
 }

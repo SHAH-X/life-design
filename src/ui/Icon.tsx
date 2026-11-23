@@ -30,6 +30,12 @@ const PATHS = {
       <path d="M14.5 6.5l3 3" />
     </>
   ),
+  file: (
+    <>
+      <path d="M7 3.5h6.5L18 8v12.5H7z" />
+      <path d="M13.5 3.5V8H18M9.5 12.5h5M9.5 16h5" />
+    </>
+  ),
   search: (
     <>
       <circle cx="11" cy="11" r="6.5" />

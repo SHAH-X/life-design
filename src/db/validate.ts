@@ -15,6 +15,8 @@ import {
   type InvestLine,
   type InvestSummary,
   type Day,
+  type DocumentFile,
+  type DocumentRecord,
   type Entry,
   type IdeaMap,
   type IkigaiItem,
@@ -106,6 +108,36 @@ const isExtraItems = (x: unknown): boolean =>
 /** A product you listed or joined (step 3): the keys you said are one product, and the ones you said are not. */
 export function isProduct(x: unknown): x is Product {
   return isObj(x) && isNonEmptyStr(x.id) && Array.isArray(x.members) && x.members.length > 0 && x.members.every(isNonEmptyStr) && Array.isArray(x.notSame) && x.notSame.every(isNonEmptyStr) && typeof x.regular === 'boolean' && isNum(x.createdAt) && isNum(x.updatedAt)
+}
+
+const TRACK_KINDS = ['renews', 'expires', 'ends', 'due', 'starts'] as const
+
+/** A document you added (step 5): its details, never its file. */
+export function isDocumentRecord(x: unknown): x is DocumentRecord {
+  return (
+    isObj(x) &&
+    isNonEmptyStr(x.id) &&
+    isNonEmptyStr(x.title) &&
+    isStr(x.type) &&
+    isOneOf(['pdf', 'image'])(x.kind) &&
+    isStr(x.mime) &&
+    Number.isInteger(x.size) &&
+    (x.pages === null || (Number.isInteger(x.pages) && (x.pages as number) > 0)) &&
+    (x.text === null || isStr(x.text)) &&
+    Array.isArray(x.tracked) &&
+    x.tracked.every((t) => isObj(t) && isDateKey(t.date) && isOneOf(TRACK_KINDS)(t.kind) && isStr(t.label)) &&
+    Array.isArray(x.dismissed) &&
+    x.dismissed.every(isStr) &&
+    (x.billId === null || isNonEmptyStr(x.billId)) &&
+    isStr(x.notes) &&
+    isNum(x.createdAt) &&
+    isNum(x.updatedAt)
+  )
+}
+
+/** A document's file (step 5): base64, byte for byte as it was added. */
+export function isDocumentFile(x: unknown): x is DocumentFile {
+  return isObj(x) && isNonEmptyStr(x.id) && isNonEmptyStr(x.data) && /^[A-Za-z0-9+/]+={0,2}$/.test(x.data) && isNum(x.createdAt) && isNum(x.updatedAt)
 }
 
 /** A bill or subscription you listed (step 4). */
@@ -485,6 +517,8 @@ export const VALIDATORS: { [K in TableName]: (x: unknown) => x is BackupData[K][
   products: isProduct,
   bills: isBill,
   budgets: isBudget,
+  documents: isDocumentRecord,
+  documentFiles: isDocumentFile,
 }
 
 /** Fills in fields that older files don't have yet, after validation. */
