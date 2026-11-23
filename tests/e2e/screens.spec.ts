@@ -43,7 +43,8 @@ async function look(page: Page, name: string) {
     .toHaveScreenshot(`${name}.png`, { ...SHOT, mask: changing(page), ...(inSheet ? {} : WHOLE_PAGE) })
 
   const scrolled = await page.evaluate(() => {
-    const body = document.querySelector('dialog[open] .sheet-body')
+    const bodies = document.querySelectorAll('dialog[open] .sheet-body')
+    const body = bodies[bodies.length - 1]
     const scroller = body ?? document.scrollingElement
     if (!scroller || scroller.scrollHeight <= scroller.clientHeight + 1) return false
     scroller.scrollTop = scroller.scrollHeight
@@ -54,7 +55,8 @@ async function look(page: Page, name: string) {
   await expectCleanLayout(page, `${name}, scrolled to the end`)
   await expect.soft(page).toHaveScreenshot(`${name}-end.png`, { ...SHOT, mask: changing(page) })
   await page.evaluate(() => {
-    const scroller = document.querySelector('dialog[open] .sheet-body') ?? document.scrollingElement
+    const bodies = document.querySelectorAll('dialog[open] .sheet-body')
+    const scroller = bodies[bodies.length - 1] ?? document.scrollingElement
     if (scroller) scroller.scrollTop = 0
   })
 }
@@ -182,6 +184,13 @@ for (const scheme of ['light'] as const) {
         await expect(page.getByRole('link', { name: 'Back to More' })).toBeVisible()
         await look(page, at(`more-${sub}`))
       }
+
+      // The two sheets on the backup pages: what a backup holds (its wording was wrong until the second audit), and a restore.
+      await page.goto('./#/more/backup')
+      await page.getByRole('button', { name: 'Back up now' }).click()
+      await expect(page.getByRole('dialog', { name: 'Back up' })).toBeVisible()
+      await look(page, at('backup-dialog'))
+      await page.keyboard.press('Escape')
     })
 
     // Ask (v0.18, a main tab): until v0.20.41 it had no reference screenshot, which is how its link stayed the browser's
