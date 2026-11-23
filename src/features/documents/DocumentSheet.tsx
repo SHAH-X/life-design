@@ -10,6 +10,7 @@ import { canShareFile, downloadFile, shareFile } from '../../lib/share'
 import { buildIcs } from '../../reminders/ics'
 import { Dialog } from '../../ui/Dialog'
 import { PdfView } from './PdfView'
+import { useAutosave } from './useAutosave'
 
 // One document (step 5, 2026-11-23): its type and title, the dates found in it (tracked only when you say so), the bill it is linked
 // to, its file (drawn here, or sent through the share menu: never a link to a file) and a note. The file is never changed.
@@ -24,7 +25,6 @@ export function DocumentSheet({ doc, bills, today, onClose }: { doc: DocumentRec
   const [showing, setShowing] = useState(false)
   const [data, setData] = useState<string | null | undefined>(undefined)
   const [mine, setMine] = useState<{ date: string; kind: TrackKind }>({ date: '', kind: 'renews' })
-  const [problem, setProblem] = useState<string | null>(null)
   const [sure, setSure] = useState(false)
 
   useEffect(() => {
@@ -39,19 +39,13 @@ export function DocumentSheet({ doc, bills, today, onClose }: { doc: DocumentRec
   const bill = bills.find((b) => b.id === doc.billId)
   const comingUp = doc.tracked.some((t) => t.date >= today)
 
-  async function saveTitle() {
-    try {
-      setProblem(null)
-      if (title.trim() !== doc.title) await updateDocument(doc.id, { title })
-    } catch (error) {
-      setTitle(doc.title)
-      setProblem(error instanceof Error ? error.message : null)
-    }
-  }
+  // Kept as you type (a title with no letters is not kept: the box goes back to the title when you leave it).
+  useAutosave(title, doc.title, (v) => v.trim() && v.trim() !== doc.title && void updateDocument(doc.id, { title: v }))
+  useAutosave(notes, doc.notes, (v) => v.trim() !== doc.notes && void updateDocument(doc.id, { notes: v }))
 
   // Built inside the tap, because iPhone only opens the share menu straight from a tap.
   function calendarFile() {
-    const file = new File([buildIcs(docEvents([doc], today), new Date())], `${doc.title.replace(/[^\w ]+/g, ' ').trim() || 'document'}.ics`, { type: 'text/calendar' })
+    const file = new File([buildIcs(docEvents([{ ...doc, notes }], today), new Date())], `${doc.title.replace(/[^\w ]+/g, ' ').trim() || 'document'}.ics`, { type: 'text/calendar' })
     if (canShareFile(file)) void shareFile(file).catch(() => undefined)
     else downloadFile(file)
   }
@@ -70,7 +64,7 @@ export function DocumentSheet({ doc, bills, today, onClose }: { doc: DocumentRec
       </p>
       <label className="field">
         <span>Title</span>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => void saveTitle()} />
+        <input value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => !title.trim() && setTitle(doc.title)} />
       </label>
       <label className="field">
         <span>What kind of document</span>
@@ -82,11 +76,6 @@ export function DocumentSheet({ doc, bills, today, onClose }: { doc: DocumentRec
           ))}
         </select>
       </label>
-      {problem ? (
-        <p className="error small" role="alert">
-          {problem}
-        </p>
-      ) : null}
 
       <h3 className="question-text">Dates in it</h3>
       <p className="muted small">Nothing is tracked until you say so.</p>
@@ -182,7 +171,7 @@ export function DocumentSheet({ doc, bills, today, onClose }: { doc: DocumentRec
 
       <label className="field top-gap">
         <span>Notes</span>
-        <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={() => notes.trim() !== doc.notes && void updateDocument(doc.id, { notes })} />
+        <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </label>
 
       {sure ? (

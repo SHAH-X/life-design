@@ -49,7 +49,6 @@ test('Documents: add a PDF, see its dates, track one, link a bill, search its wo
   // A bill linked, notes kept.
   await sheet.getByLabel('Linked bill').selectOption({ label: 'Home insurance · £240.00 every year' })
   await sheet.getByLabel('Notes').fill('Cancel online, 30 days notice')
-  await sheet.getByLabel('Title').click()
 
   // The calendar file: a one-off event on the tracked day, alerts 30 and 2 days before, the notes inside.
   await sheet.getByRole('button', { name: 'Add the dates to your calendar' }).click()
@@ -135,3 +134,20 @@ test('Documents: a photographed paper is kept and shown, and says its words are 
   await expect(page.getByRole('region', { name: 'All documents' })).toContainText('Receipt · photo · not read yet')
   await expect(page.getByText('Read the text in photos, so documents you photograph can be searched?')).toBeVisible()
 })
+
+// Audit 2026-11-23 (high): a document's title and notes were saved only when their box lost focus, so words typed before a tap on ✕ could be lost.
+test('Documents: a title and notes typed are kept at once, also when the sheet is closed straight after', async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date(2026, 10, 23, 12, 0))
+  const path = testInfo.outputPath('Handbook.pdf')
+  await writeFile(path, makePdf([[line('Handbook', 760, 18)]]))
+  await page.goto('./#/more/documents')
+  await page.locator('input[type="file"]').first().setInputFiles(path)
+  const sheet = page.getByRole('dialog', { name: 'Handbook' })
+  await sheet.getByLabel('Title').fill('Car handbook')
+  await sheet.getByLabel('Notes').fill('Service every 12 months')
+  await sheet.getByRole('button', { name: 'Close', exact: true }).click()
+  await page.reload()
+  await page.getByRole('region', { name: 'All documents' }).getByRole('button', { name: /Car handbook/ }).click()
+  await expect(page.getByRole('dialog', { name: 'Car handbook' }).getByLabel('Notes')).toHaveValue('Service every 12 months')
+})
+
