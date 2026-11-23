@@ -1,6 +1,6 @@
 import { expect, type Locator, test } from '@playwright/test'
 import { captureBox } from './helpers'
-import { restoreSeed } from './seed'
+import { backupWith, restoreBackup, restoreSeed } from './seed'
 
 // The guard against clutter creeping back (owner feedback, Phase 2.5: "the app feels wordy").
 // Counts the words a person actually sees on each screen, with the same fictional data every time:
@@ -156,4 +156,40 @@ test('the welcome stays within its word budget', async ({ page }, testInfo) => {
   console.log(counts)
   const over = (Object.keys(WELCOME_BUDGETS) as (keyof typeof WELCOME_BUDGETS)[]).filter((s) => (counts[s] ?? Infinity) > WELCOME_BUDGETS[s])
   expect(over.map((s) => `${s}: ${counts[s]} words, budget ${WELCOME_BUDGETS[s]}`)).toEqual([])
+})
+
+// Ask with its quick questions, and Documents with something in it (added in the household steps, v0.58.0, without a budget).
+// Set from measurements; raise only with the owner's OK.
+const HOUSEHOLD_BUDGETS = {
+  'Ask, with the quick questions': 72, // 2026-11-23, the owner's OK: the eight quick questions above the question box
+  'Documents, with two papers': 54, // 2026-11-23, the owner's OK: the heading, search, add buttons and the dates coming up
+} as const
+
+test('Ask and Documents stay within their word budgets', async ({ page }, testInfo) => {
+  const now = new Date(2026, 10, 23, 12, 0)
+  await page.clock.setFixedTime(now)
+  let n = 0
+  const pay = (date: string, pounds: number, description: string) => ({ id: `s${n++}`, account: 'Example Current', date, amount: Math.round(pounds * 100), description, type: 'DD', balance: null, adds: true, createdAt: 1, updatedAt: 1 })
+  const bankLines = [pay('2026-09-03', -111, 'OCTOPUS ENERGY'), pay('2026-10-03', -145, 'OCTOPUS ENERGY'), pay('2026-10-08', -10.99, 'STREAMCO')]
+  const statements = [{ id: 'example:2026-09-01:2026-10-31', account: 'Example Current', from: '2026-09-01', to: '2026-10-31', lines: bankLines.length, createdAt: 1, updatedAt: 1 }]
+  const bills = [{ id: 'b1', name: 'Home insurance', kind: 'Insurance', amount: 24000, every: 'year', next: '2026-12-10', renewal: '2027-01-12', method: '', notes: '', payee: null, createdAt: 1, updatedAt: 1 }]
+  const doc = (id: string, title: string, type: string, tracked: { date: string; kind: string; label: string }[]) => ({ id, title, type, kind: 'pdf', mime: 'application/pdf', size: 900, pages: 1, text: title, tracked, dismissed: [], billId: null, notes: '', createdAt: now.getTime(), updatedAt: now.getTime() })
+  const documents = [doc('d1', 'Home insurance policy', 'Insurance', []), doc('d2', 'Washing machine warranty', 'Warranty', [{ date: '2026-12-01', kind: 'ends', label: 'Warranty ends' }])]
+  await restoreBackup(page, testInfo.outputPath('household-seed.json'), backupWith({ bankLines, statements, bills, documents }, now))
+  const counts: Record<string, number> = {}
+  const main = page.locator('main')
+
+  await page.goto('./#/ask')
+  await expect(page.getByRole('heading', { level: 1, name: 'Ask' })).toBeVisible()
+  await expect(page.getByRole('region', { name: /Your money and papers/ })).toBeVisible()
+  counts['Ask, with the quick questions'] = await visibleWords(main)
+  await page.goto('./#/more/documents')
+  await expect(page.getByRole('heading', { level: 1, name: 'Documents' })).toBeVisible()
+  await expect(page.getByText('Washing machine warranty').first()).toBeVisible()
+  counts['Documents, with two papers'] = await visibleWords(main)
+
+  testInfo.annotations.push({ type: 'words', description: JSON.stringify(counts) })
+  console.log(counts)
+  const over = (Object.keys(HOUSEHOLD_BUDGETS) as (keyof typeof HOUSEHOLD_BUDGETS)[]).filter((k) => (counts[k] ?? Infinity) > HOUSEHOLD_BUDGETS[k])
+  expect(over.map((k) => `${k}: ${counts[k]} words, budget ${HOUSEHOLD_BUDGETS[k]}`)).toEqual([])
 })
