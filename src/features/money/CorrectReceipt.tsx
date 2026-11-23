@@ -112,6 +112,12 @@ export function CorrectReceipt({ receipt, onClose }: { receipt: KnownReceipt; on
       <p className="question-text" id={`${id}-items`}>
         Items
       </p>
+      <div className="correct-row correct-head" aria-hidden="true">
+        <span>Item</span>
+        <span>Price</span>
+        <span>Qty</span>
+        <span />
+      </div>
       <ul className="plain-list compact" aria-labelledby={`${id}-items`}>
         {rows.map((row, i) => (
           <li key={i} className="correct-row" data-removed={row.removed ? 'true' : undefined}>

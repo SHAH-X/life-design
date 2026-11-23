@@ -518,6 +518,152 @@ for (const scheme of ['light'] as const) {
       await sheet.getByRole('button', { name: 'Done', exact: true }).click()
     })
 
+    // Steps 2-6 of the household plan (v0.54-v0.58): the screens they added, each with the layout check and a reference screenshot, with the
+    // keyboard up over each field. Made-up data only; today is Monday 23 November 2026.
+    const STEPS_DAY = new Date(2026, 10, 23, 12, 0)
+    const stepsSeed = async (page: Page, path: string) => {
+      let n = 0
+      const pay = (date: string, pounds: number, description: string) => ({ id: `s${n++}`, account: 'Example Current', date, amount: Math.round(pounds * 100), description, type: 'DD', balance: null, adds: true, createdAt: 1, updatedAt: 1 })
+      const bankLines = [
+        ...[['2026-05-03', 112], ['2026-06-03', 118], ['2026-07-03', 121], ['2026-08-03', 119], ['2026-09-03', 111], ['2026-10-03', 145]].map(([d, p]) => pay(String(d), -Number(p), 'OCTOPUS ENERGY')),
+        pay('2026-09-28', -62, 'TESCO STORES 1234'), pay('2026-10-05', -42, 'TESCO STORES 1234'), pay('2026-10-12', -185, 'TESCO STORES 1234'), pay('2026-10-26', -25, 'TESCO STORES 1234'),
+        pay('2026-08-08', -10.99, 'STREAMCO'), pay('2026-09-08', -10.99, 'STREAMCO'), pay('2026-10-08', -10.99, 'STREAMCO'),
+      ]
+      const statements = [{ id: 'example:2026-05-01:2026-10-31', account: 'Example Current', from: '2026-05-01', to: '2026-10-31', lines: bankLines.length, createdAt: 1, updatedAt: 1 }]
+      const daysBefore = (date: string) => Math.round((STEPS_DAY.getTime() - new Date(`${date}T12:00:00`).getTime()) / 86_400_000)
+      const reading = (shop: string, date: string, items: [string, number][], total?: number) => ({
+        by: 'Gemini · gemini-2.5-flash',
+        at: STEPS_DAY.getTime(),
+        text: '',
+        description: '',
+        receipt: { shop, date, currency: '£', items: items.map(([name, price]) => ({ name, price, quantity: 1 })), total: total ?? items.reduce((sum, [, price]) => sum + price, 0) },
+      })
+      const receipt = (id: string, date: string, ai: ReturnType<typeof reading>) => ({ ...freeWriting(`e-${id}`, '', daysBefore(date), STEPS_DAY), photos: [{ id, text: null, ai }] })
+      const MILK = 'Semi Skimmed Milk 2.27L'
+      const entries = [
+        receipt('t1', '2026-10-03', reading('Tesco', '2026-10-03', [[MILK, 145]])),
+        receipt('t2', '2026-10-17', reading('Tesco', '2026-10-17', [[MILK, 165]])),
+        receipt('a1', '2026-10-05', reading('Asda', '2026-10-05', [['Milk Semi Skimmed 2.27L', 155]])),
+        receipt('h1', '2026-10-21', reading('Aldi', '2026-10-21', [['Coffee', 450]], 999)),
+      ]
+      const products = [{ id: 'p1', members: ['tesco|semi skimmed milk 2.27l', 'asda|milk semi skimmed 2.27l'], notSame: [], regular: true, createdAt: 1, updatedAt: 1 }]
+      const bills = [{ id: 'b1', name: 'Home insurance', kind: 'Insurance', amount: 24000, every: 'year', next: '2026-12-10', renewal: '2027-01-12', method: 'Direct debit', notes: 'Cancel online', payee: null, createdAt: 1, updatedAt: 1 }]
+      const budgets = [{ id: 'Groceries', kind: 'Groceries', amount: 30000, createdAt: 1, updatedAt: 1 }]
+      const pdf = Buffer.from(makePdf([[{ text: 'Home insurance policy', x: 40, y: 760, size: 18 }, { text: 'Policy renewal date: 12 January 2027', x: 40, y: 730, size: 12 }], [{ text: 'You may cancel within 14 days. A notice period of 30 days applies.', x: 40, y: 760, size: 12 }]])).toString('base64')
+      const documents = [
+        { id: 'd1', title: 'Home insurance policy', type: 'Insurance', kind: 'pdf', mime: 'application/pdf', size: 900, pages: 2, text: 'Home insurance policy\nPolicy renewal date: 12 January 2027\n\nYou may cancel within 14 days. A notice period of 30 days applies.', tracked: [], dismissed: [], billId: null, notes: '', createdAt: STEPS_DAY.getTime(), updatedAt: STEPS_DAY.getTime() },
+        { id: 'd2', title: 'Washing machine warranty', type: 'Warranty', kind: 'pdf', mime: 'application/pdf', size: 900, pages: 1, text: '', tracked: [{ date: '2026-12-01', kind: 'ends', label: 'Warranty ends' }], dismissed: [], billId: 'b1', notes: '', createdAt: STEPS_DAY.getTime() - 86_400_000, updatedAt: STEPS_DAY.getTime() - 86_400_000 },
+      ]
+      const documentFiles = [{ id: 'd1', data: pdf, createdAt: 2, updatedAt: 2 }, { id: 'd2', data: pdf, createdAt: 1, updatedAt: 1 }]
+      await restoreBackup(page, path, backupWith({ bankLines, statements, entries, products, bills, budgets, documents, documentFiles, settings: [{ key: 'lastExportAt', value: STEPS_DAY.getTime(), updatedAt: 1 }] }, STEPS_DAY))
+    }
+
+    test(`Receipts: a receipt held back, corrected, and the prices you've paid, ${scheme}`, async ({ page }, testInfo) => {
+      await fakeKeyboard(page)
+      await page.clock.setFixedTime(STEPS_DAY)
+      await stepsSeed(page, testInfo.outputPath('steps-seed.json'))
+      const at = (name: string) => `${scheme}-${name}`
+      await page.goto('./#/money')
+      await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+      await expect(page.getByRole('region', { name: 'Prices you’ve paid' })).toBeVisible()
+      await look(page, at('receipts-prices'))
+      // A product's sheet: the shops on one scale, one shop over time.
+      await page.getByRole('region', { name: 'Prices you’ve paid' }).getByRole('button', { name: /Semi Skimmed Milk/ }).click()
+      await look(page, at('product-sheet'))
+      await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click()
+      // October, where the Aldi receipt is held back: listed to check, not counted.
+      await page.goto('./#/money/2026-10')
+      await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+      await expect(page.getByRole('region', { name: 'Receipts to check' })).toBeVisible()
+      await expect(page.getByRole('region', { name: 'Prices you’ve paid' })).toHaveCount(0)
+      await look(page, at('receipts-held'))
+      // The held receipt, opened to correct, and the form with the keyboard up over its fields.
+      const check = page.getByRole('region', { name: 'Receipts to check' }).locator('li')
+      await check.locator('details', { hasText: 'Aldi' }).locator('summary').click()
+      await check.locator('details', { hasText: 'Aldi' }).getByRole('button', { name: 'Open to correct' }).click()
+      await look(page, at('receipt-held-sheet'))
+      await page.getByRole('dialog').getByRole('button', { name: 'Correct this receipt' }).click()
+      const form = page.getByRole('dialog', { name: 'Correct this receipt' })
+      await look(page, at('correct-receipt'))
+      await lookWithKeyboard(page, at('correct-receipt-shop'), form.getByLabel('Shop'))
+      await form.getByRole('button', { name: '+ Add an item' }).click()
+      await lookWithKeyboard(page, at('correct-receipt-item'), form.getByLabel('Name of item 2'))
+    })
+
+    test(`Bills and budgets, ${scheme}`, async ({ page }, testInfo) => {
+      await fakeKeyboard(page)
+      await page.clock.setFixedTime(STEPS_DAY)
+      await stepsSeed(page, testInfo.outputPath('steps-seed.json'))
+      const at = (name: string) => `${scheme}-${name}`
+      await page.goto('./#/money')
+      await expect(page.getByRole('button', { name: /Bills and budgets/ })).toContainText('£240.00 a year')
+      await look(page, at('money-bills-tile'))
+      await page.getByRole('button', { name: /Bills and budgets/ }).click()
+      const sheet = page.getByRole('dialog', { name: 'Bills and budgets' })
+      await look(page, at('bills-sheet'))
+      await sheet.getByRole('button', { name: '+ Add a bill' }).click()
+      const editor = page.getByRole('dialog', { name: 'Add a bill' })
+      await look(page, at('bill-editor'))
+      await lookWithKeyboard(page, at('bill-editor-name'), editor.getByLabel('Name'))
+      await lookWithKeyboard(page, at('bill-editor-notes'), editor.getByLabel('Notes, such as how to cancel'))
+      await editor.getByRole('button', { name: 'Close', exact: true }).click()
+      await sheet.getByRole('button', { name: '+ Set a budget' }).click()
+      await look(page, at('budget-editor'))
+      await lookWithKeyboard(page, at('budget-editor-amount'), page.getByRole('dialog', { name: 'Set a budget' }).getByLabel('Set aside each month'))
+    })
+
+    test(`Documents, ${scheme}`, async ({ page }, testInfo) => {
+      await fakeKeyboard(page)
+      await page.clock.setFixedTime(STEPS_DAY)
+      await stepsSeed(page, testInfo.outputPath('steps-seed.json'))
+      const at = (name: string) => `${scheme}-${name}`
+      await page.goto('./#/more/documents')
+      await expect(page.getByRole('heading', { level: 1, name: 'Documents' })).toBeVisible()
+      await expect(page.getByRole('region', { name: 'All documents' })).toContainText('Home insurance policy')
+      await look(page, at('documents'))
+      await page.getByRole('searchbox', { name: 'Search your documents' }).fill('notice period')
+      await look(page, at('documents-search'))
+      await page.getByRole('region', { name: 'Search results' }).getByRole('button', { name: /Home insurance policy/ }).click()
+      const sheet = page.getByRole('dialog', { name: 'Home insurance policy' })
+      await look(page, at('document-sheet'))
+      await lookWithKeyboard(page, at('document-sheet-title'), sheet.getByLabel('Title'))
+      await sheet.getByRole('button', { name: 'View it here' }).click()
+      await expect(sheet.locator('.pdf-pages canvas')).toHaveCount(2)
+      await look(page, at('document-sheet-pdf'))
+    })
+
+    test(`Quick answers and Today's quiet line, ${scheme}`, async ({ page }, testInfo) => {
+      await fakeKeyboard(page)
+      await page.clock.setFixedTime(STEPS_DAY)
+      await stepsSeed(page, testInfo.outputPath('steps-seed.json'))
+      const at = (name: string) => `${scheme}-${name}`
+      await page.goto('./#/ask')
+      const card = page.getByRole('region', { name: 'Your money and papers' })
+      await expect(card.getByRole('button')).toHaveCount(8)
+      await look(page, at('ask-quick'))
+      await card.getByRole('button', { name: 'How a cost changed' }).click()
+      await page.getByRole('dialog').getByRole('button', { name: 'Energy', exact: true }).click()
+      await expect(page.getByRole('dialog').getByText('October is £34.00 more than September.')).toBeVisible()
+      await look(page, at('answer-cost-change'))
+      await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click()
+      await card.getByRole('button', { name: 'Biggest expenses' }).click()
+      await expect(page.getByRole('dialog').getByRole('heading', { name: 'Biggest single payments' })).toBeVisible()
+      await look(page, at('answer-biggest'))
+      await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click()
+      await card.getByRole('button', { name: 'What needs a look' }).click()
+      await expect(page.getByRole('dialog').getByText('statement needed')).toBeVisible()
+      await look(page, at('answer-needs-a-look'))
+    })
+
+    test(`Today with the quiet line about money, ${scheme}`, async ({ page }, testInfo) => {
+      await page.clock.setFixedTime(new Date(2026, 9, 30, 12, 0))
+      await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true }))
+      await stepsSeed(page, testInfo.outputPath('steps-seed.json'))
+      await page.goto('./#/today')
+      await expect(page.getByRole('complementary', { name: 'About your money' })).toBeVisible()
+      await look(page, `${scheme}-today-money-notice`)
+    })
+
     test(`the welcome, ${scheme}`, async ({ page }) => {
       await page.clock.setFixedTime(EVENING)
       await page.goto('./')
