@@ -22,8 +22,10 @@ const BUDGETS = {
   // energy chart and card titles (the owner's chosen layout); v0.10 + logged times on stand-out entries; v0.11 + the
   // Next steps card; v0.12 + the Review a period row; v0.13 130 → 195 (194 measured), the owner's OK: one page in
   // place of two (Insights 130 + Patterns 155); v0.16 195 → 224 (224 measured), the owner's OK: + Life areas (here its
-  // one-line offer, as search by meaning is off).
-  'Insights, the fictional week and 30 days': 224,
+  // one-line offer, as search by meaning is off); v0.23 224 → 236 (236 measured), the owner's OK (2026-11-23): + the Map of
+  // your ideas (its title, range choices and Draw), which went in at v0.23.0 without the budget being raised, so this test
+  // had failed since.
+  'Insights, the fictional week and 30 days': 236,
   'Insights → Next steps (empty)': 30,
   'Insights → Review a period, this week': 60, // v0.12: the period, what's in it, the two ways
   "Insights → What you're learning": 30, // v0.13
