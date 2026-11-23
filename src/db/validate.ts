@@ -18,6 +18,7 @@ import {
   type IkigaiItem,
   type OdysseyPlan,
   type Photo,
+  type Product,
   type Question,
   type PlanVersion,
   type Review,
@@ -99,6 +100,11 @@ const isReceiptFix = (x: unknown): boolean =>
 /** The items you added to a receipt (step 2). */
 const isExtraItems = (x: unknown): boolean =>
   Array.isArray(x) && x.every((i) => isObj(i) && isNonEmptyStr(i.name) && Number.isInteger(i.price) && Number.isInteger(i.quantity) && (i.quantity as number) > 0)
+
+/** A product you listed or joined (step 3): the keys you said are one product, and the ones you said are not. */
+export function isProduct(x: unknown): x is Product {
+  return isObj(x) && isNonEmptyStr(x.id) && Array.isArray(x.members) && x.members.length > 0 && x.members.every(isNonEmptyStr) && Array.isArray(x.notSame) && x.notSame.every(isNonEmptyStr) && typeof x.regular === 'boolean' && isNum(x.createdAt) && isNum(x.updatedAt)
+}
 
 /** A note of a receipt change (step 2). */
 export function isAuditEntry(x: unknown): x is AuditEntry {
@@ -450,6 +456,7 @@ export const VALIDATORS: { [K in TableName]: (x: unknown) => x is BackupData[K][
   investLines: isInvestLine,
   investSummaries: isInvestSummary,
   auditLog: isAuditEntry,
+  products: isProduct,
 }
 
 /** Fills in fields that older files don't have yet, after validation. */

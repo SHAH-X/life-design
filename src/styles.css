@@ -4832,3 +4832,39 @@ body:has(dialog.sheet.full[open]) :is(.tabbar, .banner, .notice.strip) {
 .correct-row[data-removed='true'] input {
   text-decoration: line-through;
 }
+
+/* Prices you've paid (step 3): the product sheet. The layout pass is still owed. */
+.price-chart {
+  display: block;
+  color: var(--text);
+  margin: 4px 0;
+}
+.product-shop {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.product-suggest {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  color: var(--warn-text);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  margin: var(--space-2) 0;
+}
+button.product-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px var(--space-2);
+  width: 100%;
+  text-align: left;
+}
+.product-change {
+  font-weight: 500;
+}
+.product-sub {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}

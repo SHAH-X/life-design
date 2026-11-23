@@ -191,6 +191,55 @@ test('a receipt held for a missed item is corrected by adding it, counts, and go
   await expect(page.getByRole('strong')).toHaveText('£49.40 spent')
 })
 
+// Step 3 (owner-approved plan, 2026-11-23, the picture shown as a mock first): what you paid for a product at each shop. The
+// milk is Tesco's three times; Asda's "Milk Semi Skimmed 2.27L" looks the same, and only your word makes it so.
+test('Prices you’ve paid: a product’s price per litre, joined to another shop only when you say so, kept as regular', async ({ page }, testInfo) => {
+  const asda = receiptEntry('as1', '2026-10-05', reading('Asda', '2026-10-05', [['Milk Semi Skimmed 2.27L', 155]]))
+  await restoreBackup(page, testInfo.outputPath('receipts.json'), backupWith({ entries: [...ENTRIES, asda] }, SATURDAY))
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+
+  const prices = page.getByRole('region', { name: 'Prices you’ve paid' })
+  const milk = prices.getByRole('button', { name: new RegExp(`${MILK}`) })
+  await expect(milk).toContainText('£1.65 · £0.73 a litre')
+  await expect(milk).toContainText('▲ £0.20')
+  await milk.click()
+
+  const sheet = page.getByRole('dialog', { name: MILK })
+  await expect(sheet).toContainText('Up £0.20 at')
+  await expect(sheet).toContainText('£1.45 → £1.65')
+  // Alike by name only: suggested, never joined; no comparison until you say so.
+  await expect(sheet).toContainText('Asda’s “Milk Semi Skimmed 2.27L” looks like the same thing, but a similar name isn’t proof.')
+  await expect(sheet.getByRole('heading', { name: 'Price a litre' })).toHaveCount(0)
+
+  // The price over time at Tesco: a dot for each time it was bought, each read in words.
+  await sheet.getByRole('button', { name: /12 Sep · £1\.45 · £0\.64 a litre/ }).click()
+  await expect(sheet.locator('.chart-readout')).toHaveText('Sat 12 Sep · £1.45 · £0.64 a litre')
+  await sheet.getByRole('button', { name: 'Show as table' }).click()
+  await expect(sheet.locator('tbody tr')).toHaveText([/12 Sep.*£1\.45.*£0\.64 a litre/, /3 Oct.*£1\.45/, /17 Oct.*£1\.65.*£0\.73 a litre/])
+
+  await sheet.getByRole('button', { name: 'Same product' }).click()
+  await expect(sheet.getByRole('heading', { name: 'Price a litre' })).toBeVisible()
+  await expect(sheet).toContainText('was £0.05 a litre less when last bought; it may have changed since.')
+  await expect(sheet.locator('.product-shop')).toHaveCount(2)
+  await expect(sheet).not.toContainText('looks like the same thing')
+
+  // The switch follows what is saved, so it turns a moment after the tap.
+  await sheet.getByRole('switch', { name: /On my regular list/ }).click()
+  await expect(sheet.getByRole('switch', { name: /On my regular list/ })).toBeChecked()
+  await sheet.getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(prices.getByRole('button').first()).toContainText('★')
+  await expect(prices.getByRole('button').first()).toContainText('2 shops')
+
+  // It's kept: the joined product and its star are still there after a reload.
+  await page.reload()
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  await expect(prices.getByRole('button').first()).toContainText('★')
+  await prices.getByRole('button').first().click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Not the same product' }).first().click()
+  await expect(page.getByRole('dialog').locator('.product-shop')).toHaveCount(1)
+})
+
 // Owner, 2026-10-31: "i cannot see the item in that receipt or which category the item … is assigned to", and things
 // "returned … whose refund is obtained" should not count in the expense.
 test('a receipt opens to its items, each with its price and kind; you can choose another kind, or say you returned it', async ({ page }, testInfo) => {

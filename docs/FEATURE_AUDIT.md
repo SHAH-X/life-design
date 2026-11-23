@@ -39,10 +39,10 @@ The app is a phone-only journal with a Money tab. No server, account, cloud sync
 ## C. Grocery intelligence
 | Capability | Status | Where / note |
 |---|---|---|
-| Product table (brand, size, unit) | MISSING | |
-| Price per litre or kg, across shops | MISSING | Price changes are same shop, same printed name, 6 months |
+| Product table (size, unit, your joins) | PARTIAL (v0.55.0) | `products.ts`: size read in code from the printed name or your AI's plain name; joins and the regular list in `products`; brand MISSING (an AI reading would be needed) |
+| Price per litre or kg, across shops | PARTIAL (v0.55.0) | Only where a size is printed (about 10% of the made-up lines; real share unknown), and across shops only for products you said are the same |
 | Spend by kind, repeats | EXISTING | `kindsOf`, `repeats` |
-| Regular list, basket comparison | MISSING | |
+| Regular list, basket comparison | PARTIAL (v0.55.0) | A star and a switch; no basket total yet |
 
 ## D. Recurring and subscriptions
 | Capability | Status | Where / note |

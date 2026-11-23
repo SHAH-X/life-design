@@ -17,6 +17,7 @@ import {
   type MeaningVector,
   type OdysseyPlan,
   type Photo,
+  type Product,
   type Question,
   type PlanVersion,
   type Review,
@@ -51,6 +52,7 @@ export type LifeDesignDB = Dexie & {
   investLines: EntityTable<InvestLine, 'id'>
   investSummaries: EntityTable<InvestSummary, 'id'>
   auditLog: EntityTable<AuditEntry, 'id'>
+  products: EntityTable<Product, 'id'>
 }
 
 export const DB_NAME = 'life-design'
@@ -206,6 +208,11 @@ export function openDb(name = DB_NAME): LifeDesignDB {
   // Step 2 (v0.54.0): a note of each change you make to a receipt: yours, so in a backup. A new, empty table.
   database.version(15).stores({
     auditLog: 'id, createdAt, photoId',
+  })
+  // Step 3 (v0.55.0): products you listed as regular or joined across shops: yours, so in a backup. A new, empty table; `*members`
+  // finds a product by any key in it.
+  database.version(16).stores({
+    products: 'id, *members',
   })
   return database
 }

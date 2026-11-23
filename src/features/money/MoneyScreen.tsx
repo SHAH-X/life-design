@@ -28,6 +28,7 @@ import { investingMonths } from '../../domain/investing'
 import { cardAccountOf, classify, forNamesOf, giftCardsBefore, isGiftCardBuy, kindOf, labelsOf, linkGiftCards, linkReceipts, mayBeOwn, type MoneyLine, moneyMonth, nameOf, type Payee, type PayeeGroup, paymentsWithoutReceipt, type ReceiptOutcome, receiptOutcomes, receiptPaymentCandidates, suggestedPeople, withFor } from '../../domain/money'
 import { notReadYet } from '../../domain/aiReading'
 import { approvalOf, inWords, type KnownReceipt, money, onCard, receiptsAndCopies, rememberedKindsOf, rememberedNamesOf, shoppingMonth, shoppingMonths } from '../../domain/shopping'
+import { productViews } from '../../domain/products'
 import { approveReceipt, ITEM_FOR_SETTING, ITEM_KINDS_SETTING } from '../../db/receiptItems'
 import { dayMonth, monthYear, toDateKey } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
@@ -44,6 +45,7 @@ import { AddReceipt } from './AddReceipt'
 import { ReceiptsMonth, ReceiptsShare, receiptsWord } from './Receipts'
 import { StatementImport } from './StatementImport'
 import { ForSheet, KindSheet, PaymentSheet } from './PaymentSheets'
+import { PricesGroup, ProductSheet } from './Prices'
 import { type PaidWith, ReceiptSheet } from './ReceiptSheet'
 import { useAccountNames } from './useAccountNames'
 import { Icon } from '../../ui/Icon'
@@ -61,6 +63,8 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const statements = useLiveQuery(() => db.statements.toArray(), [])
   const investLines = useLiveQuery(() => db.investLines.toArray(), [])
   const investSummaries = useLiveQuery(() => db.investSummaries.toArray(), [])
+  const productRecords = useLiveQuery(() => db.products.toArray(), [])
+  const [productKey, setProductKey] = useState<string | null>(null)
   const own = useLiveQuery(async () => ownPayeesOf(await db.settings.get(OWN_PAYEES)), [])
   const names = useAccountNames()
   const closed = useLiveQuery(async () => new Set(ownPayeesOf(await db.settings.get(CLOSED_ACCOUNTS))), [])
@@ -97,7 +101,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
     if (legacyView) setView(legacyView)
   }, [legacyView])
   // Render only once loaded, so nothing jumps under your finger.
-  if (entries === undefined || bankLines === undefined || statements === undefined || investLines === undefined || investSummaries === undefined || own === undefined || names === undefined || payeeNames === undefined || paymentNames === undefined || payeeFor === undefined || paymentFor === undefined || kinds === undefined || notes === undefined || remembered === undefined || itemFor === undefined || receiptReviews === undefined || cardAccounts === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
+  if (entries === undefined || bankLines === undefined || statements === undefined || investLines === undefined || investSummaries === undefined || productRecords === undefined || own === undefined || names === undefined || payeeNames === undefined || paymentNames === undefined || payeeFor === undefined || paymentFor === undefined || kinds === undefined || notes === undefined || remembered === undefined || itemFor === undefined || receiptReviews === undefined || cardAccounts === undefined || closed === undefined || ownWords === undefined || purpose === undefined) return <Loading />
 
   const byId = new Map(entries.map((e) => [e.id, e]))
   const openEntry = (receipt: KnownReceipt) => {
@@ -105,6 +109,8 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
     if (entry) setSheet({ kind: 'open', entry })
   }
   const { receipts, copies, refunds, held } = receiptsAndCopies(entries, remembered, itemFor)
+  const products = productViews(receipts, productRecords)
+  const openProduct = productKey ? products.find((p) => p.members.includes(productKey)) : undefined
   // Receipts added here not read yet (v0.26.0): said, so one never vanishes until it's read.
   const counted = new Set([...receipts, ...held, ...refunds].map((r) => r.id).concat(copies.map((c) => c.copy.id)))
   const receiptsWaiting = entries.filter((e) => e.status !== 'draft').flatMap((e) => e.photos ?? []).filter((p) => notReadYet(p) && !counted.has(p.id)).length
@@ -287,6 +293,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             />
           </>
         ) : null}
+        {view === 'receipts' && month === thisMonth ? <PricesGroup views={products} onOpen={(p) => setProductKey(p.members[0]!)} /> : null}
         {view === 'receipts' && month === thisMonth && earlier.length ? (
           <section aria-labelledby={earlierId}>
             <h2 id={earlierId} className="week-title">
@@ -403,6 +410,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
             }}
           />
         ) : null}
+        {openProduct ? <ProductSheet view={openProduct} onClose={() => setProductKey(null)} /> : null}
         {openReceipt ? (
           <ReceiptSheet
             receipt={openReceipt}

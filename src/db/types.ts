@@ -557,6 +557,18 @@ export interface InvestSummary {
   updatedAt: number
 }
 
+/** A product you listed or joined (step 3, 2026-11-23): yours, so in a backup. `members` are the keys (`rememberedKey`: the chain and
+ *  the printed name) of the items you said are one product, across shops; `notSame` those you said are not. A product you only
+ *  look at has no record. */
+export interface Product {
+  id: string
+  members: string[]
+  notSame: string[]
+  regular: boolean
+  createdAt: number
+  updatedAt: number
+}
+
 export interface BackupData {
   entries: Entry[]
   days: Day[]
@@ -578,6 +590,7 @@ export interface BackupData {
   investLines: InvestLine[]
   investSummaries: InvestSummary[]
   auditLog: AuditEntry[]
+  products: Product[]
 }
 
 export type TableName = keyof BackupData
@@ -603,6 +616,7 @@ export const TABLE_NAMES: readonly TableName[] = [
   'investLines',
   'investSummaries',
   'auditLog',
+  'products',
 ]
 
 export const TABLE_LABELS: Record<TableName, string> = {
@@ -626,4 +640,5 @@ export const TABLE_LABELS: Record<TableName, string> = {
   investLines: 'Trading 212 trades, dividends and interest',
   investSummaries: 'Trading 212 statement totals',
   auditLog: 'Notes of receipt corrections',
+  products: 'Products you listed or joined',
 }
