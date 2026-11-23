@@ -88,7 +88,7 @@ test('Ask is reached from Logs: a question is asked on a tap, answered with the 
 
   // Oat milk 1.45 + eggs 2.10, added up by the phone.
   const answer = page.getByRole('region', { name: 'Answer' })
-  await expect(answer.getByText('From Greenleaf Market: oat milk and eggs came to 3.55.')).toBeVisible()
+  await expect(answer.getByText('From Greenleaf Market: oat milk and eggs came to £3.55.')).toBeVisible()
   await expect(answer.getByRole('heading', { name: QUESTION })).toBeVisible()
   // The answer is read in serif at 1.125rem / 1.6; the question above it is a 1.25rem heading.
   const type = await answer.evaluate((el) => {
@@ -118,7 +118,7 @@ test('Ask is reached from Logs: a question is asked on a tap, answered with the 
   const earlier = page.getByRole('region', { name: 'Earlier questions' })
   expect(await earlier.locator('li.card').first().evaluate((el) => getComputedStyle(el).borderTopLeftRadius)).toBe('20px')
   await earlier.locator('summary', { hasText: QUESTION }).click()
-  await expect(earlier.getByText('From Greenleaf Market: oat milk and eggs came to 3.55.')).toBeVisible()
+  await expect(earlier.getByText('From Greenleaf Market: oat milk and eggs came to £3.55.')).toBeVisible()
 })
 
 test('spending by shop is the phone’s; an amount the AI wrote itself is pointed out under the answer', async ({ page }, testInfo) => {
@@ -142,7 +142,7 @@ test('spending by shop is the phone’s; an amount the AI wrote itself is pointe
   await page.getByRole('button', { name: 'Ask', exact: true }).click()
 
   const answer = page.getByRole('region', { name: 'Answer' })
-  await expect(answer.getByText('In October: 14.73 at Corner Pharmacy and 14.20 at Greenleaf Market, 28.39 in all.')).toBeVisible()
+  await expect(answer.getByText('In October: £14.73 at Corner Pharmacy and £14.20 at Greenleaf Market, 28.39 in all.')).toBeVisible()
   await expect(answer.getByText('28.39 came from the AI, not from the phone: check it.')).toBeVisible()
   await answer.getByText('What was sent').click()
   await expect(answer.getByText('Spending by shop and month: 2 receipts from 2026-10-01 to 2026-10-31')).toBeVisible()
