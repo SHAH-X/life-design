@@ -69,7 +69,7 @@ export function seedBackup(now: Date = new Date()) {
 
 /** A backup in an older format (13), which today's app restores with just the records given; every other table empty. */
 export function backupWith(data: Record<string, unknown[]>, now: Date = new Date()) {
-  const tables = ['entries', 'days', 'answers', 'ikigaiItems', 'odysseyPlans', 'planVersions', 'views', 'weeks', 'steps', 'aiReviews', 'reviews', 'settings', 'photos', 'questions', 'bankLines', 'statements', 'ideaMaps', 'investLines', 'investSummaries', 'auditLog', 'products']
+  const tables = ['entries', 'days', 'answers', 'ikigaiItems', 'odysseyPlans', 'planVersions', 'views', 'weeks', 'steps', 'aiReviews', 'reviews', 'settings', 'photos', 'questions', 'bankLines', 'statements', 'ideaMaps', 'investLines', 'investSummaries', 'auditLog', 'products', 'bills', 'budgets']
   return { app: 'life-design', kind: 'backup', schemaVersion: 13, exportedAt: now.toISOString(), data: Object.fromEntries(tables.map((t) => [t, data[t] ?? []])) }
 }
 

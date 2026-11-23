@@ -11,8 +11,11 @@ export interface IcsEvent {
   /** HH:MM, 24-hour */
   startTime: string
   durationMinutes: number
-  rrule: string
+  /** How it repeats; none for a one-off event. */
+  rrule?: string
   alarm: string
+  /** How long before it the alert goes, as iCalendar says it ("-P2D"); at the start when none. */
+  alarmBefore?: string
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -60,14 +63,14 @@ export function buildIcs(events: readonly IcsEvent[], stamp: Date): string {
       `DTSTAMP:${utcStamp(stamp)}`,
       `DTSTART:${floating(e.startDate, e.startTime)}`,
       `DURATION:PT${e.durationMinutes}M`,
-      `RRULE:${e.rrule}`,
+      ...(e.rrule ? [`RRULE:${e.rrule}`] : []),
       `SUMMARY:${escapeIcsText(e.summary)}`,
       `DESCRIPTION:${escapeIcsText(e.description)}`,
       `URL:${e.url}`,
       'BEGIN:VALARM',
       'ACTION:DISPLAY',
       `DESCRIPTION:${escapeIcsText(e.alarm)}`,
-      'TRIGGER:PT0M',
+      `TRIGGER:${e.alarmBefore ?? 'PT0M'}`,
       'END:VALARM',
       'END:VEVENT',
     )

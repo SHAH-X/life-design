@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 import { expect, type Page, test } from '@playwright/test'
-import { expectNoScores } from './helpers'
+import { captureShareSheet, expectNoScores, sharedFile } from './helpers'
 import { backupWith, freeWriting, restoreBackup } from './seed'
 import { makePdf, type Placed } from '../fixtures/pdf'
 import { activityLike, TRANSACTIONS_LIKE } from '../fixtures/trading212'
@@ -1727,4 +1727,112 @@ test('Money: one row of parts, Statements a button in the title row, the month a
   await expect(unsorted).toBeAttached()
   const ink = await unsorted.evaluate((el) => getComputedStyle(el).backgroundColor)
   expect(ink).toMatch(/^rgba\(31, 30, 28, 0\.3\)$|^color\(srgb 0\.12\d* 0\.11\d* 0\.10\d* \/ 0\.3\)$/)
+})
+
+// Step 4 (owner-approved plan, 2026-11-23): bills and subscriptions you list yourself, and a monthly budget for each kind of
+// spending. Nothing is paid, changed or cancelled from here; a budget is only what was spent and what is left.
+test('Bills and budgets: keep a regular payment as a bill, add one yourself, see a year of them, set a budget, and take them to your calendar', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  await captureShareSheet(page)
+  const pay = (id: string, date: string, amount: number, description: string, n: number) => ({ id, account: 'Example Current', date, amount, description, type: 'DEB', balance: null, adds: true, createdAt: n, updatedAt: n })
+  const bankLines = [
+    pay('s1', '2026-08-03', -1099, 'STREAMCO', 1),
+    pay('s2', '2026-09-03', -1099, 'STREAMCO', 2),
+    pay('s3', '2026-10-03', -1099, 'STREAMCO', 3),
+    pay('g1', '2026-10-05', -4200, 'TESCO STORES 1234', 4),
+    pay('g2', '2026-10-12', -6000, 'TESCO STORES 1234', 5),
+    pay('g3', '2026-10-20', -2500, 'TESCO STORES 1234', 6),
+  ]
+  const statements = [{ id: 'example:2026-08-01:2026-10-31', account: 'Example Current', from: '2026-08-01', to: '2026-10-31', lines: 6, createdAt: 1, updatedAt: 1 }]
+  await restoreBackup(page, testInfo.outputPath('bills.json'), backupWith({ bankLines, statements }, now))
+  await page.goto('./#/money')
+
+  const tile = page.getByRole('button', { name: /Bills and budgets/ })
+  await expect(tile).toContainText('Set up')
+  await tile.click()
+  const sheet = page.getByRole('dialog', { name: 'Bills and budgets' })
+  await expect(sheet).toContainText('Nothing listed yet.')
+
+  // A regular payment found in the statements is kept as a bill, with what the statements showed filled in.
+  await sheet.getByRole('button', { name: 'Keep as a bill' }).click()
+  const editor = page.getByRole('dialog', { name: 'Add a bill' })
+  await expect(editor.getByLabel('What it costs each time')).toHaveValue('10.99')
+  await expect(editor.getByLabel('How often')).toHaveValue('month')
+  await editor.getByLabel('Notes, such as how to cancel').fill('Cancel online, 30 days notice')
+  await editor.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(sheet).toContainText('£131.88 a year')
+  await expect(sheet.getByRole('button', { name: /Streamco/i })).toContainText('every month · next around')
+  await expect(sheet.getByRole('button', { name: /Streamco/i })).toContainText('last paid Sat 3 Oct')
+  await expect(sheet.getByText('Found in your statements')).toHaveCount(0)
+
+  // One you add yourself, with a renewal: a word where the amount goes is refused, with the reason.
+  await sheet.getByRole('button', { name: '+ Add a bill' }).click()
+  const add = page.getByRole('dialog', { name: 'Add a bill' })
+  await add.getByLabel('Name').fill('Home insurance')
+  await add.getByLabel('What it costs each time').fill('about 240')
+  await add.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(add.getByRole('alert')).toHaveText('The amount isn’t one. Type what it costs each time, like 10.99.')
+  await add.getByLabel('What it costs each time').fill('240')
+  await add.getByLabel('How often').selectOption('year')
+  await add.getByLabel('A day it is paid').fill('2027-03-01')
+  await add.getByLabel('Renews on, if it has a term').fill('2027-03-01')
+  await add.getByLabel('What it’s for').selectOption('Insurance')
+  await add.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(sheet).toContainText('£371.88 a year')
+  await expect(sheet.getByRole('button', { name: /Home insurance/ })).toContainText('every year · next around Mon 1 Mar · renews in 125 days')
+
+  // A budget: what was spent on groceries this month, and what is left, then over.
+  await sheet.getByRole('button', { name: '+ Set a budget' }).click()
+  const budget = page.getByRole('dialog', { name: 'Set a budget' })
+  await budget.getByLabel('What it’s for').selectOption('Groceries')
+  await budget.getByLabel('Set aside each month').fill('150')
+  await budget.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(sheet.getByRole('button', { name: /Groceries/ })).toContainText('£23.00 left')
+  await expect(sheet.getByRole('button', { name: /Groceries/ })).toContainText('£127.00 of £150.00')
+  await sheet.getByRole('button', { name: /Groceries/ }).click()
+  await page.getByRole('dialog', { name: 'Budget for Groceries' }).getByLabel('Set aside each month').fill('100')
+  await page.getByRole('dialog', { name: 'Budget for Groceries' }).getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(sheet.getByRole('button', { name: /Groceries/ })).toContainText('£27.00 over')
+  // (The page behind may show Money's one allowed average, the spending chart's line.)
+  await expectNoScores(page, 'Bills and budgets', true)
+
+  // The calendar file: each bill on its own cycle, with an alert two days before, and the notes.
+  await sheet.getByRole('button', { name: 'Add them to your calendar' }).click()
+  const file = await sharedFile(page)
+  expect(file.name).toBe('life-design-bills.ics')
+  const text = file.text.replace(/\r\n /g, '')
+  expect(text).toContain('SUMMARY:Streamco £10.99 due')
+  expect(text).toContain('RRULE:FREQ=MONTHLY')
+  expect(text).toContain('RRULE:FREQ=YEARLY')
+  expect(text).toContain('SUMMARY:Home insurance renews')
+  expect(text).toContain('TRIGGER:-P2D')
+  expect(text).toContain('Cancel online\\, 30 days notice')
+
+  // Kept: the tile on the page says so, and a bill can be taken off the list in two taps.
+  await sheet.getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(tile).toContainText('£371.88 a year')
+  await tile.click()
+  await sheet.getByRole('button', { name: /Home insurance/ }).click()
+  await page.getByRole('dialog', { name: 'Change this bill' }).getByRole('button', { name: 'Take it off my list' }).click()
+  await page.getByRole('dialog', { name: 'Change this bill' }).getByRole('button', { name: 'Yes, take it off my list' }).click()
+  await expect(sheet).toContainText('£131.88 a year')
+})
+
+// The year page says money out for each quarter, from the months with every statement in.
+test('the year says money out for each quarter, leaving out a month with a statement missing', async ({ page }, testInfo) => {
+  const now = new Date(2026, 9, 27, 12, 0)
+  await page.clock.setFixedTime(now)
+  const pay = (id: string, date: string, amount: number, n: number) => ({ id, account: 'Example Current', date, amount, description: 'EXAMPLE SHOP', type: 'DEB', balance: null, adds: true, createdAt: n, updatedAt: n })
+  const bankLines = [pay('a', '2026-01-10', -1000, 1), pay('b', '2026-02-10', -2000, 2), pay('c', '2026-03-10', -3000, 3), pay('d', '2026-04-10', -4000, 4), pay('e', '2026-07-10', -500, 5), pay('f', '2026-08-10', -700, 6), pay('g', '2026-09-10', -900, 7)]
+  // The statements cover Jan to Apr, then Jul to Sep: May and June are missing, so Q2 is April alone, said so.
+  const statements = [
+    { id: 'x:2026-01-01:2026-04-30', account: 'Example Current', from: '2026-01-01', to: '2026-04-30', lines: 4, createdAt: 1, updatedAt: 1 },
+    { id: 'x:2026-07-01:2026-09-30', account: 'Example Current', from: '2026-07-01', to: '2026-09-30', lines: 3, createdAt: 2, updatedAt: 2 },
+  ]
+  await restoreBackup(page, testInfo.outputPath('quarters.json'), backupWith({ bankLines, statements }, now))
+  await page.goto('./#/money/2026')
+  const block = page.getByRole('region', { name: 'By quarter' })
+  await expect(block.getByRole('listitem')).toHaveText([/2026 Q1.*3 of 3 months.*£60\.00/, /2026 Q2.*1 of 3 months.*£40\.00/, /2026 Q3.*3 of 3 months.*£21\.00/])
+  await expect(block).toContainText('from the months with every statement in')
 })

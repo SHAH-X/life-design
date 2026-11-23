@@ -41,6 +41,7 @@ import { dayMonth, monthName, monthYear, shortDayMonth } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { MonthChart } from '../../ui/charts/MonthChart'
 import { Accounts, RenameSheet } from './Accounts'
+import { BillsTile } from './Bills'
 import { useMoney } from './MoneyContext'
 import { PaymentRow } from './PaymentRow'
 import { Icon } from '../../ui/Icon'
@@ -269,6 +270,7 @@ function Overview({
   const panelId = useId()
   const toggle = (which: 'regular' | 'moved') => setOpen(open === which ? null : which)
   const comingTotal = coming.reduce((sum, u) => sum + u.amount, 0)
+  const kindSpend = Object.fromEntries([...its.kinds.ranked, ...its.kinds.others].map((g) => [g.kind, g.total]))
   const yearLabel = month.slice(0, 4) === today.slice(0, 4) ? `${month.slice(0, 4)} so far` : month.slice(0, 4)
   return (
     <>
@@ -290,6 +292,7 @@ function Overview({
             <span className="acc-tile-sub">{[roseCount ? `${roseCount} rose` : '', went.length ? `${went.length} changed` : '', changes.started.length ? `${changes.started.length} new` : '', changes.lapsed.length ? `${changes.lapsed.length} stopped` : ''].filter(Boolean).join(' · ')}</span>
           </button>
         ) : null}
+        <BillsTile regular={regular} lines={lines} kindSpend={kindSpend} month={month} today={today} />
         <a className="acc-tile" href={hashFor('money', month.slice(0, 4))}>
           <span className="acc-tile-label">{yearLabel}</span>
           <span className="acc-tile-value">{pounds(yearOut)} out</span>

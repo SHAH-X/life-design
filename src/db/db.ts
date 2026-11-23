@@ -3,6 +3,8 @@ import { stepsFromIntentions } from '../domain/steps'
 import {
   type AiReview,
   type Answer,
+  type Bill,
+  type Budget,
   type AuditEntry,
   type AreaCentre,
   type BankLine,
@@ -53,6 +55,8 @@ export type LifeDesignDB = Dexie & {
   investSummaries: EntityTable<InvestSummary, 'id'>
   auditLog: EntityTable<AuditEntry, 'id'>
   products: EntityTable<Product, 'id'>
+  bills: EntityTable<Bill, 'id'>
+  budgets: EntityTable<Budget, 'id'>
 }
 
 export const DB_NAME = 'life-design'
@@ -213,6 +217,12 @@ export function openDb(name = DB_NAME): LifeDesignDB {
   // finds a product by any key in it.
   database.version(16).stores({
     products: 'id, *members',
+  })
+  // Step 4 (v0.56.0): bills and subscriptions you listed, and a monthly budget for each kind: yours, so in a backup. Two new,
+  // empty tables.
+  database.version(17).stores({
+    bills: 'id, next',
+    budgets: 'id',
   })
   return database
 }

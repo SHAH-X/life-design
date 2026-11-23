@@ -12,8 +12,8 @@ The app is a phone-only journal with a Money tab. No server, account, cloud sync
 |---|---|---|
 | Income and expenses | PARTIAL | From bank PDFs only (`bankLines`); no manual entry, no cash |
 | Categories | EXISTING | `PAYMENT_KINDS`, a kind per payee and per payment (`kindOf`) |
-| Monthly and annual reports | EXISTING | `moneyMonth`, `moneyYear`; quarterly MISSING |
-| Budgets, budget vs actual | MISSING | |
+| Monthly, quarterly and annual reports | EXISTING | `moneyMonth`, `moneyYear`; quarters on the year page (v0.56.0), from complete months only |
+| Budgets, budget vs actual | EXISTING (v0.56.0) | `budgets`: an amount a month per kind, against the viewed month's spending, left or over |
 | Search and filter | EXISTING | `searchPayments`, every month |
 | CSV bank import | MISSING | Statement import takes PDF only |
 | Duplicate detection | PARTIAL | A statement again adds nothing (id = account + days); overlapping statements not verified line by line |
@@ -48,8 +48,9 @@ The app is a phone-only journal with a Money tab. No server, account, cloud sync
 | Capability | Status | Where / note |
 |---|---|---|
 | Detect regular payments, yearly cost, next due, changes, stopped | EXISTING | `regularPayments`, `regularChanges` (monthly and weekly only) |
-| Manual items, annual or quarterly cadence, renewal, notes | MISSING | |
-| Reminders | MISSING | The calendar file (`ics.ts`) serves the journal only |
+| Manual items, annual or quarterly cadence, renewal, notes | EXISTING (v0.56.0) | `bills`; weekly, monthly, 3-monthly, yearly; payment method; kept from a found regular payment |
+| Reminders | PARTIAL (v0.56.0) | A calendar file you add yourself (an alert two days before, repeating); no push by rule |
+| Forgotten subscriptions | PARTIAL | A bill shows when it was last paid, so a quiet one shows; nothing can tell a subscription you no longer use |
 
 ## E. Documents: MISSING
 Reusable: photo storage, OCR, PDF.js, search by meaning, calendar files.

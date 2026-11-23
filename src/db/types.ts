@@ -569,6 +569,42 @@ export interface Product {
   updatedAt: number
 }
 
+/** How often a bill is paid (step 4, 2026-11-23). */
+export type BillEvery = 'week' | 'month' | 'quarter' | 'year'
+
+/** A bill or subscription you listed yourself (step 4): yours, so in a backup. Nothing is paid, changed or cancelled for you. */
+export interface Bill {
+  id: string
+  name: string
+  /** A kind from PAYMENT_KINDS, or '' for none. */
+  kind: string
+  /** In pence, each time. */
+  amount: number
+  every: BillEvery
+  /** A day it is paid (YYYY-MM-DD): the next is counted a cycle at a time from it. */
+  next: string
+  /** When its contract or term renews, if it has one. */
+  renewal: string | null
+  /** How it is paid: "Lloyds direct debit". */
+  method: string
+  /** Anything to remember, such as how to cancel. */
+  notes: string
+  /** The key of the payee on your statements it is paid to (`Payee.key`), so what was last paid can be shown beside it. */
+  payee: string | null
+  createdAt: number
+  updatedAt: number
+}
+
+/** What you set aside each month for one kind of spending (step 4): `id` is the kind, so there is one for each. */
+export interface Budget {
+  id: string
+  kind: string
+  /** In pence, a month. */
+  amount: number
+  createdAt: number
+  updatedAt: number
+}
+
 export interface BackupData {
   entries: Entry[]
   days: Day[]
@@ -591,6 +627,8 @@ export interface BackupData {
   investSummaries: InvestSummary[]
   auditLog: AuditEntry[]
   products: Product[]
+  bills: Bill[]
+  budgets: Budget[]
 }
 
 export type TableName = keyof BackupData
@@ -617,6 +655,8 @@ export const TABLE_NAMES: readonly TableName[] = [
   'investSummaries',
   'auditLog',
   'products',
+  'bills',
+  'budgets',
 ]
 
 export const TABLE_LABELS: Record<TableName, string> = {
@@ -641,4 +681,6 @@ export const TABLE_LABELS: Record<TableName, string> = {
   investSummaries: 'Trading 212 statement totals',
   auditLog: 'Notes of receipt corrections',
   products: 'Products you listed or joined',
+  bills: 'Bills and subscriptions',
+  budgets: 'Monthly budgets',
 }

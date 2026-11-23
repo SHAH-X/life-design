@@ -54,6 +54,8 @@ const emptyRaw = (): RawData => ({
   investSummaries: [],
   auditLog: [],
   products: [],
+  bills: [],
+  budgets: [],
 })
 
 let phone: LifeDesignDB
@@ -559,9 +561,9 @@ describe('backup and restore', () => {
 
   it('moves to a new backup format with each new item kind: an older version would skip an entry with one, its writing too', () => {
     // v0.19.2 added Clothes and shoes and format 10; v0.20.37 added Baby and toddler and format 12 (v0.23's maps of
-    // your ideas took 13, v0.36.0's Trading 212 lines 14 and v0.53.0's receipt approval 15 v0.54.0's audit log 16 and v0.55.0's products 17). A new kind: raise the format,
+    // your ideas took 13, v0.36.0's Trading 212 lines 14 and v0.53.0's receipt approval 15 v0.54.0's audit log 16 and v0.55.0's products 17 and v0.56.0's bills and budgets 18). A new kind: raise the format,
     // then both numbers here.
-    expect({ format: BACKUP_SCHEMA_VERSION, kinds: ITEM_KINDS.length }).toEqual({ format: 17, kinds: 14 })
+    expect({ format: BACKUP_SCHEMA_VERSION, kinds: ITEM_KINDS.length }).toEqual({ format: 18, kinds: 14 })
   })
 
   it('recognises locked backups, v1 files and everything else', async () => {

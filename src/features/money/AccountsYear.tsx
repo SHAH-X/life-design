@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { StatementRecord } from '../../db/types'
-import { type BalanceMonth, committedOf, type MoneyLine, monthEndBalances, moneyYear, type PayeeGroup } from '../../domain/money'
+import { quartersOf } from '../../domain/bills'
+import { type BalanceMonth, committedOf, type MoneyLine, monthCoverage, monthEndBalances, moneyMonthTotals, moneyYear, type PayeeGroup } from '../../domain/money'
 import { formatPeriod, monthName, monthYear } from '../../lib/dates'
 import { hashFor } from '../../lib/route'
 import { BalanceChart } from '../../ui/charts/BalanceChart'
@@ -67,6 +68,10 @@ export function AccountsYear(props: {
   const span = its.months ? (its.months.first === its.months.last ? monthYear(its.months.first) : `${monthName(its.months.first, 'short')} – ${monthName(its.months.last, 'short')}`) : null
   const biggest = its.payees.out.ranked.slice(0, BIGGEST)
   const ends = monthEndBalances(lines, statements, closed, year, today)
+  // Money out for each quarter, from the months with every statement in: one with a statement missing is left out, never counted as nothing.
+  const totals = moneyMonthTotals(lines, `${year}-12`, 12)
+  const complete = new Set(monthCoverage(statements, closed, totals.map((t) => t.month), today).filter((c) => c.complete).map((c) => c.month))
+  const quarters = quartersOf(totals.filter((t) => complete.has(t.month)))
 
   return (
     <>
@@ -119,6 +124,22 @@ export function AccountsYear(props: {
       </header>
       {its.outLines.length ? <KindsBlock kinds={its.kinds} totalOut={its.out} /> : null}
       {its.forWho ? <ForBlock who={its.forWho} /> : null}
+      {quarters.length ? (
+        <Block title="By quarter" status="Money out for each three months, from the months with every statement in">
+          <ul className="acc-list">
+            {quarters.map((q) => (
+              <li key={q.quarter} className="acc-li">
+                <div className="acc-row">
+                  <span className="acc-row-text">
+                    <span className="acc-row-title">{q.quarter}</span> <span className="acc-row-sub">{q.months} of 3 months</span>
+                  </span>{' '}
+                  <span className="acc-row-value">{pounds(q.out)}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Block>
+      ) : null}
       {biggest.length ? (
         <Block title="Biggest payees" status={its.payees.out.ranked.length > BIGGEST ? `The ${BIGGEST} biggest, paid 3 times or more` : 'Paid 3 times or more, biggest first'}>
           <ul className="acc-list">

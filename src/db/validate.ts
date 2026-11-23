@@ -6,6 +6,8 @@ import { isDateKey } from '../lib/dates'
 import {
   type AiReview,
   type Answer,
+  type Bill,
+  type Budget,
   type AuditEntry,
   BALANCE_AREAS,
   type BackupData,
@@ -104,6 +106,30 @@ const isExtraItems = (x: unknown): boolean =>
 /** A product you listed or joined (step 3): the keys you said are one product, and the ones you said are not. */
 export function isProduct(x: unknown): x is Product {
   return isObj(x) && isNonEmptyStr(x.id) && Array.isArray(x.members) && x.members.length > 0 && x.members.every(isNonEmptyStr) && Array.isArray(x.notSame) && x.notSame.every(isNonEmptyStr) && typeof x.regular === 'boolean' && isNum(x.createdAt) && isNum(x.updatedAt)
+}
+
+/** A bill or subscription you listed (step 4). */
+export function isBill(x: unknown): x is Bill {
+  return (
+    isObj(x) &&
+    isNonEmptyStr(x.id) &&
+    isNonEmptyStr(x.name) &&
+    isStr(x.kind) &&
+    Number.isInteger(x.amount) &&
+    isOneOf(['week', 'month', 'quarter', 'year'])(x.every) &&
+    isDateKey(x.next) &&
+    (x.renewal === null || isDateKey(x.renewal)) &&
+    isStr(x.method) &&
+    isStr(x.notes) &&
+    (x.payee === null || isNonEmptyStr(x.payee)) &&
+    isNum(x.createdAt) &&
+    isNum(x.updatedAt)
+  )
+}
+
+/** A monthly budget for one kind of spending (step 4). */
+export function isBudget(x: unknown): x is Budget {
+  return isObj(x) && isNonEmptyStr(x.id) && x.kind === x.id && Number.isInteger(x.amount) && (x.amount as number) > 0 && isNum(x.createdAt) && isNum(x.updatedAt)
 }
 
 /** A note of a receipt change (step 2). */
@@ -457,6 +483,8 @@ export const VALIDATORS: { [K in TableName]: (x: unknown) => x is BackupData[K][
   investSummaries: isInvestSummary,
   auditLog: isAuditEntry,
   products: isProduct,
+  bills: isBill,
+  budgets: isBudget,
 }
 
 /** Fills in fields that older files don't have yet, after validation. */
