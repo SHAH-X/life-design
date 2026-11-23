@@ -610,6 +610,15 @@ for (const scheme of ['light'] as const) {
       await sheet.getByRole('button', { name: '+ Set a budget' }).click()
       await look(page, at('budget-editor'))
       await lookWithKeyboard(page, at('budget-editor-amount'), page.getByRole('dialog', { name: 'Set a budget' }).getByLabel('Set aside each month'))
+      await page.getByRole('dialog', { name: 'Set a budget' }).getByRole('button', { name: 'Close', exact: true }).click()
+      // Changing one that is there: a bill (with its notes and renewal) and a budget.
+      await sheet.getByRole('button', { name: /Home insurance/ }).click()
+      await expect(page.getByRole('dialog', { name: 'Change this bill' })).toBeVisible()
+      await look(page, at('bill-change'))
+      await page.getByRole('dialog', { name: 'Change this bill' }).getByRole('button', { name: 'Close', exact: true }).click()
+      await sheet.getByRole('button', { name: /Groceries/ }).click()
+      await expect(page.getByRole('dialog', { name: 'Budget for Groceries' })).toBeVisible()
+      await look(page, at('budget-change'))
     })
 
     test(`Documents, ${scheme}`, async ({ page }, testInfo) => {
@@ -630,6 +639,31 @@ for (const scheme of ['light'] as const) {
       await sheet.getByRole('button', { name: 'View it here' }).click()
       await expect(sheet.locator('.pdf-pages canvas')).toHaveCount(2)
       await look(page, at('document-sheet-pdf'))
+      await sheet.getByRole('button', { name: 'Close', exact: true }).click()
+      await page.getByRole('searchbox', { name: 'Search your documents' }).fill('')
+      // A photographed paper (its words wait for reading photos), then the sheet of one with no text found.
+      await page.locator('input[type="file"]').nth(1).setInputFiles(fileURLToPath(new URL('../fixtures/photos/receipt-clean.png', import.meta.url)))
+      const photo = page.getByRole('dialog', { name: 'receipt-clean' })
+      await expect(photo).toContainText('Its words haven’t been read yet.')
+      await look(page, at('document-photo-sheet'))
+      await photo.getByRole('button', { name: 'Close', exact: true }).click()
+      await page.getByRole('region', { name: 'All documents' }).getByRole('button', { name: /Washing machine warranty/ }).click()
+      await expect(page.getByRole('dialog', { name: 'Washing machine warranty' })).toContainText('No text was found in it')
+      await look(page, at('document-no-text-sheet'))
+    })
+
+    test(`Documents and Bills with nothing in them yet, ${scheme}`, async ({ page }, testInfo) => {
+      await fakeKeyboard(page)
+      await page.clock.setFixedTime(STEPS_DAY)
+      const at = (name: string) => `${scheme}-${name}`
+      await restoreBackup(page, testInfo.outputPath('empty.json'), backupWith({ entries: [freeWriting('w1', 'A day', 1, STEPS_DAY)] }, STEPS_DAY))
+      await page.goto('./#/more/documents')
+      await expect(page.getByText('Nothing here yet.')).toBeVisible()
+      await look(page, at('documents-empty'))
+      await page.goto('./#/money')
+      await page.getByRole('button', { name: /Bills and budgets/ }).click()
+      await expect(page.getByRole('dialog', { name: 'Bills and budgets' })).toContainText('Nothing listed yet.')
+      await look(page, at('bills-empty'))
     })
 
     test(`Quick answers and Today's quiet line, ${scheme}`, async ({ page }, testInfo) => {
@@ -653,6 +687,20 @@ for (const scheme of ['light'] as const) {
       await card.getByRole('button', { name: 'What needs a look' }).click()
       await expect(page.getByRole('dialog').getByText('statement needed')).toBeVisible()
       await look(page, at('answer-needs-a-look'))
+      await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click()
+      // The other five questions, each as it is drawn.
+      for (const [question, name, wait] of [
+        ['Spent on a kind last month', 'answer-kind', 'All of it'],
+        ['Bills and subscriptions', 'answer-bills', 'A year of the bills you listed'],
+        ['Due in the next 30 days', 'answer-due', 'a pattern, not a promise'],
+        ['Prices that rose', 'answer-rose', '▲ £0.20'],
+        ['Cheapest shop for what I buy', 'answer-cheapest', 'it may have changed since'],
+      ] as const) {
+        await card.getByRole('button', { name: question }).click()
+        await expect(page.getByRole('dialog').getByText(wait).first()).toBeVisible()
+        await look(page, at(name))
+        await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click()
+      }
     })
 
     test(`Today with the quiet line about money, ${scheme}`, async ({ page }, testInfo) => {
