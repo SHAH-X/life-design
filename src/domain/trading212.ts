@@ -28,8 +28,10 @@ function pence(text: string): number | null {
 /** The pieces on one line of a page (within 2 pt), left to right. */
 const lineOf = (page: readonly TextPiece[], anchor: TextPiece) => page.filter((p) => Math.abs(p.y - anchor.y) <= 2).sort((a, b) => a.x - b.x)
 
-/** Interest on cash and dividends are income inside the account, not money that moved. */
-const NOT_MOVED = /\binterest\b|dividend/i
+/** Interest on cash, dividends, a cashback, free shares and an adjustment are credits inside the account, not money that moved:
+ *  an Activity statement's overview counts Deposits and Withdrawals (bank transfers and transfers between accounts) apart from
+ *  its Cashback, Bonus and Other (owner's long statement, 2026-11-23: they were all read as deposits and every deposit was flagged). */
+const NOT_MOVED = /\binterest\b|dividend|cashback|\bbonus\b|free (?:equity )?shares|adjustment/i
 
 interface Row {
   id: string
@@ -191,12 +193,25 @@ export function readTrading212(all: readonly TextPiece[]): { accounts: Statement
       if (!table.what.startsWith('transactions')) continue
       // The dividends table can follow the transactions on the same page.
       const heading = page.find((p) => p.str.trim() === 'Dividends')
-      for (const time of page.filter((p) => /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(p.str.trim()) && (!heading || p.y > heading.y))) {
+      const afterHeading = (p: TextPiece) => !heading || p.y > heading.y
+      for (const time of page.filter((p) => /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(p.str.trim()) && afterHeading(p))) {
         const line = lineOf(page, time)
         const [type, amount] = [line[1]?.str.trim(), pence(line.at(-1)?.str ?? '')]
         const date = dateIn(time.str, false)
         if (!type || amount === null || !date) continue
         rows.push({ id, date, at: time.str.trim(), description: type, amount, income: NOT_MOVED.test(type) })
+      }
+      // A row whose date and time are printed on two lines (the cell is too narrow for both, as at a page break): its type and
+      // amount sit between them, so they are found from the middle (owner's long statement: two deposits of £900 were left out).
+      for (const day of page.filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.str.trim()) && afterHeading(p))) {
+        const clock = page.find((p) => /^\d{2}:\d{2}:\d{2}$/.test(p.str.trim()) && Math.abs(p.x - day.x) <= 3 && p.y < day.y && day.y - p.y <= 20)
+        if (!clock) continue
+        const middle: TextPiece = { ...day, y: (day.y + clock.y) / 2 }
+        const line = page.filter((p) => p !== day && p !== clock && Math.abs(p.y - middle.y) <= 6).sort((a, b) => a.x - b.x)
+        const [type, amount] = [line[0]?.str.trim(), pence(line.at(-1)?.str ?? '')]
+        const [date, at] = [dateIn(day.str, false), `${day.str.trim()} ${clock.str.trim()}`]
+        if (!type || line.length < 2 || amount === null || !date) continue
+        rows.push({ id, date, at, description: type, amount, income: NOT_MOVED.test(type) })
       }
       // A dividend: the account's amount is after tax; the tax is its printed rate's, in the instrument's currency.
       for (const pay of page.filter((p) => /^\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}$/.test(p.str.trim()) && (!heading || p.y < heading.y))) {

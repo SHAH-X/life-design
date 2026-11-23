@@ -136,7 +136,7 @@ const acHeading = (y: number): Placed[] => [
   { text: 'AMOUNT', x: 480, y, size: 7, right: true },
 ]
 
-const acRows = (rows: readonly (typeof ROWS)[number][], top: number): Placed[] =>
+const acRows = (rows: readonly { iso: string; type: string; pence: number }[], top: number): Placed[] =>
   rows.flatMap((row, i) => {
     const y = top - i * 22
     return [
@@ -241,6 +241,32 @@ export const activityLike = (deposits?: number, overrides: Readonly<Record<strin
   ],
   [{ text: 'Cash ISA account - transactions', x: 150, y: 560, size: 14 }, ...acHeading(520), { text: 'No data available', x: 220, y: 490, size: 8 }],
 ]
+
+/** Credits that are not deposits (owner's long statement, 2026-11-23): the overview files a cashback, free shares and a "Result
+ *  Adjustment" under Cashback, Bonus and Other, apart from Deposits, which stays what came in from the bank. */
+const OTHER_CREDITS = [
+  { iso: '2026-10-07 08:00:00', dmy: '07/10/2026 08:00:00', type: 'Stocks ISA deposit cashback bonus', pence: 400, note: 'ISA Deposit Cashback' },
+  { iso: '2026-10-06 08:00:00', dmy: '06/10/2026 08:00:00', type: 'Free equity shares', pence: 1000, note: 'Free Shares Promotion' },
+  { iso: '2026-10-03 08:00:00', dmy: '03/10/2026 08:00:00', type: 'Result Adjustment', pence: 180, note: 'Example PLC - Stamp Duty Refund' },
+] as const
+
+/** The Activity statement as `activityLike` has it, with those credits among its transactions and its overview's deposits
+ *  unchanged. `wrapped`: the first TrueLayer row prints its date and its time on two lines, as the real one does at a page
+ *  break (the cell is too narrow for both on one). */
+export const activityWithOtherCredits = (wrapped = false): Placed[][] => {
+  const pages = activityLike()
+  const rows = pages[3]!
+  const at = rows.find((p) => p.text === '2026-10-02 09:00:00')!
+  return pages.map((page, n) =>
+    n !== 3
+      ? page
+      : [
+          ...(wrapped ? page.filter((p) => p !== at) : page),
+          ...(wrapped ? [{ text: '2026-10-02', x: at.x, y: at.y + 6, size: 8 }, { text: '09:00:00', x: at.x, y: at.y - 6, size: 8 }] : []),
+          ...acRows(OTHER_CREDITS, 422),
+        ],
+  )
+}
 
 /** What a person reads of the ISA's trades, dividends and interest (the Activity statement's): [what, when/ticker…, pence…]. */
 export const TRADING212_INVESTING_EXPECT = {

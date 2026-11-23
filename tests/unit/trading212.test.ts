@@ -4,7 +4,7 @@ import { readStatement, type TextPiece } from '../../src/domain/statements'
 import { doesntMatchWords, notMatchingWords } from '../../src/domain/trading212'
 import { piecesFromPdf } from '../../src/lib/pdfText'
 import { makePdf, piecesOf } from '../fixtures/pdf'
-import { activityLike, TRADING212_EXPECT, TRADING212_INVESTING_EXPECT, TRANSACTIONS_LIKE } from '../fixtures/trading212'
+import { activityLike, activityWithOtherCredits, TRADING212_EXPECT, TRADING212_INVESTING_EXPECT, TRANSACTIONS_LIKE } from '../fixtures/trading212'
 
 // Trading 212's two documents (v0.34.0, owner 2026-11-19: his transfers to it counted as spending): the cash it took in and
 // paid out, as an account of its own. Fictional statements only.
@@ -44,6 +44,25 @@ describe('a Trading 212 Activity statement', () => {
     if ('problem' in off) throw new Error(off.problem)
     expect(off.accounts[0]!.lines.filter((l) => l.amount < 0).every((l) => !l.adds)).toBe(true)
     expect(off.accounts[0]!.lines.filter((l) => l.amount > 0).every((l) => l.adds)).toBe(true)
+  })
+})
+
+// Owner, 2026-11-23: "so many things under payments to check, all mostly for Trading 212". On his long Activity statement 32 of
+// 42 lines of one account and 32 of 37 of another were flagged: the overview's Deposits is what came in from the bank (and
+// transfers between accounts), and its Cashback, Bonus and Other are apart from it.
+describe('what an Activity statement’s Deposits counts (v0.52.4)', () => {
+  it('leaves a cashback, free shares and an adjustment out of the money that moved, so the deposits add up and nothing is flagged', () => {
+    const r = readStatement(piecesOf(activityWithOtherCredits()))
+    if ('problem' in r) throw new Error(r.problem)
+    expect(r.accounts[0]!.lines.map((l) => [l.date, l.description, l.amount])).toEqual([['2026-09-30', 'TrueLayer', 10000], ['2026-10-02', 'TrueLayer', 5000], ['2026-10-09', 'JP Morgan payout', -7525]])
+    expect(r.accounts[0]!.lines.every((l) => l.adds)).toBe(true)
+  })
+
+  it('reads a row whose date and time are printed on two lines, as at a page break', () => {
+    const r = readStatement(piecesOf(activityWithOtherCredits(true)))
+    if ('problem' in r) throw new Error(r.problem)
+    expect(r.accounts[0]!.lines.map((l) => [l.date, l.description, l.amount])).toEqual([['2026-09-30', 'TrueLayer', 10000], ['2026-10-02', 'TrueLayer', 5000], ['2026-10-09', 'JP Morgan payout', -7525]])
+    expect(r.accounts[0]!.lines.every((l) => l.adds)).toBe(true)
   })
 })
 
