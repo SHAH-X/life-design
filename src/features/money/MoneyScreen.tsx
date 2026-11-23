@@ -323,7 +323,7 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
           <>
             {/* Bills and budgets are listed by you: not out of reach until a statement is in (audit 2026-11-23). */}
             <div className="acc-tiles">
-              <BillsTile regular={[]} lines={[]} kindSpend={{}} statements={[]} closed={new Set()} month={thisMonth} today={today} />
+              <BillsTile lines={[]} kindSpend={{}} statements={[]} closed={new Set()} month={thisMonth} today={today} />
             </div>
             <Accounts />
           </>

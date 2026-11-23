@@ -135,7 +135,7 @@ function useListStatus() {
     const plan = normalizeReminderPlan(reminders, toDateKey(new Date()))
     const on = (Object.keys(REMINDER_NAMES) as (keyof typeof REMINDER_NAMES)[]).filter((k) => plan[k].on).map((k) => REMINDER_NAMES[k])
     return {
-      documents: docs.length ? `${docs.length}${looks.length ? ` · ${looks.length} need a look` : ''}` : 'None yet',
+      documents: docs.length ? `${docs.length}${looks.length ? ` · ${looks.length} coming up` : ''}` : 'None yet',
       reminders: on.length ? on.join(' · ') : 'Off',
       purpose: purposeInfo(PURPOSE_KEYS.includes(primary as Purpose) ? (primary as Purpose) : DEFAULT_PURPOSE).label,
       backup: lastExportAt ? `Last: ${shortDate(lastExportAt)}` : 'No backup yet',

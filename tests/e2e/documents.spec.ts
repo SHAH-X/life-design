@@ -77,12 +77,12 @@ test('Documents: add a PDF, see its dates, track one, link a bill, search its wo
   expect(shared).toBe('Home insurance policy.pdf')
   await sheet.getByRole('button', { name: 'Close', exact: true }).click()
 
-  // Needs a look: the tracked date is 50 days off, with the bill beside it.
-  const look = page.getByRole('region', { name: 'Needs a look' })
+  // Dates coming up: the tracked date is 50 days off, with the bill named beside it.
+  const look = page.getByRole('region', { name: 'Dates coming up' })
   await expect(look).toContainText('Home insurance policy')
   await expect(look).toContainText('in 50 days')
   await expect(look).toContainText('Renews Tue 12 Jan')
-  await expect(look).toContainText('£240.00 a year')
+  await expect(look).toContainText('Home insurance · £240.00 every year')
 
   // Search: the words as the document has them, each match marked, in a document and not in its title.
   await page.getByRole('searchbox', { name: 'Search your documents' }).fill('notice period')
@@ -109,12 +109,12 @@ test('Documents: add a PDF, see its dates, track one, link a bill, search its wo
 
   // Kept: still there after a reload, with its tracked date; then deleted in two taps, only that one.
   await page.reload()
-  await expect(page.getByRole('region', { name: 'Needs a look' })).toContainText('in 50 days')
+  await expect(page.getByRole('region', { name: 'Dates coming up' })).toContainText('in 50 days')
   await page.getByRole('region', { name: 'All documents' }).getByRole('button', { name: /Home insurance policy/ }).click()
   await page.getByRole('dialog', { name: 'Home insurance policy' }).getByRole('button', { name: 'Delete this document' }).click()
   await page.getByRole('dialog', { name: 'Home insurance policy' }).getByRole('button', { name: 'Yes, delete this document and its file' }).click()
   await expect(page.getByRole('region', { name: 'All documents' }).getByRole('listitem')).toHaveText([/Car handbook/])
-  await expect(page.getByRole('region', { name: 'Needs a look' })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: 'Dates coming up' })).toHaveCount(0)
 })
 
 // A document photographed: shrunk like a receipt's, kept, shown here; its words wait for reading photos, which is offered.

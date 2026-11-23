@@ -99,25 +99,22 @@ export function ReceiptSheet(props: { receipt: KnownReceipt; names: string[]; su
         ) : null}
       </p>
       {/* Step 1 (2026-11-23): items that don't reach the printed total aren't counted until you say so. */}
-      {receipt.held ? (
-        <>
-          <p>Not counted as spent yet.</p>
+      {receipt.held ? <p>Not counted as spent yet.</p> : receipt.approved ? <p className="muted small">Counted, as you said, though its items don’t add up.</p> : null}
+      {receipt.edited ? <p className="muted small">Corrected by you.</p> : null}
+      <div className="doc-file-actions">
+        {receipt.held ? (
           <button type="button" onClick={() => void onApprove(true)}>
-            Count it anyway
+            Count {money(paid(receipt), receipt.currency)} anyway
           </button>
-        </>
-      ) : receipt.approved ? (
-        <>
-          <p className="muted small">Counted, as you said, though its items don’t add up.</p>
+        ) : receipt.approved ? (
           <button type="button" onClick={() => void onApprove(false)}>
             Stop counting it
           </button>
-        </>
-      ) : null}
-      {receipt.edited ? <p className="muted small">Corrected by you.</p> : null}
-      <button type="button" className="small-link" onClick={() => setCorrecting(true)}>
-        Correct this receipt
-      </button>
+        ) : null}
+        <button type="button" onClick={() => setCorrecting(true)}>
+          Correct this receipt
+        </button>
+      </div>
     </Dialog>
   )
 }

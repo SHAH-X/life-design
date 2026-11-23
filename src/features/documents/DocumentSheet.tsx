@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { documentData, dismissDate, removeDocument, trackDate, untrackDate, updateDocument } from '../../db/documents'
 import type { Bill, DocumentRecord, TrackKind } from '../../db/types'
-import { EVERY_WORDS } from '../../domain/bills'
+import { EVERY_WORDS, nextPayment } from '../../domain/bills'
 import { datesIn, DOC_TYPES, docEvents, KIND_WORDS } from '../../domain/documents'
-import { formatDateKey, shortDayMonth } from '../../lib/dates'
+import { formatDateKey, shortDayMonth, toDateKey } from '../../lib/dates'
 import { fileOf } from '../../lib/docfile'
 import { money } from '../../lib/money'
 import { canShareFile, downloadFile, shareFile } from '../../lib/share'
@@ -60,7 +60,7 @@ export function DocumentSheet({ doc, bills, today, onClose }: { doc: DocumentRec
   return (
     <Dialog title={doc.title} onClose={onClose} full>
       <p className="muted small">
-        {[doc.kind === 'pdf' ? `PDF${doc.pages ? ` · ${doc.pages} ${doc.pages === 1 ? 'page' : 'pages'}` : ''}` : 'Photo', `added ${formatDateKey(new Date(doc.createdAt).toISOString().slice(0, 10))}`].join(' · ')}
+        {[doc.kind === 'pdf' ? `PDF${doc.pages ? ` · ${doc.pages} ${doc.pages === 1 ? 'page' : 'pages'}` : ''}` : 'Photo', `added ${formatDateKey(toDateKey(new Date(doc.createdAt)))}`].join(' · ')}
       </p>
       <label className="field">
         <span>Title</span>
@@ -118,7 +118,7 @@ export function DocumentSheet({ doc, bills, today, onClose }: { doc: DocumentRec
           <select value={mine.kind} onChange={(e) => setMine({ ...mine, kind: e.target.value as TrackKind })}>
             {TRACK_KINDS.map((k) => (
               <option key={k} value={k}>
-                {TRACK[k]}
+                {TRACK[k].charAt(0).toUpperCase() + TRACK[k].slice(1)}
               </option>
             ))}
           </select>
@@ -155,7 +155,7 @@ export function DocumentSheet({ doc, bills, today, onClose }: { doc: DocumentRec
           ))}
         </select>
       </label>
-      {bill ? <p className="muted small">Next payment of {bill.name}: around {shortDayMonth(bill.next)} or a cycle later.</p> : null}
+      {bill ? <p className="muted small">Next payment of {bill.name}: around {shortDayMonth(nextPayment(bill, today))}.</p> : null}
 
       <h3 className="question-text top-gap">The file</h3>
       <p className="muted small">Kept as you added it: never changed.</p>

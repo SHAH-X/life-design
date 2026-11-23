@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { formatDateKey } from '../../src/lib/dates'
 import { MAX_PDF_BYTES } from '../../src/db/documents'
 import { DOCUMENT_PROBLEMS, fileOf, readDocumentFile, titleFromName } from '../../src/lib/docfile'
 
@@ -7,9 +8,9 @@ describe('titleFromName', () => {
   it('takes a title from the file’s name, and the day for a camera’s name, which says nothing', () => {
     expect(titleFromName('Tenancy agreement.pdf', '2026-11-23')).toBe('Tenancy agreement')
     expect(titleFromName('home_insurance_policy.PDF', '2026-11-23')).toBe('home insurance policy')
-    expect(titleFromName('IMG_0042.jpg', '2026-11-23')).toBe('Document 2026-11-23')
-    expect(titleFromName('image.jpg', '2026-11-23')).toBe('Document 2026-11-23')
-    expect(titleFromName('.pdf', '2026-11-23')).toBe('Document 2026-11-23')
+    expect(titleFromName('IMG_0042.jpg', '2026-11-23')).toBe(`Document ${formatDateKey('2026-11-23')}`)
+    expect(titleFromName('image.jpg', '2026-11-23')).toBe(`Document ${formatDateKey('2026-11-23')}`)
+    expect(titleFromName('.pdf', '2026-11-23')).toBe(`Document ${formatDateKey('2026-11-23')}`)
   })
 })
 

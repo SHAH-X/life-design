@@ -1,5 +1,6 @@
 import { MAX_PDF_BYTES } from '../db/documents'
 import { textFromPieces } from '../domain/documents'
+import { formatDateKey } from './dates'
 import { PhotoError, fromBase64, shrinkPhoto, toBase64 } from './photo'
 import { PdfError, readPdfDocument } from './pdfText'
 import { OcrError, type ReadPhoto } from './reader'
@@ -31,7 +32,7 @@ export const DOCUMENT_PROBLEMS = {
 /** A title from a file's name: "Tenancy agreement.pdf" → "Tenancy agreement"; a camera's "IMG_0042.jpg" says nothing, so the day. */
 export function titleFromName(name: string, today: string): string {
   const base = name.replace(/\.[A-Za-z0-9]{2,5}$/, '').replace(/[_]+/g, ' ').trim()
-  return !base || /^(img|image|photo|pxl|dsc|scan)[\s-]*\d*$/i.test(base) ? `Document ${today}` : base
+  return !base || /^(img|image|photo|pxl|dsc|scan)[\s-]*\d*$/i.test(base) ? `Document ${formatDateKey(today)}` : base
 }
 
 const isPdf = (file: File) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name)

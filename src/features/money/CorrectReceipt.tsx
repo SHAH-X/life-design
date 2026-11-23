@@ -3,7 +3,7 @@ import { correctReceipt, type ItemEdit, resetCorrection } from '../../db/receipt
 import type { ExtraItem, ReceiptFix } from '../../db/types'
 import { itemShown } from '../../domain/receipts'
 import { type KnownReceipt, receiptChanges, type ReceiptSnapshot } from '../../domain/shopping'
-import { amountField, parseMoney } from '../../lib/money'
+import { amountField, money, parseMoney } from '../../lib/money'
 import { Dialog } from '../../ui/Dialog'
 
 // Putting a receipt right (step 2, 2026-11-23: "allow editing before final approval"): its shop, day and total, each item's name,
@@ -30,6 +30,16 @@ export function CorrectReceipt({ receipt, onClose }: { receipt: KnownReceipt; on
   const [rows, setRows] = useState<Row[]>(() => receipt.items.map((item) => ({ key: item.key ?? null, name: itemShown(item), price: amountField(item.price), quantity: String(item.quantity), removed: false })))
   const [problem, setProblem] = useState<string | null>(null)
   const currency = receipt.currency || '£'
+  // Whether the items reach the printed total, as you change them: what fixing a receipt that doesn't add up is for.
+  const prices = rows.filter((r) => !r.removed).map((r) => parseMoney(r.price))
+  const totalNow = total.trim() === '' ? null : parseMoney(total)
+  const sum = prices.reduce<number>((s, p) => s + (p ?? 0), 0)
+  const gap = totalNow === null ? 0 : sum - totalNow
+  const sumWords = prices.includes(null)
+    ? 'Items: a price isn’t an amount yet.'
+    : totalNow === null
+      ? `Items come to ${money(sum, currency)}. No total printed.`
+      : `Items come to ${money(sum, currency)}; the receipt printed ${money(totalNow, currency)}. ${gap === 0 ? 'They add up.' : gap < 0 ? `${money(-gap, currency)} short.` : `${money(gap, currency)} over.`}`
   const set = (at: number, change: Partial<Row>) => setRows((now) => now.map((row, i) => (i === at ? { ...row, ...change } : row)))
 
   async function save() {
@@ -114,7 +124,7 @@ export function CorrectReceipt({ receipt, onClose }: { receipt: KnownReceipt; on
       </p>
       <div className="correct-row correct-head" aria-hidden="true">
         <span>Item</span>
-        <span>Price</span>
+        <span>Line total</span>
         <span>Qty</span>
         <span />
       </div>
@@ -133,6 +143,9 @@ export function CorrectReceipt({ receipt, onClose }: { receipt: KnownReceipt; on
       <button type="button" className="small-link" onClick={() => setRows((now) => [...now, { key: null, name: '', price: '', quantity: '1', removed: false }])}>
         + Add an item
       </button>
+      <p className="muted small" role="status">
+        {sumWords}
+      </p>
       {problem ? (
         <p className="error small" role="alert">
           {problem}

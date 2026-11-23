@@ -1798,7 +1798,7 @@ test('Bills and budgets: keep a regular payment as a bill, add one yourself, see
   await expectNoScores(page, 'Bills and budgets', true)
 
   // The calendar file: each bill on its own cycle, with an alert two days before, and the notes.
-  await sheet.getByRole('button', { name: 'Add them to your calendar' }).click()
+  await sheet.getByRole('button', { name: 'Add your listed bills to your calendar' }).click()
   const file = await sharedFile(page)
   expect(file.name).toBe('life-design-bills.ics')
   const text = file.text.replace(/\r\n /g, '')
@@ -1824,7 +1824,7 @@ test('the year says money out for each quarter, leaving out a month with a state
   const now = new Date(2026, 9, 27, 12, 0)
   await page.clock.setFixedTime(now)
   const pay = (id: string, date: string, amount: number, n: number) => ({ id, account: 'Example Current', date, amount, description: 'EXAMPLE SHOP', type: 'DEB', balance: null, adds: true, createdAt: n, updatedAt: n })
-  const bankLines = [pay('a', '2026-01-10', -1000, 1), pay('b', '2026-02-10', -2000, 2), pay('c', '2026-03-10', -3000, 3), pay('d', '2026-04-10', -4000, 4), pay('e', '2026-07-10', -500, 5), pay('f', '2026-08-10', -700, 6), pay('g', '2026-09-10', -900, 7)]
+  const bankLines = [pay('a', '2026-01-10', -1000, 1), pay('b', '2026-02-10', -2000, 2), pay('c', '2026-03-10', -3000, 3), pay('d', '2026-04-10', -4000, 4), pay('e', '2026-07-10', -500, 5), pay('f', '2026-08-10', -700, 6), pay('g', '2026-09-10', -900, 7), pay('h', '2026-06-10', -300, 8)]
   // The statements cover Jan to Apr, then Jul to Sep: May and June are missing, so Q2 is April alone, said so.
   const statements = [
     { id: 'x:2026-01-01:2026-04-30', account: 'Example Current', from: '2026-01-01', to: '2026-04-30', lines: 4, createdAt: 1, updatedAt: 1 },
@@ -1833,7 +1833,9 @@ test('the year says money out for each quarter, leaving out a month with a state
   await restoreBackup(page, testInfo.outputPath('quarters.json'), backupWith({ bankLines, statements }, now))
   await page.goto('./#/money/2026')
   const block = page.getByRole('region', { name: 'By quarter' })
-  await expect(block.getByRole('listitem')).toHaveText([/2026 Q1.*3 of 3 months.*£60\.00/, /2026 Q2.*1 of 3 months.*£40\.00/, /2026 Q3.*3 of 3 months.*£21\.00/])
+  await expect(block.getByRole('listitem')).toHaveText([/Jan – Mar.*3 of 3 months.*£60\.00/, /Apr – Jun.*1 of 3 months.*£40\.00/, /Jul – Sep.*3 of 3 months.*£21\.00/])
+  // A month with payments but a statement missing is named as left out, so the year's figures can be reconciled with these.
+  await expect(block).toContainText('Left out: June.')
   await expect(block).toContainText('from the months with every statement in')
 })
 

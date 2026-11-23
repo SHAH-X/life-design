@@ -72,7 +72,12 @@ export function AccountsYear(props: {
   const totals = moneyMonthTotals(lines, `${year}-12`, 12)
   const complete = new Set(monthCoverage(statements, closed, totals.map((t) => t.month), today).filter((c) => c.complete).map((c) => c.month))
   const quarters = quartersOf(totals.filter((t) => complete.has(t.month)))
-
+  const leftOut = totals.filter((t) => t.lines > 0 && !complete.has(t.month)).map((t) => monthName(t.month))
+  /** "2026 Q3" as the months it covers: "Jul – Sep". */
+  const quarterWords = (q: string) => {
+    const first = (Number(q.slice(-1)) - 1) * 3 + 1
+    return `${monthName(`${year}-${String(first).padStart(2, '0')}`, 'short')} – ${monthName(`${year}-${String(first + 2).padStart(2, '0')}`, 'short')}`
+  }
   return (
     <>
       <header className="acc-hero">
@@ -131,13 +136,14 @@ export function AccountsYear(props: {
               <li key={q.quarter} className="acc-li">
                 <div className="acc-row">
                   <span className="acc-row-text">
-                    <span className="acc-row-title">{q.quarter}</span> <span className="acc-row-sub">{q.months} of 3 months</span>
+                    <span className="acc-row-title">{quarterWords(q.quarter)}</span> <span className="acc-row-sub">{q.months} of 3 months</span>
                   </span>{' '}
                   <span className="acc-row-value">{pounds(q.out)}</span>
                 </div>
               </li>
             ))}
           </ul>
+          {leftOut.length ? <p className="acc-caption">Left out: {leftOut.join(', ')}. The month isn’t over, or a statement for it is missing.</p> : null}
         </Block>
       ) : null}
       {biggest.length ? (

@@ -36,7 +36,7 @@ export function PriceDots({ rows, label }: { rows: readonly DotRow[]; label: str
         <g key={i}>
           <line x1={x(t)} x2={x(t)} y1={6} y2={height - 28} stroke="var(--viz-grid)" strokeWidth={1} />
           <text x={x(t)} y={height - 10} textAnchor="middle" fontSize={12} fill="var(--muted)">
-            {(t / 100).toFixed(2)}
+            £{(t / 100).toFixed(2)}
           </text>
         </g>
       ))}
@@ -101,24 +101,24 @@ export function PriceSteps({ points, label, edge }: { points: readonly StepPoint
         ))}
         <path d={path} fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" />
         {points.map((p, i) => (
-          <circle
-            key={i}
-            cx={x(p)}
-            cy={y(p.value)}
-            r={i === at ? 7 : 5}
-            fill={i === at ? 'currentColor' : 'var(--surface)'}
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeDasharray={p.offer ? '3 2' : undefined}
-            tabIndex={0}
-            role="button"
-            aria-label={p.said}
-            aria-pressed={i === at}
-            style={{ cursor: 'pointer' }}
-            onClick={() => setAt(i)}
-            onFocus={() => setAt(i)}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setAt(i)}
-          />
+          <g key={i}>
+            <circle cx={x(p)} cy={y(p.value)} r={i === at ? 7 : 5} fill={i === at ? 'currentColor' : 'var(--surface)'} stroke="currentColor" strokeWidth={2} strokeDasharray={p.offer ? '3 2' : undefined} pointerEvents="none" />
+            {/* A larger, invisible target: the dot alone is about 11px on the screen, under what a finger can hit (24px at least). */}
+            <circle
+              cx={x(p)}
+              cy={y(p.value)}
+              r={16}
+              fill="transparent"
+              tabIndex={0}
+              role="button"
+              aria-label={p.said}
+              aria-pressed={i === at}
+              style={{ cursor: 'pointer' }}
+              onClick={() => setAt(i)}
+              onFocus={() => setAt(i)}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setAt(i)}
+            />
+          </g>
         ))}
         <text x={L} y={142} fontSize={12} fill="var(--muted)">
           {edge.first}

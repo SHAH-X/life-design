@@ -5,6 +5,7 @@ import { db } from '../../db/db'
 import { guessType, KIND_WORDS, needsLook, searchDocuments } from '../../domain/documents'
 import { shortDayMonth, toDateKey } from '../../lib/dates'
 import { DOCUMENT_PROBLEMS, readDocumentFile } from '../../lib/docfile'
+import { EVERY_WORDS } from '../../domain/bills'
 import { money } from '../../lib/money'
 import { fromBase64 } from '../../lib/photo'
 import { readPhoto } from '../../lib/reader'
@@ -85,7 +86,7 @@ export function DocumentsScreen() {
       {results ? (
         <section className="card" aria-label="Search results">
           <h2 className="rc-title">{word(results.length, 'document', 'documents')}</h2>
-          <p className="muted small">Words match exactly, as the document has them.</p>
+          <p className="muted small">Matches the letters you type, anywhere in a document.</p>
           <ul className="plain-list compact">
             {results.map(({ doc, snippets }) => (
               <li key={doc.id}>
@@ -107,18 +108,19 @@ export function DocumentsScreen() {
           {looks.length ? (
             <section className="card" aria-labelledby="doc-look">
               <h2 id="doc-look" className="rc-title">
-                Needs a look
+                Dates coming up
               </h2>
-              <p className="muted small">Dates you tracked, coming up.</p>
+              <p className="muted small">Dates you tracked, in the next 60 days.</p>
               <ul className="plain-list compact">
                 {looks.map((n) => {
                   const bill = billOf(n.doc.billId)
+                  const billWords = bill ? `${bill.name} · ${money(bill.amount, '£')} ${EVERY_WORDS[bill.every]}` : ''
                   return (
                     <li key={`${n.doc.id}|${n.date}|${n.kind}`}>
                       <button type="button" className="line-button doc-row" onClick={() => setOpenId(n.doc.id)}>
                         <span className="product-name">{n.doc.title}</span>
                         <span className="product-change">{n.days === 0 ? 'today' : `in ${word(n.days, 'day', 'days')}`}</span>
-                        <span className="product-sub">{[`${KIND_WORDS[n.kind].replace(/^is /, '')} ${shortDayMonth(n.date)}`.replace(/^./, (c) => c.toUpperCase()), bill ? `${money(bill.amount, '£')} ${bill.every === 'year' ? 'a year' : bill.every === 'month' ? 'a month' : ''}`.trim() : ''].filter(Boolean).join(' · ')}</span>
+                        <span className="product-sub">{[`${KIND_WORDS[n.kind].replace(/^is /, '')} ${shortDayMonth(n.date)}`.replace(/^./, (c) => c.toUpperCase()), billWords].filter(Boolean).join(' · ')}</span>
                       </button>
                     </li>
                   )
@@ -148,7 +150,7 @@ export function DocumentsScreen() {
             ) : (
               <p className="muted">Nothing here yet. Add a PDF, or take a photo of a paper: a tenancy agreement, a policy, a warranty, a certificate.</p>
             )}
-            {noText ? <p className="muted small">{word(noText, 'document has', 'documents have')} no text to search, such as a scan. {noText === 1 ? 'It is' : 'They are'} kept as they are.</p> : null}
+            {noText ? <p className="muted small">{word(noText, 'document has', 'documents have')} no text to search, such as a scan. {noText === 1 ? 'It is kept as it is.' : 'They are kept as they are.'}</p> : null}
           </section>
         </>
       )}

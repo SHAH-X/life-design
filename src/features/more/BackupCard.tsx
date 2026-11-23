@@ -12,7 +12,7 @@ export function BackupCard() {
 
   const status = info
     ? `${info.last ? `Last backup: ${shortDate(info.last)}` : 'No backup yet'}${
-        info.changed > 0 ? ` · ${info.changed} ${info.changed === 1 ? 'change' : 'changes'} since` : ''
+        info.changed > 0 ? ` · ${info.changed} ${info.changed === 1 ? 'change' : 'changes'} not backed up` : ''
       }`
     : ' ' // keeps the line's space while loading, so the buttons below never shift
 

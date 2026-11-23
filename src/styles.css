@@ -4846,9 +4846,9 @@ body:has(dialog.sheet.full[open]) :is(.tabbar, .banner, .notice.strip) {
   gap: 8px;
 }
 .product-suggest {
-  background: var(--warn-bg);
-  border: 1px solid var(--warn-border);
-  color: var(--warn-text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
   border-radius: var(--radius-sm);
   padding: var(--space-3);
   margin: var(--space-2) 0;
@@ -4878,7 +4878,7 @@ button.doc-row {
   text-align: left;
 }
 .doc-row mark {
-  background: var(--warn-bg);
+  background: var(--accent-soft);
   color: inherit;
   padding: 0 1px;
 }
@@ -4913,18 +4913,11 @@ button.doc-row {
   display: inline-block;
   padding: 1px var(--space-2);
   border-radius: var(--radius-pill);
-  background: var(--accent-soft);
-  color: var(--accent);
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text);
   font-size: var(--fs-xs);
   font-weight: 500;
-}
-.answer-tag[data-kind='estimate'] {
-  background: var(--warn-bg);
-  color: var(--warn-text);
-}
-.answer-tag[data-kind='look'] {
-  background: var(--field);
-  color: var(--muted);
 }
 .answer-card {
   background: var(--surface);
@@ -4968,5 +4961,14 @@ button.doc-row {
   text-decoration: none;
 }
 .answer-chevron {
+  color: var(--muted);
+}
+button.product-row {
+  padding-inline: 0;
+}
+.product-chevron {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: var(--space-2);
   color: var(--muted);
 }

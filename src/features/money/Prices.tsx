@@ -23,8 +23,11 @@ const unitWords = (perUnit: number, kind: UnitKind, currency: string) => `${mone
 const sightingWords = (s: Sighting) => [money(Math.round(s.each), s.currency || '£'), s.unit ? unitWords(s.unit.perUnit, s.unit.kind, s.currency || '£') : '', s.saving ? 'on offer' : ''].filter(Boolean).join(' · ')
 
 /** The list in Receipts: regular products first, then those bought again or at more than one shop. */
+const SHOWN = 12
+
 export function PricesGroup({ views, onOpen }: { views: readonly ProductView[]; onOpen: (view: ProductView) => void }) {
   const headingId = useId()
+  const [all, setAll] = useState(false)
   const listed = listedProducts(views)
   if (listed.length === 0) return null
   return (
@@ -35,10 +38,10 @@ export function PricesGroup({ views, onOpen }: { views: readonly ProductView[]; 
       <p className="rc-status">A price per litre or kg only where the receipt prints a size.</p>
       <div className="rc-body">
         <ul className="plain-list compact">
-          {listed.slice(0, 12).map((v) => {
+          {listed.slice(0, all ? undefined : SHOWN).map((v) => {
             const c = v.last.currency || '£'
-            const where = v.shops.length > 1 ? `${v.shops.length} shops` : shopWords(v.lastShop)
-            const sub = [`${where} ${money(Math.round(v.last.each), c)}`, v.last.unit ? unitWords(v.last.unit.perUnit, v.last.unit.kind, c) : '', shortDayMonth(v.last.date)].filter(Boolean).join(' · ')
+            // The price is the last shop's: its name goes with it, and how many shops the product is joined across after.
+            const sub = [`${shopWords(v.lastShop)} ${money(Math.round(v.last.each), c)}`, v.last.unit ? unitWords(v.last.unit.perUnit, v.last.unit.kind, c) : '', shortDayMonth(v.last.date), v.shops.length > 1 ? `${v.shops.length} shops` : ''].filter(Boolean).join(' · ')
             const change = v.change ? `${v.change.to > v.change.from ? '▲' : '▼'} ${money(Math.round(Math.abs(v.change.to - v.change.from)), c)}` : v.last.saving ? 'on offer' : ''
             return (
               <li key={v.id}>
@@ -54,6 +57,11 @@ export function PricesGroup({ views, onOpen }: { views: readonly ProductView[]; 
             )
           })}
         </ul>
+        {listed.length > SHOWN ? (
+          <button type="button" className="small-link" aria-expanded={all} onClick={() => setAll(!all)}>
+            {all ? `Show the first ${SHOWN}` : `Show all ${listed.length}`}
+          </button>
+        ) : null}
       </div>
     </section>
   )
@@ -72,7 +80,7 @@ export function ProductSheet({ view, onClose }: { view: ProductView; onClose: ()
   const value = (s: Sighting) => (sameKind ? s.unit!.perUnit : s.each)
   const say = (s: Sighting) => `${shortDayMonth(s.date)} · ${sightingWords(s)}`
   const points = line.sightings.map((s) => ({ date: s.date, value: value(s), said: say(s), offer: s.saving > 0 }))
-  const fmt = (pence: number) => (pence / 100).toFixed(2)
+  const fmt = (pence: number) => `£${(pence / 100).toFixed(2)}`
   return (
     <Dialog title={view.title} onClose={onClose} full>
       <p className="muted small">
@@ -108,8 +116,8 @@ export function ProductSheet({ view, onClose }: { view: ProductView; onClose: ()
               {shopWords(s.shop)} · {sightingWords(s.last)} · {shortDayMonth(s.last.date)}
             </span>
             {view.shops.length > 1 ? (
-              <button type="button" className="small-link" onClick={() => void splitProduct(ref, s.key)}>
-                Not the same product
+              <button type="button" className="small-link" aria-label={`Not the same product: ${shopWords(s.shop)}`} onClick={() => void splitProduct(ref, s.key)}>
+                Not the same
               </button>
             ) : null}
           </li>
@@ -184,7 +192,7 @@ export function ProductSheet({ view, onClose }: { view: ProductView; onClose: ()
         </>
       ) : null}
 
-      <Switch label="On my regular list" hint="so you can compare your basket" checked={view.regular} onChange={(on) => void listProduct(ref, on)} />
+      <Switch label="On my regular list" hint="so it comes first in Prices you’ve paid" checked={view.regular} onChange={(on) => void listProduct(ref, on)} />
       <p className="muted small">Only what your receipts say, on the days shown.</p>
     </Dialog>
   )

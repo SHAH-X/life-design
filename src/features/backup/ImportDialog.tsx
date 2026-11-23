@@ -16,7 +16,7 @@ import { Dialog } from '../../ui/Dialog'
 
 const PROBLEMS: Record<FileProblem, string> = {
   empty: 'This file is empty.',
-  'web-page': 'This is a web page, not a backup. Make a new backup and save it with “Save to Files”.',
+  'web-page': 'This is a web page, not a backup. Make a new backup and send it to your Mac by AirDrop.',
   spreadsheet: 'This is the spreadsheet (CSV) export. It is for reading in Numbers or Excel and can’t be restored. Choose a backup file instead.',
   calendar: 'This is the calendar reminder file, not a backup.',
   'not-json': 'This isn’t a Life Design backup file.',
@@ -130,6 +130,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
         <>
           <p>Choose a Life Design backup file. Backups from the earlier one-file version (v1) work too.</p>
           <p className="muted small">Restoring adds and updates. It never deletes anything already on this phone.</p>
+          <p className="muted small">A backup on your Mac: AirDrop it to this phone, choose Save to Files, then choose it here.</p>
           <label className="button primary wide">
             Choose backup file
             <input

@@ -292,7 +292,7 @@ function Overview({
             <span className="acc-tile-sub">{[roseCount ? `${roseCount} rose` : '', went.length ? `${went.length} changed` : '', changes.started.length ? `${changes.started.length} new` : '', changes.lapsed.length ? `${changes.lapsed.length} stopped` : ''].filter(Boolean).join(' · ')}</span>
           </button>
         ) : null}
-        <BillsTile regular={regular} lines={lines} kindSpend={kindSpend} statements={statements} closed={closed} month={month} today={today} />
+        <BillsTile lines={lines} kindSpend={kindSpend} statements={statements} closed={closed} month={month} today={today} />
         <a className="acc-tile" href={hashFor('money', month.slice(0, 4))}>
           <span className="acc-tile-label">{yearLabel}</span>
           <span className="acc-tile-value">{pounds(yearOut)} out</span>
