@@ -85,6 +85,6 @@ https://shah-x.github.io/life-design/. What the app does and why: `DECISIONS.md`
 - Icons: edit `public/logo.svg`, then `npm run icons`. Node 22.13 or newer (`.nvmrc`; PDF.js needs it).
 
 ## Commands
-- `npm run dev` · `typecheck` · `test` · `test:e2e` (WebKit at iPhone 17 size; includes `screens`) · `screens` · `ios-check` (needs `npm run preview` running, Xcode's iOS 27.0 simulator and idb: DECISIONS, "Driving the simulator") · `build` · `model` (before tests and builds)
+- `npm run dev` · `typecheck` · `test` · `test:e2e` (WebKit at iPhone 17 size; includes `screens`) · `screens` · `ios-check` (needs `npm run preview` running, Xcode's iOS 27.0 simulator and idb: DECISIONS, "Driving the simulator") · `build` · `model` (before tests and builds) · `accuracy` (the phone's reading of receipts, per field, on the fixtures)
 - Deploy: push to `main`. GitHub Actions type-checks, tests, builds and publishes to Pages.
 - Version bump: `npm version <x.y.z> --no-git-tag-version`, so package.json and the lockfile stay in step (a unit test checks).

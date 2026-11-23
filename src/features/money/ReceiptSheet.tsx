@@ -7,6 +7,7 @@ import { type CardPaid, ITEM_KINDS, itemShown, paidFor, type ReceiptItem } from 
 import { givenBack, itemKeys, type KnownReceipt, money, offerWords, paid, rememberedKey, rememberedKindsOf, returnedOn, spentOn } from '../../domain/shopping'
 import { dayMonth, dayMonthLong } from '../../lib/dates'
 import { Dialog } from '../../ui/Dialog'
+import { CorrectReceipt } from './CorrectReceipt'
 import { ForSheet } from './PaymentSheets'
 
 // One receipt (v0.20.18, owner 2026-10-31: "i cannot see the item in that receipt or which category the item … is
@@ -47,10 +48,12 @@ export function ReceiptSheet(props: { receipt: KnownReceipt; names: string[]; su
   const { receipt, names, suggestions, paidWith, onApprove, onOpenEntry, onClose } = props
   const [chosen, setChosen] = useState<number | null>(null)
   const [choosingCard, setChoosingCard] = useState(false)
+  const [correcting, setCorrecting] = useState(false)
   const keys = itemKeys(receipt.items).map((key, i) => receipt.items[i]!.key ?? key)
   const item = chosen === null ? undefined : receipt.items[chosen]
   if (item && chosen !== null) return <ItemSheet receipt={receipt} item={item} itemKey={keys[chosen]!} names={names} suggestions={suggestions} onClose={() => setChosen(null)} />
   if (choosingCard && paidWith?.card) return <CardSheet card={paidWith.card} said={paidWith.said} accounts={paidWith.accounts} paymentAccount={paidWith.paymentAccount} onClose={() => setChoosingCard(false)} />
+  if (correcting) return <CorrectReceipt receipt={receipt} onClose={() => setCorrecting(false)} />
   const returned = returnedOn(receipt)
   const offers = receipt.items.reduce((s, it) => s + (it.saving ?? (it.price < 0 ? -it.price : 0)), 0)
   const footer = (
@@ -111,6 +114,10 @@ export function ReceiptSheet(props: { receipt: KnownReceipt; names: string[]; su
           </button>
         </>
       ) : null}
+      {receipt.edited ? <p className="muted small">Corrected by you.</p> : null}
+      <button type="button" className="small-link" onClick={() => setCorrecting(true)}>
+        Correct this receipt
+      </button>
     </Dialog>
   )
 }

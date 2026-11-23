@@ -4,7 +4,7 @@ import { applyImport, BACKUP_SCHEMA_VERSION, createBackup, detectFile, planImpor
 import { lockText, unlockText } from '../../src/db/crypto'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { newReview } from '../../src/db/repo'
-import { isAiReview, isBankLine, isEntry, isInvestLine, isInvestSummary, isQuestion } from '../../src/db/validate'
+import { isAiReview, isAuditEntry, isBankLine, isEntry, isInvestLine, isInvestSummary, isQuestion } from '../../src/db/validate'
 import { emptyPlan } from '../../src/domain/lifeDesign'
 import { ITEM_KINDS } from '../../src/domain/receipts'
 import { PROVIDERS } from '../../src/lib/ai'
@@ -52,6 +52,7 @@ const emptyRaw = (): RawData => ({
   ideaMaps: [],
   investLines: [],
   investSummaries: [],
+  auditLog: [],
 })
 
 let phone: LifeDesignDB
@@ -557,9 +558,9 @@ describe('backup and restore', () => {
 
   it('moves to a new backup format with each new item kind: an older version would skip an entry with one, its writing too', () => {
     // v0.19.2 added Clothes and shoes and format 10; v0.20.37 added Baby and toddler and format 12 (v0.23's maps of
-    // your ideas took 13, v0.36.0's Trading 212 lines 14 and v0.53.0's receipt approval 15). A new kind: raise the format,
+    // your ideas took 13, v0.36.0's Trading 212 lines 14 and v0.53.0's receipt approval 15 and v0.54.0's audit log 16). A new kind: raise the format,
     // then both numbers here.
-    expect({ format: BACKUP_SCHEMA_VERSION, kinds: ITEM_KINDS.length }).toEqual({ format: 15, kinds: 14 })
+    expect({ format: BACKUP_SCHEMA_VERSION, kinds: ITEM_KINDS.length }).toEqual({ format: 16, kinds: 14 })
   })
 
   it('recognises locked backups, v1 files and everything else', async () => {
@@ -580,5 +581,37 @@ describe('backup and restore', () => {
 
     await applyImport(unlocked.raw, newPhone)
     expect(await newPhone.entries.get('a')).toEqual(entry('a', 1000))
+  })
+
+  it('backs up and restores the note of each correction, refuses a damaged one, and still restores a file without it (step 2)', async () => {
+    const note = { id: 'n1', kind: 'receipt-corrected' as const, entryId: 'e1', photoId: 'p1', changes: ['Total £9.99 → £4.20'], createdAt: 5000, updatedAt: 5000 }
+    await phone.auditLog.put(note)
+    const detected = detectFile(JSON.stringify(await createBackup(phone)))
+    if (detected.format !== 'backup') throw new Error('expected a backup')
+    await applyImport(detected.raw, newPhone)
+    expect(await newPhone.auditLog.toArray()).toEqual([note])
+    expect(isAuditEntry({ ...note, kind: 'receipt-deleted' })).toBe(false)
+    expect(isAuditEntry({ ...note, changes: [3] })).toBe(false)
+    expect(isAuditEntry({ ...note, photoId: '' })).toBe(false)
+    const old = JSON.parse(JSON.stringify(await createBackup(phone))) as { schemaVersion: number; data: Record<string, unknown> }
+    old.schemaVersion = 15
+    delete old.data.auditLog
+    const older = detectFile(JSON.stringify(old))
+    if (older.format !== 'backup') throw new Error('expected a backup')
+    const empty = openDb(`old-${crypto.randomUUID()}`)
+    expect((await applyImport(older.raw, empty)).tables.auditLog).toMatchObject({ added: 0 })
+    await empty.delete()
+  })
+
+  it('checks a receipt’s corrections when restoring (step 2)', () => {
+    const base = entry('r3', 6000)
+    const withPhoto = (p: object) => isEntry({ ...base, photos: [{ id: 'p', text: null, ...p }] })
+    expect(withPhoto({ fix: { shop: 'Corner Shop', date: '2026-10-12', total: 420 }, extra: [{ name: 'Milk', price: 120, quantity: 1 }], items: [{ key: 'Tea#1', name: 'Tea', price: 300, quantity: 2, removed: true }] })).toBe(true)
+    expect(withPhoto({ fix: { total: null } })).toBe(true)
+    expect(withPhoto({ fix: { date: 'yesterday' } })).toBe(false)
+    expect(withPhoto({ fix: { total: 4.2 } })).toBe(false)
+    expect(withPhoto({ extra: [{ name: 'Milk', price: 1.2, quantity: 1 }] })).toBe(false)
+    expect(withPhoto({ items: [{ key: 'Tea#1', price: 'cheap' }] })).toBe(false)
+    expect(withPhoto({ items: [{ key: 'Tea#1', removed: false }] })).toBe(false)
   })
 })

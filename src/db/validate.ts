@@ -6,6 +6,7 @@ import { isDateKey } from '../lib/dates'
 import {
   type AiReview,
   type Answer,
+  type AuditEntry,
   BALANCE_AREAS,
   type BackupData,
   type BankLine,
@@ -68,7 +69,7 @@ function hasValidJournalFields(x: Rec): boolean {
     isOptional(x.status, isOneOf(['draft', 'done'])) &&
     isOptional(x.skipped, (v) => Array.isArray(v) && v.every(isOneOf(['engagement', 'energy']))) &&
     isOptional(x.replyTo, (v) => v === null || (isObj(v) && isNonEmptyStr(v.id) && isStr(v.question))) &&
-    isOptional(x.photos, (v) => Array.isArray(v) && v.every((p) => isObj(p) && isNonEmptyStr(p.id) && (p.text === null || isStr(p.text)) && isOptional(p.textVersion, isNum) && isOptional(p.receipt, (v) => v === true) && isOptional(p.partOf, isNonEmptyStr) && isOptional(p.ai, isAiReading) && isOptional(p.items, isItemChanges) && isOptional(p.approved, isApproval)))
+    isOptional(x.photos, (v) => Array.isArray(v) && v.every((p) => isObj(p) && isNonEmptyStr(p.id) && (p.text === null || isStr(p.text)) && isOptional(p.textVersion, isNum) && isOptional(p.receipt, (v) => v === true) && isOptional(p.partOf, isNonEmptyStr) && isOptional(p.ai, isAiReading) && isOptional(p.items, isItemChanges) && isOptional(p.approved, isApproval) && isOptional(p.fix, isReceiptFix) && isOptional(p.extra, isExtraItems)))
   )
 }
 
@@ -78,7 +79,41 @@ const isApproval = (x: unknown): boolean => isObj(x) && (x.total === null || Num
 
 /** Your changes to a receipt's items (v0.20.18): a key, a kind from the list or none, returned or not. */
 const isItemChanges = (x: unknown): boolean =>
-  Array.isArray(x) && x.every((c) => isObj(c) && isNonEmptyStr(c.key) && isOptional(c.kind, isOneOf(ITEM_KINDS)) && isOptional(c.returned, (v) => v === true))
+  Array.isArray(x) &&
+  x.every(
+    (c) =>
+      isObj(c) &&
+      isNonEmptyStr(c.key) &&
+      isOptional(c.kind, isOneOf(ITEM_KINDS)) &&
+      isOptional(c.returned, (v) => v === true) &&
+      isOptional(c.name, isNonEmptyStr) &&
+      isOptional(c.price, Number.isInteger) &&
+      isOptional(c.quantity, (v) => Number.isInteger(v) && (v as number) > 0) &&
+      isOptional(c.removed, (v) => v === true),
+  )
+
+/** Your corrections to a receipt's shop, day and total (step 2). */
+const isReceiptFix = (x: unknown): boolean =>
+  isObj(x) && isOptional(x.shop, isStr) && isOptional(x.date, isDateKey) && isOptional(x.total, (v) => v === null || Number.isInteger(v))
+
+/** The items you added to a receipt (step 2). */
+const isExtraItems = (x: unknown): boolean =>
+  Array.isArray(x) && x.every((i) => isObj(i) && isNonEmptyStr(i.name) && Number.isInteger(i.price) && Number.isInteger(i.quantity) && (i.quantity as number) > 0)
+
+/** A note of a receipt change (step 2). */
+export function isAuditEntry(x: unknown): x is AuditEntry {
+  return (
+    isObj(x) &&
+    isNonEmptyStr(x.id) &&
+    isOneOf(['receipt-corrected', 'receipt-reset', 'receipt-approved', 'receipt-unapproved'])(x.kind) &&
+    isNonEmptyStr(x.entryId) &&
+    isNonEmptyStr(x.photoId) &&
+    Array.isArray(x.changes) &&
+    x.changes.every(isStr) &&
+    isNum(x.createdAt) &&
+    isNum(x.updatedAt)
+  )
+}
 
 function isAiReading(x: unknown): boolean {
   if (!isObj(x) || !isStr(x.by) || !isNum(x.at) || !isStr(x.text) || !isStr(x.description) || !isOptional(x.version, isNum) || !isOptional(x.tries, isNum)) return false
@@ -414,6 +449,7 @@ export const VALIDATORS: { [K in TableName]: (x: unknown) => x is BackupData[K][
   ideaMaps: isIdeaMap,
   investLines: isInvestLine,
   investSummaries: isInvestSummary,
+  auditLog: isAuditEntry,
 }
 
 /** Fills in fields that older files don't have yet, after validation. */

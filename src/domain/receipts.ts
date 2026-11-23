@@ -51,6 +51,8 @@ export interface Receipt {
   adds: boolean
   /** £, $, € or '' when the receipt shows none. */
   currency: string
+  /** You corrected its shop, day, total or items (step 2, 2026-11-23): what's here is the reading with your corrections over it. */
+  edited?: true
   /** A refund slip, money given back (v0.20.20, `isRefundSlip`): shown, never counted. */
   refund?: true
   /** A refund slip that names a gift card after its total: the money went back to it, so no bank shows it. */

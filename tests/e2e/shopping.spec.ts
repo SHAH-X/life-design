@@ -147,6 +147,50 @@ test('a receipt whose items do not add up is left out of what was spent until yo
   await expect(page.getByRole('strong')).toHaveText('£49.40 spent')
 })
 
+// Step 2 (owner-approved plan, 2026-11-23: "allow editing before final approval"): a receipt the reading got wrong is put right
+// from its own sheet. The Aldi receipt's items stop at £4.50 and it printed £9.99: the missing item is added, and it counts.
+test('a receipt held for a missed item is corrected by adding it, counts, and goes back to as read', async ({ page }, testInfo) => {
+  const unapproved = ENTRIES.map((e) => (e.photos[0]!.id === 'a1' ? receiptEntry('a1', '2026-10-05', reading('ALDI', '2026-10-05', [['Coffee', 450, 'Drinks']], 999)) : e))
+  await restoreBackup(page, testInfo.outputPath('receipts.json'), backupWith({ entries: unapproved }, SATURDAY))
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  await expect(page.getByRole('strong')).toHaveText('£49.40 spent')
+
+  const check = page.getByRole('region', { name: 'Receipts to check' }).locator('li')
+  await check.locator('details', { hasText: 'ALDI' }).locator('summary').click()
+  await check.locator('details', { hasText: 'ALDI' }).getByRole('button', { name: 'Open to correct' }).click()
+  await page.getByRole('dialog', { name: 'ALDI' }).getByRole('button', { name: 'Correct this receipt' }).click()
+  const form = page.getByRole('dialog', { name: 'Correct this receipt' })
+
+  // A word where a price goes is said, and nothing is saved.
+  await form.getByRole('button', { name: '+ Add an item' }).click()
+  await form.getByLabel('Name of item 2').fill('Biscuits')
+  await form.getByLabel('Price of Biscuits').fill('cheap')
+  await form.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(form.getByRole('alert')).toHaveText('“Biscuits” has a price that isn’t an amount. Type it like 1.20.')
+
+  await form.getByLabel('Price of Biscuits').fill('5.49')
+  await form.getByRole('button', { name: 'Save', exact: true }).click()
+  const sheet = page.getByRole('dialog', { name: 'ALDI' })
+  await expect(sheet).toContainText('Corrected by you.')
+  await expect(sheet.getByRole('list', { name: 'Items' }).getByRole('listitem')).toHaveText(['Coffee · £4.50Drinks', 'Biscuits · £5.49Not sorted'])
+  await expect(sheet).not.toContainText('Its items don’t add up to this total')
+  await sheet.getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(page.getByRole('strong')).toHaveText('£59.39 spent')
+  await expect(check.locator('details > summary')).toHaveText([/Date not read/])
+
+  // Back to as read: the reading's own items and total again, held again.
+  await line(page, '5 receipts from 3 shops').click()
+  await page.getByRole('button', { name: /Mon 5 Oct ALDI/ }).click()
+  await page.getByRole('dialog', { name: 'ALDI' }).getByRole('button', { name: 'Correct this receipt' }).click()
+  await page.getByRole('dialog', { name: 'Correct this receipt' }).getByRole('button', { name: 'Back to as read' }).click()
+  const again = page.getByRole('dialog', { name: 'ALDI' })
+  await expect(again).toContainText('Not counted as spent yet.')
+  await expect(again).not.toContainText('Corrected by you.')
+  await again.getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(page.getByRole('strong')).toHaveText('£49.40 spent')
+})
+
 // Owner, 2026-10-31: "i cannot see the item in that receipt or which category the item … is assigned to", and things
 // "returned … whose refund is obtained" should not count in the expense.
 test('a receipt opens to its items, each with its price and kind; you can choose another kind, or say you returned it', async ({ page }, testInfo) => {

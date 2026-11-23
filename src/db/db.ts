@@ -3,6 +3,7 @@ import { stepsFromIntentions } from '../domain/steps'
 import {
   type AiReview,
   type Answer,
+  type AuditEntry,
   type AreaCentre,
   type BankLine,
   type InvestLine,
@@ -49,6 +50,7 @@ export type LifeDesignDB = Dexie & {
   ideaMaps: EntityTable<IdeaMap, 'id'>
   investLines: EntityTable<InvestLine, 'id'>
   investSummaries: EntityTable<InvestSummary, 'id'>
+  auditLog: EntityTable<AuditEntry, 'id'>
 }
 
 export const DB_NAME = 'life-design'
@@ -200,6 +202,10 @@ export function openDb(name = DB_NAME): LifeDesignDB {
   database.version(14).stores({
     investLines: 'id, account, date, kind',
     investSummaries: 'id, account',
+  })
+  // Step 2 (v0.54.0): a note of each change you make to a receipt: yours, so in a backup. A new, empty table.
+  database.version(15).stores({
+    auditLog: 'id, createdAt, photoId',
   })
   return database
 }

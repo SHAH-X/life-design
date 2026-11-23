@@ -599,9 +599,14 @@ function ReceiptList(props: {
                       {!duplicateOf && (r.held || missingDate || hasPaymentCandidates) ? (
                         <div className="receipt-check-actions">
                           {r.held ? (
-                            <button type="button" onClick={() => void props.onApprove?.(r, true)}>
-                              Count it anyway
-                            </button>
+                            <>
+                              <button type="button" onClick={() => void props.onApprove?.(r, true)}>
+                                Count it anyway
+                              </button>
+                              <button type="button" onClick={() => onOpen(r)}>
+                                Open to correct
+                              </button>
+                            </>
                           ) : null}
                           {missingDate ? (
                             <button type="button" onClick={() => void props.onAcceptDate?.(r.id)}>

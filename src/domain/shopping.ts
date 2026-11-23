@@ -39,12 +39,24 @@ function withParts(photo: PhotoRef, photos: readonly PhotoRef[]): PhotoRef {
 /** A photo's receipt: as your AI read it when it did (v0.18), else as the phone read it. Whether its items add up is
  *  the phone's to say, from the numbers. */
 function receiptOf(photo: PhotoRef, remembered: Remembered, itemFor: NamesFiled): Receipt | null {
-  const read = readOf(photo)
-  if (!read) return null
-  const keys = itemKeys(read.items)
-  const kept = withRemembered(read.items, read.shop, remembered, itemFor)
-  const changed = (photo.items?.length ? withChanges(kept, photo.items) : kept).map((item, i) => ({ ...item, key: keys[i]! }))
-  if (read.refund) return { ...asMoneyBack(read, changed), ...(backToGiftCard(photo.ai?.text || photo.text || '') ? { giftCard: true as const } : {}) }
+  const reading = readOf(photo)
+  if (!reading) return null
+  // Your corrections lie over the reading (step 2): its shop, day and total, each item's name, price and quantity, items
+  // taken off, and items added. The reading itself is never changed; with none of these, the receipt is as it was.
+  const fix = photo.fix
+  const corrected = Boolean(fix || photo.extra?.length || photo.items?.some((c) => c.name !== undefined || c.price !== undefined || c.quantity !== undefined || c.removed))
+  const read: Receipt = { ...reading, shop: fix?.shop?.trim() || reading.shop, date: fix?.date ?? reading.date, total: fix?.total !== undefined ? fix.total : reading.total }
+  const keys = itemKeys(reading.items)
+  const kept = withRemembered(reading.items, read.shop, remembered, itemFor)
+  const gone = new Set((photo.items ?? []).filter((c) => c.removed).map((c) => c.key))
+  const added = (photo.extra ?? []).map((e, i) => ({ name: e.name, price: e.price, quantity: e.quantity, key: `added#${i + 1}` }))
+  const changed = [...(photo.items?.length ? withChanges(kept, photo.items) : kept).map((item, i) => ({ ...item, key: keys[i]! })).filter((item) => !gone.has(item.key)), ...added]
+  // Whether the items reach the total is the phone's to say, from the numbers: again after a correction.
+  if (corrected) {
+    read.adds = read.total === null || changed.reduce((s, item) => s + item.price, 0) === read.total
+    read.edited = true
+  }
+  if (read.refund) return { ...asMoneyBack(read, changed), ...(corrected ? { edited: true as const } : {}), ...(backToGiftCard(photo.ai?.text || photo.text || '') ? { giftCard: true as const } : {}) }
   const items = withSavings(changed, photo.ai?.text || photo.text || '')
   return { ...read, items, ...paidIn(photo, read.total ?? items.reduce((s, item) => s + paidFor(item), 0)) }
 }
@@ -182,8 +194,44 @@ function withChanges(items: readonly ReceiptItem[], changes: readonly ItemChange
   return items.map((item, i) => {
     const change = changes.find((c) => c.key === keys[i])
     if (!change) return item
-    return { ...item, ...(change.kind ? { kind: change.kind } : {}), ...(change.returned && item.price > 0 ? { returned: true as const } : {}) }
+    return {
+      ...item,
+      ...(change.kind ? { kind: change.kind } : {}),
+      ...(change.name ? { name: change.name, plain: change.name } : {}),
+      ...(change.price !== undefined ? { price: change.price } : {}),
+      ...(change.quantity ? { quantity: change.quantity } : {}),
+      ...(change.returned && item.price > 0 ? { returned: true as const } : {}),
+    }
   })
+}
+
+/** What a receipt shows, for noting what a correction changed (step 2). */
+export interface ReceiptSnapshot {
+  shop: string
+  date: string
+  total: number | null
+  items: { name: string; price: number; quantity: number }[]
+}
+
+/** What changed between two snapshots of a receipt, one line each, for the note kept of a correction: the shop, the day, the
+ *  total, then each item taken off, changed or added. Items are paired by name, in order. Nothing changed: no lines. */
+export function receiptChanges(before: ReceiptSnapshot, after: ReceiptSnapshot, currency: string): string[] {
+  const lines: string[] = []
+  if (before.shop !== after.shop) lines.push(`Shop ${before.shop || 'none'} → ${after.shop || 'none'}`)
+  if (before.date !== after.date) lines.push(`Day ${before.date} → ${after.date}`)
+  if (before.total !== after.total) lines.push(`Total ${before.total === null ? 'none' : money(before.total, currency)} → ${after.total === null ? 'none' : money(after.total, currency)}`)
+  const later = [...after.items]
+  for (const item of before.items) {
+    const at = later.findIndex((other) => other.name === item.name)
+    if (at < 0) {
+      lines.push(`Removed ${item.name} ${money(item.price, currency)}`)
+      continue
+    }
+    const [other] = later.splice(at, 1)
+    if (other!.price !== item.price || other!.quantity !== item.quantity) lines.push(`${item.name} ${money(item.price, currency)} → ${money(other!.price, currency)}${other!.quantity > 1 ? ` × ${other!.quantity}` : ''}`)
+  }
+  for (const item of later) lines.push(`Added ${item.name} ${money(item.price, currency)}`)
+  return lines
 }
 
 /** A receipt added again, left out of every total (v0.19.5): a second upload of the same photo, or a new photo of the

@@ -29,11 +29,11 @@ The app is a phone-only journal with a Money tab. No server, account, cloud sync
 | Shop, date, time, items, quantity, savings, total, card | EXISTING | `receipts.ts`, `aiReading.ts`; receipt number MISSING |
 | Original image kept | NEEDS IMPROVEMENT | A copy shrunk to about 300 KB at capture (owner, 2026-11-23: keep the shrunk copy) |
 | Review before it counts | EXISTING (v0.53.0) | Items that don't add up to the total are held back until approved (`held`, `approveReceipt`) |
-| Edit a receipt's figures | MISSING | Only an item's kind and "returned"; planned for step 2 |
+| Edit a receipt's figures | EXISTING (v0.54.0) | `CorrectReceipt.tsx`: shop, day, total, items' name, price and quantity, take off, add; the reading is never changed; "Back to as read" |
 | Duplicate receipts | EXISTING | `sameReceipt` |
 | Reconcile total with items | EXISTING | `adds` |
 | Link to a bank payment | EXISTING | `matchReceiptPayment`, `linkReceipts` |
-| Per-field accuracy | MISSING | 24 fixtures pass or fail; no accuracy figure per field |
+| Per-field accuracy | PARTIAL (v0.54.0) | `npm run accuracy`: the phone's reading per field on 26 fictional receipts, with a lower bound; 100% on all, but only 8 are unseen and none is real. What your AI reads is not measured; quantities are not measured |
 | Retailer coverage | PARTIAL | Asda and M&S most; Aldi, Lidl, Tesco, Co-op one or two; Morrisons named, no fixture |
 
 ## C. Grocery intelligence
@@ -66,6 +66,6 @@ The phone can't run in the background. Present: receipts are read when added, a 
 ## Reliability and security notes
 - Data loss is the main risk: backup is by hand (share menu); iOS can clear website data.
 - Money choices are lists in `settings`. Read-then-write races lost choices made at once: fixed in v0.53.0 (`changeSetting`).
-- No audit trail of changes yet (planned, step 2).
+- Receipt approvals and corrections leave a note in `auditLog` (v0.54.0); other changes (payment names, kinds) leave none.
 - IndexedDB, including the AI key, is not encrypted at rest; a backup can be password-protected.
 - Receipts go by themselves to Gemini or OpenAI while "Read receipts with AI" is on (owner's choice).

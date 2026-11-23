@@ -174,6 +174,10 @@ export interface PhotoRef {
   /** You said to count this receipt though its items don't add up to its printed total (step 1, 2026-11-23): the total and
    *  the items' sum you saw. A new reading with other figures isn't approved: it asks again. */
   approved?: { total: number | null; sum: number }
+  /** Your corrections to its shop, day and total, and the items the reading missed (step 2, 2026-11-23). Beside `items`, the
+   *  corrections to the items it had. What was read stays as it was; "Back to as read" takes all of these away. */
+  fix?: ReceiptFix
+  extra?: ExtraItem[]
   /** Your changes to a receipt's items (v0.20.18): a kind you chose, an item you returned. Kept apart from `ai`, so a
    *  new reading never wipes them; `key` is from `itemKeys` (src/domain/shopping.ts). */
   items?: ItemChange[]
@@ -184,6 +188,38 @@ export interface ItemChange {
   key: string
   kind?: ItemKind
   returned?: true
+  /** Your corrections to what was read (step 2, 2026-11-23): its name, its price in minor units, its quantity, or that it
+   *  was never on the receipt. The reading itself is never changed. */
+  name?: string
+  price?: number
+  quantity?: number
+  removed?: true
+}
+
+/** Your corrections to a receipt's own figures (step 2): the shop, its day and its printed total. `total: null` says it printed none. */
+export interface ReceiptFix {
+  shop?: string
+  date?: string
+  total?: number | null
+}
+
+/** An item the reading missed, added by you (step 2): in minor units. */
+export interface ExtraItem {
+  name: string
+  price: number
+  quantity: number
+}
+
+/** A note of something you changed about a receipt (step 2), in words, kept so a change can be traced: yours, so in a backup. */
+export interface AuditEntry {
+  id: string
+  kind: 'receipt-corrected' | 'receipt-reset' | 'receipt-approved' | 'receipt-unapproved'
+  entryId: string
+  photoId: string
+  /** What changed, one line each ("Total £9.99 → £4.20"). */
+  changes: string[]
+  createdAt: number
+  updatedAt: number
 }
 
 /** A photo as your AI read it (src/domain/aiReading.ts). Prices in minor units; the phone checks they add up. */
@@ -541,6 +577,7 @@ export interface BackupData {
   ideaMaps: IdeaMap[]
   investLines: InvestLine[]
   investSummaries: InvestSummary[]
+  auditLog: AuditEntry[]
 }
 
 export type TableName = keyof BackupData
@@ -565,6 +602,7 @@ export const TABLE_NAMES: readonly TableName[] = [
   'ideaMaps',
   'investLines',
   'investSummaries',
+  'auditLog',
 ]
 
 export const TABLE_LABELS: Record<TableName, string> = {
@@ -587,4 +625,5 @@ export const TABLE_LABELS: Record<TableName, string> = {
   ideaMaps: 'Maps of your ideas',
   investLines: 'Trading 212 trades, dividends and interest',
   investSummaries: 'Trading 212 statement totals',
+  auditLog: 'Notes of receipt corrections',
 }

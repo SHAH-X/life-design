@@ -347,6 +347,71 @@ describe('a receipt that does not add up is held until you approve it', () => {
   })
 })
 
+// Step 2 (owner-approved plan, 2026-11-23): "allow editing before final approval". Your corrections lie over what was read
+// (the AI's or the phone's reading is never changed), so a wrong price, a missed item or a wrong total can be put right.
+describe('your corrections to a receipt lie over the reading', () => {
+  type Photo = Entry['photos'][number]
+  const reading = (items: [name: string, price: number][], total: number): NonNullable<Photo['ai']> => ({
+    by: 'Gemini · gemini-test',
+    at: 1,
+    text: 'CORNER SHOP\n12/10/2026\nTotal',
+    description: '',
+    version: 2,
+    receipt: { shop: 'Corner Shop', date: '2026-10-12', currency: '£', items: items.map(([name, price]) => ({ name, price, quantity: 1 })), total },
+  })
+  const entry = (photo: Photo): Entry => ({ ...areaEntry({ id: 'e1', text: '', expect: [] }, '2026-10-12'), createdAt: 1, photos: [photo] })
+  const ADDS = reading([['Tea', 300], ['Milk', 120]], 420)
+  const SHORT = reading([['Tea', 300], ['Milk', 120]], 999)
+  const first = (photo: Photo) => receiptsAndCopies([entry(photo)]).receipts[0]!
+
+  it('shows a corrected shop, day and total, says it was corrected, and leaves the reading as it was', () => {
+    const photo: Photo = { id: 'p', text: null, ai: ADDS, fix: { shop: 'Corner Chemist', date: '2026-10-14', total: 420 } }
+    const before = JSON.stringify(entry(photo))
+    const receipt = first(photo)
+    expect(receipt).toMatchObject({ shop: 'Corner Chemist', date: '2026-10-14', dated: true, total: 420, edited: true })
+    expect(JSON.stringify(entry(photo))).toBe(before)
+    expect(first({ id: 'p', text: null, ai: ADDS })).not.toHaveProperty('edited')
+  })
+
+  it('applies a new name, price and quantity to an item, keeping the kind you chose, and drops a removed one', () => {
+    const photo: Photo = {
+      id: 'p',
+      text: null,
+      ai: ADDS,
+      items: [{ key: 'Tea#1', kind: 'Drinks', name: 'Green tea', price: 250, quantity: 2 }, { key: 'Milk#1', removed: true }],
+      fix: { total: 250 },
+    }
+    expect(first(photo).items.map((i) => [i.name, i.price, i.quantity, i.kind])).toEqual([['Green tea', 250, 2, 'Drinks']])
+    // Shown by its new name, whatever your AI had called it.
+    const printed = { ...ADDS, receipt: { ...ADDS.receipt!, items: [{ name: 'GRN TEA', plain: 'Tea bags', price: 300, quantity: 1 }, { name: 'Milk', price: 120, quantity: 1 }] } }
+    expect(first({ ...photo, ai: printed, items: [{ key: 'GRN TEA#1', name: 'Green tea', price: 250 }, { key: 'Milk#1', removed: true }] }).items.map((i) => itemShown(i))).toEqual(['Green tea'])
+  })
+
+  it('adds an item the reading missed, and a receipt held for it then adds up and counts', () => {
+    expect(receiptsAndCopies([entry({ id: 'p', text: null, ai: SHORT })]).held.map((r) => r.id)).toEqual(['p'])
+    const fixed = receiptsAndCopies([entry({ id: 'p', text: null, ai: SHORT, extra: [{ name: 'Bread', price: 579, quantity: 1 }] })])
+    expect(fixed.held).toEqual([])
+    expect(fixed.receipts[0]).toMatchObject({ adds: true, total: 999, edited: true })
+    expect(fixed.receipts[0]!.items.map((i) => [i.name, i.price])).toEqual([['Tea', 300], ['Milk', 120], ['Bread', 579]])
+  })
+
+  it('counts a receipt whose total was corrected to what its items come to, and holds one it made worse', () => {
+    expect(receiptsAndCopies([entry({ id: 'p', text: null, ai: SHORT, fix: { total: 420 } })]).receipts.map((r) => r.id)).toEqual(['p'])
+    expect(receiptsAndCopies([entry({ id: 'p', text: null, ai: ADDS, fix: { total: 500 } })]).held.map((r) => r.id)).toEqual(['p'])
+  })
+
+  it('asks again for approval when a correction changes the figures that were approved', () => {
+    const approved: Photo = { id: 'p', text: null, ai: SHORT, approved: { total: 999, sum: 420 } }
+    expect(receiptsAndCopies([entry(approved)]).receipts.map((r) => r.id)).toEqual(['p'])
+    expect(receiptsAndCopies([entry({ ...approved, fix: { total: 998 } })]).held.map((r) => r.id)).toEqual(['p'])
+  })
+
+  it('keeps an old receipt exactly as it was when nothing was corrected', () => {
+    const [a, b] = [first({ id: 'p', text: null, ai: ADDS }), first({ id: 'p', text: null, ai: ADDS, items: [{ key: 'Tea#1', kind: 'Drinks' }] })]
+    expect([a.items.map((i) => i.price), b.items.map((i) => i.price), a.adds, b.adds]).toEqual([[300, 120], [300, 120], true, true])
+  })
+})
+
 // Owner, 2026-10-25: "if i upload the same receipt twice, it counts it twice … it should have been able to detect that".
 describe('the same receipt added twice is counted once (v0.19.5)', () => {
   type Photo = Entry['photos'][number]

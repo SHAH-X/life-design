@@ -2,9 +2,10 @@ import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type LifeDesignDB, openDb } from '../../src/db/db'
 import { createBackup } from '../../src/db/backup'
-import { approveReceipt, changeItem, fileItem, ITEM_FOR_SETTING, ITEM_KINDS_SETTING, rememberItemKind } from '../../src/db/receiptItems'
-import { rememberedKey, rememberedKindsOf, rememberedNamesOf } from '../../src/domain/shopping'
+import { approveReceipt, changeItem, correctReceipt, fileItem, ITEM_FOR_SETTING, ITEM_KINDS_SETTING, rememberItemKind } from '../../src/db/receiptItems'
+import { receiptChanges, rememberedKey, rememberedKindsOf, rememberedNamesOf } from '../../src/domain/shopping'
 import type { Entry } from '../../src/db/types'
+import { resetCorrection } from '../../src/db/receiptItems'
 import { areaEntry } from '../fixtures/areas'
 
 // Fictional receipts only.
@@ -132,5 +133,73 @@ describe('approveReceipt: counting a receipt whose items do not add up (step 1, 
     const { isEntry } = await import('../../src/db/validate')
     const damaged = (approved: unknown) => isEntry({ ...backup.data.entries[0]!, photos: [{ id: 'p1', text: null, approved }] })
     expect([damaged({ total: 999, sum: 120 }), damaged({ total: null, sum: 120 }), damaged({ total: 'x', sum: 120 }), damaged({ total: 999 }), damaged(true)]).toEqual([true, true, false, false, false])
+  })
+})
+
+describe('correctReceipt: putting a receipt right, with a note of what changed (step 2, 2026-11-23)', () => {
+  let phone: LifeDesignDB
+  beforeEach(() => {
+    phone = openDb(`phone-${crypto.randomUUID()}`)
+  })
+  afterEach(async () => {
+    await phone.delete()
+  })
+
+  const withReceipt = (): Entry => ({ ...areaEntry({ id: 'e1', text: '', expect: [] }, '2026-10-20'), updatedAt: 3, photos: [{ id: 'p1', text: 'SHOP\nBread 1.20\nTOTAL 9.99', items: [{ key: 'Bread#1', kind: 'Cupboard' }] }] })
+  const photo = async () => (await phone.entries.get('e1'))!.photos[0]!
+
+  it('keeps the corrections on the photo beside what was read, merged with the kind already chosen, and makes it an edit', async () => {
+    await phone.entries.put(withReceipt())
+    await correctReceipt('e1', 'p1', { fix: { shop: 'Corner Shop', total: 420 }, items: [{ key: 'Bread#1', price: 300 }], extra: [{ name: 'Milk', price: 120, quantity: 1 }] }, ['Total £9.99 → £4.20'], phone)
+    expect(await photo()).toMatchObject({ text: 'SHOP\nBread 1.20\nTOTAL 9.99', fix: { shop: 'Corner Shop', total: 420 }, items: [{ key: 'Bread#1', kind: 'Cupboard', price: 300 }], extra: [{ name: 'Milk', price: 120, quantity: 1 }] })
+    expect((await phone.entries.get('e1'))!.updatedAt).toBeGreaterThan(3)
+  })
+
+  it('writes a note of the change in the same moment, with what changed in words', async () => {
+    await phone.entries.put(withReceipt())
+    await correctReceipt('e1', 'p1', { fix: { total: 420 }, items: [], extra: [] }, ['Total £9.99 → £4.20'], phone)
+    const [note] = await phone.auditLog.toArray()
+    expect(note).toMatchObject({ kind: 'receipt-corrected', entryId: 'e1', photoId: 'p1', changes: ['Total £9.99 → £4.20'] })
+    expect(note!.createdAt).toBe(note!.updatedAt)
+  })
+
+  it('goes back to the reading with resetCorrection, keeping a kind and a return, and notes that too', async () => {
+    await phone.entries.put(withReceipt())
+    await correctReceipt('e1', 'p1', { fix: { total: 420 }, items: [{ key: 'Bread#1', name: 'Loaf', price: 300, quantity: 2, removed: true }], extra: [{ name: 'Milk', price: 120, quantity: 1 }] }, ['x'], phone)
+    await resetCorrection('e1', 'p1', ['Back to as read'], phone)
+    expect(await photo()).toEqual({ id: 'p1', text: 'SHOP\nBread 1.20\nTOTAL 9.99', items: [{ key: 'Bread#1', kind: 'Cupboard' }] })
+    expect((await phone.auditLog.toArray()).map((n) => n.kind).sort()).toEqual(['receipt-corrected', 'receipt-reset'])
+  })
+
+  it('puts an item back with removed: false, and a later correction keeps the earlier ones', async () => {
+    await phone.entries.put(withReceipt())
+    await correctReceipt('e1', 'p1', { fix: { shop: 'Corner Shop' }, items: [{ key: 'Bread#1', removed: true }], extra: [] }, ['x'], phone)
+    expect((await photo()).items).toEqual([{ key: 'Bread#1', kind: 'Cupboard', removed: true }])
+    await correctReceipt('e1', 'p1', { fix: { total: 420 }, items: [{ key: 'Bread#1', removed: false }], extra: [] }, ['y'], phone)
+    expect(await photo()).toMatchObject({ fix: { shop: 'Corner Shop', total: 420 }, items: [{ key: 'Bread#1', kind: 'Cupboard' }] })
+    expect((await photo()).items![0]).not.toHaveProperty('removed')
+  })
+
+  it('does nothing, and writes no note, when the photo is gone', async () => {
+    await phone.entries.put(withReceipt())
+    await correctReceipt('e1', 'gone', { fix: { total: 1 }, items: [], extra: [] }, ['x'], phone)
+    await resetCorrection('e1', 'gone', ['x'], phone)
+    expect(await phone.auditLog.count()).toBe(0)
+    expect((await phone.entries.get('e1'))!.updatedAt).toBe(3)
+  })
+
+  it('notes an approval and taking it back', async () => {
+    await phone.entries.put(withReceipt())
+    await approveReceipt('e1', 'p1', { total: 999, sum: 120 }, phone)
+    await approveReceipt('e1', 'p1', null, phone)
+    expect((await phone.auditLog.toArray()).map((n) => n.kind).sort()).toEqual(['receipt-approved', 'receipt-unapproved'])
+  })
+
+  it('describes what changed between two readings of a receipt, in words', () => {
+    const before = { shop: 'ALDI', date: '2026-10-05', total: 999, items: [{ name: 'Coffee', price: 450, quantity: 1 }, { name: 'Milk', price: 120, quantity: 1 }] }
+    const after = { shop: 'Aldi', date: '2026-10-06', total: 570, items: [{ name: 'Coffee', price: 450, quantity: 1 }, { name: 'Bread', price: 120, quantity: 1 }] }
+    expect(receiptChanges(before, after, '£')).toEqual(['Shop ALDI → Aldi', 'Day 2026-10-05 → 2026-10-06', 'Total £9.99 → £5.70', 'Removed Milk £1.20', 'Added Bread £1.20'])
+    expect(receiptChanges(before, before, '£')).toEqual([])
+    expect(receiptChanges({ ...before, items: [{ name: 'Coffee', price: 450, quantity: 1 }] }, { ...before, items: [{ name: 'Coffee', price: 400, quantity: 2 }] }, '£')).toEqual(['Coffee £4.50 → £4.00 × 2'])
   })
 })

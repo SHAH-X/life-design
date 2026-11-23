@@ -1,7 +1,7 @@
 {
   "name": "life-design",
   "private": true,
-  "version": "0.53.0",
+  "version": "0.54.0",
   "description": "A private, phone-only daily journal built on Designing Your Life and Ikigai.",
   "type": "module",
   "engines": {
@@ -19,7 +19,8 @@
     "ios-check": "python3 -I scripts/ios-check.py",
     "icons": "pwa-assets-generator",
     "privacy-scan": "sh scripts/privacy-scan.sh",
-    "model": "node scripts/fetch-model.mjs"
+    "model": "node scripts/fetch-model.mjs",
+    "accuracy": "ACCURACY=1 vitest run tests/unit/receiptAccuracy.test.ts"
   },
   "dependencies": {
     "@dagrejs/dagre": "3.1.3",

@@ -4821,3 +4821,14 @@ body:has(dialog.sheet.full[open]) :is(.tabbar, .banner, .notice.strip) {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* Correct this receipt (step 2): one row per item: its name, price, quantity, and Take off. The layout pass is still owed. */
+.correct-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5rem 3rem auto;
+  gap: 6px;
+  align-items: center;
+}
+.correct-row[data-removed='true'] input {
+  text-decoration: line-through;
+}
