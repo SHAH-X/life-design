@@ -23,6 +23,8 @@ type Id = (typeof QUESTIONS)[number]['id']
 
 export function QuickAnswers({ data }: { data: AnswerData }) {
   const [open, setOpen] = useState<Id | null>(null)
+  // Nothing to ask about yet: no card (a journal-only owner gets no eight buttons leading to empty answers).
+  if (!data.lines.length && !data.products.length && !data.bills.length && !data.docs.length) return null
   return (
     <section className="card" aria-labelledby="quick-answers">
       <h2 id="quick-answers" className="rc-title">
@@ -76,7 +78,11 @@ function AnswerSheet({ which, data, onClose }: { which: Id; data: AnswerData; on
             ))}
           </div>
         ) : (
-          <p className="muted">No money out in {monthYear(lastMonth(data.today))} that Money could sort into a kind yet. Bring in a statement in Money, then ask again.</p>
+          <p className="muted">
+            {data.lines.some((l) => l.date.startsWith(lastMonth(data.today)) && l.amount < 0)
+              ? `Nothing paid in ${monthYear(lastMonth(data.today))} is sorted into a kind yet. In Money, choose what a payee is for, then ask again.`
+              : `No statement has money out for ${monthYear(lastMonth(data.today))}. Bring one in, in Money, then ask again.`}
+          </p>
         )
       ) : null}
       {answer ? <AnswerView answer={answer} /> : null}
@@ -94,7 +100,7 @@ function AnswerView({ answer }: { answer: QuickAnswer }) {
         </p>
       ))}
       {answer.empty ? <p>{answer.empty}</p> : null}
-      {answer.facts.length ? <span className="answer-tag" data-kind="fact">What your records show</span> : null}
+      {answer.facts.length ? <span className="answer-tag" data-kind="fact">{answer.factsLabel ?? 'What your records show'}</span> : null}
       {answer.facts.map((section, i) => (
         <div key={i}>
           {section.heading ? <h3 className="question-text">{section.heading}</h3> : null}
@@ -139,8 +145,14 @@ function AnswerView({ answer }: { answer: QuickAnswer }) {
 }
 
 /** Where a row goes: its own place, else Money at the month its payments are in (the latest, when they run over months). */
-const rowHref = (row: { href?: string; lines?: readonly { date: string }[] }): string | undefined =>
-  row.href ?? (row.lines?.length ? hashFor('money', row.lines.map((l) => l.date).sort().at(-1)!.slice(0, 7)) : undefined)
+const rowHref = (row: { href?: string; lines?: readonly { date: string; payee: { key: string; name: string } }[] }): string | undefined => {
+  if (row.href) return row.href
+  if (!row.lines?.length) return undefined
+  // Spending in that month, with a payee's name in its search box when the row is one payee's: where the payments are listed.
+  const month = row.lines.map((l) => l.date).sort().at(-1)!.slice(0, 7)
+  const one = new Set(row.lines.map((l) => l.payee.key)).size === 1 ? row.lines[0]!.payee.name : ''
+  return `${hashFor('money', month)}?section=spending${one ? `&find=${encodeURIComponent(one)}` : ''}`
+}
 
 function Row({ row }: { row: { label: string; value?: string; sub?: string } }) {
   return (

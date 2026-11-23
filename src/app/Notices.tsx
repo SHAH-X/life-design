@@ -22,7 +22,7 @@ export function useExportNudge(): Nudge | undefined {
 
 /** The one quiet line about your money (step 6): a payment far above any earlier one to the same payee, or a price that rose; undefined while
  *  loading, null when there is none. */
-function useMoneyNotice(): MoneyNotice | null | undefined {
+export function useMoneyNotice(): MoneyNotice | null | undefined {
   const data = useAnswerDataOnce()
   const seen = useLiveQuery(async () => new Set(seenNotices(await db.settings.get(MONEY_NOTICES_SEEN))), [])
   if (!data || !seen) return undefined
@@ -30,10 +30,9 @@ function useMoneyNotice(): MoneyNotice | null | undefined {
 }
 
 /** At most one notice at the top of Today, most important first: backup, then installing, then a quiet line about your money. */
-export function Notices({ nudge }: { nudge: Nudge }) {
+export function Notices({ nudge, money }: { nudge: Nudge; money: MoneyNotice | null }) {
   const { open } = useDialogs()
   const [installed] = useState(isStandalone)
-  const money = useMoneyNotice()
 
   if (nudge.due) {
     return (

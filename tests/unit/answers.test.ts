@@ -41,7 +41,7 @@ const data = (over: Partial<AnswerData> = {}): AnswerData => ({
   bills: [],
   docs: [],
   products: [],
-  heldReceipts: 0,
+  held: [],
   accountName: (a) => a.replace(/ ···.*/, ''),
   ...over,
 })
@@ -70,6 +70,12 @@ describe('what was spent on a kind last month', () => {
 })
 
 describe('the biggest expenses last month', () => {
+  it('totals a payee as Money does, a refund taken off, while the single payments stay the payments themselves', () => {
+    const withRefund = classify([...BANK, line('2026-10-14', 20, 'TESCO STORES 1234')], new Set())
+    const a = biggestExpenses(data({ lines: withRefund }))
+    expect(a.facts[0]!.rows.find((r) => r.label === 'Tesco')!.value).toBe('£232.00')
+    expect(a.facts[1]!.rows.map((r) => r.value).slice(0, 2)).toEqual(['£185.00', '£145.00'])
+  })
   it('ranks payees by what was paid, then the biggest single payments, each with its payments; money in is not an expense', () => {
     const a = biggestExpenses(data())
     expect(a.facts[0]!.heading).toBe('By who was paid')
@@ -168,14 +174,16 @@ describe('the cheapest shop for what you buy', () => {
 
 describe('what needs a look', () => {
   it('gathers tracked dates, renewals, receipts not counted and a statement missing, each in words', () => {
-    const a = needsLookAnswer(data({ bills: [bill()], docs: [doc()], heldReceipts: 2, statements: [statement('2026-05-01', '2026-10-31')] }))
+    const a = needsLookAnswer(data({ bills: [bill()], docs: [doc()], held: [{ id: 'h1', date: '2026-10-21' }, { id: 'h2', date: '2026-09-02' }], statements: [statement('2026-05-01', '2026-10-31')] }))
     const text = a.facts.flatMap((f) => f.rows.map((r) => `${r.label} ${r.sub ?? ''}`)).join(' | ')
     expect(text).toContain('Washing machine warranty')
     expect(text).toContain('Home insurance')
     expect(text).toContain('2 receipts')
     expect(a.facts[0]!.rows.find((r) => r.label.includes('receipts'))!.sub).toContain('their items')
-    expect(needsLookAnswer(data({ heldReceipts: 1, statements: [statement('2026-05-01', '2026-11-23')] })).facts[0]!.rows[0]!.sub).toContain('its items')
+    expect(needsLookAnswer(data({ held: [{ id: 'h1', date: '2026-10-21' }], statements: [statement('2026-05-01', '2026-11-23')] })).facts[0]!.rows[0]!.sub).toContain('its items')
     expect(a.facts[0]!.rows.every((r) => r.label === 'Home insurance' || r.href !== undefined)).toBe(true)
+    // To the month of the oldest receipt held back, in its Receipts view.
+    expect(a.facts[0]!.rows.find((r) => r.label.includes('receipts'))!.href).toBe('#/money/2026-09?view=receipts')
     expect(text).toMatch(/Lloyds.*statement/)
   })
   it('says there is nothing when there is nothing', () => {
@@ -209,5 +217,10 @@ describe('the one quiet line', () => {
     expect(moneyNotice(quiet, new Set())).toMatchObject({ text: `${MILK} rose £0.20 at Tesco on ${dayMonth('2026-10-17')} (£1.45 → £1.65).`, href: '#/shopping' })
     const small = productViews([receipt('x1', 'Tesco', '2026-10-03', [['Tea bags', 300]]), receipt('x2', 'Tesco', '2026-10-17', [['Tea bags', 305]])], [])
     expect(moneyNotice(data({ lines: [], products: small, today: '2026-10-25' }), new Set())).toBeNull()
+    // 1p on a 10p item is 10%, but not worth a line; 5p on 50p is.
+    const tiny = productViews([receipt('y1', 'Tesco', '2026-10-03', [['Mints', 10]]), receipt('y2', 'Tesco', '2026-10-17', [['Mints', 11]])], [])
+    expect(moneyNotice(data({ lines: [], products: tiny, today: '2026-10-25' }), new Set())).toBeNull()
+    const fifty = productViews([receipt('z1', 'Tesco', '2026-10-03', [['Biscuits', 50]]), receipt('z2', 'Tesco', '2026-10-17', [['Biscuits', 55]])], [])
+    expect(moneyNotice(data({ lines: [], products: fifty, today: '2026-10-25' }), new Set())?.text).toContain('Biscuits rose')
   })
 })

@@ -45,6 +45,16 @@ describe('bills and budgets you set', () => {
     expect((await phone.bills.toArray()).map((b) => b.name)).toEqual(['Gym'])
   })
 
+  it('clears the link on a document when its bill is taken off, and on none other', async () => {
+    const id = await saveBill(draft, null, phone)
+    const other = await saveBill({ ...draft, name: 'Gym' }, null, phone)
+    const doc = { kind: 'pdf' as const, mime: 'application/pdf', size: 3, pages: 1, text: '', tracked: [], dismissed: [], notes: '', createdAt: 1, updatedAt: 1, type: 'Insurance' }
+    await phone.documents.bulkPut([{ ...doc, id: 'd1', title: 'Policy', billId: id }, { ...doc, id: 'd2', title: 'Membership', billId: other }])
+    await removeBill(id, phone)
+    expect((await phone.documents.get('d1'))!.billId).toBeNull()
+    expect((await phone.documents.get('d2'))!.billId).toBe(other)
+  })
+
   it('sets one budget for each kind, changes it, and takes it away with null', async () => {
     await setBudget('Groceries', 30000, phone)
     await setBudget('Fuel', 10000, phone)

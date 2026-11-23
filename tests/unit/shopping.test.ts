@@ -406,6 +406,24 @@ describe('your corrections to a receipt lie over the reading', () => {
     expect(receiptsAndCopies([entry({ ...approved, fix: { total: 998 } })]).held.map((r) => r.id)).toEqual(['p'])
   })
 
+  // Audit 2026-11-23 (high): an offer's saving row was left behind when its item was taken off, and a price corrected beside it was
+  // counted without it, so a receipt that added up was held back after a correction.
+  const OFFER = reading([['Tea', 300], ['Clubcard saving', -50], ['Milk', 120]], 370)
+  it('keeps an offer with its item: it goes when the item goes, and a corrected price is paid less the offer', () => {
+    expect(first({ id: 'p', text: null, ai: OFFER }).items.map((i) => [i.name, i.price, i.saving])).toEqual([['Tea', 300, 50], ['Milk', 120, undefined]])
+    // Taken off with its offer: Milk alone, so a total of 120 adds up (and the offer row is not left to spoil it).
+    const removed = receiptsAndCopies([entry({ id: 'p', text: null, ai: OFFER, items: [{ key: 'Tea#1', removed: true }], fix: { total: 120 } })])
+    expect(removed.held).toEqual([])
+    expect(removed.receipts[0]!.items.map((i) => i.name)).toEqual(['Milk'])
+    expect(removed.receipts[0]).toMatchObject({ adds: true, total: 120 })
+    // A new price, the offer still off it: 280 - 50 + 120 = 350.
+    const priced = receiptsAndCopies([entry({ id: 'p', text: null, ai: OFFER, items: [{ key: 'Tea#1', price: 280 }], fix: { total: 350 } })])
+    expect(priced.held).toEqual([])
+    expect(priced.receipts[0]).toMatchObject({ adds: true })
+    // Only the total was changed, wrongly: held, as before.
+    expect(receiptsAndCopies([entry({ id: 'p', text: null, ai: OFFER, fix: { total: 371 } })]).held.map((r) => r.id)).toEqual(['p'])
+  })
+
   it('keeps an old receipt exactly as it was when nothing was corrected', () => {
     const [a, b] = [first({ id: 'p', text: null, ai: ADDS }), first({ id: 'p', text: null, ai: ADDS, items: [{ key: 'Tea#1', kind: 'Drinks' }] })]
     expect([a.items.map((i) => i.price), b.items.map((i) => i.price), a.adds, b.adds]).toEqual([[300, 120], [300, 120], true, true])

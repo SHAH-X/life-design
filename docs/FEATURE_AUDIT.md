@@ -1,6 +1,6 @@
 # Feature audit: household intelligence
 
-Audited 2026-11-23 at v0.52.4, from the code (not the screens). Status: EXISTING · PARTIAL · MISSING · NEEDS IMPROVEMENT.
+Audited 2026-11-23 at v0.52.4, from the code (not the screens); statuses brought up to v0.58.0. Status: EXISTING · PARTIAL · MISSING · NEEDS IMPROVEMENT.
 What the app is and why: [DECISIONS.md](../DECISIONS.md). What is planned: [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md).
 This file is rewritten when a row changes status; history is in git.
 

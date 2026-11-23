@@ -142,7 +142,7 @@ export function billEvents(bills: readonly Bill[], today: string): IcsEvent[] {
       startDate: start,
       startTime: '09:00',
       durationMinutes: 15,
-      rrule: repeatRule(bill.every, start),
+      rrule: repeatRule(bill.every, bill.next),
       alarm: `${what} is due in 2 days`,
       alarmBefore: '-P2D',
     }

@@ -92,11 +92,14 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
   const suggestions = useLiveQuery(() => loadSuggestions(), [], NO_SUGGESTIONS)
   const [sheet, setSheet] = useState<EntrySheetState>(null)
   const [receiptId, setReceiptId] = useState<string | null>(null)
-  const [view, setView] = useState<'accounts' | 'receipts' | 'investing'>(legacyView ?? 'accounts')
+  // Where to open can come in the address (`#/money/2026-10?section=spending&find=Tesco`, `?view=receipts`): the quick answers send a row to
+  // the payments or the receipts it counted, so they land where Money lists them the same way as anywhere (audit 2026-11-23).
+  const [opened] = useState(() => new URLSearchParams(window.location.hash.split('?')[1] ?? ''))
+  const [view, setView] = useState<'accounts' | 'receipts' | 'investing'>(legacyView ?? (opened.get('view') === 'receipts' ? 'receipts' : 'accounts'))
   // Which part of Accounts is open lives here, so stepping to another month keeps you where you were.
-  const [section, setSection] = useState<AccountsSection>('overview')
+  const [section, setSection] = useState<AccountsSection>(opened.get('section') === 'spending' ? 'spending' : 'overview')
   // What's typed in Spending's search box lives here too, for the same reason.
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(opened.get('find') ?? '')
   const earlierId = useId()
   useEffect(() => {
     if (legacyView) setView(legacyView)

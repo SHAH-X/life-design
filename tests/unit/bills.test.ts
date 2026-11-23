@@ -137,6 +137,11 @@ describe('calendar events for your bills', () => {
     expect(rule('year', '2026-03-31')).toBe('FREQ=YEARLY')
     expect(rule('week', '2026-01-31')).toBe('FREQ=WEEKLY')
   })
+  it('takes the repeat from the bill’s own day, not the shorter month it is next due in: a 31st in February still repeats on the last day', () => {
+    const [event] = billEvents([bill({ next: '2026-01-31' })], '2026-02-10')
+    expect(event!.startDate).toBe('2026-02-28')
+    expect(event!.rrule).toBe('FREQ=MONTHLY;BYMONTHDAY=28,29,30,31;BYSETPOS=-1')
+  })
   it('adds a one-off event for a renewal, with no repeat', () => {
     const events = billEvents([bill({ renewal: '2027-02-14', notes: 'Contract ends' })], '2026-11-23')
     expect(events.map((e) => [e.summary, e.startDate, e.rrule])).toEqual([['Streaming £10.99 due', '2026-12-03', 'FREQ=MONTHLY'], ['Streaming renews', '2027-02-14', undefined]])

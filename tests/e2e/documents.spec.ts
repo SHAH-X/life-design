@@ -44,7 +44,7 @@ test('Documents: add a PDF, see its dates, track one, link a bill, search its wo
   await sheet.locator('li', { hasText: 'Policy renewal date' }).getByRole('button', { name: 'Track as renewal' }).click()
   await sheet.locator('li', { hasText: 'Policy start date' }).getByRole('button', { name: 'Not a date to track' }).click()
   await expect(sheet.locator('.doc-date')).toHaveCount(1)
-  await expect(sheet.locator('.doc-date')).toContainText('renewal · tracked')
+  await expect(sheet.locator('.doc-date')).toContainText(/Renews .* · tracked/)
 
   // A bill linked, notes kept.
   await sheet.getByLabel('Linked bill').selectOption({ label: 'Home insurance · £240.00 every year' })

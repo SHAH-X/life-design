@@ -4972,3 +4972,6 @@ button.product-row {
   margin-left: var(--space-2);
   color: var(--muted);
 }
+.correct-offer {
+  grid-column: 1 / -1;
+}

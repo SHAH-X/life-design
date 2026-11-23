@@ -28,7 +28,14 @@ export async function saveBill(draft: BillDraft, id: string | null, database: Li
 
 /** Takes a bill off your list. */
 export async function removeBill(id: string, database: LifeDesignDB = defaultDb): Promise<void> {
-  await guardWrite(() => database.bills.delete(id))
+  await guardWrite(() =>
+    database.transaction('rw', database.bills, database.documents, async () => {
+      await database.bills.delete(id)
+      // A document linked to it is no longer linked to a bill that is gone (audit 2026-11-23).
+      const linked = await database.documents.filter((d) => d.billId === id).toArray()
+      for (const d of linked) await database.documents.update(d.id, { billId: null, updatedAt: Date.now() })
+    }),
+  )
 }
 
 /** Sets what you set aside each month for a kind of spending, in pence; null takes the budget away. */

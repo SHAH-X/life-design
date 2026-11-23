@@ -62,12 +62,21 @@ test('Your money and papers: eight questions answered on the phone, each with it
   await expect(sheet.locator('.answer-row').first()).toContainText('All of it£252.003 payments')
   // The total is apart from the payees; a row goes to its payments in Money, where a payment is always listed the same way (never here).
   await expect(sheet.getByRole('heading', { name: 'By who was paid' })).toBeVisible()
-  await expect(sheet.getByRole('link', { name: /^Tesco/ })).toHaveAttribute('href', '#/money/2026-10')
+  await expect(sheet.getByRole('link', { name: /^Tesco/ })).toHaveAttribute('href', /^#\/money\/2026-10\?section=spending&find=Tesco/i)
   await expect(sheet.getByRole('list', { name: 'Tesco: the payments' })).toHaveCount(0)
   await sheet.getByRole('button', { name: 'Energy', exact: true }).click()
   await expect(sheet).toContainText('Energy in October 2026')
   await expect(sheet.locator('.answer-row').first()).toContainText('£145.00')
   await close()
+
+  // Tapping a payee's row lands on Money's Spending with that payee searched: the payments, listed the way they are everywhere.
+  await card.getByRole('button', { name: 'Biggest expenses' }).click()
+  await sheet.getByRole('link', { name: /^Tesco\s*£252\.00/ }).click()
+  await expect(page).toHaveURL(/#\/money\/2026-10\?section=spending&find=/i)
+  await expect(page.getByRole('searchbox', { name: 'Search every payment, by name or amount' })).toHaveValue(/tesco/i)
+  await expect(page.getByRole('region', { name: 'Your accounts' })).toHaveCount(0)
+  await expect(page.getByText('£185.00').first()).toBeVisible()
+  await page.goto('./#/ask')
 
   await card.getByRole('button', { name: 'Biggest expenses' }).click()
   await expect(sheet.getByRole('heading', { name: 'By who was paid' })).toBeVisible()
@@ -82,7 +91,7 @@ test('Your money and papers: eight questions answered on the phone, each with it
   await expect(sheet).toContainText('1 May – 31 October 2026 · from Example Current')
   await expect(sheet.locator('.answer-row')).toHaveText([/May£112\.00/, /June£118\.00/, /July£121\.00/, /August£119\.00/, /September£111\.00/, /October£145\.00/])
   await expect(sheet).toContainText('October is £34.00 more than September.')
-  await expect(sheet.getByRole('link', { name: /^October/ })).toHaveAttribute('href', '#/money/2026-10')
+  await expect(sheet.getByRole('link', { name: /^October/ })).toHaveAttribute('href', '#/money/2026-10?section=spending&find=Octopus%20Energy')
   await expect(sheet.locator('.answer-card').filter({ hasText: 'An estimate' })).toContainText('a year of it would come to £1,740.00 (12 × £145.00)')
   await expect(sheet.locator('.answer-card').filter({ hasText: 'A thing to look at' })).toContainText('Octopus Energy is a regular payment that went up by £34.00 a month')
   await close()
@@ -128,6 +137,9 @@ test('Today: one quiet line about your money, shown once, newest first', async (
   await restoreBackup(page, testInfo.outputPath('notice.json'), backupWith({ bankLines: BANK, statements: STATEMENTS, entries: ENTRIES, products: PRODUCTS, settings: [{ key: 'lastExportAt', value: now.getTime(), updatedAt: 1 }] }, now))
   await page.goto('./#/today')
   const strip = page.getByRole('complementary', { name: 'About your money' })
+  // Drawn with Today, never after it: the heading and the line are there together, so nothing moves under a finger.
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  await expect(strip).toBeVisible({ timeout: 50 })
   // (A backup is marked as made, so its reminder, which comes first, is not showing.) The price that rose on 17 Oct is newer than the payment on 12 Oct.
   await expect(strip).toContainText(`${MILK} rose £0.20 at Tesco on`)
   await expect(page.getByRole('complementary')).toHaveCount(1)

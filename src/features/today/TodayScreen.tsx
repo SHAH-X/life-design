@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
-import { Notices, useExportNudge } from '../../app/Notices'
+import { Notices, useExportNudge, useMoneyNotice } from '../../app/Notices'
 import { isBackAfterBreak } from '../../app/welcome'
 import { db } from '../../db/db'
 import { loadSuggestions, NO_SUGGESTIONS } from '../../db/repo'
@@ -39,6 +39,8 @@ export function TodayScreen() {
   const day = useLiveQuery(() => db.days.get(date).then((d) => d ?? null), [date])
   const lastEntryDate = useLiveQuery(() => db.entries.where('date').below(today).last().then((e) => e?.date ?? null), [today])
   const nudge = useExportNudge()
+  // Known before Today draws, so its quiet line never arrives late and pushes the box down (CLAUDE.md: nothing moves under the finger).
+  const money = useMoneyNotice()
   const purpose = usePurposeSettings()
   const tonight = useTonight(date)
   const own = useOwnWords()
@@ -51,6 +53,7 @@ export function TodayScreen() {
     entries === undefined ||
     day === undefined ||
     nudge === undefined ||
+    money === undefined ||
     purpose === undefined ||
     tonight === undefined ||
     own === undefined ||
@@ -65,7 +68,7 @@ export function TodayScreen() {
 
   return (
     <>
-      <Notices nudge={nudge} />
+      <Notices nudge={nudge} money={money} />
 
       <header className="day-header">
         <div className="day-title">

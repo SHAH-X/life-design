@@ -50,14 +50,18 @@ function receiptOf(photo: PhotoRef, remembered: Remembered, itemFor: NamesFiled)
   const kept = withRemembered(reading.items, read.shop, remembered, itemFor)
   const gone = new Set((photo.items ?? []).filter((c) => c.removed).map((c) => c.key))
   const added = (photo.extra ?? []).map((e, i) => ({ name: e.name, price: e.price, quantity: e.quantity, key: `added#${i + 1}` }))
-  const changed = [...(photo.items?.length ? withChanges(kept, photo.items) : kept).map((item, i) => ({ ...item, key: keys[i]! })).filter((item) => !gone.has(item.key)), ...added]
-  // Whether the items reach the total is the phone's to say, from the numbers: again after a correction.
-  if (corrected) {
-    read.adds = read.total === null || changed.reduce((s, item) => s + item.price, 0) === read.total
-    read.edited = true
+  const edited = (photo.items?.length ? withChanges(kept, photo.items) : kept).map((item, i) => ({ ...item, key: keys[i]! }))
+  const text = photo.ai?.text || photo.text || ''
+  if (corrected) read.edited = true
+  if (read.refund) {
+    const changed = [...edited.filter((item) => !gone.has(item.key)), ...added]
+    return { ...asMoneyBack(read, changed), ...(corrected ? { edited: true as const } : {}), ...(backToGiftCard(text) ? { giftCard: true as const } : {}) }
   }
-  if (read.refund) return { ...asMoneyBack(read, changed), ...(corrected ? { edited: true as const } : {}), ...(backToGiftCard(photo.ai?.text || photo.text || '') ? { giftCard: true as const } : {}) }
-  const items = withSavings(changed, photo.ai?.text || photo.text || '')
+  // Offers are joined to their items first and an item is taken off afterwards, so its offer goes with it (audit 2026-11-23: a saving row
+  // was left behind, and a receipt that added up was held back after a correction).
+  const items = [...withSavings(edited, text).filter((item) => !gone.has(item.key ?? '')), ...added]
+  // Whether the items reach the total is the phone's to say, from the numbers: what was paid, again after a correction.
+  if (corrected) read.adds = read.total === null || items.reduce((s, item) => s + paidFor(item), 0) === read.total
   return { ...read, items, ...paidIn(photo, read.total ?? items.reduce((s, item) => s + paidFor(item), 0)) }
 }
 

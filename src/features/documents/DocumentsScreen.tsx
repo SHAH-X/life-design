@@ -69,7 +69,8 @@ export function DocumentsScreen() {
   if (docs === undefined || bills === undefined) return <Loading />
   const opened = docs.find((d) => d.id === openId)
   const looks = needsLook(docs, today, LOOK_DAYS)
-  const results = query.trim() ? searchDocuments(docs, query) : null
+  // Two letters at least: a single letter shows the list as it is, not "0 documents".
+  const results = query.trim().length >= 2 ? searchDocuments(docs, query) : null
   const billOf = (id: string | null) => bills.find((b) => b.id === id)
   const noText = docs.filter((d) => d.text === '').length
 

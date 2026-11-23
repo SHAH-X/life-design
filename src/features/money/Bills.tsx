@@ -4,7 +4,7 @@ import { type BillDraft, removeBill, saveBill, setBudget } from '../../db/bills'
 import { db } from '../../db/db'
 import type { Bill, BillEvery, StatementRecord } from '../../db/types'
 import { billEvents, billsTotal, budgetRows, draftFromRegular, dueSoon, EVERY_WORDS, nextPayment, paidAgainst, renewalIn } from '../../domain/bills'
-import { type MoneyLine, monthCoverage, PAYMENT_KINDS, regularPayments } from '../../domain/money'
+import { type MoneyLine, monthCoverage, PAYMENT_KINDS, regularPayments, titleCaseShouted } from '../../domain/money'
 import { monthYear, shortDayMonth } from '../../lib/dates'
 import { amountField, money, parseMoney } from '../../lib/money'
 import { canShareFile, downloadFile, shareFile } from '../../lib/share'
@@ -128,7 +128,7 @@ function BillsSheet(props: {
             <button type="button" className="small-link top-gap" onClick={calendarFile}>
               Add your listed bills to your calendar
             </button>
-            <p className="muted small">The bills you listed above, in a calendar file with an alert two days before each payment. Mail it to yourself or AirDrop it to your Mac, then add it.</p>
+            <p className="muted small">The bills you listed above, with an alert two days before each payment.</p>
           </>
         ) : null}
         {offered.length ? (
@@ -181,13 +181,13 @@ function BillsSheet(props: {
           + Set a budget
         </button>
       </Dialog>
-      {editing ? <BillEditor key={editing.id ?? 'new'} id={editing.id} draft={editing.draft} onClose={() => setEditing(null)} /> : null}
+      {editing ? <BillEditor key={editing.id ?? 'new'} id={editing.id} draft={editing.draft} payees={regularPayments(lines, today.slice(0, 7), today).map((r) => ({ key: r.payee.key, name: titleCaseShouted(r.payee.name) }))} onClose={() => setEditing(null)} /> : null}
       {budgeting ? <BudgetEditor kind={budgeting === 'new' ? null : budgeting} taken={budgets.map((b) => b.kind)} current={budgets.find((b) => b.kind === budgeting)?.amount ?? null} onClose={() => setBudgeting(null)} /> : null}
     </>
   )
 }
 
-function BillEditor({ id, draft, onClose }: { id: string | null; draft: BillDraft; onClose: () => void }) {
+function BillEditor({ id, draft, payees, onClose }: { id: string | null; draft: BillDraft; payees: readonly { key: string; name: string }[]; onClose: () => void }) {
   const [name, setName] = useState(draft.name)
   const [kind, setKind] = useState(draft.kind)
   const [amount, setAmount] = useState(draft.amount ? amountField(draft.amount) : '')
@@ -196,6 +196,7 @@ function BillEditor({ id, draft, onClose }: { id: string | null; draft: BillDraf
   const [renewal, setRenewal] = useState(draft.renewal ?? '')
   const [method, setMethod] = useState(draft.method)
   const [notes, setNotes] = useState(draft.notes)
+  const [payee, setPayee] = useState(draft.payee ?? '')
   const [problem, setProblem] = useState<string | null>(null)
   const [sure, setSure] = useState(false)
   const everyId = useId()
@@ -205,7 +206,7 @@ function BillEditor({ id, draft, onClose }: { id: string | null; draft: BillDraf
     if (!name.trim()) return setProblem('Give it a name.')
     if (pence === null || pence <= 0) return setProblem('The amount isn’t one. Type what it costs each time, like 10.99.')
     if (!next) return setProblem('Choose a day it is paid: the next is counted from it.')
-    await saveBill({ name, kind, amount: pence, every, next, renewal: renewal || null, method, notes, payee: draft.payee }, id)
+    await saveBill({ name, kind, amount: pence, every, next, renewal: renewal || null, method, notes, payee: payee || null }, id)
     onClose()
   }
 
@@ -257,6 +258,19 @@ function BillEditor({ id, draft, onClose }: { id: string | null; draft: BillDraf
         <span>Renews on, if it has a term</span>
         <input type="date" value={renewal} onChange={(e) => setRenewal(e.target.value)} />
       </label>
+      {payees.length ? (
+        <label className="field">
+          <span>Paid to, in your statements</span>
+          <select value={payee} onChange={(e) => setPayee(e.target.value)}>
+            <option value="">Not linked</option>
+            {payees.map((p) => (
+              <option key={p.key} value={p.key}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <label className="field">
         <span>How it is paid</span>
         <input value={method} placeholder="e.g. Direct debit from Lloyds" onChange={(e) => setMethod(e.target.value)} />
@@ -288,13 +302,14 @@ function BillEditor({ id, draft, onClose }: { id: string | null; draft: BillDraf
 
 function BudgetEditor({ kind, taken, current, onClose }: { kind: string | null; taken: readonly string[]; current: number | null; onClose: () => void }) {
   const free = PAYMENT_KINDS.filter((k) => !taken.includes(k))
-  const [chosen, setChosen] = useState(kind ?? free[0] ?? '')
+  const [chosen, setChosen] = useState(kind ?? '')
+  const [sure, setSure] = useState(false)
   const [amount, setAmount] = useState(current ? amountField(current) : '')
   const [problem, setProblem] = useState<string | null>(null)
 
   async function save() {
     const pence = parseMoney(amount)
-    if (!chosen) return setProblem('Every kind already has a budget.')
+    if (!chosen) return setProblem(free.length ? 'Choose what the budget is for.' : 'Every kind already has a budget.')
     if (pence === null || pence <= 0) return setProblem('The amount isn’t one. Type what you set aside each month, like 250.')
     await setBudget(chosen, pence)
     onClose()
@@ -314,6 +329,7 @@ function BudgetEditor({ kind, taken, current, onClose }: { kind: string | null; 
         <label className="field">
           <span>What it’s for</span>
           <select value={chosen} onChange={(e) => setChosen(e.target.value)}>
+            <option value="">Choose a kind</option>
             {free.map((k) => (
               <option key={k} value={k}>
                 {k}
@@ -332,9 +348,15 @@ function BudgetEditor({ kind, taken, current, onClose }: { kind: string | null; 
         </p>
       ) : null}
       {kind ? (
-        <button type="button" className="small-link" onClick={() => void setBudget(kind, null).then(onClose)}>
-          Take this budget away
-        </button>
+        sure ? (
+          <button type="button" className="small-link" onClick={() => void setBudget(kind, null).then(onClose)}>
+            Yes, take this budget away
+          </button>
+        ) : (
+          <button type="button" className="small-link" onClick={() => setSure(true)}>
+            Take this budget away
+          </button>
+        )
       ) : null}
     </Dialog>
   )

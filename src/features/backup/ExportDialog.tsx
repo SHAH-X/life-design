@@ -91,7 +91,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Dialog title="Back up" onClose={onClose}>
-      <p>Makes one file with everything: activities, small joys, Ikigai, plans and settings.</p>
+      <p>Makes one file with everything on this phone: your journal, photos, statements, receipts, bills, budgets and documents. It can be large, so send it to your Mac by AirDrop.</p>
 
       <Switch
         label="Protect with a password"

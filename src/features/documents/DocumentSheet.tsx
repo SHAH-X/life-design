@@ -18,6 +18,8 @@ import { useAutosave } from './useAutosave'
 const TRACK: Record<TrackKind, string> = { renews: 'renewal', expires: 'expiry', ends: 'end', due: 'due date', starts: 'start' }
 const TRACK_KINDS = Object.keys(TRACK) as TrackKind[]
 const key = (date: string, kind: string) => `${date}|${kind}`
+/** "Ends Tue 1 Dec": a tracked date said the way the list of dates coming up says it. */
+const tracked = (t: { date: string; kind: TrackKind }) => `${KIND_WORDS[t.kind].replace(/^is /, '').replace(/^./, (c) => c.toUpperCase())} ${shortDayMonth(t.date)}`
 
 export function DocumentSheet({ doc, bills, today, onClose }: { doc: DocumentRecord; bills: readonly Bill[]; today: string; onClose: () => void }) {
   const [title, setTitle] = useState(doc.title)
@@ -78,7 +80,7 @@ export function DocumentSheet({ doc, bills, today, onClose }: { doc: DocumentRec
       </label>
 
       <h3 className="question-text">Dates in it</h3>
-      <p className="muted small">Nothing is tracked until you say so.</p>
+      {doc.tracked.length === 0 ? <p className="muted small">Nothing is tracked until you say so.</p> : null}
       {doc.text === null ? <p className="muted">Its words haven’t been read yet.</p> : null}
       {doc.text === '' ? <p className="muted">No text was found in it: it may be a scan. Add a date yourself below.</p> : null}
       <ul className="plain-list compact">
@@ -100,7 +102,7 @@ export function DocumentSheet({ doc, bills, today, onClose }: { doc: DocumentRec
         {doc.tracked.map((t) => (
           <li key={key(t.date, t.kind)} className="doc-date">
             <span>
-              <strong>{formatDateKey(t.date)}</strong> · {TRACK[t.kind]} · tracked
+              <strong>{tracked(t)}</strong> · tracked
             </span>
             <button type="button" onClick={() => void untrackDate(doc.id, key(t.date, t.kind))}>
               Stop tracking {formatDateKey(t.date)}
@@ -127,7 +129,7 @@ export function DocumentSheet({ doc, bills, today, onClose }: { doc: DocumentRec
           type="button"
           disabled={!mine.date}
           onClick={() => {
-            void trackDate(doc.id, { date: mine.date, kind: mine.kind, label: `You said it ${KIND_WORDS[mine.kind].replace(/^is /, 'is ')}` })
+            void trackDate(doc.id, { date: mine.date, kind: mine.kind, label: `You said it ${KIND_WORDS[mine.kind]}` })
             setMine({ date: '', kind: 'renews' })
           }}
         >
@@ -139,7 +141,7 @@ export function DocumentSheet({ doc, bills, today, onClose }: { doc: DocumentRec
           <button type="button" className="small-link" onClick={calendarFile}>
             Add the dates to your calendar
           </button>
-          <p className="muted small">A calendar file with alerts 30 and 2 days before each date. Mail it to yourself or AirDrop it to your Mac, then add it.</p>
+          <p className="muted small">Alerts 30 and 2 days before each date.</p>
         </>
       ) : null}
 

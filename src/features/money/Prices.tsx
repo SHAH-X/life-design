@@ -126,7 +126,7 @@ export function ProductSheet({ view, onClose }: { view: ProductView; onClose: ()
 
       {line.sightings.length >= 2 ? (
         <>
-          <h3 className="question-text">At {shopWords(line.shop)}</h3>
+          <h3 className="question-text">At {shopWords(line.shop)}{sameKind ? ` · ${UNIT_WORDS[kind!]}` : ''}</h3>
           {view.shops.length > 1 ? (
             <div role="group" aria-label="Shop" className="chip-row">
               {view.shops.map((s) => (
@@ -179,7 +179,7 @@ export function ProductSheet({ view, onClose }: { view: ProductView; onClose: ()
               <p>
                 <strong>{shopWords(s.shop)}’s “{s.title}”</strong> looks like the same thing, but a similar name isn’t proof.
               </p>
-              <div className="button-row" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <div className="doc-file-actions">
                 <button type="button" onClick={() => void joinProduct(ref, s.members)}>
                   Same product
                 </button>

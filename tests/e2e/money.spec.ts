@@ -1833,7 +1833,7 @@ test('the year says money out for each quarter, leaving out a month with a state
   await restoreBackup(page, testInfo.outputPath('quarters.json'), backupWith({ bankLines, statements }, now))
   await page.goto('./#/money/2026')
   const block = page.getByRole('region', { name: 'By quarter' })
-  await expect(block.getByRole('listitem')).toHaveText([/Jan – Mar.*3 of 3 months.*£60\.00/, /Apr – Jun.*1 of 3 months.*£40\.00/, /Jul – Sep.*3 of 3 months.*£21\.00/])
+  await expect(block.getByRole('listitem')).toHaveText([/Jan – Mar.*£60\.00/, /Apr – Jun.*1 of 3 months.*£40\.00/, /Jul – Sep.*£21\.00/])
   // A month with payments but a statement missing is named as left out, so the year's figures can be reconciled with these.
   await expect(block).toContainText('Left out: June.')
   await expect(block).toContainText('from the months with every statement in')

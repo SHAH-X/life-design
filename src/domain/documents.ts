@@ -163,7 +163,7 @@ function segments(text: string, from: number, to: number, terms: readonly string
 }
 
 /** Your documents that have every word you typed, in their title or their words, whatever the capitals: a title match first, then
- *  the most matches. Words match exactly. Nothing for fewer than two letters. */
+ *  the most matches. The letters you type, matched anywhere in a word. Nothing for fewer than two letters. */
 export function searchDocuments(docs: readonly DocumentRecord[], query: string): SearchResult[] {
   const terms = termsOf(query)
   if (terms.length === 0) return []

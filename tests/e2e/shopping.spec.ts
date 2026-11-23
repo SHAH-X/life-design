@@ -258,6 +258,29 @@ test('Prices you’ve paid: a product’s price per litre, joined to another sho
   await expect(page.getByRole('dialog').locator('.product-shop')).toHaveCount(1)
 })
 
+// Audit 2026-11-23 (high): the form's running line added shelf prices and ignored an offer, so a receipt that added up said "over", and a correction
+// beside an offer could hold it back.
+test('Correct this receipt: an offer is kept with its item, the running line counts what was paid, and the receipt still counts', async ({ page }, testInfo) => {
+  await restoreReceipts(page, testInfo.outputPath('receipts.json'))
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  await line(page, '5 receipts from 3 shops').click()
+  await page.getByRole('button', { name: /Sat 10 Oct Tesco/ }).click()
+  await page.getByRole('dialog', { name: 'Tesco' }).getByRole('button', { name: 'Correct this receipt' }).click()
+  const form = page.getByRole('dialog', { name: 'Correct this receipt' })
+  await expect(form).toContainText('Offer £0.50 off, kept with it')
+  await expect(form.getByRole('status')).toHaveText('Items come to £1.25; the receipt printed £1.25. They add up.')
+  // A real correction beside the offer: the pasta costs 70p and the total is 10p less; it still adds up and still counts.
+  await form.getByLabel('Price of Pasta').fill('0.70')
+  await expect(form.getByRole('status')).toContainText('£0.10 short')
+  await form.getByLabel('Total it printed').fill('1.15')
+  await expect(form.getByRole('status')).toHaveText('Items come to £1.15; the receipt printed £1.15. They add up.')
+  await form.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Tesco' }).getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(page.getByRole('strong')).toHaveText('£59.29 spent')
+  await expect(page.getByRole('region', { name: 'Receipts to check' }).getByText('Sat 10 Oct')).toHaveCount(0)
+})
+
 // Owner, 2026-10-31: "i cannot see the item in that receipt or which category the item … is assigned to", and things
 // "returned … whose refund is obtained" should not count in the expense.
 test('a receipt opens to its items, each with its price and kind; you can choose another kind, or say you returned it', async ({ page }, testInfo) => {

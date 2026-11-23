@@ -33,7 +33,7 @@ export interface AnswerData {
   docs: readonly DocumentRecord[]
   products: readonly ProductView[]
   /** Receipts whose items don't add up, held back from every sum. */
-  heldReceipts: number
+  held: readonly { id: string; date: string }[]
   accountName: (account: string) => string
 }
 
@@ -65,6 +65,8 @@ export interface QuickAnswer {
   look: { text: string }[]
   /** Said instead of an answer when there is nothing to answer from. */
   empty?: string
+  /** What the facts are called when they are not all recorded: a pattern projected from your records. */
+  factsLabel?: string
 }
 
 const pounds = (pence: number) => money(pence, '£')
@@ -145,14 +147,16 @@ export function spentOnKind(d: AnswerData, kind: string, month: string = lastMon
 
 /** The biggest expenses of a month (last month unless one is given): who was paid most, and the biggest single payments. */
 export function biggestExpenses(d: AnswerData, month: string = lastMonth(d.today)): QuickAnswer {
-  const out = itsOf(d, month).outLines.filter((l) => l.amount < 0 && !l.refund)
+  const all = itsOf(d, month).outLines
+  const out = all.filter((l) => l.amount < 0 && !l.refund)
   const base = { title: `Biggest expenses in ${monthYear(month)}`, period: rangeWords(month, month) + fromAccounts(d, month, month), caveats: [monthCaveat(d, month)].filter((c): c is string => c !== null), look: [] }
   if (out.length === 0) return { ...base, facts: [], empty: `No payments out in ${monthYear(month)}.` }
   const singles = [...out].sort((a, b) => a.amount - b.amount || b.date.localeCompare(a.date)).slice(0, 5)
   return {
     ...base,
     facts: [
-      { heading: 'By who was paid', rows: byPayee(out, 8) },
+      // Each payee as Money totals it, a refund taken off; the single payments below are the payments themselves.
+      { heading: 'By who was paid', rows: byPayee(all, 8) },
       { heading: 'Biggest single payments', rows: singles.map((l) => ({ label: nameOf(l), value: pounds(-l.amount), sub: shortDayMonth(l.date), lines: [l] })) },
     ],
   }
@@ -164,7 +168,7 @@ export function costChange(d: AnswerData, kind: string, count = 6): QuickAnswer 
   const last = lastMonth(d.today)
   const months = monthsBack(last, count)
   const coverage = monthCoverage(d.statements, d.closed, months, d.today)
-  const base = { title: kind, period: rangeWords(months[0]!, last) + fromAccounts(d, months[0]!, last), look: [] as { text: string }[] }
+  const base = { title: `How ${kind} changed`, period: rangeWords(months[0]!, last) + fromAccounts(d, months[0]!, last), look: [] as { text: string }[] }
   const caveats: string[] = []
   const rows: AnswerRow[] = []
   const totals: { month: string; total: number }[] = []
@@ -233,6 +237,7 @@ export function dueAnswer(d: AnswerData, days = 30): QuickAnswer {
   ].sort((a, b) => a.date.localeCompare(b.date) || a.row.label.localeCompare(b.row.label))
   const total = items.reduce((s, i) => s + i.amount, 0)
   return {
+    factsLabel: 'What your records suggest',
     title: `Due in the next ${days} days`,
     period: `${shortDayMonth(d.today)} – ${shortDayMonth(addDays(d.today, days))}`,
     caveats: ['These are a pattern, not a promise: nothing says a payment will happen on the day.'],
@@ -294,7 +299,11 @@ export function needsLookAnswer(d: AnswerData, within = 60): QuickAnswer {
     const days = renewalIn(b, d.today)
     if (days !== null && days <= within) rows.push({ label: b.name, sub: `renews ${shortDayMonth(b.renewal!)} · in ${word(days, 'day', 'days')}` })
   }
-  if (d.heldReceipts) rows.push({ href: '#/shopping', label: `${word(d.heldReceipts, 'receipt', 'receipts')} not counted yet`, sub: `${d.heldReceipts === 1 ? 'its items don’t' : 'their items don’t'} add up to the total: open them to count or correct` })
+  if (d.held.length) {
+    // To the month of the oldest one: a receipt held back is listed only in its own month.
+    const oldest = [...d.held].sort((x, y) => x.date.localeCompare(y.date))[0]!
+    rows.push({ href: `#/money/${oldest.date.slice(0, 7)}?view=receipts`, label: `${word(d.held.length, 'receipt', 'receipts')} not counted yet`, sub: `${d.held.length === 1 ? 'its items don’t' : 'their items don’t'} add up to the total: open ${d.held.length === 1 ? 'it' : 'the oldest'} to count or correct` })
+  }
   for (const a of itsOf(d, d.today.slice(0, 7)).toCheck.accounts) rows.push({ href: '#/money', label: d.accountName(a.account), sub: `statement needed: nothing after ${shortDayMonth(a.until)}` })
   const odd = d.lines.filter((l) => !l.adds).length
   if (odd) rows.push({ href: '#/money', label: word(odd, 'payment', 'payments'), sub: 'whose printed balance did not follow from the line before: open Money to see them' })
@@ -320,7 +329,7 @@ export interface MoneyNotice {
 
 /** A payment counts as unusual when it is over £20 and more than twice the largest of at least 3 earlier payments to the same payee
  *  (owner-approved 2026-11-23); a price rose when it is 20p or 10% or more, for something bought at least twice there. */
-export const NOTICE = { minPayment: 2000, times: 2, earlier: 3, riseMinor: 20, risePercent: 0.1, days: 21 } as const
+export const NOTICE = { minPayment: 2000, times: 2, earlier: 3, riseMinor: 20, risePercent: 0.1, risePercentLeast: 5, days: 21 } as const
 
 /** The one quiet line for Today, if there is one not already seen: the newest payment far above any earlier one to the same payee, or
  *  price that rose, in the last three weeks. */
@@ -339,7 +348,8 @@ export function moneyNotice(d: AnswerData, seen: ReadonlySet<string>): MoneyNoti
     const c = v.change
     if (!c || c.toDate < since || c.toDate > d.today || v.times < 2) continue
     const rise = c.to - c.from
-    if (rise <= 0 || (rise < NOTICE.riseMinor && rise / c.from < NOTICE.risePercent)) continue
+    // 20p, or 10% when that is at least 5p: a 1p rise on a 10p item is not worth a line.
+    if (rise <= 0 || (rise < NOTICE.riseMinor && !(rise / c.from >= NOTICE.risePercent && rise >= NOTICE.risePercentLeast))) continue
     found.push({ key: `price:${v.id}:${c.toDate}`, date: c.toDate, href: '#/shopping', text: `${v.title} rose ${pounds(Math.round(rise))} at ${titleCaseShouted(c.shop)} on ${dayMonth(c.toDate)} (${pounds(Math.round(c.from))} → ${pounds(Math.round(c.to))}).` })
   }
   return found.filter((n) => !seen.has(n.key)).sort((a, b) => b.date.localeCompare(a.date) || a.key.localeCompare(b.key))[0] ?? null

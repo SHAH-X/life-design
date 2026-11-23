@@ -60,7 +60,7 @@ async function loadAnswerData(): Promise<AnswerData> {
       bills,
       docs,
       products: productViews(receipts, records),
-      heldReceipts: held.length,
+      held: held.map((r) => ({ id: r.id, date: r.date })),
       accountName: (account) => names.get(account) ?? account,
     }
   }

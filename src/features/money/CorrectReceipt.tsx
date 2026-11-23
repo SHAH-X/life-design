@@ -17,6 +17,8 @@ interface Row {
   price: string
   quantity: string
   removed: boolean
+  /** What an offer took off it, in pence: counted in what the items come to, never edited here. */
+  saving: number
 }
 
 /** An item you added earlier is kept as an added one, whatever number it is now. */
@@ -27,11 +29,12 @@ export function CorrectReceipt({ receipt, onClose }: { receipt: KnownReceipt; on
   const [shop, setShop] = useState(receipt.shop)
   const [date, setDate] = useState(receipt.date)
   const [total, setTotal] = useState(receipt.total === null ? '' : amountField(receipt.total))
-  const [rows, setRows] = useState<Row[]>(() => receipt.items.map((item) => ({ key: item.key ?? null, name: itemShown(item), price: amountField(item.price), quantity: String(item.quantity), removed: false })))
+  const [rows, setRows] = useState<Row[]>(() => receipt.items.map((item) => ({ key: item.key ?? null, name: itemShown(item), price: amountField(item.price), quantity: String(item.quantity), removed: false, saving: item.saving ?? 0 })))
   const [problem, setProblem] = useState<string | null>(null)
   const currency = receipt.currency || '£'
   // Whether the items reach the printed total, as you change them: what fixing a receipt that doesn't add up is for.
-  const prices = rows.filter((r) => !r.removed).map((r) => parseMoney(r.price))
+  // What was paid: each price less the offer that came off it.
+  const prices = rows.filter((r) => !r.removed).map((r) => { const p = parseMoney(r.price); return p === null ? null : p - r.saving })
   const totalNow = total.trim() === '' ? null : parseMoney(total)
   const sum = prices.reduce<number>((s, p) => s + (p ?? 0), 0)
   const gap = totalNow === null ? 0 : sum - totalNow
@@ -134,13 +137,14 @@ export function CorrectReceipt({ receipt, onClose }: { receipt: KnownReceipt; on
             <input aria-label={`Name of item ${i + 1}`} value={row.name} disabled={row.removed} onChange={(e) => set(i, { name: e.target.value })} />
             <input aria-label={`Price of ${row.name || `item ${i + 1}`}`} inputMode="decimal" value={row.price} disabled={row.removed} onChange={(e) => set(i, { price: e.target.value })} />
             <input aria-label={`Quantity of ${row.name || `item ${i + 1}`}`} inputMode="numeric" value={row.quantity} disabled={row.removed} onChange={(e) => set(i, { quantity: e.target.value })} />
+            {row.saving > 0 ? <span className="muted small correct-offer">Offer {money(row.saving, currency)} off, kept with it</span> : null}
             <button type="button" className="small-link" onClick={() => (row.key === null && !row.removed ? setRows((now) => now.filter((_, at) => at !== i)) : set(i, { removed: !row.removed }))}>
               {row.removed ? 'Put back' : 'Take off'}
             </button>
           </li>
         ))}
       </ul>
-      <button type="button" className="small-link" onClick={() => setRows((now) => [...now, { key: null, name: '', price: '', quantity: '1', removed: false }])}>
+      <button type="button" className="small-link" onClick={() => setRows((now) => [...now, { key: null, name: '', price: '', quantity: '1', removed: false, saving: 0 }])}>
         + Add an item
       </button>
       <p className="muted small" role="status">

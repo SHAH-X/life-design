@@ -136,7 +136,7 @@ export function AccountsYear(props: {
               <li key={q.quarter} className="acc-li">
                 <div className="acc-row">
                   <span className="acc-row-text">
-                    <span className="acc-row-title">{quarterWords(q.quarter)}</span> <span className="acc-row-sub">{q.months} of 3 months</span>
+                    <span className="acc-row-title">{quarterWords(q.quarter)}</span> {q.months < 3 ? <span className="acc-row-sub">{q.months} of 3 months</span> : null}
                   </span>{' '}
                   <span className="acc-row-value">{pounds(q.out)}</span>
                 </div>
