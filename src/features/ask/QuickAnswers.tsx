@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { type AnswerData, biggestExpenses, billsAnswer, cheapestShops, costChange, dueAnswer, kindsSpent, lastMonth, needsLookAnswer, pricesRose, type QuickAnswer, spentOnKind } from '../../domain/answers'
-import { titleCaseShouted } from '../../domain/money'
-import { shortDayMonth } from '../../lib/dates'
-import { money } from '../../lib/money'
+import { monthYear } from '../../lib/dates'
+import { hashFor } from '../../lib/route'
 import { Dialog } from '../../ui/Dialog'
+import { Icon } from '../../ui/Icon'
 
 // Quick answers about your money and papers (step 6, 2026-11-23, owner-approved plan; its mock shown first): worked out on the phone to
 // the penny. Nothing is sent anywhere, and no AI sees your bank payments (owner, 2026-10-26). Each answer says its period, keeps what your
@@ -76,7 +76,7 @@ function AnswerSheet({ which, data, onClose }: { which: Id; data: AnswerData; on
             ))}
           </div>
         ) : (
-          <p className="muted">No money out in {lastMonth(data.today)} that Money could sort into a kind yet. Bring in a statement in Money, then ask again.</p>
+          <p className="muted">No money out in {monthYear(lastMonth(data.today))} that Money could sort into a kind yet. Bring in a statement in Money, then ask again.</p>
         )
       ) : null}
       {answer ? <AnswerView answer={answer} /> : null}
@@ -101,20 +101,14 @@ function AnswerView({ answer }: { answer: QuickAnswer }) {
           <ul className="plain-list compact">
             {section.rows.map((row, j) => (
               <li key={j}>
-                {row.lines && row.lines.length ? (
-                  <details className="answer-row">
-                    <summary>
-                      <Row row={row} />
-                    </summary>
-                    <ul className="plain-list compact answer-payments" aria-label={`${row.label}: the payments`}>
-                      {row.lines.map((l) => (
-                        <li key={l.id}>
-                          {shortDayMonth(l.date)} · {titleCaseShouted(l.label ?? l.payee.name)} · {money(Math.abs(l.amount), '£')}
-                          {l.amount > 0 ? ' back' : ''}
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
+                {/* A row that goes somewhere is a link with a chevron: its payments are listed in Money, where a payment is always listed the same way. */}
+                {rowHref(row) ? (
+                  <a className="answer-row answer-link" href={rowHref(row)}>
+                    <Row row={row} />
+                    <span className="answer-chevron" aria-hidden="true">
+                      <Icon name="chevron-right" size={16} />
+                    </span>
+                  </a>
                 ) : (
                   <div className="answer-row">
                     <Row row={row} />
@@ -143,6 +137,10 @@ function AnswerView({ answer }: { answer: QuickAnswer }) {
     </>
   )
 }
+
+/** Where a row goes: its own place, else Money at the month its payments are in (the latest, when they run over months). */
+const rowHref = (row: { href?: string; lines?: readonly { date: string }[] }): string | undefined =>
+  row.href ?? (row.lines?.length ? hashFor('money', row.lines.map((l) => l.date).sort().at(-1)!.slice(0, 7)) : undefined)
 
 function Row({ row }: { row: { label: string; value?: string; sub?: string } }) {
   return (

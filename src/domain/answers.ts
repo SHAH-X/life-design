@@ -41,8 +41,10 @@ export interface AnswerRow {
   label: string
   value?: string
   sub?: string
-  /** The payments behind it, to show. */
+  /** The payments behind it: the row goes to them in Money, where a payment is always listed the same way (never listed here). */
   lines?: readonly MoneyLine[]
+  /** Where the row goes, when it is not payments. */
+  href?: string
 }
 
 export interface AnswerSection {
@@ -132,7 +134,13 @@ export function spentOnKind(d: AnswerData, kind: string, month: string = lastMon
   const group = kindGroupsOf(d, month).find((g) => g.kind === kind)
   if (!group || group.total === 0) return { ...base, facts: [], empty: `Nothing was paid to ${kind} in ${monthYear(month)}.` }
   const payments = group.lines.filter((l) => !l.refund).length
-  return { ...base, facts: [{ rows: [{ label: 'All of it', value: pounds(group.total), sub: word(payments, 'payment', 'payments'), lines: group.lines }, ...byPayee(group.lines, 8)] }] }
+  return {
+    ...base,
+    facts: [
+      { heading: 'In all', rows: [{ label: 'All of it', value: pounds(group.total), sub: word(payments, 'payment', 'payments'), lines: group.lines }] },
+      { heading: 'By who was paid', rows: byPayee(group.lines, 8) },
+    ],
+  }
 }
 
 /** The biggest expenses of a month (last month unless one is given): who was paid most, and the biggest single payments. */
@@ -170,13 +178,14 @@ export function costChange(d: AnswerData, kind: string, count = 6): QuickAnswer 
     totals.push({ month: c.month, total })
     rows.push({ label: monthName(c.month), value: pounds(total), lines: group?.lines })
   }
+  if (totals.length === 0) return { ...base, caveats, facts: [], empty: 'No month in this time has every statement in, so there is nothing to compare yet.' }
   if (totals.every((t) => t.total === 0)) return { ...base, caveats, facts: [], empty: `Nothing was paid to ${kind} in these months.` }
   const [now, before] = [totals.at(-1), totals.at(-2)]
   const note = now && before ? `${monthName(now.month)} is ${pounds(Math.abs(now.total - before.total))} ${now.total >= before.total ? 'more' : 'less'} than ${monthName(before.month)}.` : undefined
   const estimate = now && now.total > 0 ? `At ${monthName(now.month)}’s amount, a year of it would come to ${pounds(now.total * 12)} (12 × ${pounds(now.total)}). Nothing says it will stay there.` : undefined
   const look = regularPayments(d.lines, last, d.today)
     .filter((r) => r.changed && r.lines.some((l) => (d.kinds[l.payee.key] ?? kindOfName(d, l)) === kind))
-    .map((r) => ({ text: `${titleCaseShouted(r.payee.name)} is a regular payment that went up by ${pounds(r.changed!.to - r.changed!.from)} a ${r.every} on ${dayMonth(r.changed!.date)}.` }))
+    .map((r) => ({ text: `${titleCaseShouted(r.payee.name)} is a regular payment that went ${r.changed!.to >= r.changed!.from ? 'up' : 'down'} by ${pounds(Math.abs(r.changed!.to - r.changed!.from))} a ${r.every} on ${dayMonth(r.changed!.date)}.` }))
     .filter((_, i) => i < 3)
   return { ...base, caveats, facts: [{ rows, note }], estimate, look }
 }
@@ -220,7 +229,7 @@ export function dueAnswer(d: AnswerData, days = 30): QuickAnswer {
   const items: Item[] = [
     ...dueSoon(d.bills, d.today, days).map(({ bill, date }): Item => ({ date, amount: bill.amount, row: { label: bill.name, value: pounds(bill.amount), sub: `around ${shortDayMonth(date)}` } })),
     ...upcoming(unlisted(d), d.today, days).map((u): Item => ({ date: u.date, amount: u.amount, row: { label: titleCaseShouted(u.payee.name), value: pounds(u.amount), sub: `around ${shortDayMonth(u.date)}` } })),
-    ...needsLook(d.docs, d.today, days).map((n): Item => ({ date: n.date, amount: 0, row: { label: n.doc.title, sub: `${KIND_WORDS[n.kind].replace(/^is /, '')} ${shortDayMonth(n.date)}` } })),
+    ...needsLook(d.docs, d.today, days).map((n): Item => ({ date: n.date, amount: 0, row: { href: '#/more/documents', label: n.doc.title, sub: `${KIND_WORDS[n.kind].replace(/^is /, '')} ${shortDayMonth(n.date)}` } })),
   ].sort((a, b) => a.date.localeCompare(b.date) || a.row.label.localeCompare(b.row.label))
   const total = items.reduce((s, i) => s + i.amount, 0)
   return {
@@ -280,15 +289,15 @@ export function cheapestShops(d: AnswerData): QuickAnswer {
 /** What needs a look: tracked dates and renewals coming up, receipts not counted, statements not in, payments that don't add up. */
 export function needsLookAnswer(d: AnswerData, within = 60): QuickAnswer {
   const rows: AnswerRow[] = []
-  for (const n of needsLook(d.docs, d.today, within)) rows.push({ label: n.doc.title, sub: `${KIND_WORDS[n.kind].replace(/^is /, '')} ${shortDayMonth(n.date)} · in ${word(n.days, 'day', 'days')}` })
+  for (const n of needsLook(d.docs, d.today, within)) rows.push({ href: '#/more/documents', label: n.doc.title, sub: `${KIND_WORDS[n.kind].replace(/^is /, '')} ${shortDayMonth(n.date)} · in ${word(n.days, 'day', 'days')}` })
   for (const b of d.bills) {
     const days = renewalIn(b, d.today)
     if (days !== null && days <= within) rows.push({ label: b.name, sub: `renews ${shortDayMonth(b.renewal!)} · in ${word(days, 'day', 'days')}` })
   }
-  if (d.heldReceipts) rows.push({ label: `${word(d.heldReceipts, 'receipt', 'receipts')} not counted yet`, sub: 'their items don’t add up to the total; open Money → Receipts to count or correct' })
-  for (const a of itsOf(d, d.today.slice(0, 7)).toCheck.accounts) rows.push({ label: d.accountName(a.account), sub: `statement needed: nothing after ${shortDayMonth(a.until)}` })
+  if (d.heldReceipts) rows.push({ href: '#/shopping', label: `${word(d.heldReceipts, 'receipt', 'receipts')} not counted yet`, sub: `${d.heldReceipts === 1 ? 'its items don’t' : 'their items don’t'} add up to the total: open them to count or correct` })
+  for (const a of itsOf(d, d.today.slice(0, 7)).toCheck.accounts) rows.push({ href: '#/money', label: d.accountName(a.account), sub: `statement needed: nothing after ${shortDayMonth(a.until)}` })
   const odd = d.lines.filter((l) => !l.adds).length
-  if (odd) rows.push({ label: word(odd, 'payment', 'payments'), sub: 'whose printed balance did not follow from the line before: open Money → Statements' })
+  if (odd) rows.push({ href: '#/money', label: word(odd, 'payment', 'payments'), sub: 'whose printed balance did not follow from the line before: open Money to see them' })
   return {
     title: 'What needs a look',
     period: `From today to ${shortDayMonth(addDays(d.today, within))}, and anything waiting`,

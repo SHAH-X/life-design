@@ -60,8 +60,10 @@ test('Your money and papers: eight questions answered on the phone, each with it
   await expect(sheet).toContainText('Groceries in October 2026')
   await expect(sheet).toContainText('1 – 31 October 2026 · from Example Current')
   await expect(sheet.locator('.answer-row').first()).toContainText('All of it£252.003 payments')
-  await sheet.locator('.answer-row', { hasText: 'Tesco' }).nth(1).locator('summary').click()
-  await expect(sheet.getByRole('list', { name: 'Tesco: the payments' }).getByRole('listitem')).toHaveCount(3)
+  // The total is apart from the payees; a row goes to its payments in Money, where a payment is always listed the same way (never here).
+  await expect(sheet.getByRole('heading', { name: 'By who was paid' })).toBeVisible()
+  await expect(sheet.getByRole('link', { name: /^Tesco/ })).toHaveAttribute('href', '#/money/2026-10')
+  await expect(sheet.getByRole('list', { name: 'Tesco: the payments' })).toHaveCount(0)
   await sheet.getByRole('button', { name: 'Energy', exact: true }).click()
   await expect(sheet).toContainText('Energy in October 2026')
   await expect(sheet.locator('.answer-row').first()).toContainText('£145.00')
@@ -80,8 +82,7 @@ test('Your money and papers: eight questions answered on the phone, each with it
   await expect(sheet).toContainText('1 May – 31 October 2026 · from Example Current')
   await expect(sheet.locator('.answer-row')).toHaveText([/May£112\.00/, /June£118\.00/, /July£121\.00/, /August£119\.00/, /September£111\.00/, /October£145\.00/])
   await expect(sheet).toContainText('October is £34.00 more than September.')
-  // A row that opens to its payments shows no browser triangle above its label.
-  await expect(sheet.locator('.answer-row > summary').first()).toHaveCSS('list-style-type', 'none')
+  await expect(sheet.getByRole('link', { name: /^October/ })).toHaveAttribute('href', '#/money/2026-10')
   await expect(sheet.locator('.answer-card').filter({ hasText: 'An estimate' })).toContainText('a year of it would come to £1,740.00 (12 × £145.00)')
   await expect(sheet.locator('.answer-card').filter({ hasText: 'A thing to look at' })).toContainText('Octopus Energy is a regular payment that went up by £34.00 a month')
   await close()
@@ -113,6 +114,7 @@ test('Your money and papers: eight questions answered on the phone, each with it
 
   await card.getByRole('button', { name: 'What needs a look' }).click()
   await expect(sheet.locator('.answer-row')).toHaveText([/Washing machine warranty.*ends.*in 8 days/, /Home insurance.*renews.*in 50 days/, /Example Current.*statement needed: nothing after/])
+  await expect(sheet.getByRole('link', { name: /^Washing machine warranty/ })).toHaveAttribute('href', '#/more/documents')
   await close()
 
   // Nothing went anywhere: no request to any address but this app's own.

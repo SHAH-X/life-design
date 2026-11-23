@@ -54,9 +54,11 @@ describe('what was spent on a kind last month', () => {
     const a = spentOnKind(data(), 'Groceries')
     expect(a.title).toBe('Groceries in October 2026')
     expect(a.period).toBe('1 – 31 October 2026 · from Lloyds')
+    expect(a.facts[0]).toMatchObject({ heading: 'In all' })
     expect(a.facts[0]!.rows[0]).toMatchObject({ label: 'All of it', value: '£252.00', sub: '3 payments' })
-    expect(a.facts[0]!.rows[1]).toMatchObject({ label: 'Tesco', value: '£252.00' })
-    expect(a.facts[0]!.rows[1]!.lines).toHaveLength(3)
+    expect(a.facts[1]).toMatchObject({ heading: 'By who was paid' })
+    expect(a.facts[1]!.rows[0]).toMatchObject({ label: 'Tesco', value: '£252.00' })
+    expect(a.facts[1]!.rows[0]!.lines).toHaveLength(3)
     expect(a.caveats).toEqual([])
   })
   it('says when a statement is missing for the month, and when nothing was spent, never inventing an amount', () => {
@@ -85,6 +87,17 @@ describe('how a cost changed', () => {
     expect(a.facts[0]!.note).toBe('October is £34.00 more than September.')
     expect(a.estimate).toBe('At October’s amount, a year of it would come to £1,740.00 (12 × £145.00). Nothing says it will stay there.')
     expect(a.look.map((l) => l.text)).toEqual([`Octopus Energy is a regular payment that went up by £34.00 a month on ${dayMonth('2026-10-03')}.`])
+  })
+  it('says a fall is a fall, with the amount as a positive number', () => {
+    const falling = classify([...[['2026-05-03', 140], ['2026-06-03', 140], ['2026-07-03', 140], ['2026-08-03', 140], ['2026-09-03', 140], ['2026-10-03', 110]].map(([d, p]) => line(String(d), -Number(p), 'OCTOPUS ENERGY'))], new Set())
+    const a = costChange(data({ lines: falling }), 'Energy')
+    expect(a.look.map((l) => l.text)).toEqual([`Octopus Energy is a regular payment that went down by £30.00 a month on ${dayMonth('2026-10-03')}.`])
+    expect(a.facts[0]!.note).toBe('October is £30.00 less than September.')
+  })
+  it('says there is no month to compare, not that nothing was paid, when no month has every statement in', () => {
+    const a = costChange(data({ statements: [] }), 'Energy')
+    expect(a.empty).toBe('No month in this time has every statement in, so there is nothing to compare yet.')
+    expect(a.facts).toEqual([])
   })
   it('leaves out a month with a statement missing, and says so, never counting it as nothing', () => {
     const a = costChange(data({ statements: [statement('2026-05-01', '2026-08-31'), statement('2026-10-01', '2026-10-31')] }), 'Energy')
@@ -160,6 +173,9 @@ describe('what needs a look', () => {
     expect(text).toContain('Washing machine warranty')
     expect(text).toContain('Home insurance')
     expect(text).toContain('2 receipts')
+    expect(a.facts[0]!.rows.find((r) => r.label.includes('receipts'))!.sub).toContain('their items')
+    expect(needsLookAnswer(data({ heldReceipts: 1, statements: [statement('2026-05-01', '2026-11-23')] })).facts[0]!.rows[0]!.sub).toContain('its items')
+    expect(a.facts[0]!.rows.every((r) => r.label === 'Home insurance' || r.href !== undefined)).toBe(true)
     expect(text).toMatch(/Lloyds.*statement/)
   })
   it('says there is nothing when there is nothing', () => {
