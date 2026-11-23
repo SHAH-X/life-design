@@ -81,7 +81,7 @@ test('a receipt goes to your AI by itself once it’s set up; another photo only
   expect(photos[0]).toEqual({ auth: `Bearer ${KEY}`, image: `data:image/jpeg;base64,${RECEIPT_JPEG}` })
 
   await page.goto('./#/entries')
-  await entryButton(page, 'Photo').click()
+  await entryButton(page, 'Greenleaf Market').click()
   const receipt = page.getByRole('dialog', { name: 'Photo' })
   // Receipts go to the lighter model the key lists, with a free daily limit of its own (owner, 2026-10-26).
   await expect(receipt.getByText('Read by Gemini · gemini-2.5-flash-lite')).toBeVisible()
@@ -106,7 +106,7 @@ test('a receipt goes to your AI by itself once it’s set up; another photo only
 
   // Found by the plain name the AI gave an item, which the receipt doesn't print (v0.19.3).
   await page.getByLabel('Search your logs').fill('organic')
-  await expect(entryButton(page, 'Photo')).toBeVisible()
+  await expect(entryButton(page, 'Greenleaf Market')).toBeVisible()
   await expect(entryButton(page, 'Free writing')).toHaveCount(0)
 
   // Gemini was asked to think little: reading is copying out (v0.19.1).
@@ -161,7 +161,7 @@ test('with "Read receipts with AI" off, a receipt read before plain names is rea
   expect(photos).toEqual([])
 
   await page.goto('./#/entries')
-  await entryButton(page, 'Photo').click()
+  await entryButton(page, 'Greenleaf Market').click()
   const dialog = page.getByRole('dialog', { name: 'Photo' })
   await expect(dialog.getByText('Sends this photo to Gemini again, to give its items proper names.')).toBeVisible()
   await expect(dialog.getByText(/read by itself/)).toHaveCount(0)
@@ -196,7 +196,7 @@ test('a receipt Gemini is too busy to read waits, says so, and is read by itself
   await expect.poll(() => busy, { timeout: 30_000 }).toBe(4)
 
   await page.goto('./#/entries')
-  await entryButton(page, 'Photo').click()
+  await entryButton(page, 'Greenleaf Market').click()
   const dialog = page.getByRole('dialog', { name: 'Photo' })
   // Why, in words (owner, 2026-10-26: the same message every time, its reason hidden).
   await expect(dialog.getByText("Couldn't be read just now. The service is busy. Try again in a minute. It's tried again by itself while the app is open.")).toBeVisible({ timeout: 10_000 })
@@ -225,7 +225,7 @@ test('a tap on Read with AI that Gemini refuses says why, on a receipt waiting t
   await page.goto('./#/more/photos')
   await page.getByRole('switch', { name: /Read the text in photos/ }).check()
   await page.goto('./#/entries')
-  await entryButton(page, 'Photo').click()
+  await entryButton(page, 'Greenleaf Market').click()
   const dialog = page.getByRole('dialog', { name: 'Photo' })
   await dialog.getByRole('button', { name: 'Read with AI' }).click()
   await expect(dialog.getByRole('alert')).toHaveText("That's more than the service allows just now. Wait a minute and try again.", { timeout: 20_000 })
@@ -248,7 +248,7 @@ test('a receipt over Gemini’s daily limit says so, and isn’t sent again by i
   await page.getByRole('switch', { name: /Read the text in photos/ }).check()
   await expect.poll(() => sent, { timeout: 30_000 }).toBe(1)
   await page.goto('./#/entries')
-  await entryButton(page, 'Photo').click()
+  await entryButton(page, 'Greenleaf Market').click()
   const dialog = page.getByRole('dialog', { name: 'Photo' })
   await expect(dialog.getByText(/Gemini’s free limit for today is used up\. It starts again at \d{1,2}:\d\d( [AP]M)?\./)).toBeVisible({ timeout: 10_000 })
   await dialog.getByRole('button', { name: 'Done', exact: true }).click()
@@ -313,7 +313,7 @@ test('turned off, receipts stay on the phone; a refused key is said under the re
   )
   await page.getByRole('switch', { name: /Read receipts with AI/ }).check()
   await page.goto('./#/entries')
-  await entryButton(page, 'Photo').click()
+  await entryButton(page, 'Greenleaf Market').click()
   await expect(page.getByRole('dialog', { name: 'Photo' }).getByText("The key wasn't accepted. Check it in More → AI review.")).toBeVisible({ timeout: 15_000 })
 })
 
