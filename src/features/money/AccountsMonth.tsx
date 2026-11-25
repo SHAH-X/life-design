@@ -95,6 +95,13 @@ export function neighbourMonths(months: readonly string[], month: string, today:
   }
 }
 
+/** The months Receipts steps between (owner, 2026-11-25: it had no arrows): every month with a receipt in it, this month always, and a
+ *  month read as dated ahead too, which nothing listed before. From a month with nothing in it, the arrows still go to the nearest ones. */
+export function receiptNeighbours(months: readonly string[], month: string, today: string): { earlier?: string; later?: string } {
+  const all = [...new Set([...months, today.slice(0, 7)])].sort()
+  return { earlier: all.filter((m) => m < month).at(-1), later: all.find((m) => m > month) }
+}
+
 /** The way back to the latest month from an earlier one, beside the month's name (audit 2026-11-20: it was a link above the title, which moved the title row). */
 export function ThisMonth({ href, label = 'This month' }: { href: string; label?: string }) {
   return (

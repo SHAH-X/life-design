@@ -741,3 +741,39 @@ test('a receipt’s entry is listed by its shop and what it came to, with no tex
     expect(text).toContain('A view of the sea from the cliff path')
   }
 })
+
+// Owner, 2026-11-25: "under receipts section there is no side arrow on top to navigate to previous month". Receipts steps between its
+// months with the arrows Accounts has, and a receipt read as dated in a later month is reachable too (it appeared nowhere).
+test('Receipts steps between months with the arrows in the title row, later ones included, and an empty month still has them', async ({ page }, testInfo) => {
+  // Read as dated 5 November though it was added today, the 24th of October.
+  const misdated = receiptEntry('f1', '2026-10-24', reading('Lidl', '2026-11-05', [['Bread', 120]]))
+  await restoreBackup(page, testInfo.outputPath('stepper.json'), backupWith({ entries: [...ENTRIES, misdated] }, SATURDAY))
+  await page.goto('./#/money')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  const months = page.getByRole('navigation', { name: 'Months' })
+  // This month: back to September, and on to the November one that was dated ahead.
+  await expect(page.getByRole('paragraph').filter({ hasText: /^October so far$/ })).toBeVisible()
+  await expect(months.getByRole('link', { name: 'Later: November 2026' })).toBeVisible()
+  await months.getByRole('link', { name: 'Earlier: September 2026' }).click()
+  await expect(page.getByRole('paragraph').filter({ hasText: /^September 2026$/ })).toBeVisible()
+  await expect(page.getByRole('strong')).toHaveText('£2.40 spent')
+  // Still on Receipts, and the arrows go back to this month.
+  await months.getByRole('link', { name: 'Later: October 2026' }).click()
+  await expect(page).toHaveURL(/#\/money$/)
+  await expect(page.getByRole('strong')).toHaveText('£59.39 spent')
+  // The later month holds the misdated receipt, and a way back.
+  await months.getByRole('link', { name: 'Later: November 2026' }).click()
+  await expect(page.getByRole('strong')).toHaveText('£1.20 spent')
+  await expect(months.getByRole('link', { name: 'Earlier: October 2026' })).toBeVisible()
+  await expect(months.getByRole('link', { name: /^Later/ })).toHaveCount(0)
+})
+
+test('a month with nothing in it still has the arrows on Receipts, so there is a way back', async ({ page }, testInfo) => {
+  await restoreReceipts(page, testInfo.outputPath('empty-month.json'))
+  await page.goto('./#/money/2026-07')
+  await page.getByRole('button', { name: 'Receipts', exact: true }).click()
+  await expect(page.getByText('No receipts counted in July 2026.')).toBeVisible()
+  const months = page.getByRole('navigation', { name: 'Months' })
+  await months.getByRole('link', { name: 'Later: September 2026' }).click()
+  await expect(page.getByRole('strong')).toHaveText('£2.40 spent')
+})

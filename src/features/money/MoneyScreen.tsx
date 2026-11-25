@@ -36,7 +36,7 @@ import { Loading } from '../../ui/Loading'
 import { EntrySheet, type EntrySheetState } from '../today/EntrySheet'
 import { useOwnWords } from '../today/useOwnWords'
 import { usePurposeSettings } from '../today/usePurpose'
-import { type AccountsSection, AccountsMonth, MonthStepper, neighbourMonths, renameHint } from './AccountsMonth'
+import { type AccountsSection, AccountsMonth, MonthStepper, neighbourMonths, receiptNeighbours, renameHint } from './AccountsMonth'
 import { Accounts, RenameSheet } from './Accounts'
 import { AccountsYear } from './AccountsYear'
 import { Investing } from './Investing'
@@ -207,11 +207,15 @@ export function MoneyScreen({ sub, legacyView }: { sub: string | null; legacyVie
       Statements
     </button>
   ) : null
+  // Receipts' arrows: any month a receipt is dated in (a refund slip or an extra copy too), this month, and one read as dated ahead.
+  const receiptSteps = receiptNeighbours(shoppingMonths([...receipts, ...held, ...refunds, ...copies.map((c) => c.copy)]), month, today)
   const steps =
     view === 'accounts' && lines.length ? (
       <MonthStepper thisMonth={thisMonth} earlier={earlierMonth} later={laterMonth} />
     ) : view === 'investing' && investLines.length ? (
       <MonthStepper thisMonth={thisMonth} earlier={investNeighbours.earlier} later={investNeighbours.later} />
+    ) : view === 'receipts' ? (
+      <MonthStepper thisMonth={thisMonth} earlier={receiptSteps.earlier} later={receiptSteps.later} />
     ) : null
   const earlier = shoppingMonths([...receipts, ...held]).filter((m) => m < thisMonth).sort().reverse()
   // The open payment is read afresh from the lines, so a name given to it shows in its sheet at once.
