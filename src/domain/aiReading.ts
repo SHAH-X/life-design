@@ -14,6 +14,7 @@ export const AI_READING_INSTRUCTIONS = [
   'Read this photo. Reply with JSON only.',
   'If it is a receipt, reply: {"receipt": true, "shop": "the shop", "date": "YYYY-MM-DD or null", "currency": "£, $, € or empty", "items": [{"name": "the item as printed, its codes left out", "plain": "what it is, in plain words", "price": "1.73", "quantity": 1, "kind": "Dairy and eggs"}], "total": "the total paid, or null", "text": "all the text you can read, line by line"}.',
   'The date is when it was bought: never a refund, exchange, expiry, collection or delivery date; null if the photo shows none.',
+  'A printed date is day first, then month, then year, unless it is in dollars: "24.11.26" is 24 November 2026, never 26 November 2024.',
   'Each line bought is an item at the price it shows (for "2 @ 1.50 3.00", one item: quantity 2, price "3.00"). A saving or discount is an item with a negative price. Payment, change, gift card, balance and points lines are not items.',
   'If it was paid with loyalty points (a points redemption: prices and total printed in points, not money), add "points": the points used, as a number. Then each item\'s "price" is "0.00" unless a money price is printed for it, and "total" is the money paid, "0.00" if none. Never write points as money.',
   'Give each item a plain name too: what it most likely is, in plain words ("GRK YOG 4PK" is "Greek yoghurt, 4 pack"); if you are not sure, the name as printed, adding nothing.',

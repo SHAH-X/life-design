@@ -32,6 +32,10 @@ const receiptReply = JSON.stringify({
 })
 
 describe('AI_READING_INSTRUCTIONS: how the AI is asked to read a photo', () => {
+  it('says a printed date is read day first, so "24.11.26" is 24 November 2026 (owner, 2026-11-25: the AI read it as 26 Nov 2024)', () => {
+    expect(AI_READING_INSTRUCTIONS).toContain('day first')
+    expect(AI_READING_INSTRUCTIONS).toContain('"24.11.26" is 24 November 2026')
+  })
   it('asks for a receipt, each item with its plain name and its kind', () => {
     expect(AI_READING_INSTRUCTIONS).toContain(
       'If it is a receipt, reply: {"receipt": true, "shop": "the shop", "date": "YYYY-MM-DD or null", "currency": "£, $, € or empty", "items": [{"name": "the item as printed, its codes left out", "plain": "what it is, in plain words", "price": "1.73", "quantity": 1, "kind": "Dairy and eggs"}], "total": "the total paid, or null", "text": "all the text you can read, line by line"}.',

@@ -102,6 +102,32 @@ describe('receiptsOf: whether a date was read, and who read it', () => {
     expect(byPhone).toMatchObject({ date: '2026-10-12', dated: true, readBy: null })
   })
 
+  // Owner, 2026-11-25: two receipts printed "24.11.26" and "23.11.26" were filed in November 2024 and 2023, so they showed in Logs and in
+  // no month Money listed. A date is day.month.year here; the AI wrote it the other way round. The printed text, read day first, wins
+  // when the AI's date is exactly a printed one with its day and year swapped, and any other date of the AI's stands. Made-up shop and prices.
+  describe('the AI’s date against the date printed on the receipt', () => {
+    const TEXT = 'GREENLEAF MARKET\nOat milk 1.65 A\nTotal 1.65\n*1234 C012/034/567 24.11.26 19:20\nThank you'
+    const read = (date: string | null, text: string, currency = '£') => ({ by: 'Gemini · gemini-test', at: 1, text, description: '', receipt: { shop: 'Greenleaf Market', date, currency, items: [{ name: 'Oat milk', price: 165, quantity: 1 }], total: 165 } })
+    const dateOf = (ai: ReturnType<typeof read>, phone: string | null = null) => receiptsOf([{ ...areaEntry({ id: 'e1', text: '', expect: [] }, '2026-11-24'), photos: [{ id: 'p1', text: phone, ai }] }])[0]
+    it('uses the printed date when the AI wrote year and day the wrong way round', () => {
+      expect(dateOf(read('2024-11-26', TEXT))).toMatchObject({ date: '2026-11-24', dated: true })
+    })
+    it('uses the phone’s text when the AI’s own text has no date', () => {
+      expect(dateOf(read('2024-11-26', 'GREENLEAF MARKET\nTotal 1.65'), TEXT)).toMatchObject({ date: '2026-11-24' })
+    })
+    it('keeps the AI’s date when it is on the receipt, whatever line it is on', () => {
+      expect(dateOf(read('2026-11-24', `${TEXT}\nOffer ends 30.11.26`))).toMatchObject({ date: '2026-11-24' })
+      expect(dateOf(read('2026-11-30', `${TEXT}\nOffer ends 30.11.26`))).toMatchObject({ date: '2026-11-30' })
+    })
+    it('keeps a date of the AI’s that is not printed and not a swap of one (a refund slip’s own day, a date it chose)', () => {
+      expect(dateOf(read('2026-11-22', TEXT))).toMatchObject({ date: '2026-11-22' })
+    })
+    it('keeps the AI’s date when no text was read, and one in month-first order on a dollar receipt', () => {
+      expect(dateOf(read('2026-11-24', ''))).toMatchObject({ date: '2026-11-24' })
+      expect(dateOf(read('2026-11-24', 'GREENLEAF MARKET\n11/24/26 7:20 PM\nTotal 1.65', '$'))).toMatchObject({ date: '2026-11-24' })
+    })
+  })
+
   // v0.24.0: the card it was paid with, from your AI's text of it, else the phone's. Made-up numbers.
   it('says which card paid: as your AI wrote the text out, else as the phone read it', () => {
     const reading = (text: string) => ({ by: 'Gemini · gemini-test', at: 1, text, description: '', receipt: { shop: 'Greenleaf Market', date: '2026-10-12', currency: '£', items: [{ name: 'Oat milk', price: 165, quantity: 1 }], total: 165 } })

@@ -7,7 +7,7 @@ import { MIN_COUNT } from '../analysis/stats'
 import type { Entry, ItemChange, PhotoRef } from '../db/types'
 import { addMonths } from '../lib/dates'
 import { notReadYet } from './aiReading'
-import { type CardPaid, chainOf, isRefundSlip, ITEM_KINDS, type ItemKind, itemShown, joinParts, paidFor, paymentOf, type ReceiptItem, readReceipt, type Receipt, receiptTime, shopWords } from './receipts'
+import { type CardPaid, chainOf, dateIn, isRefundSlip, ITEM_KINDS, type ItemKind, itemShown, joinParts, paidFor, paymentOf, type ReceiptItem, readReceipt, type Receipt, receiptTime, shopWords } from './receipts'
 
 /** A receipt in a photo of a finished entry. Its id is the photo's; its date is the receipt's, else the entry's. */
 export interface KnownReceipt extends Omit<Receipt, 'date'> {
@@ -134,13 +134,29 @@ function withSavings(items: readonly ReceiptItem[], text: string): ReceiptItem[]
   return out
 }
 
+/** The date your AI gave, checked against the dates printed on the receipt (owner, 2026-11-25: "24.11.26" was read as 26 Nov 2024, so two
+ *  receipts sat two years back, in a month nothing listed). Printed dates are read day first (`dateIn`). Only the fault seen is mended: an AI
+ *  date that is a printed date with its day and year swapped becomes the printed one (AI's own text first, then the phone's). Any other date
+ *  stands, even one that is not printed: the AI may have good reason, and a guess here would count a receipt on the wrong day. */
+function checkedDate(date: string | null, texts: readonly string[], us: boolean): string | null {
+  if (!date) return date
+  const swapped = (d: string) => `20${d.slice(8)}-${d.slice(5, 7)}-${d.slice(2, 4)}`
+  for (const text of texts) {
+    for (const line of text.split('\n')) {
+      const printed = dateIn(line, us)
+      if (printed && swapped(printed) === date) return printed
+    }
+  }
+  return date
+}
+
 function readOf(photo: PhotoRef): Receipt | null {
   const ai = photo.ai?.receipt
   if (ai) {
     const sum = ai.items.reduce((s, item) => s + item.price, 0)
     const phone = photo.text ? readReceipt(photo.text) : null
     const refund = isRefundSlip(`${photo.ai?.text ?? ''}\n${photo.text ?? ''}`, ai.items) || Boolean(phone?.refund)
-    return { shop: ai.shop || phone?.shop || '', date: ai.date ?? phone?.date ?? null, items: ai.items, total: ai.total, adds: ai.total === null || sum === ai.total, currency: ai.currency, ...(refund ? { refund: true as const } : {}), ...(ai.points ? { points: ai.points } : {}) }
+    return { shop: ai.shop || phone?.shop || '', date: checkedDate(ai.date, [photo.ai?.text ?? '', photo.text ?? ''], ai.currency === '$') ?? phone?.date ?? null, items: ai.items, total: ai.total, adds: ai.total === null || sum === ai.total, currency: ai.currency, ...(refund ? { refund: true as const } : {}), ...(ai.points ? { points: ai.points } : {}) }
   }
   return photo.text ? readReceipt(photo.text) : null
 }
